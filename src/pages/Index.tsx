@@ -3,6 +3,7 @@ import { Hero7 } from "@/components/Hero7"
 import { Features } from "@/components/Features"
 import { DetailedFeatures } from "@/components/DetailedFeatures"
 import { Pricing } from "@/components/Pricing"
+import { Advantages } from "@/components/Advantages"
 
 const Index = () => {
   return (
