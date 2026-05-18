@@ -32,91 +32,91 @@ interface CorridorDef {
 
 const TREE: TreeNode[] = [
   {
-    id: "project", label: "Civil Master Parking_Final", icon: "FolderOpen", expanded: true, children: [
-      { id: "points", label: "Points", icon: "MapPin", color: "#f59e0b" },
-      { id: "ptgroups", label: "Point Groups", icon: "Group", color: "#f59e0b" },
+    id: "project", label: "Главная парковка_Финал", icon: "FolderOpen", expanded: true, children: [
+      { id: "points", label: "Точки", icon: "MapPin", color: "#f59e0b" },
+      { id: "ptgroups", label: "Группы точек", icon: "Group", color: "#f59e0b" },
       {
-        id: "surfaces", label: "Surfaces", icon: "Mountain", color: "#4ade80", expanded: true, children: [
-          { id: "s1", label: "EG Surface", icon: "Triangle", color: "#4ade80" },
-          { id: "s2", label: "Proposed Surface", icon: "Triangle", color: "#60a5fa" },
+        id: "surfaces", label: "Поверхности", icon: "Mountain", color: "#4ade80", expanded: true, children: [
+          { id: "s1", label: "Существующая поверхность", icon: "Triangle", color: "#4ade80" },
+          { id: "s2", label: "Проектная поверхность", icon: "Triangle", color: "#60a5fa" },
         ]
       },
       {
-        id: "alignments", label: "Alignments", icon: "Route", color: "#f97316", expanded: true, children: [
-          { id: "a1", label: "SH 38", icon: "Minus", color: "#ef4444" },
-          { id: "a2", label: "Truman Ave", icon: "Minus", color: "#a855f7" },
-          { id: "a3", label: "Perimeter Curb", icon: "Minus", color: "#06b6d4" },
+        id: "alignments", label: "Трассы", icon: "Route", color: "#f97316", expanded: true, children: [
+          { id: "a1", label: "Трасса ШД-38", icon: "Minus", color: "#ef4444" },
+          { id: "a2", label: "Ул. Трумана", icon: "Minus", color: "#a855f7" },
+          { id: "a3", label: "Бордюр периметра", icon: "Minus", color: "#06b6d4" },
         ]
       },
-      { id: "featurelines", label: "Feature Lines", icon: "Spline", color: "#ec4899" },
-      { id: "sites", label: "Sites", icon: "LayoutGrid", color: "#84cc16" },
-      { id: "turnouts", label: "Turnouts and Crossovers", icon: "ArrowLeftRight", color: "#94a3b8" },
-      { id: "catchments", label: "Catchments", icon: "Droplets", color: "#60a5fa" },
-      { id: "pipenet", label: "Pipe Networks", icon: "Network", color: "#6366f1" },
-      { id: "pressnet", label: "Pressure Networks", icon: "Gauge", color: "#8b5cf6" },
-      { id: "bridges", label: "Bridges", icon: "Bridge", color: "#f59e0b" },
+      { id: "featurelines", label: "Характерные линии", icon: "Spline", color: "#ec4899" },
+      { id: "sites", label: "Площадки", icon: "LayoutGrid", color: "#84cc16" },
+      { id: "turnouts", label: "Разъезды и пересечения", icon: "ArrowLeftRight", color: "#94a3b8" },
+      { id: "catchments", label: "Водосборные бассейны", icon: "Droplets", color: "#60a5fa" },
+      { id: "pipenet", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
+      { id: "pressnet", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
+      { id: "bridges", label: "Мосты", icon: "Bridge", color: "#f59e0b" },
       {
-        id: "corridors", label: "Corridors", icon: "RoadHorizon", color: "#f97316", expanded: true, children: [
-          { id: "c1", label: "Road & Parking Area", icon: "Minus", color: "#f97316" },
+        id: "corridors", label: "Коридоры", icon: "RoadHorizon", color: "#f97316", expanded: true, children: [
+          { id: "c1", label: "Дорога и парковочная зона", icon: "Minus", color: "#f97316" },
         ]
       },
-      { id: "assemblies", label: "Assemblies", icon: "Layers", color: "#94a3b8" },
-      { id: "subassemblies", label: "Subassemblies", icon: "Component", color: "#94a3b8" },
-      { id: "intersections", label: "Intersections", icon: "Plus", color: "#f43f5e" },
-      { id: "survey", label: "Survey", icon: "Compass", color: "#10b981" },
-      { id: "vfg", label: "View Frame Groups", icon: "Frame", color: "#64748b" },
+      { id: "assemblies", label: "Типовые сечения", icon: "Layers", color: "#94a3b8" },
+      { id: "subassemblies", label: "Подсечения", icon: "Component", color: "#94a3b8" },
+      { id: "intersections", label: "Пересечения", icon: "Plus", color: "#f43f5e" },
+      { id: "survey", label: "Геодезия", icon: "Compass", color: "#10b981" },
+      { id: "vfg", label: "Группы видовых рамок", icon: "Frame", color: "#64748b" },
     ]
   },
   {
-    id: "datasrc", label: "Data Shortcuts []", icon: "Database", expanded: false, children: [
-      { id: "ds1", label: "Surfaces", icon: "Mountain", color: "#4ade80" },
-      { id: "ds2", label: "Alignments", icon: "Route", color: "#f97316" },
-      { id: "ds3", label: "Pipe Networks", icon: "Network", color: "#6366f1" },
-      { id: "ds4", label: "Pressure Networks", icon: "Gauge", color: "#8b5cf6" },
-      { id: "ds5", label: "Corridors", icon: "RoadHorizon", color: "#f97316" },
-      { id: "ds6", label: "View Frame Groups", icon: "Frame", color: "#64748b" },
+    id: "datasrc", label: "Внешние ссылки []", icon: "Database", expanded: false, children: [
+      { id: "ds1", label: "Поверхности", icon: "Mountain", color: "#4ade80" },
+      { id: "ds2", label: "Трассы", icon: "Route", color: "#f97316" },
+      { id: "ds3", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
+      { id: "ds4", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
+      { id: "ds5", label: "Коридоры", icon: "RoadHorizon", color: "#f97316" },
+      { id: "ds6", label: "Группы видовых рамок", icon: "Frame", color: "#64748b" },
     ]
   },
 ]
 
 const ALIGNMENTS: Alignment[] = [
-  { id: "sh38", name: "SH 38", color: "#ef4444", pts: [[80,60],[160,90],[260,110],[370,95],[460,80],[540,70],[630,85],[720,100],[810,88],[880,72]] },
-  { id: "truman", name: "Truman Ave", color: "#a855f7", pts: [[100,180],[200,190],[310,185],[420,195],[530,188],[640,200],[740,195],[840,188]] },
-  { id: "perimeter", name: "Perimeter Curb", color: "#06b6d4", pts: [[180,120],[220,130],[270,160],[290,210],[280,260],[250,300],[210,320],[170,310],[140,280],[130,240],[140,190],[160,155],[180,120]] },
+  { id: "sh38", name: "Трасса ШД-38", color: "#ef4444", pts: [[80,60],[160,90],[260,110],[370,95],[460,80],[540,70],[630,85],[720,100],[810,88],[880,72]] },
+  { id: "truman", name: "Ул. Трумана", color: "#a855f7", pts: [[100,180],[200,190],[310,185],[420,195],[530,188],[640,200],[740,195],[840,188]] },
+  { id: "perimeter", name: "Бордюр периметра", color: "#06b6d4", pts: [[180,120],[220,130],[270,160],[290,210],[280,260],[250,300],[210,320],[170,310],[140,280],[130,240],[140,190],[160,155],[180,120]] },
 ]
 
-const ASSEMBLIES = ["SH 38", "Truman Ave", "Sidewalk", "Roadway Curb LT", "Roadway Curb RT", "Parking Curb", "Perimeter Curb", "V Gutter"]
+const ASSEMBLIES = ["Трасса ШД-38", "Ул. Трумана", "Тротуар", "Бордюр проезжей ч. Лев.", "Бордюр проезжей ч. Пр.", "Парковочный бордюр", "Бордюр периметра", "V-образный лоток"]
 const PROFILES: Record<string, string[]> = {
-  "SH 38": ["PROP_SH 38", "EG Profile"],
-  "Truman Ave": ["Prop_Truman_Ave", "EG Profile"],
-  "*None*": ["*None*"],
+  "Трасса ШД-38": ["ПРОЕКТ_ШД-38", "Сущ. профиль"],
+  "Ул. Трумана": ["Проект_Трумана", "Сущ. профиль"],
+  "*Нет*": ["*Нет*"],
 }
-const SURFACES = ["<none>", "EG Surface", "Proposed Surface"]
-const STYLES = ["Basic", "All Labels", "No Display"]
-const CODE_STYLES = ["All Codes", "No Display", "Road Codes"]
+const SURFACES = ["<нет>", "Существующая поверхность", "Проектная поверхность"]
+const STYLES = ["Базовый", "Все подписи", "Без отображения"]
+const CODE_STYLES = ["Все коды", "Без отображения", "Коды дорог"]
 
 const FEATURE_LINES: FeatureLine[] = [
-  { name: "Sidewalk_Perimeter_01", assembly: "Sidewalk" },
-  { name: "Parking_Curb_04", assembly: "Parking Curb" },
-  { name: "Roadway Curb LT 8", assembly: "Roadway Curb LT" },
-  { name: "Roadway Curb LT 7", assembly: "Roadway Curb LT" },
-  { name: "Roadway Curb LT 6", assembly: "Parking Curb" },
-  { name: "Roadway Curb RT 4", assembly: "Perimeter Curb" },
-  { name: "Roadway Curb RT 3", assembly: "Roadway Curb RT" },
-  { name: "Roadway Curb RT 2", assembly: "Roadway Curb RT" },
+  { name: "Тротуар_Периметр_01", assembly: "Тротуар" },
+  { name: "Парк_Бордюр_04", assembly: "Парковочный бордюр" },
+  { name: "Бордюр пр.ч. Лев. 8", assembly: "Бордюр проезжей ч. Лев." },
+  { name: "Бордюр пр.ч. Лев. 7", assembly: "Бордюр проезжей ч. Лев." },
+  { name: "Бордюр пр.ч. Лев. 6", assembly: "Парковочный бордюр" },
+  { name: "Бордюр пр.ч. Пр. 4", assembly: "Бордюр периметра" },
+  { name: "Бордюр пр.ч. Пр. 3", assembly: "Бордюр проезжей ч. Пр." },
+  { name: "Бордюр пр.ч. Пр. 2", assembly: "Бордюр проезжей ч. Пр." },
 ]
 
-const MENU_ITEMS = ["Home","Insert","Annotate","Modify","Analyze","View","Manage","Output","Survey","Rail","Transparent","InfraWorks","Collaborate","Help","Add-ins","Express Tools","Featured Apps","Geolocation"]
+const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Геодезия","Ж/д","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Геолокация"]
 
 const TOOLBAR_GROUPS = [
-  { label: "Grading", items: ["Parcel ▾","Points ▾","Surfaces ▾"] },
-  { label: "Create Ground Data", items: ["Alignment ▾","Feature Line ▾","Profile ▾","Assembly ▾","Sample Lines"] },
-  { label: "Create Design", items: ["Profile View ▾","Grading ▾","Corridor ▾","Pipe Network ▾"] },
-  { label: "Profile & Section Views", items: ["Section Views ▾"] },
-  { label: "Draw", items: ["Draw ▾"] },
-  { label: "Modify", items: ["Copy ▾","Mirror","Fillet","Array ▾"] },
-  { label: "Layers", items: ["Layers ▾"] },
-  { label: "Clipboard", items: ["Clipboard"] },
+  { label: "Планировка", items: ["Участок ▾","Точки ▾","Поверхности ▾"] },
+  { label: "Создать топооснову", items: ["Трасса ▾","Хар. линия ▾","Профиль ▾","Сечение ▾","Линии образцов"] },
+  { label: "Создать проект", items: ["Вид профиля ▾","Планировка ▾","Коридор ▾","Труб. сеть ▾"] },
+  { label: "Профиль и поперечники", items: ["Виды сечений ▾"] },
+  { label: "Черчение", items: ["Черчение ▾"] },
+  { label: "Редактирование", items: ["Копировать ▾","Зеркало","Сопряжение","Массив ▾"] },
+  { label: "Слои", items: ["Слои ▾"] },
+  { label: "Буфер обмена", items: ["Буфер обмена"] },
 ]
 
 // ─── Canvas drawing ──────────────────────────────────────────────────────────
@@ -262,13 +262,13 @@ function drawCanvas(
   // viewport label
   ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(4,2,240,18)
   ctx.fillStyle="#60a5fa"; ctx.font="bold 11px monospace"
-  ctx.fillText(`[+][Custom View][${viewMode==="wireframe"?"2D Wireframe":"2D Shaded"}]`, 8, 15)
+  ctx.fillText(`[+][Пользовательский вид][${viewMode==="wireframe"?"2D Каркас":"2D Закраска"}]`, 8, 15)
 
   // status bar
   ctx.fillStyle="rgba(30,30,30,0.85)"; ctx.fillRect(0,H-18,W,18)
   ctx.fillStyle="#9ca3af"; ctx.font="10px monospace"
-  ctx.fillText("Select Alignment: <Cancel>*", 8, H-5)
-  ctx.fillText("1510603.43, 550465.55, 0.00  MODEL", W/2-60, H-5)
+  ctx.fillText("Выберите трассу: <Отмена>*", 8, H-5)
+  ctx.fillText("1510603.43, 550465.55, 0.00  МОДЕЛЬ", W/2-60, H-5)
 }
 
 // ─── Tree node component ─────────────────────────────────────────────────────
@@ -303,17 +303,17 @@ function TreeItem({ node, depth, selected, onSelect, onToggle }: {
 
 function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: CorridorDef) => void }) {
   const [def, setDef] = useState<CorridorDef>({
-    name: "Road & Parking Area", description: "", style: "Basic",
-    codeStyle: "All Codes", layer: "C-ROAD-CORR", template: "",
-    targetSurface: "<none>",
+    name: "Дорога и парковочная зона", description: "", style: "Базовый",
+    codeStyle: "Все коды", layer: "С-ДОРОГА-КОР", template: "",
+    targetSurface: "<нет>",
     rows: [
-      { alignment: "SH 38", profile: "PROP_SH 38", assembly: "SH 38" },
-      { alignment: "Truman Ave", profile: "Prop_Truman_Ave", assembly: "Truman Ave" },
-      { alignment: "*None*", profile: "*None*", assembly: "*None*" },
+      { alignment: "Трасса ШД-38", profile: "ПРОЕКТ_ШД-38", assembly: "Трасса ШД-38" },
+      { alignment: "Ул. Трумана", profile: "Проект_Трумана", assembly: "Ул. Трумана" },
+      { alignment: "*Нет*", profile: "*Нет*", assembly: "*Нет*" },
     ],
     features: FEATURE_LINES,
   })
-  const [selFeature, setSelFeature] = useState<string | null>("Roadway Curb LT 7")
+  const [selFeature, setSelFeature] = useState<string | null>("Бордюр пр.ч. Лев. 7")
   const [featureDropdown, setFeatureDropdown] = useState<string | null>(null)
 
   const updateRow = (i: number, field: keyof CorridorRow, val: string) => {
@@ -336,27 +336,27 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
       >
         {/* title */}
         <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
-          <span className="text-white font-bold text-sm">Create Corridor</span>
+          <span className="text-white font-bold text-sm">Создать коридор</span>
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center text-xs">✕</button>
         </div>
 
         <div className="p-3 space-y-2">
           {/* Name */}
           <div className="flex items-center gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0">Name:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0">Название:</label>
             <input value={def.name} onChange={e => setDef(d => ({...d, name: e.target.value}))}
               className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs flex items-center justify-center">⋯</button>
           </div>
           {/* Description */}
           <div className="flex items-start gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0 mt-1">Description:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0 mt-1">Описание:</label>
             <textarea value={def.description} onChange={e => setDef(d => ({...d, description: e.target.value}))}
               className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white h-10 resize-none" />
           </div>
           {/* Corridor style */}
           <div className="flex items-center gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0">Corridor style:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0">Стиль коридора:</label>
             <select value={def.style} onChange={e => setDef(d => ({...d, style: e.target.value}))}
               className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
               {STYLES.map(s => <option key={s}>{s}</option>)}
@@ -367,7 +367,7 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
           </div>
           {/* Code set style */}
           <div className="flex items-center gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0">Code set style:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0">Стиль кодов:</label>
             <select value={def.codeStyle} onChange={e => setDef(d => ({...d, codeStyle: e.target.value}))}
               className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
               {CODE_STYLES.map(s => <option key={s}>{s}</option>)}
@@ -377,21 +377,21 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
           </div>
           {/* Corridor layer */}
           <div className="flex items-center gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0">Corridor layer:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0">Слой коридора:</label>
             <input value={def.layer} onChange={e => setDef(d => ({...d, layer: e.target.value}))}
               className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
           </div>
           {/* Corridor Template */}
           <div className="flex items-center gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0">Corridor Template:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0">Шаблон коридора:</label>
             <input value={def.template} onChange={e => setDef(d => ({...d, template: e.target.value}))}
               className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">⋯</button>
           </div>
           {/* Target Surface */}
           <div className="flex items-center gap-2">
-            <label className="w-24 text-xs text-gray-700 shrink-0">Target Surface:</label>
+            <label className="w-24 text-xs text-gray-700 shrink-0">Целев. поверхность:</label>
             <select value={def.targetSurface} onChange={e => setDef(d => ({...d, targetSurface: e.target.value}))}
               className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
               {SURFACES.map(s => <option key={s}>{s}</option>)}
@@ -402,14 +402,14 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
           {/* Alignments and profiles */}
           <div className="border border-gray-400 bg-white">
             <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
-              <span className="text-blue-600 cursor-pointer">▼</span> Alignments and profiles
+              <span className="text-blue-600 cursor-pointer">▼</span> Трассы и профили
             </div>
             <table className="w-full text-xs">
               <thead className="bg-[#e8e8e8] border-b border-gray-300">
                 <tr>
-                  <th className="px-2 py-1 text-left font-semibold border-r border-gray-300 w-36">Alignment</th>
-                  <th className="px-2 py-1 text-left font-semibold border-r border-gray-300">Profile</th>
-                  <th className="px-2 py-1 text-left font-semibold">Assembly</th>
+                  <th className="px-2 py-1 text-left font-semibold border-r border-gray-300 w-36">Трасса</th>
+                  <th className="px-2 py-1 text-left font-semibold border-r border-gray-300">Профиль</th>
+                  <th className="px-2 py-1 text-left font-semibold">Тип. сечение</th>
                 </tr>
               </thead>
               <tbody>
@@ -418,7 +418,7 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
                     <td className="px-1 py-0.5 border-r border-gray-200">
                       <select value={row.alignment} onChange={e => updateRow(i, "alignment", e.target.value)}
                         className="w-full bg-transparent text-xs outline-none">
-                        {["SH 38","Truman Ave","*None*"].map(a => <option key={a}>{a}</option>)}
+                        {["Трасса ШД-38","Ул. Трумана","*Нет*"].map(a => <option key={a}>{a}</option>)}
                       </select>
                     </td>
                     <td className="px-1 py-0.5 border-r border-gray-200">
@@ -442,12 +442,12 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
           {/* Feature lines */}
           <div className="border border-gray-400 bg-white">
             <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-2 font-bold text-xs border-b border-gray-400">
-              <span className="text-blue-600 cursor-pointer">▼</span> Feature lines
-              <span className="ml-auto text-gray-500">Selection filter</span>
+              <span className="text-blue-600 cursor-pointer">▼</span> Характерные линии
+              <span className="ml-auto text-gray-500">Фильтр выбора</span>
             </div>
             <div className="flex items-center gap-1 bg-[#e8e8e8] border-b border-gray-300 text-xs font-semibold px-2 py-0.5">
-              <span className="flex-1">Feature Line</span>
-              <span className="w-40">Assembly</span>
+              <span className="flex-1">Хар. линия</span>
+              <span className="w-40">Тип. сечение</span>
             </div>
             <div className="max-h-40 overflow-y-auto">
               {def.features.map(f => (
@@ -479,21 +479,21 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
           {/* Checkbox */}
           <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
             <input type="checkbox" defaultChecked className="accent-blue-600" />
-            Set baseline and region parameters
+            Задать параметры базовой линии и области
           </label>
 
           {/* Buttons */}
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={() => onOK(def)}
               className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0] active:bg-gray-300">
-              OK
+              ОК
             </button>
             <button onClick={onClose}
               className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">
-              Cancel
+              Отмена
             </button>
             <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">
-              Help
+              Справка
             </button>
           </div>
         </div>
@@ -509,7 +509,7 @@ function CrossSectionPanel({ alignments }: { alignments: string[] }) {
   return (
     <div className="bg-[#1a1a2e] border-l border-gray-700 w-72 flex flex-col overflow-hidden">
       <div className="bg-[#252540] px-2 py-1 flex items-center justify-between border-b border-gray-700">
-        <span className="text-gray-300 text-xs font-mono">Section Views</span>
+        <span className="text-gray-300 text-xs font-mono">Виды поперечников</span>
         <div className="flex gap-1">
           <button className="text-gray-400 hover:text-white text-xs px-1">─</button>
           <button className="text-gray-400 hover:text-white text-xs px-1">□</button>
@@ -521,9 +521,9 @@ function CrossSectionPanel({ alignments }: { alignments: string[] }) {
           <CrossSectionView key={name} name={name} index={i} />
         ))}
         <div className="p-3 text-center">
-          <div className="text-[#06b6d4] text-xs font-mono font-bold border border-[#06b6d4] px-3 py-1 inline-block">PERIMETER CURB</div>
-          <CrossSectionView name="Perimeter Curb" index={2} />
-          <div className="text-[#06b6d4] text-xs font-mono mt-1">V GUTTER</div>
+          <div className="text-[#06b6d4] text-xs font-mono font-bold border border-[#06b6d4] px-3 py-1 inline-block">БОРДЮР ПЕРИМЕТРА</div>
+          <CrossSectionView name="Бордюр периметра" index={2} />
+          <div className="text-[#06b6d4] text-xs font-mono mt-1">V-ОБРАЗНЫЙ ЛОТОК</div>
         </div>
       </div>
     </div>
@@ -582,10 +582,10 @@ export default function CivilCADModule() {
   const [pan, setPan] = useState({ x: 30, y: 20 })
   const drag = useRef<{ x: number; y: number } | null>(null)
   const [showCorridor, setShowCorridor] = useState(false)
-  const [corridors, setCorridors] = useState<string[]>(["Road & Parking Area"])
+  const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
   const [activeMenuTab, setActiveMenuTab] = useState("Home")
   const [showRightPanel, setShowRightPanel] = useState(true)
-  const [statusMsg, setStatusMsg] = useState("Select Alignment: <Cancel>*")
+  const [statusMsg, setStatusMsg] = useState("Выберите трассу: <Отмена>*")
   const [commandLine, setCommandLine] = useState("")
 
   const toggleNode = (id: string) => {
@@ -624,10 +624,10 @@ export default function CivilCADModule() {
 
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
-    if (c === "CREATECORRIDOR" || c === "CORRIDOR") setShowCorridor(true)
-    else if (c === "ZOOM E") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
-    else if (c === "REGEN") draw()
-    setStatusMsg(`Command: ${cmd}`)
+    if (c === "CREATECORRIDOR" || c === "CORRIDOR" || c === "СОЗДАТКОРИДОР") setShowCorridor(true)
+    else if (c === "ZOOM E" || c === "ВПИСАТЬ") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
+    else if (c === "REGEN" || c === "РЕГЕН") draw()
+    setStatusMsg(`Команда: ${cmd}`)
     setCommandLine("")
   }
 
@@ -658,8 +658,8 @@ export default function CivilCADModule() {
               {group.items.map(item => (
                 <button key={item}
                   onClick={() => {
-                    if (item.includes("Corridor")) setShowCorridor(true)
-                    setStatusMsg(`Активирован: ${item}`)
+                    if (item.includes("Коридор") || item.includes("Corridor")) setShowCorridor(true)
+                    setStatusMsg(`Активировано: ${item}`)
                   }}
                   className="px-2 py-0.5 text-xs text-gray-300 hover:bg-gray-600 hover:text-white rounded transition-colors whitespace-nowrap">
                   {item}
@@ -674,18 +674,18 @@ export default function CivilCADModule() {
       {/* ── Tab bar ── */}
       <div className="bg-[#1e1e2e] border-b border-gray-700 flex items-center gap-1 px-2 py-0.5">
         <Icon name="AlignLeft" size={12} className="text-gray-400" />
-        <span className="text-xs text-gray-400 mr-2">TOOLSPACE</span>
+        <span className="text-xs text-gray-400 mr-2">ПРОСТРАНСТВО ИНСТРУМЕНТОВ</span>
         <div className="flex items-center gap-1">
           <button className="bg-[#2d2d4e] border border-gray-600 px-3 py-0.5 text-xs text-blue-300 flex items-center gap-1">
-            <Icon name="FileText" size={10} /> Civil Master Parking_Final*
+            <Icon name="FileText" size={10} /> Главная парковка_Финал*
             <span className="ml-1 text-gray-500 hover:text-white">✕</span>
           </button>
           <button className="text-gray-500 hover:text-white px-2 py-0.5">+</button>
         </div>
         <div className="ml-auto flex gap-1">
-          <button className="text-xs text-gray-400 hover:text-white px-2">Model</button>
-          <button className="text-xs text-gray-400 hover:text-white px-2">Layout1</button>
-          <button className="text-xs text-gray-400 hover:text-white px-2">Layout2</button>
+          <button className="text-xs text-gray-400 hover:text-white px-2">Модель</button>
+          <button className="text-xs text-gray-400 hover:text-white px-2">Лист 1</button>
+          <button className="text-xs text-gray-400 hover:text-white px-2">Лист 2</button>
         </div>
       </div>
 
@@ -704,7 +704,7 @@ export default function CivilCADModule() {
         {/* ── Left: Toolspace / Tree ── */}
         <div className="bg-[#1a1a2e] border-r border-gray-700 w-52 flex flex-col overflow-hidden flex-shrink-0">
           <div className="bg-[#252540] px-2 py-1 flex items-center justify-between border-b border-gray-700">
-            <span className="text-xs text-gray-300 font-semibold">Active Drawing View</span>
+            <span className="text-xs text-gray-300 font-semibold">Активный чертёж</span>
             <Icon name="ChevronDown" size={12} className="text-gray-400" />
           </div>
           {/* Layer toggles */}
@@ -726,7 +726,7 @@ export default function CivilCADModule() {
 
         {/* ── Side tabs ── */}
         <div className="bg-[#1e1e2e] border-r border-gray-700 w-5 flex flex-col items-center py-4 gap-4">
-          {["Toolbox","Settings","Survey"].map(t => (
+          {["Инструменты","Настройки","Геодезия"].map(t => (
             <div key={t} className="text-[9px] text-gray-500 hover:text-gray-300 cursor-pointer" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t}</div>
           ))}
         </div>
@@ -737,10 +737,10 @@ export default function CivilCADModule() {
           <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-1 bg-[#00000060] px-2 py-0.5">
             <button onClick={() => setViewMode(m => m === "wireframe" ? "shaded" : "wireframe")}
               className="text-[10px] text-blue-300 hover:text-white px-2 py-0.5 bg-black/30 rounded">
-              [+][Custom View][{viewMode === "wireframe" ? "2D Wireframe" : "2D Shaded"}]
+              [+][Польз. вид][{viewMode === "wireframe" ? "2D Каркас" : "2D Закраска"}]
             </button>
             <div className="ml-auto flex gap-1">
-              <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[10px] text-gray-400 hover:text-white px-1">Zoom E</button>
+              <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[10px] text-gray-400 hover:text-white px-1">Вписать</button>
               <button onClick={() => setZoom(z => z * 1.2)} className="text-[10px] text-gray-400 hover:text-white px-1">+</button>
               <button onClick={() => setZoom(z => z * 0.8)} className="text-[10px] text-gray-400 hover:text-white px-1">−</button>
               <button onClick={() => setShowRightPanel(s => !s)} className="text-[10px] text-gray-400 hover:text-white px-1">
@@ -764,7 +764,7 @@ export default function CivilCADModule() {
                 onOK={def => {
                   setCorridors(prev => prev.includes(def.name) ? prev : [...prev, def.name])
                   setShowCorridor(false)
-                  setStatusMsg(`Коридор "${def.name}" создан`)
+                  setStatusMsg(`Коридор «${def.name}» успешно создан`)
                 }}
               />
             )}
@@ -779,12 +779,12 @@ export default function CivilCADModule() {
       <div className="bg-[#0f0f1e] border-t border-gray-700 flex flex-col">
         <div className="px-3 py-0.5 text-[10px] text-gray-400 font-mono">{statusMsg}</div>
         <div className="flex items-center gap-1 px-2 py-0.5 border-t border-gray-800">
-          <span className="text-[10px] text-gray-500 font-mono"># CREATECORRIDOR</span>
+          <span className="text-[10px] text-gray-500 font-mono"># СОЗДАТКОРИДОР</span>
           <input
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Введите команду… (CREATECORRIDOR, ZOOM E, REGEN)"
+            placeholder="Команда… (CREATECORRIDOR, ZOOM E, REGEN)"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
