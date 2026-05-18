@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/Navbar"
 import { Hero7 } from "@/components/Hero7"
+import { Features } from "@/components/Features"
 
 const Index = () => {
   return (
@@ -32,6 +33,7 @@ const Index = () => {
               ],
             }}
           />
+          <Features />
         </main>
       </div>
     </div>
