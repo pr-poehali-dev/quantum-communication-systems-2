@@ -1,8 +1,26 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, lazy, Suspense, Component, ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Icon from "@/components/ui/icon"
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
+  state = { error: false }
+  static getDerivedStateFromError() { return { error: true } }
+  render() {
+    if (this.state.error) return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="rounded-2xl bg-red-50 p-6 mb-4"><Icon name="AlertTriangle" size={40} className="text-red-400" /></div>
+        <p className="font-semibold text-gray-800 mb-1">Не удалось загрузить модуль</p>
+        <p className="text-sm text-muted-foreground">Попробуйте обновить страницу</p>
+        <button className="mt-4 text-sm text-indigo-600 hover:underline" onClick={() => this.setState({ error: false })}>Повторить</button>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
+const Viewer3DModule = lazy(() => import("@/modules/Viewer3DModule"))
 import GeodesyModule from "@/modules/GeodesyModule"
 import RoadsModule from "@/modules/RoadsModule"
 import NetworksModule from "@/modules/NetworksModule"
@@ -15,7 +33,7 @@ import CorridorModule from "@/modules/CorridorModule"
 import SpecsModule from "@/modules/SpecsModule"
 import AlignmentModule from "@/modules/AlignmentModule"
 import ProjectsModule from "@/modules/ProjectsModule"
-import Viewer3DModule from "@/modules/Viewer3DModule"
+
 
 const MODULES = [
   { id: "viewer3d", icon: "Box", label: "3D-вьюер", desc: "Рельеф, дорога, сети, здания в 3D", component: Viewer3DModule },
@@ -151,7 +169,11 @@ export default function Dashboard() {
                 transition={{ duration: 0.3 }}
               >
                 {current?.component ? (
-                  <current.component />
+                  <ErrorBoundary key={activeModule}>
+                    <Suspense fallback={<div className="flex items-center justify-center py-24 text-muted-foreground gap-3"><Icon name="Loader" size={20} className="animate-spin" />Загрузка модуля…</div>}>
+                      <current.component />
+                    </Suspense>
+                  </ErrorBoundary>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-24 text-center">
                     <div className="rounded-2xl bg-indigo-50 p-6 mb-4">

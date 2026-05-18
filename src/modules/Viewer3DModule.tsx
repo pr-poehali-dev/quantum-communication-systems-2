@@ -1,267 +1,10 @@
-import { useRef, useState, useMemo, Suspense } from "react"
-import { Canvas, useFrame, ThreeElements } from "@react-three/fiber"
-import { OrbitControls, Grid, Sky, Stats, Html, GizmoHelper, GizmoViewport, Environment } from "@react-three/drei"
-import * as THREE from "three"
+import { useRef, useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import Icon from "@/components/ui/icon"
 
-// ─── Terrain ───────────────────────────────────────────────────────────────
+// ─── Pure WebGL / Canvas 3D viewer (no external 3D libs) ──────────────────
 
-function generateHeightMap(size: number, scale: number): Float32Array {
-  const data = new Float32Array(size * size)
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) {
-      const x = (i / size) * 4, z = (j / size) * 4
-      data[i * size + j] =
-        Math.sin(x * 1.2) * 2.5 +
-        Math.cos(z * 0.9) * 2.0 +
-        Math.sin(x * 2.5 + z * 1.8) * 1.0 +
-        Math.cos(x * 0.6 + z * 2.3) * 1.5
-    }
-  }
-  return data
-}
-
-function Terrain({ size = 64, segments = 63, scale = 40, wireframe = false, showContours = false }: {
-  size?: number; segments?: number; scale?: number; wireframe?: boolean; showContours?: boolean
-}) {
-  const geo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(scale, scale, segments, segments)
-    const heights = generateHeightMap(size, scale)
-    const pos = g.attributes.position
-    for (let i = 0; i <= segments; i++) {
-      for (let j = 0; j <= segments; j++) {
-        const idx = i * (segments + 1) + j
-        const hIdx = Math.min(i, size - 1) * size + Math.min(j, size - 1)
-        pos.setZ(idx, heights[hIdx])
-      }
-    }
-    pos.needsUpdate = true
-    g.computeVertexNormals()
-    // vertex colors by height
-    const colors = new Float32Array(pos.count * 3)
-    for (let i = 0; i < pos.count; i++) {
-      const h = pos.getZ(i)
-      const t = (h + 4) / 8
-      const c = new THREE.Color()
-      if (t < 0.3) c.setHSL(0.35, 0.6, 0.35 + t)
-      else if (t < 0.6) c.setHSL(0.25, 0.5, 0.4 + t * 0.3)
-      else c.setHSL(0.1, 0.3, 0.5 + t * 0.3)
-      colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b
-    }
-    g.setAttribute("color", new THREE.BufferAttribute(colors, 3))
-    return g
-  }, [size, segments, scale])
-
-  return (
-    <group rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh geometry={geo} receiveShadow>
-        <meshStandardMaterial vertexColors wireframe={wireframe} roughness={0.85} metalness={0} />
-      </mesh>
-      {showContours && <mesh geometry={geo}>
-        <meshBasicMaterial color="#ffffff" wireframe opacity={0.08} transparent />
-      </mesh>}
-    </group>
-  )
-}
-
-// ─── Road Corridor ──────────────────────────────────────────────────────────
-
-function RoadCorridor({ visible, width = 7 }: { visible: boolean; width?: number }) {
-  const path = useMemo(() => {
-    const pts = []
-    for (let i = 0; i <= 40; i++) {
-      const t = i / 40
-      const x = (t - 0.5) * 38
-      const z = Math.sin(t * Math.PI * 1.4) * 6
-      const y = Math.sin(t * Math.PI) * 1.8 + Math.cos(t * Math.PI * 2) * 0.8 + 0.18
-      pts.push(new THREE.Vector3(x, y, z))
-    }
-    return new THREE.CatmullRomCurve3(pts)
-  }, [])
-
-  const geo = useMemo(() => {
-    if (!visible) return null
-    const shape = new THREE.Shape()
-    shape.moveTo(-width / 2, 0)
-    shape.lineTo(width / 2, 0)
-    shape.lineTo(width / 2, 0.22)
-    shape.lineTo(-width / 2, 0.22)
-    shape.closePath()
-    return new THREE.ExtrudeGeometry(shape, { steps: 80, extrudePath: path, bevelEnabled: false })
-  }, [visible, width, path])
-
-  const markings = useMemo(() => {
-    if (!visible) return []
-    const pts = path.getPoints(200)
-    return pts.filter((_, i) => i % 10 === 0 && i > 0)
-  }, [visible, path])
-
-  if (!visible || !geo) return null
-  return (
-    <group>
-      <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color="#2d3748" roughness={0.9} metalness={0} />
-      </mesh>
-      {markings.map((pt, i) => {
-        const tan = path.getTangent(i * 10 / 200)
-        const angle = Math.atan2(tan.z, tan.x)
-        return (
-          <mesh key={i} position={[pt.x, pt.y + 0.24, pt.z]} rotation={[0, -angle, 0]}>
-            <boxGeometry args={[1.5, 0.02, 0.12]} />
-            <meshBasicMaterial color="white" />
-          </mesh>
-        )
-      })}
-    </group>
-  )
-}
-
-// ─── Pipes / Networks ────────────────────────────────────────────────────────
-
-function PipeNetwork({ visible }: { visible: boolean }) {
-  const pipes = useMemo(() => [
-    { from: [-18, -0.5, -8], to: [18, -0.5, -8], color: "#3b82f6", r: 0.3, label: "Водопровод Ø200" },
-    { from: [-18, -1.2, -5], to: [18, -1.2, -5], color: "#78716c", r: 0.45, label: "Канализация Ø300" },
-    { from: [-18, 0.1, -11], to: [18, 0.1, -11], color: "#f59e0b", r: 0.18, label: "Теплосеть 2×Ø100" },
-  ], [])
-
-  if (!visible) return null
-  return (
-    <group>
-      {pipes.map((p, i) => {
-        const start = new THREE.Vector3(...p.from as [number, number, number])
-        const end = new THREE.Vector3(...p.to as [number, number, number])
-        const dir = end.clone().sub(start)
-        const len = dir.length()
-        const mid = start.clone().add(dir.clone().multiplyScalar(0.5))
-        const quat = new THREE.Quaternion()
-        quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize())
-        return (
-          <group key={i}>
-            <mesh position={mid.toArray()} quaternion={quat} castShadow>
-              <cylinderGeometry args={[p.r, p.r, len, 16]} />
-              <meshStandardMaterial color={p.color} roughness={0.4} metalness={0.6} />
-            </mesh>
-            <Html position={[start.x, start.y + 1, start.z]} center distanceFactor={20}>
-              <div className="bg-black/70 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">{p.label}</div>
-            </Html>
-          </group>
-        )
-      })}
-    </group>
-  )
-}
-
-// ─── Buildings ──────────────────────────────────────────────────────────────
-
-function Buildings({ visible }: { visible: boolean }) {
-  const buildings = useMemo(() => [
-    { pos: [-14, 0, 10] as [number, number, number], size: [6, 8, 5] as [number, number, number], color: "#94a3b8", label: "Корпус А" },
-    { pos: [0, 0, 12] as [number, number, number], size: [8, 12, 6] as [number, number, number], color: "#a78bfa", label: "Корпус Б" },
-    { pos: [14, 0, 10] as [number, number, number], size: [5, 5, 5] as [number, number, number], color: "#6ee7b7", label: "Склад" },
-  ], [])
-
-  if (!visible) return null
-  return (
-    <group>
-      {buildings.map((b, i) => (
-        <group key={i} position={[b.pos[0], b.size[1] / 2 + 0.3, b.pos[2]]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={b.size} />
-            <meshStandardMaterial color={b.color} roughness={0.7} metalness={0.1} />
-          </mesh>
-          {/* Roof */}
-          <mesh position={[0, b.size[1] / 2 + 0.5, 0]} castShadow>
-            <coneGeometry args={[Math.max(b.size[0], b.size[2]) * 0.72, 2, 4]} />
-            <meshStandardMaterial color="#ef4444" roughness={0.8} />
-          </mesh>
-          <Html position={[0, b.size[1] / 2 + 2.5, 0]} center distanceFactor={20}>
-            <div className="bg-indigo-600/80 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">{b.label}</div>
-          </Html>
-        </group>
-      ))}
-    </group>
-  )
-}
-
-// ─── Survey Points ──────────────────────────────────────────────────────────
-
-function SurveyPoints({ visible }: { visible: boolean }) {
-  const points = useMemo(() => [
-    { pos: [-16, 0, -16], label: "ТН-1", elev: 120.5 },
-    { pos: [0, 0, -14], label: "ТН-2", elev: 122.1 },
-    { pos: [16, 0, -16], label: "ТН-3", elev: 119.8 },
-    { pos: [-12, 0, 0], label: "ТН-4", elev: 121.3 },
-    { pos: [12, 0, 0], label: "ТН-5", elev: 123.0 },
-    { pos: [0, 0, 14], label: "ТН-6", elev: 120.8 },
-  ], [])
-
-  if (!visible) return null
-  return (
-    <group>
-      {points.map((p, i) => (
-        <group key={i} position={p.pos as [number, number, number]}>
-          <mesh>
-            <sphereGeometry args={[0.3, 12, 12]} />
-            <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.3} />
-          </mesh>
-          <mesh position={[0, 2, 0]}>
-            <cylinderGeometry args={[0.04, 0.04, 4, 8]} />
-            <meshBasicMaterial color="#f59e0b" />
-          </mesh>
-          <Html position={[0, 5, 0]} center distanceFactor={20}>
-            <div className="bg-amber-500/80 text-white text-xs px-1.5 py-0.5 rounded whitespace-nowrap">{p.label}<br />{p.elev} м</div>
-          </Html>
-        </group>
-      ))}
-    </group>
-  )
-}
-
-// ─── Animated camera intro ───────────────────────────────────────────────────
-
-function CameraIntro() {
-  const t = useRef(0)
-  const done = useRef(false)
-  useFrame((state, delta) => {
-    if (done.current) return
-    t.current += delta * 0.4
-    if (t.current > 1) { t.current = 1; done.current = true }
-    const angle = (1 - t.current) * Math.PI * 0.5
-    state.camera.position.lerp(new THREE.Vector3(Math.sin(angle) * 55, 30 - t.current * 10, Math.cos(angle) * 55), 0.05)
-    state.camera.lookAt(0, 0, 0)
-  })
-  return null
-}
-
-// ─── Compass ────────────────────────────────────────────────────────────────
-
-function CompassNeedle() {
-  const ref = useRef<THREE.Group>(null!)
-  useFrame(({ camera }) => {
-    const angle = Math.atan2(camera.position.x, camera.position.z)
-    if (ref.current) ref.current.rotation.y = angle
-  })
-  return (
-    <group ref={ref} position={[16, 0.1, -16]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.3, 1.2, 8]} />
-        <meshBasicMaterial color="#ef4444" />
-      </mesh>
-      <mesh position={[0, -0.8, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.3, 1.2, 8]} />
-        <meshBasicMaterial color="white" />
-      </mesh>
-    </group>
-  )
-}
-
-// ─── Main Component ──────────────────────────────────────────────────────────
-
+interface Vec3 { x: number; y: number; z: number }
 interface LayerState {
   terrain: boolean
   road: boolean
@@ -269,9 +12,7 @@ interface LayerState {
   buildings: boolean
   points: boolean
   grid: boolean
-  sky: boolean
   wireframe: boolean
-  contours: boolean
 }
 
 const ROAD_WIDTHS = [
@@ -281,35 +22,360 @@ const ROAD_WIDTHS = [
   { label: "14 м (магистр.)", v: 14 },
 ]
 
+function heightAt(x: number, z: number): number {
+  return (
+    Math.sin(x * 0.3) * 2.5 +
+    Math.cos(z * 0.22) * 2.0 +
+    Math.sin(x * 0.62 + z * 0.45) * 1.0 +
+    Math.cos(x * 0.15 + z * 0.58) * 1.5
+  )
+}
+
+function project(
+  p: Vec3, cx: number, cy: number, cz: number,
+  yaw: number, pitch: number,
+  fov: number, w: number, h: number
+): { sx: number; sy: number; depth: number } | null {
+  // translate
+  let dx = p.x - cx, dy = p.y - cy, dz = p.z - cz
+  // yaw rotation
+  const cosY = Math.cos(yaw), sinY = Math.sin(yaw)
+  const tx = dx * cosY - dz * sinY
+  const tz = dx * sinY + dz * cosY
+  dx = tx; dz = tz
+  // pitch
+  const cosP = Math.cos(pitch), sinP = Math.sin(pitch)
+  const ty = dy * cosP - dz * sinP
+  const tz2 = dy * sinP + dz * cosP
+  dy = ty; dz = tz2
+  if (dz <= 0.3) return null
+  const f = fov / dz
+  return {
+    sx: w / 2 + dx * f,
+    sy: h / 2 - dy * f,
+    depth: dz,
+  }
+}
+
+function lerpColor(a: string, b: string, t: number): string {
+  const pa = parseInt(a.slice(1), 16)
+  const pb = parseInt(b.slice(1), 16)
+  const ra = (pa >> 16) & 0xff, ga = (pa >> 8) & 0xff, ba = pa & 0xff
+  const rb = (pb >> 16) & 0xff, gb = (pb >> 8) & 0xff, bb = pb & 0xff
+  const r = Math.round(ra + (rb - ra) * t)
+  const g = Math.round(ga + (gb - ga) * t)
+  const bl = Math.round(ba + (bb - ba) * t)
+  return `rgb(${r},${g},${bl})`
+}
+
+function terrainColor(h: number, wireframe: boolean): string {
+  if (wireframe) return "rgba(99,102,241,0.6)"
+  const t = (h + 4) / 8
+  if (t < 0.25) return lerpColor("#2d6a2d", "#4a8a3a", t / 0.25)
+  if (t < 0.55) return lerpColor("#4a8a3a", "#8b7355", (t - 0.25) / 0.3)
+  if (t < 0.8) return lerpColor("#8b7355", "#a09080", (t - 0.55) / 0.25)
+  return lerpColor("#a09080", "#d0d0d0", (t - 0.8) / 0.2)
+}
+
 export default function Viewer3DModule() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animRef = useRef<number>(0)
+  const drag = useRef<{ x: number; y: number; btn: number } | null>(null)
+  const camRef = useRef({ yaw: 0.5, pitch: 0.42, dist: 52, tx: 0, tz: 0 })
   const [layers, setLayers] = useState<LayerState>({
-    terrain: true, road: true, pipes: true, buildings: true,
-    points: true, grid: true, sky: true, wireframe: false, contours: false,
+    terrain: true, road: true, pipes: true, buildings: true, points: true, grid: true, wireframe: false,
   })
   const [roadWidth, setRoadWidth] = useState(7)
-  const [ambientLight, setAmbientLight] = useState(0.6)
-  const [sunAngle, setSunAngle] = useState(45)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [showStats, setShowStats] = useState(false)
+  const [sunH, setSunH] = useState(45)
+  const layersRef = useRef(layers)
+  const roadWRef = useRef(roadWidth)
+  const sunHRef = useRef(sunH)
+  useEffect(() => { layersRef.current = layers }, [layers])
+  useEffect(() => { roadWRef.current = roadWidth }, [roadWidth])
+  useEffect(() => { sunHRef.current = sunH }, [sunH])
 
-  const toggle = (key: keyof LayerState) => setLayers(l => ({ ...l, [key]: !l[key] }))
+  const toggle = (k: keyof LayerState) => setLayers(l => ({ ...l, [k]: !l[k] }))
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")!
+    const W = canvas.width, H = canvas.height
+    const { yaw, pitch, dist, tx, tz } = camRef.current
+    const cx = tx + Math.sin(yaw) * dist
+    const cy = dist * Math.sin(pitch) + 2
+    const cz = tz + Math.cos(yaw) * dist
+    const fov = Math.min(W, H) * 1.1
+    const lyr = layersRef.current
+
+    const proj = (p: Vec3) => project(p, cx, cy, cz, yaw, pitch, fov, W, H)
+
+    // Sky gradient
+    const ang = sunHRef.current / 180 * Math.PI
+    const isDark = sunHRef.current < 15 || sunHRef.current > 165
+    const sky1 = isDark ? "#0f172a" : "#87ceeb"
+    const sky2 = isDark ? "#1e3a5f" : "#dbeafe"
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H)
+    skyGrad.addColorStop(0, sky1)
+    skyGrad.addColorStop(1, sky2)
+    ctx.fillStyle = skyGrad
+    ctx.fillRect(0, 0, W, H)
+
+    const SIZE = 40, STEP = 2.5
+    const cols = Math.floor(SIZE / STEP), rows = cols
+
+    // Build terrain quads with depth
+    type Quad = { pts: { sx: number; sy: number }[]; depth: number; h: number }
+    const quads: Quad[] = []
+
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const x0 = -SIZE / 2 + j * STEP, z0 = -SIZE / 2 + i * STEP
+        const x1 = x0 + STEP, z1 = z0 + STEP
+        const corners: Vec3[] = [
+          { x: x0, y: heightAt(x0, z0), z: z0 },
+          { x: x1, y: heightAt(x1, z0), z: z0 },
+          { x: x1, y: heightAt(x1, z1), z: z1 },
+          { x: x0, y: heightAt(x0, z1), z: z1 },
+        ]
+        const projected = corners.map(c => proj(c))
+        if (projected.some(p => !p)) continue
+        const depth = projected.reduce((s, p) => s + p!.depth, 0) / 4
+        const avgH = corners.reduce((s, c) => s + c.y, 0) / 4
+        quads.push({ pts: projected.map(p => ({ sx: p!.sx, sy: p!.sy })), depth, h: avgH })
+      }
+    }
+
+    // Sort back-to-front
+    quads.sort((a, b) => b.depth - a.depth)
+
+    if (lyr.terrain) {
+      quads.forEach(q => {
+        ctx.beginPath()
+        ctx.moveTo(q.pts[0].sx, q.pts[0].sy)
+        q.pts.slice(1).forEach(p => ctx.lineTo(p.sx, p.sy))
+        ctx.closePath()
+        const shadow = Math.max(0.5, Math.sin(ang) * 0.5 + 0.7)
+        const base = terrainColor(q.h, lyr.wireframe)
+        ctx.fillStyle = lyr.wireframe ? "transparent" : base
+        if (!lyr.wireframe) ctx.fill()
+        ctx.strokeStyle = lyr.wireframe ? terrainColor(q.h, true) : `rgba(0,0,0,${0.08 * shadow})`
+        ctx.lineWidth = lyr.wireframe ? 0.7 : 0.3
+        ctx.stroke()
+      })
+    }
+
+    // Grid
+    if (lyr.grid) {
+      for (let v = -SIZE / 2; v <= SIZE / 2; v += 10) {
+        const a = proj({ x: v, y: 0, z: -SIZE / 2 })
+        const b = proj({ x: v, y: 0, z: SIZE / 2 })
+        if (a && b) {
+          ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy)
+          ctx.strokeStyle = "rgba(148,163,184,0.35)"; ctx.lineWidth = 0.6; ctx.stroke()
+        }
+        const c = proj({ x: -SIZE / 2, y: 0, z: v })
+        const d = proj({ x: SIZE / 2, y: 0, z: v })
+        if (c && d) {
+          ctx.beginPath(); ctx.moveTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy)
+          ctx.strokeStyle = "rgba(148,163,184,0.35)"; ctx.lineWidth = 0.6; ctx.stroke()
+        }
+      }
+    }
+
+    // Road
+    if (lyr.road) {
+      const rw = roadWRef.current
+      const rPts: Vec3[] = []
+      for (let t = 0; t <= 1; t += 0.03) {
+        const x = (t - 0.5) * 38
+        const z = Math.sin(t * Math.PI * 1.4) * 6
+        const y = heightAt(x, z) + 0.25
+        rPts.push({ x, y, z })
+      }
+      // Road fill
+      ctx.beginPath()
+      rPts.forEach((p, i) => {
+        const off = 0.05
+        const nx = -Math.sin(i / rPts.length * Math.PI * 1.4) * rw / 2 * off
+        const nz = Math.cos(i / rPts.length * Math.PI * 1.4) * rw / 2 * off
+        const lp = proj({ x: p.x + nz, y: p.y, z: p.z + nx })
+        if (lp) { if (i === 0) { ctx.moveTo(lp.sx, lp.sy) } else { ctx.lineTo(lp.sx, lp.sy) } }
+      })
+      ;[...rPts].reverse().forEach((p, i) => {
+        const off = 0.05
+        const nx = -Math.sin((rPts.length - 1 - i) / rPts.length * Math.PI * 1.4) * rw / 2 * off
+        const nz = Math.cos((rPts.length - 1 - i) / rPts.length * Math.PI * 1.4) * rw / 2 * off
+        const rp = proj({ x: p.x - nz, y: p.y, z: p.z - nx })
+        if (rp) ctx.lineTo(rp.sx, rp.sy)
+      })
+      ctx.closePath()
+      ctx.fillStyle = "#2d3748"; ctx.fill()
+      // Centre line
+      ctx.beginPath()
+      rPts.forEach((p, i) => {
+        const pp = proj(p)
+        if (pp) { if (i === 0) { ctx.moveTo(pp.sx, pp.sy) } else { ctx.lineTo(pp.sx, pp.sy) } }
+      })
+      ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([])
+    }
+
+    // Pipes
+    if (lyr.pipes) {
+      const pipeDefs = [
+        { z: -8, y: -0.4, color: "#3b82f6", label: "Водопровод Ø200", w: 3 },
+        { z: -5, y: -1.1, color: "#78716c", label: "Канализация Ø300", w: 4 },
+        { z: -11, y: 0.2, color: "#f59e0b", label: "Теплосеть", w: 2 },
+      ]
+      pipeDefs.forEach(pd => {
+        const a = proj({ x: -18, y: pd.y, z: pd.z })
+        const b = proj({ x: 18, y: pd.y, z: pd.z })
+        if (a && b) {
+          ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy)
+          ctx.strokeStyle = pd.color; ctx.lineWidth = pd.w; ctx.stroke()
+          ctx.fillStyle = pd.color
+          ctx.font = "bold 10px sans-serif"; ctx.fillText(pd.label, a.sx + 4, a.sy - 4)
+        }
+      })
+    }
+
+    // Buildings
+    if (lyr.buildings) {
+      const bldgs = [
+        { x: -14, z: 10, w: 6, d: 5, h: 8, color: "#94a3b8", label: "Корпус А" },
+        { x: 0, z: 12, w: 8, d: 6, h: 12, color: "#a78bfa", label: "Корпус Б" },
+        { x: 14, z: 10, w: 5, d: 5, h: 5, color: "#6ee7b7", label: "Склад" },
+      ]
+      bldgs.forEach(b => {
+        const gy = heightAt(b.x, b.z)
+        const faces = [
+          // Front
+          [{ x: b.x - b.w / 2, y: gy, z: b.z + b.d / 2 }, { x: b.x + b.w / 2, y: gy, z: b.z + b.d / 2 }, { x: b.x + b.w / 2, y: gy + b.h, z: b.z + b.d / 2 }, { x: b.x - b.w / 2, y: gy + b.h, z: b.z + b.d / 2 }],
+          // Right
+          [{ x: b.x + b.w / 2, y: gy, z: b.z - b.d / 2 }, { x: b.x + b.w / 2, y: gy, z: b.z + b.d / 2 }, { x: b.x + b.w / 2, y: gy + b.h, z: b.z + b.d / 2 }, { x: b.x + b.w / 2, y: gy + b.h, z: b.z - b.d / 2 }],
+          // Top
+          [{ x: b.x - b.w / 2, y: gy + b.h, z: b.z - b.d / 2 }, { x: b.x + b.w / 2, y: gy + b.h, z: b.z - b.d / 2 }, { x: b.x + b.w / 2, y: gy + b.h, z: b.z + b.d / 2 }, { x: b.x - b.w / 2, y: gy + b.h, z: b.z + b.d / 2 }],
+        ]
+        const brightness = [1, 0.75, 0.9]
+        faces.forEach((face, fi) => {
+          const pts = face.map(p => proj(p as Vec3))
+          if (pts.some(p => !p)) return
+          ctx.beginPath()
+          ctx.moveTo(pts[0]!.sx, pts[0]!.sy)
+          pts.slice(1).forEach(p => ctx.lineTo(p!.sx, p!.sy))
+          ctx.closePath()
+          const base = parseInt(b.color.slice(1), 16)
+          const br = brightness[fi]
+          const r = Math.round(((base >> 16) & 0xff) * br)
+          const g = Math.round(((base >> 8) & 0xff) * br)
+          const bl2 = Math.round((base & 0xff) * br)
+          ctx.fillStyle = `rgb(${r},${g},${bl2})`
+          ctx.fill()
+          ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 0.5; ctx.stroke()
+        })
+        // Label
+        const top = proj({ x: b.x, y: gy + b.h + 1.5, z: b.z })
+        if (top) {
+          ctx.fillStyle = "rgba(99,102,241,0.85)"
+          const tw = ctx.measureText(b.label).width + 8
+          ctx.fillRect(top.sx - tw / 2, top.sy - 10, tw, 16)
+          ctx.fillStyle = "white"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"
+          ctx.fillText(b.label, top.sx, top.sy + 2); ctx.textAlign = "left"
+        }
+      })
+    }
+
+    // Survey points
+    if (lyr.points) {
+      const pts = [
+        { x: -16, z: -16, elev: 120.5, label: "ТН-1" },
+        { x: 0, z: -14, elev: 122.1, label: "ТН-2" },
+        { x: 16, z: -16, elev: 119.8, label: "ТН-3" },
+        { x: -12, z: 0, elev: 121.3, label: "ТН-4" },
+        { x: 12, z: 0, elev: 123.0, label: "ТН-5" },
+      ]
+      pts.forEach(p => {
+        const ground = heightAt(p.x, p.z)
+        const base = proj({ x: p.x, y: ground, z: p.z })
+        const top = proj({ x: p.x, y: ground + 4, z: p.z })
+        if (base && top) {
+          ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy)
+          ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 1.5; ctx.stroke()
+          ctx.beginPath(); ctx.arc(base.sx, base.sy, 4, 0, Math.PI * 2)
+          ctx.fillStyle = "#f59e0b"; ctx.fill()
+          ctx.fillStyle = "rgba(245,158,11,0.85)"
+          const lw = ctx.measureText(`${p.label} ${p.elev}м`).width + 8
+          ctx.fillRect(top.sx - lw / 2, top.sy - 11, lw, 15)
+          ctx.fillStyle = "white"; ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center"
+          ctx.fillText(`${p.label} ${p.elev}м`, top.sx, top.sy + 1); ctx.textAlign = "left"
+        }
+      })
+    }
+
+    // Compass
+    const compX = W - 30, compY = 30
+    ctx.beginPath(); ctx.arc(compX, compY, 18, 0, Math.PI * 2)
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fill()
+    const nx = Math.sin(yaw + Math.PI), ny = -Math.cos(yaw + Math.PI)
+    ctx.beginPath(); ctx.moveTo(compX + nx * 14, compY + ny * 14); ctx.lineTo(compX - nx * 14, compY - ny * 14)
+    ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 3; ctx.stroke()
+    ctx.fillStyle = "white"; ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center"
+    ctx.fillText("С", compX + nx * 8, compY + ny * 8 + 3); ctx.textAlign = "left"
+  }, [])
+
+  // Animation loop
+  useEffect(() => {
+    const loop = () => { draw(); animRef.current = requestAnimationFrame(loop) }
+    animRef.current = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(animRef.current)
+  }, [draw])
+
+  // Resize
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ro = new ResizeObserver(() => {
+      canvas.width = canvas.offsetWidth
+      canvas.height = canvas.offsetHeight
+    })
+    ro.observe(canvas)
+    canvas.width = canvas.offsetWidth
+    canvas.height = canvas.offsetHeight
+    return () => ro.disconnect()
+  }, [])
+
+  // Mouse / touch controls
+  const onMouseDown = (e: React.MouseEvent) => { drag.current = { x: e.clientX, y: e.clientY, btn: e.button } }
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!drag.current) return
+    const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y
+    drag.current = { x: e.clientX, y: e.clientY, btn: drag.current.btn }
+    if (drag.current.btn === 2) {
+      // Pan
+      const cam = camRef.current
+      cam.tx -= Math.cos(cam.yaw) * dx * 0.05
+      cam.tz += Math.sin(cam.yaw) * dx * 0.05
+      cam.tx -= Math.sin(cam.yaw) * dy * 0.05
+      cam.tz -= Math.cos(cam.yaw) * dy * 0.05
+    } else {
+      camRef.current.yaw -= dx * 0.008
+      camRef.current.pitch = Math.max(0.1, Math.min(1.4, camRef.current.pitch - dy * 0.006))
+    }
+  }
+  const onMouseUp = () => { drag.current = null }
+  const onWheel = (e: React.WheelEvent) => {
+    camRef.current.dist = Math.max(8, Math.min(120, camRef.current.dist + e.deltaY * 0.05))
+  }
 
   const LAYER_BTNS: { key: keyof LayerState; label: string; icon: string; color: string }[] = [
-    { key: "terrain", label: "Рельеф", icon: "Mountain", color: "bg-green-500" },
+    { key: "terrain", label: "Рельеф", icon: "Mountain", color: "bg-green-600" },
     { key: "road", label: "Дорога", icon: "Route", color: "bg-gray-700" },
     { key: "pipes", label: "Сети", icon: "Network", color: "bg-blue-500" },
     { key: "buildings", label: "Здания", icon: "Building2", color: "bg-purple-500" },
     { key: "points", label: "Съёмка", icon: "MapPin", color: "bg-amber-500" },
-    { key: "grid", label: "Сетка", icon: "Grid3x3", color: "bg-slate-400" },
-    { key: "sky", label: "Небо", icon: "Cloud", color: "bg-sky-400" },
+    { key: "grid", label: "Сетка", icon: "Grid3x3", color: "bg-slate-500" },
     { key: "wireframe", label: "Каркас", icon: "Hexagon", color: "bg-indigo-500" },
-    { key: "contours", label: "Горизонт.", icon: "Layers", color: "bg-teal-500" },
   ]
-
-  const sunPos = useMemo((): [number, number, number] => {
-    const rad = (sunAngle / 180) * Math.PI
-    return [Math.cos(rad) * 50, Math.sin(rad) * 50, 30]
-  }, [sunAngle])
 
   return (
     <motion.div className="space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
@@ -317,144 +383,67 @@ export default function Viewer3DModule() {
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-sm font-semibold text-gray-700 mr-1">Слои:</span>
         {LAYER_BTNS.map(b => (
-          <button
-            key={b.key}
-            onClick={() => toggle(b.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${layers[b.key] ? b.color + " text-white shadow" : "bg-gray-100 text-gray-400"}`}
-          >
+          <button key={b.key} onClick={() => toggle(b.key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${layers[b.key] ? b.color + " text-white shadow" : "bg-gray-100 text-gray-400"}`}>
             <Icon name={b.icon} size={13} fallback="Circle" />
             {b.label}
           </button>
         ))}
-        <button
-          onClick={() => setShowStats(s => !s)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ml-auto ${showStats ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-500"}`}
-        >
-          <Icon name="Activity" size={13} />
-          FPS
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* 3D Canvas */}
-        <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-gray-200 shadow-lg" style={{ height: 520 }}>
-          <Canvas
-            shadows
-            camera={{ position: [35, 22, 35], fov: 50, near: 0.1, far: 1000 }}
-            gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
-          >
-            <Suspense fallback={<Html center><div className="text-white text-sm">Загрузка 3D…</div></Html>}>
-              <CameraIntro />
-
-              {/* Lights */}
-              <ambientLight intensity={ambientLight} />
-              <directionalLight
-                position={sunPos}
-                intensity={1.8}
-                castShadow
-                shadow-mapSize={[2048, 2048]}
-                shadow-camera-near={0.5}
-                shadow-camera-far={200}
-                shadow-camera-left={-40}
-                shadow-camera-right={40}
-                shadow-camera-top={40}
-                shadow-camera-bottom={-40}
-              />
-              <hemisphereLight args={["#87ceeb", "#8b7355", 0.4]} />
-
-              {/* Sky */}
-              {layers.sky && <Sky sunPosition={sunPos} turbidity={8} rayleigh={0.5} />}
-              {!layers.sky && <color attach="background" args={["#1e293b"]} />}
-
-              {/* Scene objects */}
-              <Terrain wireframe={layers.wireframe} showContours={layers.contours} />
-              <RoadCorridor visible={layers.road} width={roadWidth} />
-              <PipeNetwork visible={layers.pipes} />
-              <Buildings visible={layers.buildings} />
-              <SurveyPoints visible={layers.points} />
-              <CompassNeedle />
-
-              {/* Grid */}
-              {layers.grid && (
-                <Grid
-                  position={[0, -0.01, 0]}
-                  args={[80, 80]}
-                  cellSize={2}
-                  cellThickness={0.5}
-                  cellColor="#64748b"
-                  sectionSize={10}
-                  sectionThickness={1}
-                  sectionColor="#94a3b8"
-                  fadeDistance={80}
-                  fadeStrength={1}
-                  infiniteGrid
-                />
-              )}
-
-              <OrbitControls
-                enableDamping
-                dampingFactor={0.08}
-                maxPolarAngle={Math.PI / 2.1}
-                minDistance={5}
-                maxDistance={120}
-              />
-
-              <GizmoHelper alignment="bottom-right" margin={[60, 60]}>
-                <GizmoViewport axisColors={["#ef4444", "#22c55e", "#3b82f6"]} labelColor="white" />
-              </GizmoHelper>
-
-              {showStats && <Stats />}
-            </Suspense>
-          </Canvas>
+        {/* Canvas */}
+        <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-gray-200 shadow-lg bg-gray-900 relative" style={{ height: 520 }}>
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full cursor-grab active:cursor-grabbing"
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onWheel={onWheel}
+            onContextMenu={e => e.preventDefault()}
+          />
+          {/* HUD */}
+          <div className="absolute top-3 left-3 bg-black/50 text-white text-xs px-3 py-1.5 rounded-lg font-mono">
+            CivilPro 3D Viewer
+          </div>
         </div>
 
-        {/* Right panel */}
+        {/* Controls */}
         <div className="space-y-3">
-          {/* Road width */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
             <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
-              <Icon name="Route" size={15} className="text-indigo-500" /> Дорога
+              <Icon name="Route" size={15} className="text-indigo-500" /> Ширина дороги
             </h3>
             <div className="grid grid-cols-2 gap-1.5">
               {ROAD_WIDTHS.map(w => (
-                <button
-                  key={w.v}
-                  onClick={() => setRoadWidth(w.v)}
-                  className={`text-xs py-1.5 px-2 rounded-lg transition-all ${roadWidth === w.v ? "bg-indigo-600 text-white font-semibold" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                >
+                <button key={w.v} onClick={() => setRoadWidth(w.v)}
+                  className={`text-xs py-1.5 px-2 rounded-lg transition-all ${roadWidth === w.v ? "bg-indigo-600 text-white font-semibold" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                   {w.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Lighting */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
             <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
               <Icon name="Sun" size={15} className="text-amber-500" /> Освещение
             </h3>
             <div>
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>Яркость окружения</span>
-                <span>{ambientLight.toFixed(1)}</span>
+                <span>Угол солнца</span><span>{sunH}°</span>
               </div>
-              <input type="range" min="0" max="2" step="0.1" value={ambientLight} onChange={e => setAmbientLight(+e.target.value)} className="w-full accent-indigo-600" />
-            </div>
-            <div>
-              <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>Угол солнца</span>
-                <span>{sunAngle}°</span>
-              </div>
-              <input type="range" min="5" max="175" step="5" value={sunAngle} onChange={e => setSunAngle(+e.target.value)} className="w-full accent-amber-500" />
+              <input type="range" min="5" max="175" step="5" value={sunH}
+                onChange={e => setSunH(+e.target.value)} className="w-full accent-amber-500" />
             </div>
           </div>
 
-          {/* Legend */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
             <h3 className="font-semibold text-gray-800 text-sm mb-2">Легенда</h3>
             {[
-              { color: "#4ade80", label: "Рельеф (DTM)" },
-              { color: "#374151", label: "Дорожный коридор" },
+              { color: "#4a8a3a", label: "Рельеф DTM" },
+              { color: "#2d3748", label: "Дорожный коридор" },
               { color: "#3b82f6", label: "Водопровод" },
               { color: "#78716c", label: "Канализация" },
               { color: "#f59e0b", label: "Теплосеть / точки" },
@@ -467,13 +456,12 @@ export default function Viewer3DModule() {
             ))}
           </div>
 
-          {/* Controls hint */}
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
             <div className="font-semibold text-gray-600 mb-1">Управление</div>
             <div>🖱 ЛКМ + drag — вращение</div>
             <div>🖱 ПКМ + drag — панорама</div>
             <div>🖱 Колесо — масштаб</div>
-            <div>📐 Гизмо (↙) — оси XYZ</div>
+            <div>🧭 Компас (↗) — север</div>
           </div>
         </div>
       </div>
