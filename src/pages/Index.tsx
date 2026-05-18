@@ -1,6 +1,8 @@
 import { Navbar } from "@/components/Navbar"
 import { Hero7 } from "@/components/Hero7"
 import { Features } from "@/components/Features"
+import { DetailedFeatures } from "@/components/DetailedFeatures"
+import { Pricing } from "@/components/Pricing"
 
 const Index = () => {
   return (
@@ -34,6 +36,8 @@ const Index = () => {
             }}
           />
           <Features />
+          <DetailedFeatures />
+          <Pricing />
         </main>
       </div>
     </div>
