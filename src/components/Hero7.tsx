@@ -121,7 +121,7 @@ const Hero7 = ({
               ))}
               <span className="mr-1 font-semibold">{reviews.rating?.toFixed(1)}</span>
             </div>
-            <p className="text-muted-foreground text-left font-medium">{reviews.count}+ отзывов</p>
+            <p className="text-muted-foreground text-left font-medium">{reviews.count}+ инженеров доверяют</p>
           </div>
         </motion.div>
       </div>
