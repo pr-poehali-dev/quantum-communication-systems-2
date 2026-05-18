@@ -33,6 +33,9 @@ import CorridorModule from "@/modules/CorridorModule"
 import SpecsModule from "@/modules/SpecsModule"
 import AlignmentModule from "@/modules/AlignmentModule"
 import ProjectsModule from "@/modules/ProjectsModule"
+import SurfacesModule from "@/modules/SurfacesModule"
+import IntegrationModule from "@/modules/IntegrationModule"
+import StandardsModule from "@/modules/StandardsModule"
 
 
 const MODULES = [
@@ -48,6 +51,9 @@ const MODULES = [
   { id: "bim", icon: "Layers", label: "BIM-инструменты", desc: "IFC-модель, коллизии, экспорт", component: BIMModule },
   { id: "analysis", icon: "BarChart3", label: "Анализ и расчёты", desc: "Объёмы, откосы, дренаж", component: AnalysisModule },
   { id: "specs", icon: "ClipboardList", label: "Ведомости и спецификации", desc: "Объёмы, смета, координаты, экспорт", component: SpecsModule },
+  { id: "surfaces", icon: "Triangle", label: "Поверхности TIN / Grid", desc: "TIN, Grid, Corridor, горизонтали", component: SurfacesModule },
+  { id: "integration", icon: "Puzzle", label: "Интеграция Autodesk", desc: "DWG, IFC, LandXML, Revit, InfraWorks", component: IntegrationModule },
+  { id: "standards", icon: "BookCheck", label: "Стандарты проектирования", desc: "СП, ГОСТ, AASHTO, EN, ISO — 12 норм", component: StandardsModule },
   { id: "dynamic", icon: "RefreshCw", label: "Динамические модели", desc: "Граф зависимостей, автопересчёт", component: DynamicModule },
 ]
 
