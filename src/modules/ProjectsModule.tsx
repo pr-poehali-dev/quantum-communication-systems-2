@@ -1,0 +1,278 @@
+import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import Icon from "@/components/ui/icon"
+
+interface Project {
+  id: number
+  name: string
+  type: string
+  stage: string
+  length: number
+  status: "active" | "review" | "approved" | "archived"
+  created: string
+  updated: string
+  versions: Version[]
+  team: string[]
+}
+
+interface Version {
+  id: number
+  num: string
+  date: string
+  author: string
+  comment: string
+  size: string
+}
+
+const PROJECT_TYPES = ["Автодорога", "Железная дорога", "Инженерные сети", "Площадочный объект", "Мост / путепровод", "Иное"]
+const STAGES = ["ПД — Проектная документация", "РД — Рабочая документация", "ТЭО", "Обоснование инвестиций", "Изыскания"]
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-blue-100 text-blue-700",
+  review: "bg-yellow-100 text-yellow-700",
+  approved: "bg-green-100 text-green-700",
+  archived: "bg-gray-100 text-gray-500",
+}
+const STATUS_LABELS: Record<string, string> = { active: "В работе", review: "На проверке", approved: "Утверждён", archived: "Архив" }
+
+const INIT_PROJECTS: Project[] = [
+  {
+    id: 1, name: "Автодорога М-5 обход г. Пример", type: "Автодорога", stage: "РД — Рабочая документация",
+    length: 12400, status: "active", created: "2024-03-15", updated: "2024-11-02",
+    versions: [
+      { id: 1, num: "v1.0", date: "2024-03-15", author: "Иванов А.А.", comment: "Первичная версия", size: "24 МБ" },
+      { id: 2, num: "v1.1", date: "2024-06-20", author: "Петров В.В.", comment: "Правки по замечаниям ГГЭ", size: "26 МБ" },
+      { id: 3, num: "v2.0", date: "2024-11-02", author: "Иванов А.А.", comment: "Актуализация после съёмки", size: "31 МБ" },
+    ],
+    team: ["Иванов А.А.", "Петров В.В.", "Сидорова Е.Н."],
+  },
+  {
+    id: 2, name: "Водоснабжение пос. Новый", type: "Инженерные сети", stage: "ПД — Проектная документация",
+    length: 3200, status: "review", created: "2024-07-10", updated: "2024-10-28",
+    versions: [
+      { id: 1, num: "v1.0", date: "2024-07-10", author: "Смирнов Д.К.", comment: "Исходная версия", size: "8 МБ" },
+    ],
+    team: ["Смирнов Д.К.", "Козлова И.П."],
+  },
+]
+
+export default function ProjectsModule() {
+  const [projects, setProjects] = useState<Project[]>(INIT_PROJECTS)
+  const [activeProject, setActiveProject] = useState<number | null>(null)
+  const [form, setForm] = useState({ name: "", type: PROJECT_TYPES[0], stage: STAGES[0], length: "" })
+  const [versionComment, setVersionComment] = useState("")
+  const [search, setSearch] = useState("")
+  const [filterStatus, setFilterStatus] = useState("all")
+
+  const current = projects.find(p => p.id === activeProject)
+
+  const addProject = () => {
+    if (!form.name) return
+    const now = new Date().toISOString().split("T")[0]
+    setProjects(prev => [...prev, {
+      id: Date.now(), name: form.name, type: form.type, stage: form.stage,
+      length: +form.length || 0, status: "active", created: now, updated: now,
+      versions: [{ id: 1, num: "v1.0", date: now, author: "test@test", comment: "Создание проекта", size: "—" }],
+      team: ["test@test"],
+    }])
+    setForm(f => ({ ...f, name: "", length: "" }))
+  }
+
+  const addVersion = (pid: number) => {
+    if (!versionComment) return
+    const now = new Date().toISOString().split("T")[0]
+    setProjects(prev => prev.map(p => {
+      if (p.id !== pid) return p
+      const last = p.versions[p.versions.length - 1]
+      const [major, minor] = last.num.replace("v", "").split(".").map(Number)
+      const newNum = `v${major}.${minor + 1}`
+      return { ...p, updated: now, versions: [...p.versions, { id: Date.now(), num: newNum, date: now, author: "test@test", comment: versionComment, size: "—" }] }
+    }))
+    setVersionComment("")
+  }
+
+  const setStatus = (pid: number, status: Project["status"]) => {
+    setProjects(prev => prev.map(p => p.id === pid ? { ...p, status } : p))
+  }
+
+  const filtered = projects.filter(p =>
+    (filterStatus === "all" || p.status === filterStatus) &&
+    p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+      <AnimatePresence mode="wait">
+        {!activeProject ? (
+          <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
+            {/* Toolbar */}
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex-1 min-w-48">
+                <Input placeholder="Поиск по названию…" value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все статусы</SelectItem>
+                  {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* New project */}
+            <div className="rounded-xl border border-dashed border-indigo-300 bg-indigo-50/40 p-4 space-y-3">
+              <h3 className="font-semibold text-gray-800 text-sm">Новый проект</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div><Label>Название</Label><Input placeholder="Мой проект" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+                <div><Label>Тип</Label>
+                  <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PROJECT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Стадия</Label>
+                  <Select value={form.stage} onValueChange={v => setForm(f => ({ ...f, stage: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Длина объекта (м)</Label><Input type="number" placeholder="1000" value={form.length} onChange={e => setForm(f => ({ ...f, length: e.target.value }))} /></div>
+              </div>
+              <Button onClick={addProject} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Icon name="FolderPlus" size={16} /> Создать проект</Button>
+            </div>
+
+            {/* Project cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {filtered.map((p, i) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  className="rounded-2xl border border-gray-200 bg-white p-5 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                  onClick={() => setActiveProject(p.id)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="font-bold text-gray-900 text-sm leading-tight">{p.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{p.type} · {p.stage.split("—")[0].trim()}</div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ml-2 ${STATUS_COLORS[p.status]}`}>{STATUS_LABELS[p.status]}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1"><Icon name="Ruler" size={11} />{p.length.toLocaleString()} м</span>
+                    <span className="flex items-center gap-1"><Icon name="GitBranch" size={11} />{p.versions.length} вер.</span>
+                    <span className="flex items-center gap-1"><Icon name="Users" size={11} />{p.team.length} уч.</span>
+                    <span className="ml-auto">{p.updated}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        ) : current ? (
+          <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setActiveProject(null)} className="text-gray-400 hover:text-gray-700"><Icon name="ChevronLeft" size={20} /></button>
+              <div>
+                <h2 className="text-xl font-extrabold text-gray-900 font-heading">{current.name}</h2>
+                <div className="text-sm text-muted-foreground">{current.type} · {current.stage}</div>
+              </div>
+              <span className={`ml-auto text-xs px-3 py-1 rounded-full font-semibold ${STATUS_COLORS[current.status]}`}>{STATUS_LABELS[current.status]}</span>
+            </div>
+
+            <Tabs defaultValue="info">
+              <TabsList>
+                <TabsTrigger value="info">Информация</TabsTrigger>
+                <TabsTrigger value="versions">Версии ({current.versions.length})</TabsTrigger>
+                <TabsTrigger value="team">Команда</TabsTrigger>
+                <TabsTrigger value="reports">Отчёты</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="info" className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {[
+                    ["Тип объекта", current.type],
+                    ["Стадия", current.stage.split("—")[0].trim()],
+                    ["Длина", `${current.length.toLocaleString()} м`],
+                    ["Создан", current.created],
+                    ["Обновлён", current.updated],
+                    ["Версий", current.versions.length],
+                  ].map(([k, v]) => (
+                    <div key={k} className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-xs text-muted-foreground mb-1">{k}</div>
+                      <div className="font-bold text-gray-900">{v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-gray-700">Сменить статус:</span>
+                  {(["active", "review", "approved", "archived"] as const).map(s => (
+                    <button key={s} onClick={() => setStatus(current.id, s)} className={`text-xs px-3 py-1.5 rounded-full transition-all ${current.status === s ? STATUS_COLORS[s] + " font-bold" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                      {STATUS_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="versions" className="space-y-3 mt-4">
+                <div className="flex gap-3">
+                  <Input placeholder="Комментарий к версии…" value={versionComment} onChange={e => setVersionComment(e.target.value)} className="flex-1" />
+                  <Button onClick={() => addVersion(current.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Icon name="GitCommit" size={15} /> Зафиксировать</Button>
+                </div>
+                <div className="space-y-2">
+                  {[...current.versions].reverse().map((v, i) => (
+                    <div key={v.id} className={`rounded-xl border p-4 ${i === 0 ? "border-indigo-300 bg-indigo-50" : "border-gray-200 bg-white"}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-mono font-bold text-sm ${i === 0 ? "text-indigo-700" : "text-gray-700"}`}>{v.num}</span>
+                          {i === 0 && <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full">актуальная</span>}
+                        </div>
+                        <span className="text-xs text-gray-400">{v.date} · {v.author}</span>
+                      </div>
+                      <div className="text-sm text-gray-600">{v.comment}</div>
+                      {v.size !== "—" && <div className="text-xs text-gray-400 mt-1">{v.size}</div>}
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="team" className="mt-4">
+                <div className="space-y-2">
+                  {current.team.map(member => (
+                    <div key={member} className="rounded-xl border border-gray-200 bg-white p-4 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">{member[0].toUpperCase()}</div>
+                      <span className="font-semibold text-gray-800">{member}</span>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="reports" className="mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { name: "Пояснительная записка", icon: "FileText", fmt: "DOCX" },
+                    { name: "Ведомость объёмов", icon: "Table", fmt: "XLSX" },
+                    { name: "Полный PDF-отчёт", icon: "FileDown", fmt: "PDF" },
+                    { name: "Исходные данные", icon: "Database", fmt: "XML" },
+                  ].map(r => (
+                    <div key={r.name} className="rounded-xl border border-gray-200 bg-white p-4 flex items-center gap-4">
+                      <div className="rounded-xl bg-indigo-50 p-3"><Icon name={r.icon} size={20} className="text-indigo-600" fallback="File" /></div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-800 text-sm">{r.name}</div>
+                        <div className="text-xs text-gray-400">{r.fmt}</div>
+                      </div>
+                      <Button size="sm" variant="outline" className="text-xs gap-1"><Icon name="Download" size={13} />Скачать</Button>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.div>
+  )
+}

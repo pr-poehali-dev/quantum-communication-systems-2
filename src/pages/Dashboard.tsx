@@ -11,15 +11,23 @@ import RailwayModule from "@/modules/RailwayModule"
 import AreasModule from "@/modules/AreasModule"
 import BIMModule from "@/modules/BIMModule"
 import DynamicModule from "@/modules/DynamicModule"
+import CorridorModule from "@/modules/CorridorModule"
+import SpecsModule from "@/modules/SpecsModule"
+import AlignmentModule from "@/modules/AlignmentModule"
+import ProjectsModule from "@/modules/ProjectsModule"
 
 const MODULES = [
+  { id: "projects", icon: "FolderKanban", label: "Управление проектами", desc: "Проекты, версии, команда, отчёты", component: ProjectsModule },
   { id: "geodesy", icon: "Mountain", label: "Геодезия и рельеф", desc: "Точки, DTM, профиль, объёмы", component: GeodesyModule },
+  { id: "alignment", icon: "Spline", label: "Профили и выравнивания", desc: "ВК, ГК, клотоиды, разбивка", component: AlignmentModule },
+  { id: "corridor", icon: "RoadHorizon", label: "Коридоры и поперечники", desc: "Assembly, автопоперечники, объёмы", component: CorridorModule },
   { id: "roads", icon: "Route", label: "Дороги и трассы", desc: "Категории СП 34, профиль, сечение", component: RoadsModule },
   { id: "railway", icon: "Train", label: "Ж/д пути", desc: "Классы пути, тяговые расчёты", component: RailwayModule },
   { id: "networks", icon: "Network", label: "Инженерные сети", desc: "ВКС, теплосеть, гидравлика", component: NetworksModule },
   { id: "areas", icon: "LayoutDashboard", label: "Площадные объекты", desc: "Генплан, здания, ТЭП участка", component: AreasModule },
   { id: "bim", icon: "Layers", label: "BIM-инструменты", desc: "IFC-модель, коллизии, экспорт", component: BIMModule },
   { id: "analysis", icon: "BarChart3", label: "Анализ и расчёты", desc: "Объёмы, откосы, дренаж", component: AnalysisModule },
+  { id: "specs", icon: "ClipboardList", label: "Ведомости и спецификации", desc: "Объёмы, смета, координаты, экспорт", component: SpecsModule },
   { id: "dynamic", icon: "RefreshCw", label: "Динамические модели", desc: "Граф зависимостей, автопересчёт", component: DynamicModule },
 ]
 
