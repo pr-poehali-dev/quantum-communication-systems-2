@@ -68,7 +68,7 @@ export default function Viewer3DModule() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const raf = useRef(0)
   const drag = useRef<{ x: number; y: number; btn: number } | null>(null)
-  const cam = useRef({ yaw: 0.6, pitch: 0.48, dist: 50, tx: 0, tz: 0 })
+  const cam = useRef({ yaw: 0.0, pitch: 0.52, dist: 48, tx: 0, tz: 0 })
 
   const [layers, setLayers] = useState<LayerState>({
     terrain: true, road: true, pipes: true,
@@ -102,7 +102,7 @@ export default function Viewer3DModule() {
     const cx = tx + Math.sin(yaw) * dist * Math.cos(pitch)
     const cy = dist * Math.sin(pitch)
     const cz = tz + Math.cos(yaw) * dist * Math.cos(pitch)
-    const fov = Math.min(W, H2) * 1.25
+    const fov = Math.min(W, H2) * 1.45
 
     const prj = (p: Vec3) => project(p, cx, cy, cz, yaw, pitch, fov, W, H2)
 
@@ -481,6 +481,12 @@ export default function Viewer3DModule() {
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             CivilPro 3D Viewer
           </div>
+          <button
+            onClick={() => { cam.current = { yaw: 0.0, pitch: 0.52, dist: 48, tx: 0, tz: 0 } }}
+            className="absolute top-3 right-14 bg-black/50 backdrop-blur text-white text-xs px-3 py-1.5 rounded-lg hover:bg-black/70 transition-all flex items-center gap-1.5 select-none"
+          >
+            <Icon name="Crosshair" size={12} /> Центр
+          </button>
         </div>
 
         {/* side panel */}
