@@ -15,8 +15,10 @@ import CorridorModule from "@/modules/CorridorModule"
 import SpecsModule from "@/modules/SpecsModule"
 import AlignmentModule from "@/modules/AlignmentModule"
 import ProjectsModule from "@/modules/ProjectsModule"
+import Viewer3DModule from "@/modules/Viewer3DModule"
 
 const MODULES = [
+  { id: "viewer3d", icon: "Box", label: "3D-вьюер", desc: "Рельеф, дорога, сети, здания в 3D", component: Viewer3DModule },
   { id: "projects", icon: "FolderKanban", label: "Управление проектами", desc: "Проекты, версии, команда, отчёты", component: ProjectsModule },
   { id: "geodesy", icon: "Mountain", label: "Геодезия и рельеф", desc: "Точки, DTM, профиль, объёмы", component: GeodesyModule },
   { id: "alignment", icon: "Spline", label: "Профили и выравнивания", desc: "ВК, ГК, клотоиды, разбивка", component: AlignmentModule },
