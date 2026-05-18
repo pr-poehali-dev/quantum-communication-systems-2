@@ -7,16 +7,20 @@ import GeodesyModule from "@/modules/GeodesyModule"
 import RoadsModule from "@/modules/RoadsModule"
 import NetworksModule from "@/modules/NetworksModule"
 import AnalysisModule from "@/modules/AnalysisModule"
+import RailwayModule from "@/modules/RailwayModule"
+import AreasModule from "@/modules/AreasModule"
+import BIMModule from "@/modules/BIMModule"
+import DynamicModule from "@/modules/DynamicModule"
 
 const MODULES = [
   { id: "geodesy", icon: "Mountain", label: "Геодезия и рельеф", desc: "Точки, DTM, профиль, объёмы", component: GeodesyModule },
   { id: "roads", icon: "Route", label: "Дороги и трассы", desc: "Категории СП 34, профиль, сечение", component: RoadsModule },
-  { id: "railway", icon: "Train", label: "Ж/д пути", desc: "Параметры пути и профиль", component: null },
+  { id: "railway", icon: "Train", label: "Ж/д пути", desc: "Классы пути, тяговые расчёты", component: RailwayModule },
   { id: "networks", icon: "Network", label: "Инженерные сети", desc: "ВКС, теплосеть, гидравлика", component: NetworksModule },
-  { id: "areas", icon: "LayoutDashboard", label: "Площадные объекты", desc: "Здания, парковки, полигоны", component: null },
-  { id: "bim", icon: "Layers", label: "BIM-инструменты", desc: "Модель, классификаторы, IFC", component: null },
+  { id: "areas", icon: "LayoutDashboard", label: "Площадные объекты", desc: "Генплан, здания, ТЭП участка", component: AreasModule },
+  { id: "bim", icon: "Layers", label: "BIM-инструменты", desc: "IFC-модель, коллизии, экспорт", component: BIMModule },
   { id: "analysis", icon: "BarChart3", label: "Анализ и расчёты", desc: "Объёмы, откосы, дренаж", component: AnalysisModule },
-  { id: "dynamic", icon: "RefreshCw", label: "Динамические модели", desc: "Зависимости и обновления", component: null },
+  { id: "dynamic", icon: "RefreshCw", label: "Динамические модели", desc: "Граф зависимостей, автопересчёт", component: DynamicModule },
 ]
 
 export default function Dashboard() {
