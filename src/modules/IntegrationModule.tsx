@@ -11,16 +11,16 @@ interface FormatItem {
 }
 
 const FORMATS: FormatItem[] = [
-  { ext: "DWG", name: "AutoCAD Drawing", app: "AutoCAD", icon: "PenTool", desc: "Полная совместимость с AutoCAD 2000–2025. Сохранение всех слоёв, блоков, аннотаций.", direction: "both", supported: true },
-  { ext: "DXF", name: "Drawing Exchange Format", app: "AutoCAD", icon: "FileCode", desc: "Универсальный обмен с любыми CAD-системами — КОМПАС, nanoCAD, BricsCAD.", direction: "both", supported: true },
-  { ext: "LandXML", name: "Land XML", app: "Civil 3D / InfraWorks", icon: "Mountain", desc: "Обмен поверхностями, трассами, профилями, коридорами. Стандарт инфраструктурных данных.", direction: "both", supported: true },
-  { ext: "IFC", name: "Industry Foundation Classes", app: "Revit / ArchiCAD", icon: "Box", desc: "BIM-обмен с Autodesk Revit, Bentley, ArchiCAD. IFC 2x3 и IFC 4.0.", direction: "both", supported: true },
-  { ext: "RVT", name: "Revit Project", app: "Autodesk Revit", icon: "Building2", desc: "Прямой экспорт мостов, зданий и инженерных объектов в среду Revit.", direction: "out", supported: true },
-  { ext: "IMX", name: "InfraWorks Model Exchange", app: "Autodesk InfraWorks", icon: "Globe", desc: "Передача 3D-модели территории и инфраструктуры в InfraWorks для презентаций.", direction: "out", supported: true },
-  { ext: "RCP/RCS", name: "Reality Capture", app: "Autodesk ReCap Pro", icon: "Scan", desc: "Импорт облаков точек LiDAR для создания поверхностей DTM.", direction: "in", supported: true },
-  { ext: "SHP", name: "Shapefile", app: "ArcGIS / QGIS", icon: "Map", desc: "Импорт/экспорт геоданных для работы с ГИС-системами.", direction: "both", supported: true },
-  { ext: "GeoTIFF", name: "Raster Terrain", app: "QGIS / MapInfo", icon: "Image", desc: "Импорт растровых подложек и цифровых моделей рельефа.", direction: "in", supported: true },
-  { ext: "KMZ/KML", name: "Google Earth", app: "Google Earth Pro", icon: "Globe2", desc: "Экспорт трасс и объектов для отображения в Google Earth.", direction: "out", supported: true },
+  { ext: "DWG", name: "Чертёж AutoCAD", app: "AutoCAD", icon: "PenTool", desc: "Полная совместимость с AutoCAD 2000–2025. Сохранение всех слоёв, блоков, аннотаций.", direction: "both", supported: true },
+  { ext: "DXF", name: "Формат обмена чертежами", app: "AutoCAD", icon: "FileCode", desc: "Универсальный обмен с любыми CAD-системами — КОМПАС, nanoCAD, BricsCAD.", direction: "both", supported: true },
+  { ext: "LandXML", name: "Земельный XML", app: "Civil 3D / InfraWorks", icon: "Mountain", desc: "Обмен поверхностями, трассами, профилями, коридорами. Стандарт инфраструктурных данных.", direction: "both", supported: true },
+  { ext: "IFC", name: "Открытые классы зданий", app: "Revit / ArchiCAD", icon: "Box", desc: "BIM-обмен с Autodesk Revit, Bentley, ArchiCAD. IFC 2x3 и IFC 4.0.", direction: "both", supported: true },
+  { ext: "RVT", name: "Проект Revit", app: "Autodesk Revit", icon: "Building2", desc: "Прямой экспорт мостов, зданий и инженерных объектов в среду Revit.", direction: "out", supported: true },
+  { ext: "IMX", name: "Обмен моделью InfraWorks", app: "Autodesk InfraWorks", icon: "Globe", desc: "Передача 3D-модели территории и инфраструктуры в InfraWorks для презентаций.", direction: "out", supported: true },
+  { ext: "RCP/RCS", name: "Захват реальности", app: "Autodesk ReCap Pro", icon: "Scan", desc: "Импорт облаков точек LiDAR для создания поверхностей DTM.", direction: "in", supported: true },
+  { ext: "SHP", name: "Шейп-файл", app: "ArcGIS / QGIS", icon: "Map", desc: "Импорт/экспорт геоданных для работы с ГИС-системами.", direction: "both", supported: true },
+  { ext: "GeoTIFF", name: "Растровый рельеф", app: "QGIS / MapInfo", icon: "Image", desc: "Импорт растровых подложек и цифровых моделей рельефа.", direction: "in", supported: true },
+  { ext: "KMZ/KML", name: "Google Планета Земля", app: "Google Earth Pro", icon: "Globe2", desc: "Экспорт трасс и объектов для отображения в Google Earth.", direction: "out", supported: true },
 ]
 
 const APPS = [
@@ -34,17 +34,17 @@ const APPS = [
 
 const WORKFLOWS = [
   {
-    title: "Civil 3D → Revit",
-    steps: ["Создание трассы и коридора в CivilPro", "Экспорт инфраструктуры в IFC 4.0", "Открытие в Autodesk Revit как Linked Model", "Координация инженерных систем с архитектурой"],
+    title: "CivilPro → Revit",
+    steps: ["Создание трассы и коридора в CivilPro", "Экспорт инфраструктуры в IFC 4.0", "Открытие в Autodesk Revit как связанная модель", "Координация инженерных систем с архитектурой"],
     icon: "ArrowRight", color: "indigo",
   },
   {
-    title: "ReCap → Civil 3D",
+    title: "ReCap → CivilPro",
     steps: ["Съёмка местности дроном или тахеометром", "Обработка в ReCap Pro → облако точек RCP", "Импорт в CivilPro как поверхность DTM", "Проектирование трассы по реальному рельефу"],
     icon: "Scan", color: "purple",
   },
   {
-    title: "Civil 3D → InfraWorks",
+    title: "CivilPro → InfraWorks",
     steps: ["Разработка проекта дороги в CivilPro", "Экспорт модели в формат LandXML / IMX", "Загрузка в InfraWorks для 3D-визуализации", "Презентация проектных решений заказчику"],
     icon: "Globe", color: "green",
   },
