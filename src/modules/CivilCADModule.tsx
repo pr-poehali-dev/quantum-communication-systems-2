@@ -2105,7 +2105,27 @@ function CrossSectionView({ name, index }: { name: string; index: number }) {
 
 // ─── Main CivilCAD Module ────────────────────────────────────────────────────
 
-export default function CivilCADModule() {
+const NAV_MODULES = [
+  { id: "civilcad",   icon: "Monitor",        label: "CivilCAD — Редактор" },
+  { id: "viewer3d",   icon: "Box",            label: "3D-вьюер" },
+  { id: "projects",   icon: "FolderKanban",   label: "Управление проектами" },
+  { id: "geodesy",    icon: "Mountain",       label: "Геодезия и рельеф" },
+  { id: "alignment",  icon: "Spline",         label: "Профили и выравнивания" },
+  { id: "corridor",   icon: "Navigation",     label: "Коридоры и поперечники" },
+  { id: "roads",      icon: "Route",          label: "Дороги и трассы" },
+  { id: "railway",    icon: "Train",          label: "Ж/д пути" },
+  { id: "networks",   icon: "Network",        label: "Инженерные сети" },
+  { id: "areas",      icon: "LayoutDashboard",label: "Площадные объекты" },
+  { id: "bim",        icon: "Layers",         label: "BIM-инструменты" },
+  { id: "analysis",   icon: "BarChart3",      label: "Анализ и расчёты" },
+  { id: "specs",      icon: "ClipboardList",  label: "Ведомости и спецификации" },
+  { id: "surfaces",   icon: "Triangle",       label: "Поверхности TIN / Grid" },
+  { id: "integration",icon: "Puzzle",         label: "Интеграция Autodesk" },
+  { id: "standards",  icon: "BookCheck",      label: "Стандарты проектирования" },
+  { id: "dynamic",    icon: "RefreshCw",      label: "Динамические модели" },
+]
+
+export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [treeData, setTreeData] = useState<TreeNode[]>(TREE)
   const [selectedNode, setSelectedNode] = useState<string | null>("c1")
@@ -2191,10 +2211,13 @@ export default function CivilCADModule() {
     setOpenDropdown(null)
     const k = key.toLowerCase()
     if (k.includes("коридор")) { setShowCorridor(true) }
-    else if (k.includes("поверхност") || k.includes("tin") || k.includes("grid")) { setShowSurface(true) }
-    else if (k.includes("трасс")) { setShowAlignment(true) }
-    else if (k.includes("профиль") || k.includes("рельеф")) { setShowProfile(true) }
-    else if (k.includes("типовое") || k.includes("сечение") || k.includes("тип.") || k.includes("assembly")) { setShowAssembly(true) }
+    else if (k.includes("поверхност") || k.includes("tin") || k.includes("grid") || k.includes("рельеф")) { setShowSurface(true) }
+    else if (k.includes("трасс") || k.includes("alignment") || k.includes("трасса")) { setShowAlignment(true) }
+    else if (k.includes("профиль") || k.includes("вид профил")) { setShowProfile(true) }
+    else if (k.includes("типовое") || k.includes("сечение") || k.includes("тип.") || k.includes("assembly") || k.includes("виды попереч") || k.includes("попереч")) { setShowAssembly(true) }
+    else {
+      setStatusMsg(`Выполнено: ${key}`)
+    }
   }
 
   const handleToolbarItem = (item: string) => {
@@ -2208,17 +2231,38 @@ export default function CivilCADModule() {
   }
 
   const handleTreeNodeAction = (node: TreeNode) => {
-    if (node.id === "surfaces" || node.id === "s1" || node.id === "s2" || node.id === "ds1") { setShowSurface(true) }
+    if (node.id === "surfaces" || node.id.startsWith("s") || node.id === "ds1") { setShowSurface(true) }
     else if (node.id === "alignments" || node.id.startsWith("a") || node.id === "ds2") { setShowAlignment(true) }
     else if (node.id === "corridors" || node.id === "c1" || node.id === "ds5") { setShowCorridor(true) }
     else if (node.id === "assemblies" || node.id.startsWith("asm_")) { setShowAssembly(true) }
-    else { setStatusMsg(`Выбран объект: ${node.label}`) }
+    else { setStatusMsg(`Объект: ${node.label}`) }
   }
 
   const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"] || []
 
   return (
-    <div className="flex flex-col bg-[#1e1e2e] text-gray-200 rounded-xl overflow-hidden border border-gray-700" style={{ height: "calc(100vh - 160px)", minHeight: 620, fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+    <div className="flex h-full bg-[#1e1e2e] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+
+      {/* ── Left nav sidebar ── */}
+      <aside className="flex flex-col bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0" style={{ width: 200 }}>
+        {NAV_MODULES.map(m => (
+          <button
+            key={m.id}
+            onClick={() => onNavigate ? onNavigate(m.id) : undefined}
+            className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-all border-b border-gray-100 last:border-0
+              ${m.id === "civilcad"
+                ? "bg-indigo-600 text-white font-semibold"
+                : "text-gray-600 hover:bg-gray-100 font-medium"}`}
+          >
+            <Icon name={m.icon} size={16} fallback="Square"
+              className={m.id === "civilcad" ? "text-white" : "text-gray-500"} />
+            <span className="leading-tight text-[13px]">{m.label}</span>
+          </button>
+        ))}
+      </aside>
+
+      {/* ── CivilCAD editor (все остальное) ── */}
+      <div className="flex flex-col flex-1 overflow-hidden">
 
       {/* ── Title bar ── */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
@@ -2610,6 +2654,7 @@ export default function CivilCADModule() {
           <span className="text-gray-600">МОДЕЛЬ</span>
         </div>
       </div>
+      </div>{/* end editor flex-col */}
     </div>
   )
 }

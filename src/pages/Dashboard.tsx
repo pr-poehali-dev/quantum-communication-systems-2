@@ -63,7 +63,7 @@ const MODULES = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [activeModule, setActiveModule] = useState<string | null>(null)
+  const [activeModule, setActiveModule] = useState<string | null>("civilcad")
 
   useEffect(() => {
     if (!localStorage.getItem("civilpro_auth")) navigate("/login")
@@ -143,7 +143,7 @@ export default function Dashboard() {
         </aside>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className={`flex-1 ${activeModule === "civilcad" ? "overflow-hidden" : "overflow-auto p-6"}`}>
           <AnimatePresence mode="wait">
             {!activeModule ? (
               <motion.div
@@ -187,15 +187,16 @@ export default function Dashboard() {
             ) : (
               <motion.div
                 key={activeModule}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                initial={activeModule === "civilcad" ? {} : { opacity: 0, x: 20 }}
+                animate={activeModule === "civilcad" ? {} : { opacity: 1, x: 0 }}
+                exit={activeModule === "civilcad" ? {} : { opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
+                className={activeModule === "civilcad" ? "h-full" : ""}
               >
                 {current?.component ? (
                   <ErrorBoundary key={activeModule}>
                     <Suspense fallback={<div className="flex items-center justify-center py-24 text-muted-foreground gap-3"><Icon name="Loader" size={20} className="animate-spin" />Загрузка модуля…</div>}>
-                      <current.component />
+                      <current.component onNavigate={setActiveModule} />
                     </Suspense>
                   </ErrorBoundary>
                 ) : (
