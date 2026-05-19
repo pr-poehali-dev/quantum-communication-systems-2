@@ -127,112 +127,215 @@ const FEATURE_LINES: FeatureLine[] = [
   { name: "Бордюр пр.ч. Пр. 2", assembly: "Бордюр проезжей ч. Пр." },
 ]
 
-const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Геодезия","Ж/д","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Геолокация"]
+const MENU_ITEMS = ["Home","Insert","Annotate","Modify","Analyze","View","Manage","Output","Survey","Rail","Transparent","InfraWorks","Collaborate","Help","Add-ins","Express Tools","Vehicle Tracking","Featured Apps","Geolocation"]
 
 const TOOLBAR_BY_MENU: Record<string, { label: string; items: string[] }[]> = {
-  "Главная": [
-    { label: "Планировка", items: ["Участок ▾","Точки ▾","Поверхности ▾"] },
-    { label: "Создать топооснову", items: ["Трасса ▾","Хар. линия ▾","Профиль ▾","Сечение ▾","Линии образцов"] },
-    { label: "Создать проект", items: ["Вид профиля ▾","Планировка ▾","Коридор ▾","Труб. сеть ▾"] },
-    { label: "Профиль и поперечники", items: ["Виды сечений ▾"] },
-    { label: "Черчение", items: ["Черчение ▾"] },
-    { label: "Редактирование", items: ["Копировать ▾","Зеркало","Сопряжение","Массив ▾"] },
-    { label: "Слои", items: ["Слои ▾"] },
-    { label: "Буфер обмена", items: ["Буфер обмена"] },
+  "Home": [
+    { label: "Palettes", items: ["Toolspace ▾","Panorama","Properties ▾"] },
+    { label: "Explore", items: ["Project Explorer","Optimize"] },
+    { label: "Grading", items: ["Grading Optimization"] },
+    { label: "Create Ground Data", items: ["Points ▾","Surfaces ▾","Feature Line ▾","Traverse ▾"] },
+    { label: "Create Design", items: ["Alignment ▾","Intersections ▾","Profile ▾","Assembly ▾","Corridor ▾","Pipe Network ▾"] },
+    { label: "Profile & Section Views", items: ["Profile View ▾","Section Views ▾","Sample Lines"] },
+    { label: "Draw", items: ["Draw ▾"] },
+    { label: "Modify", items: ["Move","Copy ▾","Rotate","Mirror","Trim ▾","Stretch","Scale","Array ▾","Fillet"] },
+    { label: "Layer", items: ["Layer Properties","Make Current","Match Layer"] },
+    { label: "Clipboard", items: ["Paste ▾"] },
   ],
-  "Вставка": [
-    { label: "Блоки", items: ["Вставить ▾","Создать блок","Редактировать блок"] },
-    { label: "Атрибуты", items: ["Определить атрибут","Синхронизировать"] },
-    { label: "Ссылки", items: ["Внешняя ссылка ▾","Подложка ▾"] },
-    { label: "Импорт", items: ["Импорт ▾","LandXML","IFC"] },
+  "Insert": [
+    { label: "Block", items: ["Insert ▾","Create Block","Edit Block"] },
+    { label: "Attributes", items: ["Define Attribute","Synchronize"] },
+    { label: "Reference", items: ["Attach ▾","Clip","Adjust"] },
+    { label: "Import", items: ["Import ▾","LandXML","IFC","Point Cloud"] },
+    { label: "Coordinate System", items: ["Assign ▾","Transform"] },
   ],
-  "Аннотации": [
-    { label: "Текст", items: ["Однострочный","Многострочный ▾","Редактировать"] },
-    { label: "Размеры", items: ["Линейный ▾","Угловой","Радиус","Выноска ▾"] },
-    { label: "Стили", items: ["Стили текста ▾","Стили размеров ▾"] },
-    { label: "Таблицы", items: ["Таблица ▾","Экспорт"] },
+  "Annotate": [
+    { label: "Text", items: ["Single Line","Multiline ▾","Edit Text"] },
+    { label: "Dimensions", items: ["Linear ▾","Aligned","Angular","Radius","Leader ▾"] },
+    { label: "Styles", items: ["Text Style ▾","Dim Style ▾","Table Style"] },
+    { label: "Tables", items: ["Table ▾","Export","Alignment Labels"] },
+    { label: "Labels", items: ["Add Labels ▾","Edit Label ▾","Label Style"] },
   ],
-  "Редактирование": [
-    { label: "Изменить", items: ["Копировать ▾","Зеркало","Переместить","Поворот"] },
-    { label: "Размер", items: ["Масштаб","Растянуть","Обрезать ▾","Удлинить ▾"] },
-    { label: "Объекты", items: ["Фаска","Сопряжение","Разбить","Соединить"] },
-    { label: "Массив", items: ["Прямоугольный ▾","Круговой ▾","По траектории ▾"] },
+  "Modify": [
+    { label: "Edit", items: ["Move","Copy ▾","Mirror","Rotate","Scale"] },
+    { label: "Resize", items: ["Stretch","Trim ▾","Extend ▾","Break","Join"] },
+    { label: "Explode", items: ["Explode","Group ▾","Ungroup"] },
+    { label: "Array", items: ["Rectangular ▾","Polar ▾","Path ▾"] },
+    { label: "3D Editing", items: ["3D Move","3D Rotate","3D Mirror"] },
   ],
-  "Анализ": [
-    { label: "Поверхности", items: ["Уклоны ▾","Водосборы ▾","Разрезы ▾"] },
-    { label: "Коридоры", items: ["Объёмы ▾","Ведомость ▾"] },
-    { label: "Сети", items: ["Гидравлика ▾","Инспекция ▾"] },
-    { label: "Отчёты", items: ["Генерировать отчёт ▾"] },
+  "Analyze": [
+    { label: "Surfaces", items: ["Slope Analysis ▾","Elevation Analysis ▾","Watershed ▾","Sections ▾"] },
+    { label: "Corridors", items: ["Volumes ▾","Quantity Takeoff ▾"] },
+    { label: "Pipe Networks", items: ["Hydraulics ▾","Inspect ▾"] },
+    { label: "Ground Data", items: ["Point Cloud Analysis","Grading Analysis"] },
+    { label: "Reports", items: ["Generate Report ▾"] },
   ],
-  "Вид": [
-    { label: "Вид", items: ["Вид сверху","Изометрия","Пользовательский ▾"] },
-    { label: "Визуальный стиль", items: ["Каркас","Закрашенный","Реалистичный"] },
-    { label: "Окна", items: ["1 окно","2 окна ▾","4 окна"] },
-    { label: "Навигация", items: ["Орбита ▾","Панорама","Зум ▾"] },
+  "View": [
+    { label: "Named Views", items: ["Top","Isometric SW ▾","Custom ▾"] },
+    { label: "Visual Style", items: ["2D Wireframe","Shaded","Realistic"] },
+    { label: "Viewports", items: ["1 Viewport","2 Viewports ▾","4 Viewports"] },
+    { label: "Navigate", items: ["Orbit ▾","Pan","Zoom ▾","SteeringWheels"] },
+    { label: "Palettes", items: ["Properties","Layer Properties","Toolspace"] },
   ],
-  "Управление": [
-    { label: "Параметры", items: ["Настройки чертежа","Единицы","Пространство модели"] },
-    { label: "Стили", items: ["Диспетчер стилей ▾","Импорт стилей"] },
-    { label: "Макросы", items: ["Запись","Воспроизведение","Редактировать"] },
+  "Manage": [
+    { label: "Settings", items: ["Drawing Settings","Units & Zone","Ambient Settings"] },
+    { label: "Styles", items: ["Edit Feature Settings","Label Style Manager ▾"] },
+    { label: "Action Recorder", items: ["Record","Play","Edit Actions"] },
+    { label: "CAD Standards", items: ["Configure","Check","Layer Translator"] },
   ],
-  "Вывод": [
-    { label: "Печать", items: ["Печать ▾","Пакетная печать","Просмотр"] },
-    { label: "Экспорт", items: ["PDF ▾","DWF","LandXML","IFC"] },
-    { label: "Публикация", items: ["Autodesk Docs","Sheets ▾"] },
+  "Output": [
+    { label: "Print", items: ["Plot ▾","Batch Plot","Preview"] },
+    { label: "Export", items: ["PDF ▾","DWF ▾","LandXML","IFC","Shapefile"] },
+    { label: "Publish", items: ["Autodesk Docs","Sheet Sets ▾","eTransmit"] },
+    { label: "Send to", items: ["InfraWorks","Navisworks","Revit"] },
   ],
-  "Геодезия": [
-    { label: "Точки", items: ["Создать точки ▾","Группы точек","Импорт точек"] },
-    { label: "Съёмка", items: ["База данных ▾","Фигуры","Построение"] },
-    { label: "Рельеф", items: ["TIN-поверхность ▾","Grid-поверхность ▾"] },
+  "Survey": [
+    { label: "Points", items: ["Create Points ▾","Point Groups ▾","Import Points","Edit Points"] },
+    { label: "Survey Database", items: ["Open DB ▾","Import","Export","Settings"] },
+    { label: "Traverse", items: ["Traverse Editor","Closure Report","Adjust"] },
+    { label: "Surfaces", items: ["TIN Surface ▾","Grid Surface ▾","Volume Surface"] },
+    { label: "Figures", items: ["Create Figure","Edit Figure","Figure Style"] },
+  ],
+  "Rail": [
+    { label: "Alignment", items: ["Rail Alignment ▾","Cant ▾","Track Layout"] },
+    { label: "Design", items: ["Track Design ▾","Turnouts and Crossovers ▾","Bridges ▾"] },
+    { label: "Profile", items: ["Rail Profile ▾","Grade Points","Vertical Curves"] },
+    { label: "Section", items: ["Rail Section ▾","Clearance","Section Views"] },
+  ],
+  "Transparent": [
+    { label: "Point", items: ["Point Number","Point Name","Point Object ▾"] },
+    { label: "Station/Offset", items: ["Station Offset ▾","Profile Station Elev","Section Offset Elev"] },
+    { label: "Grade/Slope", items: ["Grade/Slope Distance","Grade/Slope From","Bearing Distance"] },
+    { label: "Utilities", items: ["Zoom to Point","Match Properties"] },
+  ],
+  "InfraWorks": [
+    { label: "Exchange", items: ["Send to InfraWorks","Sync from InfraWorks","Update Model"] },
+    { label: "Design", items: ["Open in InfraWorks","Compare Designs"] },
+  ],
+  "Collaborate": [
+    { label: "Autodesk Docs", items: ["Open from Cloud","Save to Cloud","Share"] },
+    { label: "Co-Authoring", items: ["Enable Co-author","Check In","Check Out"] },
+    { label: "Data Shortcuts", items: ["Create Data Shortcut ▾","Edit Data Shortcut","Working Folder"] },
+  ],
+  "Add-ins": [
+    { label: "Vehicle Tracking", items: ["Add Vehicle ▾","Tracking Simulation","Swept Path"] },
+    { label: "Extensions", items: ["Manage Extensions ▾","App Manager"] },
+    { label: "Featured Apps", items: ["Browse Apps","Installed Apps","Sync Apps"] },
+  ],
+  "Express Tools": [
+    { label: "Blocks", items: ["Super Hatch","Convert Text","Block ▾"] },
+    { label: "Text", items: ["Arc Aligned Text","Justify Text ▾","Text Fit"] },
+    { label: "Layout", items: ["Layout Geometry","Flatten ▾","Superimpose"] },
+    { label: "Layers", items: ["Layer Walk","Layer Freeze","Isolate Layer ▾"] },
+  ],
+  "Vehicle Tracking": [
+    { label: "Paths", items: ["Add Path ▾","Edit Path","Delete Path"] },
+    { label: "Vehicle", items: ["Vehicle Library ▾","Custom Vehicle","Edit Vehicle"] },
+    { label: "Simulation", items: ["Run Simulation","Animation","Report"] },
+  ],
+  "Featured Apps": [
+    { label: "Apps", items: ["AutoCAD Raster Design","Point Layout","CAiCE Tools"] },
+    { label: "Utilities", items: ["DWG Compare","Purge ▾","Audit"] },
+  ],
+  "Geolocation": [
+    { label: "Online Maps", items: ["Map On","Map Type ▾","Capture Area"] },
+    { label: "Location", items: ["Set Location ▾","Edit Location","Mark Position"] },
+    { label: "Coordinates", items: ["Republish ▾","Update Coordinates","Export KML"] },
   ],
 }
 
-const TOOLBAR_GROUPS = TOOLBAR_BY_MENU["Главная"]
+const TOOLBAR_GROUPS = TOOLBAR_BY_MENU["Home"]
 
 const DROPDOWN_ITEMS: Record<string, string[]> = {
-  "Участок ▾": ["Создать участок из объектов","По линиям и кривым","Редактировать геометрию"],
-  "Точки ▾": ["Создать точки вручную","Импорт из CSV","По трассе","По поверхности"],
-  "Поверхности ▾": ["Создать TIN","Создать Grid","Из точек","Из контуров","Редактировать"],
-  "Трасса ▾": ["Создать трассу","По существующей геометрии","Редактировать геометрию трассы"],
-  "Хар. линия ▾": ["Создать хар. линию","По 3D-полилинии","Редактировать"],
-  "Профиль ▾": ["Существующий рельеф","Профиль разработки","Редактировать профиль"],
-  "Сечение ▾": ["Создать типовое сечение","Редактировать","Группа типовых сечений"],
-  "Вид профиля ▾": ["Создать вид профиля","Группа видов профиля","Редактировать стиль"],
-  "Планировка ▾": ["Планировочная отметка","По поверхности","Редактировать"],
-  "Коридор ▾": ["Создать коридор","Редактировать коридор","Параметры коридора"],
-  "Труб. сеть ▾": ["Создать трубопроводную сеть","По объектам","Редактировать детали"],
-  "Виды сечений ▾": ["Создать виды сечений","Группа видов","Параметры листа"],
-  "Черчение ▾": ["Полилиния","Прямая","Дуга","Прямоугольник","Сплайн"],
-  "Копировать ▾": ["Копировать","Копировать с базовой точкой","Буфер обмена"],
-  "Массив ▾": ["Прямоугольный массив","Круговой массив","По траектории"],
-  "Слои ▾": ["Диспетчер слоёв","Создать слой","Заморозить","Изолировать слой"],
-  "Внешняя ссылка ▾": ["Вставить","Отделить","Перезагрузить","Управление"],
-  "Подложка ▾": ["DWF-подложка","PDF-подложка","Изображение","Карта"],
-  "Импорт ▾": ["LandXML","IFC","Shapefile","DEM","Облако точек"],
-  "Многострочный ▾": ["Создать мтекст","Редактировать стиль","Поле"],
-  "Линейный ▾": ["Линейный","Параллельный","Базовый","Непрерывный"],
-  "Выноска ▾": ["Выноска","Аннотационная выноска","Допуск"],
-  "Стили текста ▾": ["Новый стиль","Редактировать","Импорт из чертежа"],
-  "Стили размеров ▾": ["Новый стиль","Редактировать","Сопоставить"],
-  "Таблица ▾": ["Вставить таблицу","Из данных связи","Экспорт в CSV"],
-  "Уклоны ▾": ["Анализ уклонов","Анализ высот","Стрелки уклонов"],
-  "Водосборы ▾": ["Создать водосборный бассейн","Анализ стока","Объём стока"],
-  "Разрезы ▾": ["Создать линию разреза","Типовые разрезы","Экспорт"],
-  "Объёмы ▾": ["Объёмы по коридору","Между поверхностями","Отчёт"],
-  "Ведомость ▾": ["Ведомость поперечников","Координаты разбивки","Экспорт"],
-  "Гидравлика ▾": ["Анализ сети","Расчёт потерь","Отчёт"],
-  "Инспекция ▾": ["Проверить сеть","Найти нарушения","Отчёт"],
-  "Генерировать отчёт ▾": ["Сводный отчёт","По поверхности","По коридору","По сетям"],
-  "Пользовательский ▾": ["Сохранить вид","Восстановить вид","Управление видами"],
-  "Орбита ▾": ["Орбита","Свободная орбита","Непрерывная орбита"],
-  "Зум ▾": ["Вписать","Окном","Масштаб","Центр"],
-  "1 окно": ["1 окно"], "2 окна ▾": ["Горизонтально","Вертикально"], "4 окна": ["4 равных окна"],
-  "Диспетчер стилей ▾": ["Трассы","Профили","Коридоры","Поверхности","Сети"],
-  "PDF ▾": ["Текущий лист","Все листы","Выбранные листы"],
-  "Создать точки ▾": ["Вручную","По координатам","Из файла CSV","По трассе","По поверхности"],
-  "База данных ▾": ["Открыть БД","Импорт","Экспорт","Настройки"],
-  "TIN-поверхность ▾": ["Из точек","Из контуров","Из файла DEM","Редактировать"],
-  "Grid-поверхность ▾": ["Из файла","Из TIN","Настройки сетки"],
+  // Home
+  "Toolspace ▾": ["Prospector","Settings","Survey","Toolbox"],
+  "Properties ▾": ["Properties","Quick Properties","Selection Cycling"],
+  "Points ▾": ["Create Points — Manual","Create Points — Interpolate","Create Points — Alignment","Create Points — Surface","Import Points","Point Groups","Edit Points"],
+  "Surfaces ▾": ["Create Surface (TIN)","Create Surface (Grid)","Create Surface from Points","Create Surface from Contours","Edit Surface","Surface Properties","Export Surface"],
+  "Feature Line ▾": ["Create Feature Line","Create Feature Line from Objects","Edit Feature Line Elevations","Fillet Feature Line","Feature Line Properties"],
+  "Traverse ▾": ["Traverse Editor","Traverse Closure","Import Traverse"],
+  "Alignment ▾": ["Create Alignment — Layout","Create Alignment from Objects","Create Alignment from Polyline","Edit Alignment Geometry","Alignment Properties","Design Criteria Editor"],
+  "Intersections ▾": ["Create Intersection","Edit Intersection","Intersection Wizard"],
+  "Profile ▾": ["Create Profile from Surface","Create Profile — Layout","Edit Profile Geometry","Profile Properties","Superimpose Profile"],
+  "Assembly ▾": ["Create Assembly","Edit Assembly","Assembly Properties","Import Assembly"],
+  "Corridor ▾": ["Create Corridor","Edit Corridor","Corridor Properties","Corridor Targets","Rebuild Corridor"],
+  "Pipe Network ▾": ["Create Pipe Network","Edit Pipe Network","Pipe Network Properties","Plan Production"],
+  "Profile View ▾": ["Create Profile View","Create Multiple Profile Views","Edit Profile View Style","Stacked Profile View"],
+  "Section Views ▾": ["Create Section View","Create Multiple Section Views","Edit Section View Style","Section View Band Set"],
+  "Draw ▾": ["Polyline","Line","Arc","Circle","Rectangle","Spline","Hatch","Text"],
+  "Copy ▾": ["Copy","Copy with Base Point","Clipboard Copy"],
+  "Trim ▾": ["Trim","Extend","Break at Point","Break"],
+  "Array ▾": ["Rectangular Array","Polar Array","Path Array"],
+  "Layer Properties": ["Layer Properties Manager"],
+  "Paste ▾": ["Paste","Paste as Block","Paste to Original Coordinates"],
+  // Insert
+  "Insert ▾": ["Insert Block","Insert Block with Attributes","Recent Blocks"],
+  "Attach ▾": ["Attach DWG","Attach Image","Attach PDF","Attach Point Cloud"],
+  "Import ▾": ["LandXML","IFC","Shapefile","DEM/GeoTIFF","Point Cloud (RCP/RCS)","Survey Data"],
+  "Assign ▾": ["Assign Coordinate System","From Map","Manually Enter"],
+  // Annotate
+  "Multiline ▾": ["Create MText","Edit MText Style","Field"],
+  "Linear ▾": ["Linear","Aligned","Baseline","Continue"],
+  "Leader ▾": ["Multileader","Quick Leader","Tolerance"],
+  "Text Style ▾": ["New Style","Modify Style","Import from Drawing"],
+  "Dim Style ▾": ["New Style","Modify Style","Override","Compare"],
+  "Table ▾": ["Insert Table","From Data Link","Export to CSV"],
+  "Add Labels ▾": ["Alignment Labels","Profile Labels","Section Labels","Parcel Labels","Surface Labels","Pipe Network Labels"],
+  "Edit Label ▾": ["Flip Label","Move Label","Reset Label","Delete Label Override"],
+  // Modify
+  "Rectangular ▾": ["Rectangular Array","Path Array","Polar Array"],
+  "Polar ▾": ["Polar Array","Path Array"],
+  "Path ▾": ["Path Array","Edit Array"],
+  // Analyze
+  "Slope Analysis ▾": ["Slope Analysis","Arrow Analysis","User Defined Contours"],
+  "Elevation Analysis ▾": ["Elevation Analysis","Watersheds","User Defined Contours"],
+  "Watershed ▾": ["Watershed Analysis","Catchment Area","Flow Path"],
+  "Sections ▾": ["Sample Lines","Section Views","Section Properties"],
+  "Volumes ▾": ["Corridor Volumes","Between Surfaces","Volume Report","Earthwork Report"],
+  "Quantity Takeoff ▾": ["QTO Manager","Compute Materials","Pay Items","Export"],
+  "Hydraulics ▾": ["Run Hydraulic Analysis","Pipe Sizing","Storm Drain Report"],
+  "Inspect ▾": ["Check Network","Find Violations","Network Report"],
+  "Generate Report ▾": ["Summary Report","Surface Report","Corridor Report","Network Report","Alignment Report"],
+  // View
+  "Custom ▾": ["Save View","Restore View","View Manager"],
+  "2 Viewports ▾": ["Horizontal","Vertical"],
+  "Orbit ▾": ["Free Orbit","Constrained Orbit","Continuous Orbit"],
+  "Zoom ▾": ["Zoom Extents","Zoom Window","Zoom Scale","Zoom Center","Previous"],
+  "Isometric SW ▾": ["SW Isometric","SE Isometric","NE Isometric","NW Isometric","Top","Front","Right"],
+  // Manage
+  "Label Style Manager ▾": ["Alignment","Profile","Corridor","Pipe","Structure","Surface"],
+  // Output
+  "Plot ▾": ["Plot","Quick Plot","Batch Plot"],
+  "DWF ▾": ["Publish to DWF","Publish to 3D DWF"],
+  "PDF ▾": ["Current Sheet","All Sheets","Selected Sheets","High Quality PDF"],
+  "Sheet Sets ▾": ["Open Sheet Set","New Sheet Set","Publish Sheet Set"],
+  // Survey
+  "Create Points ▾": ["Manually","By Coordinates","From CSV File","Along Alignment","On Surface","At Geometry","Interpolate"],
+  "Point Groups ▾": ["Create Point Group","Edit Point Group","Delete Point Group","Properties"],
+  "Open DB ▾": ["New Survey Database","Open Existing","Import Survey Data","Export Survey Data"],
+  "TIN Surface ▾": ["From Points","From Figure","From Contours","From DEM File","Edit TIN Surface"],
+  "Grid Surface ▾": ["From File","From TIN Surface","Grid Settings"],
+  // Rail
+  "Rail Alignment ▾": ["Create Rail Alignment","Create from Polyline","Edit Rail Alignment"],
+  "Cant ▾": ["Create Cant","Edit Cant","Cant Properties"],
+  "Track Design ▾": ["Track Layout","Rail Profile","Cant Design"],
+  "Turnouts and Crossovers ▾": ["Create Turnout","Create Crossover","Edit"],
+  "Bridges ▾": ["Create Bridge","Edit Bridge","Bridge Properties"],
+  "Rail Profile ▾": ["Create Rail Profile","Edit Rail Profile","Rail Profile Properties"],
+  "Rail Section ▾": ["Create Rail Section","Edit Rail Section","Section Views"],
+  // Transparent
+  "Point Object ▾": ["Point Number","Point Name","Point Object"],
+  "Station Offset ▾": ["Station & Offset","Profile Station Elevation","Section Offset Elevation"],
+  // Add-ins / Express
+  "Vehicle Library ▾": ["Passenger Car","Semi Truck","Bus","Fire Truck","Custom"],
+  "Block ▾": ["List Blocks","Super Hatch","Convert Text to Block","Explode Block"],
+  "Justify Text ▾": ["Left","Center","Right","Fit","Align"],
+  "Flatten ▾": ["Flatten","Flatten to Elevation","Convert to Polyline"],
+  "Isolate Layer ▾": ["Isolate Layer","Unisolate","Layer Walk"],
+  // Geolocation
+  "Map Type ▾": ["Aerial","Road","Hybrid","Terrain"],
+  "Set Location ▾": ["From Map","By GNSS","Manual Entry"],
+  "Republish ▾": ["Republish DWG","Republish PDF"],
 }
 
 // ─── Canvas drawing ──────────────────────────────────────────────────────────
@@ -375,16 +478,85 @@ function drawCanvas(
 
   ctx.restore()
 
-  // viewport label
-  ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(4,2,240,18)
-  ctx.fillStyle="#60a5fa"; ctx.font="bold 11px monospace"
-  ctx.fillText(`[+][Пользовательский вид][${viewMode==="wireframe"?"2D Каркас":"2D Закраска"}]`, 8, 15)
+  // ── Profile View (top-right panel, like Civil 3D) ──────────────────────────
+  const pvX = W * 0.53, pvY = 12, pvW = W * 0.44, pvH = 90
+  // outer border
+  ctx.fillStyle = viewMode === "wireframe" ? "#111122" : "#fafaf5"
+  ctx.fillRect(pvX, pvY, pvW, pvH)
+  ctx.strokeStyle = "#60a5fa"; ctx.lineWidth = 1; ctx.strokeRect(pvX, pvY, pvW, pvH)
+  // grid inside profile view
+  ctx.strokeStyle = viewMode === "wireframe" ? "rgba(100,120,200,0.25)" : "rgba(160,160,120,0.3)"
+  ctx.lineWidth = 0.5
+  for (let gx = pvX + 20; gx < pvX + pvW; gx += 20) {
+    ctx.beginPath(); ctx.moveTo(gx, pvY); ctx.lineTo(gx, pvY + pvH); ctx.stroke()
+  }
+  for (let gy = pvY + 15; gy < pvY + pvH; gy += 15) {
+    ctx.beginPath(); ctx.moveTo(pvX, gy); ctx.lineTo(pvX + pvW, gy); ctx.stroke()
+  }
+  // station ticks at bottom
+  ctx.strokeStyle = "#6b7280"; ctx.lineWidth = 0.8
+  for (let t = 0; t <= 10; t++) {
+    const tx = pvX + 10 + t * (pvW - 20) / 10
+    ctx.beginPath(); ctx.moveTo(tx, pvY + pvH - 10); ctx.lineTo(tx, pvY + pvH); ctx.stroke()
+    ctx.fillStyle = "#6b7280"; ctx.font = "7px monospace"
+    ctx.fillText(`${t * 100}`, tx - 8, pvY + pvH - 2)
+  }
+  // existing ground profile (red/pink line)
+  ctx.beginPath(); ctx.strokeStyle = "#f87171"; ctx.lineWidth = 1.5
+  const egPts = [0,4,8,6,12,10,7,5,9,11,8].map((v, i) => ({
+    x: pvX + 10 + i * (pvW - 20) / 10,
+    y: pvY + 20 + (15 - v * 2)
+  }))
+  egPts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+  ctx.stroke()
+  // design profile (orange line)
+  ctx.beginPath(); ctx.strokeStyle = "#fb923c"; ctx.lineWidth = 2
+  const dpPts = [2,5,9,9,9,8,7,7,8,10,9].map((v, i) => ({
+    x: pvX + 10 + i * (pvW - 20) / 10,
+    y: pvY + 20 + (15 - v * 2)
+  }))
+  dpPts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+  ctx.stroke()
+  // label
+  ctx.fillStyle = viewMode==="wireframe"?"#60a5fa":"#1d4ed8"; ctx.font = "bold 8px Arial"
+  ctx.fillText("Second Street  PV  0+000 m ... 1000 m", pvX + 4, pvY + 10)
 
-  // status bar
-  ctx.fillStyle="rgba(30,30,30,0.85)"; ctx.fillRect(0,H-18,W,18)
-  ctx.fillStyle="#9ca3af"; ctx.font="10px monospace"
-  ctx.fillText("Выберите трассу: <Отмена>*", 8, H-5)
-  ctx.fillText("1510603.43, 550465.55, 0.00  МОДЕЛЬ", W/2-60, H-5)
+  // ── Second profile view (below) ──────────────────────────────────────────
+  const pv2Y = pvY + pvH + 8
+  const pv2H = 72
+  ctx.fillStyle = viewMode === "wireframe" ? "#111122" : "#fafaf5"
+  ctx.fillRect(pvX, pv2Y, pvW * 0.75, pv2H)
+  ctx.strokeStyle = "#818cf8"; ctx.lineWidth = 1; ctx.strokeRect(pvX, pv2Y, pvW * 0.75, pv2H)
+  ctx.strokeStyle = viewMode === "wireframe" ? "rgba(100,120,200,0.2)" : "rgba(140,140,100,0.25)"
+  ctx.lineWidth = 0.5
+  for (let gx = pvX + 18; gx < pvX + pvW * 0.75; gx += 18) {
+    ctx.beginPath(); ctx.moveTo(gx, pv2Y); ctx.lineTo(gx, pv2Y + pv2H); ctx.stroke()
+  }
+  for (let gy = pv2Y + 12; gy < pv2Y + pv2H; gy += 12) {
+    ctx.beginPath(); ctx.moveTo(pvX, gy); ctx.lineTo(pvX + pvW * 0.75, gy); ctx.stroke()
+  }
+  // station ticks
+  for (let t = 0; t <= 8; t++) {
+    const tx = pvX + 8 + t * (pvW * 0.75 - 16) / 8
+    ctx.strokeStyle="#6b7280"; ctx.lineWidth=0.8
+    ctx.beginPath(); ctx.moveTo(tx, pv2Y + pv2H - 8); ctx.lineTo(tx, pv2Y + pv2H); ctx.stroke()
+    ctx.fillStyle="#6b7280"; ctx.font="7px monospace"
+    ctx.fillText(`${t * 80}`, tx - 6, pv2Y + pv2H - 1)
+  }
+  ctx.beginPath(); ctx.strokeStyle = "#f87171"; ctx.lineWidth = 1.5
+  const eg2 = [3,6,9,8,7,10,9,8,11].map((v,i)=>({
+    x: pvX + 8 + i*(pvW*0.75-16)/8, y: pv2Y+15+(12-v*1.5)
+  }))
+  eg2.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke()
+  ctx.beginPath(); ctx.strokeStyle = "#fb923c"; ctx.lineWidth = 2
+  const dp2 = [4,7,9,9,8,9,9,8,10].map((v,i)=>({
+    x: pvX + 8 + i*(pvW*0.75-16)/8, y: pv2Y+15+(12-v*1.5)
+  }))
+  dp2.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke()
+  ctx.fillStyle = viewMode==="wireframe"?"#818cf8":"#4f46e5"; ctx.font="bold 8px Arial"
+  ctx.fillText("Ул. Трумана  PV  0+000 m ... 640 m", pvX + 4, pv2Y + 9)
+
+  ctx.restore()
 }
 
 // ─── Surface Dialog ──────────────────────────────────────────────────────────
@@ -1188,7 +1360,10 @@ export default function CivilCADModule() {
   const drag = useRef<{ x: number; y: number } | null>(null)
   const [showCorridor, setShowCorridor] = useState(false)
   const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
-  const [activeMenuTab, setActiveMenuTab] = useState("Главная")
+  const [activeMenuTab, setActiveMenuTab] = useState("Home")
+  const [activeLayout, setActiveLayout] = useState("Model")
+  const [cursorCoords, setCursorCoords] = useState({ x: 0, y: 0 })
+  const [scale, setScale] = useState("1:500")
   const [showRightPanel, setShowRightPanel] = useState(true)
   const [statusMsg, setStatusMsg] = useState("Выберите трассу: <Отмена>*")
   const [commandLine, setCommandLine] = useState("")
@@ -1272,20 +1447,38 @@ export default function CivilCADModule() {
     setStatusMsg(`${parent.replace(" ▾","")}: ${sub}`)
   }
 
-  const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"]
+  const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Home"]
 
   return (
     <div className="flex flex-col bg-[#1e1e2e] text-gray-200 rounded-xl overflow-hidden border border-gray-700" style={{ height: "calc(100vh - 160px)", minHeight: 620, fontFamily: "Arial, sans-serif", fontSize: 12 }}>
 
-      {/* ── Menu bar ── */}
-      <div className="bg-[#2d2d3d] border-b border-gray-700 flex items-center gap-0 flex-wrap">
-        <div className="flex items-center gap-1 px-2 py-1 border-r border-gray-700">
-          <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">C</div>
-          <span className="text-xs text-gray-300 font-mono ml-1">Civil 3D</span>
+      {/* ── Title bar ── */}
+      <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
+        <div className="flex items-center gap-1">
+          <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">C</div>
         </div>
+        <div className="flex items-center gap-1 ml-1">
+          {["🗁","💾","↩","↪"].map((ic,i)=>(
+            <button key={i} className="text-gray-400 hover:text-white text-xs px-0.5 py-0.5">{ic}</button>
+          ))}
+        </div>
+        <select className="bg-[#2d2d4e] border border-gray-600 text-[10px] text-gray-300 px-1 py-0.5 ml-1" style={{maxWidth:100}}>
+          <option>Civil 3D</option>
+        </select>
+        <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
+          Autodesk Civil 3D 2026 — Intro-1.dwg [Read Only]
+        </div>
+        <div className="flex items-center gap-1 ml-auto">
+          <input placeholder="Type a keyword or phrase" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-36 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
+          <span className="text-[10px] text-gray-500 ml-1">tony1978</span>
+        </div>
+      </div>
+
+      {/* ── Menu bar (ribbon tabs) ── */}
+      <div className="bg-[#2d2d3d] border-b border-gray-700 flex items-center gap-0 overflow-x-auto flex-shrink-0">
         {MENU_ITEMS.map(m => (
-          <button key={m} onClick={() => { setActiveMenuTab(m); setStatusMsg(`Вкладка: ${m}`) }}
-            className={`px-3 py-1.5 text-xs transition-colors ${activeMenuTab === m ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-gray-700"}`}>
+          <button key={m} onClick={() => { setActiveMenuTab(m); setStatusMsg(`Ribbon: ${m}`) }}
+            className={`px-3 py-1.5 text-xs whitespace-nowrap transition-colors border-b-2 ${activeMenuTab === m ? "border-[#0078d4] bg-[#252535] text-white" : "border-transparent text-gray-400 hover:bg-gray-700 hover:text-white"}`}>
             {m}
           </button>
         ))}
@@ -1330,22 +1523,15 @@ export default function CivilCADModule() {
         ))}
       </div>
 
-      {/* ── Tab bar ── */}
-      <div className="bg-[#1e1e2e] border-b border-gray-700 flex items-center gap-1 px-2 py-0.5">
-        <Icon name="AlignLeft" size={12} className="text-gray-400" />
-        <span className="text-xs text-gray-400 mr-2">ПРОСТРАНСТВО ИНСТРУМЕНТОВ</span>
-        <div className="flex items-center gap-1">
-          <button className="bg-[#2d2d4e] border border-gray-600 px-3 py-0.5 text-xs text-blue-300 flex items-center gap-1">
-            <Icon name="FileText" size={10} /> Главная парковка_Финал*
-            <span className="ml-1 text-gray-500 hover:text-white">✕</span>
+      {/* ── Drawing tab bar ── */}
+      <div className="bg-[#252535] border-b border-gray-700 flex items-center gap-0 px-1 py-0" style={{minHeight:22}}>
+        <span className="text-[9px] text-gray-500 px-2">[-]</span>
+        <div className="flex items-center gap-0">
+          <button className="bg-[#1e1e2e] border-t border-l border-r border-gray-600 px-3 py-0.5 text-[10px] text-blue-300 flex items-center gap-1 border-b-0">
+            <Icon name="FileText" size={9} /> Intro-1
+            <span className="ml-1 text-gray-500 hover:text-white text-[9px]">✕</span>
           </button>
-          <button className="text-gray-500 hover:text-white px-2 py-0.5" onClick={() => setStatusMsg("Новая вкладка создана")}>+</button>
-        </div>
-        <div className="ml-auto flex gap-1">
-          {["Модель","Лист 1","Лист 2"].map(t => (
-            <button key={t} onClick={() => setStatusMsg(`Переключено на: ${t}`)}
-              className="text-xs text-gray-400 hover:text-white hover:bg-[#2d2d4e] px-2 py-0.5 rounded transition-colors">{t}</button>
-          ))}
+          <button className="text-gray-500 hover:text-white px-2 py-0.5 text-[10px]">+</button>
         </div>
       </div>
 
@@ -1362,16 +1548,34 @@ export default function CivilCADModule() {
         </div>
 
         {/* ── Left: Toolspace / Tree ── */}
-        <div className="bg-[#1a1a2e] border-r border-gray-700 w-52 flex flex-col overflow-hidden flex-shrink-0">
-          <div className="bg-[#252540] px-2 py-1 flex items-center justify-between border-b border-gray-700">
-            <span className="text-xs text-gray-300 font-semibold">Активный чертёж</span>
-            <Icon name="ChevronDown" size={12} className="text-gray-400" />
+        <div className="bg-[#1a1a2e] border-r border-gray-700 w-44 flex flex-col overflow-hidden flex-shrink-0">
+          {/* Toolspace header */}
+          <div className="bg-[#252540] px-2 py-0.5 flex items-center justify-between border-b border-gray-700">
+            <span className="text-[9px] text-gray-300 font-bold tracking-wide uppercase">TOOLSPACE</span>
+            <div className="flex gap-0.5">
+              {["📋","📁","🔍","❓"].map((ic,i)=>(
+                <button key={i} className="text-[9px] text-gray-500 hover:text-white w-4 h-4 flex items-center justify-center">{ic}</button>
+              ))}
+            </div>
+          </div>
+          {/* Prospector / Settings tabs */}
+          <div className="flex border-b border-gray-700">
+            {["Prospector","Settings"].map(t=>(
+              <button key={t} className="flex-1 text-[9px] py-0.5 bg-[#1e1e2e] text-gray-400 hover:bg-[#2d2d4e] hover:text-white border-r border-gray-700 last:border-0 transition-colors">
+                {t}
+              </button>
+            ))}
+          </div>
+          {/* Active Drawing label */}
+          <div className="bg-[#1e1e30] px-2 py-0.5 flex items-center gap-1 border-b border-gray-700">
+            <span className="text-[9px] text-blue-400 font-semibold">Active Drawing View</span>
+            <Icon name="ChevronDown" size={9} className="text-gray-500 ml-auto" />
           </div>
           {/* Layer toggles */}
-          <div className="flex gap-1 px-2 py-1 border-b border-gray-700 flex-wrap">
+          <div className="flex gap-1 px-1.5 py-1 border-b border-gray-700 flex-wrap">
             {(Object.keys(visLayers) as (keyof typeof visLayers)[]).map(k => (
               <button key={k} onClick={() => toggleLayer(k)}
-                className={`text-[9px] px-1 py-0.5 rounded transition-colors ${visLayers[k] ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-400"}`}>
+                className={`text-[8px] px-1 py-0.5 rounded transition-colors ${visLayers[k] ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-400"}`}>
                 {k}
               </button>
             ))}
@@ -1384,31 +1588,58 @@ export default function CivilCADModule() {
           </div>
         </div>
 
-        {/* ── Side tabs ── */}
-        <div className="bg-[#1e1e2e] border-r border-gray-700 w-5 flex flex-col items-center py-4 gap-4">
-          {["Инструменты","Настройки","Геодезия"].map(t => (
-            <div key={t} onClick={() => setStatusMsg(`Панель: ${t}`)}
-              className="text-[9px] text-gray-500 hover:text-gray-300 cursor-pointer active:text-blue-400 transition-colors"
+        {/* ── Side tabs (Prospector/Survey/Settings) ── */}
+        <div className="bg-[#1e1e2e] border-r border-gray-700 w-4 flex flex-col items-center py-4 gap-4">
+          {["Prospector","Settings","Survey","Toolbox"].map(t => (
+            <div key={t} onClick={() => setStatusMsg(`Panel: ${t}`)}
+              className="text-[8px] text-gray-600 hover:text-gray-300 cursor-pointer active:text-blue-400 transition-colors"
               style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t}</div>
           ))}
         </div>
 
         {/* ── Centre: Viewport ── */}
-        <div className="flex-1 relative overflow-hidden bg-[#1a1a2e]">
-          {/* viewport toolbar */}
-          <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-1 bg-[#00000060] px-2 py-0.5">
+        <div className="flex-1 relative overflow-hidden bg-[#1a1a2e]"
+          onMouseMove={e => {
+            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+            const mx = (e.clientX - rect.left - pan.x) / zoom
+            const my = (e.clientY - rect.top - pan.y) / zoom
+            setCursorCoords({ x: Math.round(mx * 10)/10, y: Math.round(my * 10)/10 })
+          }}>
+          {/* viewport toolbar — Civil 3D style */}
+          <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800">
+            <button onClick={() => setStatusMsg("Viewport menu")}
+              className="text-[10px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
+            <button onClick={() => setStatusMsg("Custom view")}
+              className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5 border-r border-gray-700">[Top]</button>
             <button onClick={() => setViewMode(m => m === "wireframe" ? "shaded" : "wireframe")}
-              className="text-[10px] text-blue-300 hover:text-white px-2 py-0.5 bg-black/30 rounded">
-              [+][Польз. вид][{viewMode === "wireframe" ? "2D Каркас" : "2D Закраска"}]
+              className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5">
+              [{viewMode === "wireframe" ? "2D Wireframe" : "Shaded"}]
             </button>
-            <div className="ml-auto flex gap-1">
-              <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[10px] text-gray-400 hover:text-white px-1">Вписать</button>
-              <button onClick={() => setZoom(z => z * 1.2)} className="text-[10px] text-gray-400 hover:text-white px-1">+</button>
-              <button onClick={() => setZoom(z => z * 0.8)} className="text-[10px] text-gray-400 hover:text-white px-1">−</button>
-              <button onClick={() => setShowRightPanel(s => !s)} className="text-[10px] text-gray-400 hover:text-white px-1">
-                <Icon name={showRightPanel ? "PanelRightClose" : "PanelRightOpen"} size={12} />
-              </button>
-            </div>
+          </div>
+          {/* Viewport compass (top-right) */}
+          <div className="absolute top-1 right-2 z-10 select-none pointer-events-none">
+            <svg width="52" height="52" viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="24" fill="rgba(0,0,0,0.35)" stroke="#555" strokeWidth="1"/>
+              <text x="26" y="10" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">N</text>
+              <text x="26" y="47" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">S</text>
+              <text x="6" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">W</text>
+              <text x="46" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">E</text>
+              <rect x="16" y="16" width="20" height="20" rx="3" fill="#0078d4" opacity="0.85"/>
+              <text x="26" y="30" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">TOP</text>
+              <line x1="26" y1="12" x2="26" y2="17" stroke="#888" strokeWidth="1"/>
+              <line x1="26" y1="35" x2="26" y2="40" stroke="#888" strokeWidth="1"/>
+              <line x1="10" y1="26" x2="15" y2="26" stroke="#888" strokeWidth="1"/>
+              <line x1="37" y1="26" x2="42" y2="26" stroke="#888" strokeWidth="1"/>
+            </svg>
+          </div>
+          {/* Scale / zoom controls top-right corner */}
+          <div className="absolute top-1 right-14 z-10 flex items-center gap-1">
+            <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">Extents</button>
+            <button onClick={() => setZoom(z => z * 1.25)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">+</button>
+            <button onClick={() => setZoom(z => z * 0.8)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">−</button>
+            <button onClick={() => setShowRightPanel(s => !s)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">
+              <Icon name={showRightPanel ? "PanelRightClose" : "PanelRightOpen"} size={11} />
+            </button>
           </div>
 
           <canvas ref={canvasRef} className="w-full h-full block"
@@ -1480,18 +1711,51 @@ export default function CivilCADModule() {
       </div>
 
       {/* ── Command line ── */}
-      <div className="bg-[#0f0f1e] border-t border-gray-700 flex flex-col">
-        <div className="px-3 py-0.5 text-[10px] text-gray-400 font-mono">{statusMsg}</div>
-        <div className="flex items-center gap-1 px-2 py-0.5 border-t border-gray-800">
-          <span className="text-[10px] text-gray-500 font-mono"># СОЗДАТКОРИДОР</span>
+      <div className="bg-[#0f0f1e] border-t border-gray-700 flex flex-col flex-shrink-0">
+        <div className="px-3 py-0.5 text-[10px] text-gray-400 font-mono border-b border-gray-800">{statusMsg}</div>
+        <div className="flex items-center gap-1 px-2 py-0.5">
+          <span className="text-[10px] text-gray-600 font-mono select-none">⚡</span>
           <input
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Команда… (SURFACE, ALIGNMENT, PROFILE, CORRIDOR, ZOOM E)"
+            placeholder="Type a command  (SURFACE, ALIGNMENT, PROFILE, CORRIDOR, ZOOM E)"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
+        </div>
+      </div>
+
+      {/* ── Status bar (Civil 3D bottom bar) ── */}
+      <div className="bg-[#1a1a2a] border-t border-gray-800 flex items-center px-1 gap-0 flex-shrink-0" style={{minHeight:22}}>
+        {/* Layout tabs */}
+        <div className="flex items-center gap-0 border-r border-gray-700 pr-1 mr-1">
+          <button onClick={() => setStatusMsg("Главная парковка_Финал")}
+            className="text-[9px] text-gray-400 hover:text-white px-0.5 py-0.5">☰</button>
+          {["Model","Layout1","Layout2"].map(t => (
+            <button key={t} onClick={() => { setActiveLayout(t); setStatusMsg(`Layout: ${t}`) }}
+              className={`text-[9px] px-2 py-0.5 border-x border-gray-700 transition-colors ${activeLayout===t?"bg-[#2d2d4e] text-white":"text-gray-500 hover:text-white hover:bg-[#252535]"}`}>
+              {t}
+            </button>
+          ))}
+          <button onClick={() => setStatusMsg("New layout")}
+            className="text-[9px] text-gray-500 hover:text-white px-1.5 py-0.5">+</button>
+        </div>
+        {/* Center status icons */}
+        <div className="flex items-center gap-1 text-[9px] text-gray-500 flex-1">
+          <span className={`font-bold px-1 ${activeLayout==="Model"?"text-white bg-[#0078d4]":"text-gray-400"}`}>
+            {activeLayout==="Model"?"MODEL":"PAPER"}
+          </span>
+          <button onClick={() => setScale(s=>s==="1:500"?"1:1000":s==="1:1000"?"1:200":"1:500")}
+            className="hover:text-white px-1 border border-gray-700 text-[9px]">{scale}</button>
+          {["⊞","∠","⚙"].map((ic,i)=>(
+            <button key={i} className="hover:text-white px-0.5">{ic}</button>
+          ))}
+        </div>
+        {/* Cursor coordinates right */}
+        <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 border-l border-gray-700 pl-2">
+          <span className="text-gray-400">{cursorCoords.x.toFixed(2)}, {cursorCoords.y.toFixed(2)}, 0.00</span>
+          <span className="text-gray-600">MODEL</span>
         </div>
       </div>
     </div>
