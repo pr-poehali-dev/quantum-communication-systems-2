@@ -1856,7 +1856,7 @@ export default function CivilCADModule() {
   const drag = useRef<{ x: number; y: number } | null>(null)
   const [showCorridor, setShowCorridor] = useState(false)
   const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
-  const [activeMenuTab, setActiveMenuTab] = useState("Home")
+  const [activeMenuTab, setActiveMenuTab] = useState("Главная")
   const [activeLayout, setActiveLayout] = useState("Model")
   const [cursorCoords, setCursorCoords] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState("1:500")
@@ -1946,7 +1946,7 @@ export default function CivilCADModule() {
     setStatusMsg(`${parent.replace(" ▾","")}: ${sub}`)
   }
 
-  const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Home"]
+  const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"] || []
 
   return (
     <div className="flex flex-col bg-[#1e1e2e] text-gray-200 rounded-xl overflow-hidden border border-gray-700" style={{ height: "calc(100vh - 160px)", minHeight: 620, fontFamily: "Arial, sans-serif", fontSize: 12 }}>
@@ -1988,7 +1988,7 @@ export default function CivilCADModule() {
         {currentToolbar.map(group => (
           <div key={group.label} className="flex flex-col items-start border-r border-gray-700 px-2 py-1">
             <div className="flex gap-1 flex-wrap">
-              {group.items.map(item => {
+              {(group.items || []).map(item => {
                 const hasDropdown = item.endsWith("▾") && DROPDOWN_ITEMS[item]
                 return (
                   <div key={item} className="relative">
@@ -2005,7 +2005,7 @@ export default function CivilCADModule() {
                     </button>
                     {hasDropdown && openDropdown === item && (
                       <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[180px] py-1 rounded">
-                        {DROPDOWN_ITEMS[item].map(sub => (
+                        {(DROPDOWN_ITEMS[item] || []).map(sub => (
                           <button key={sub} onClick={() => handleDropdownItem(item, sub)}
                             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
                             {sub}
