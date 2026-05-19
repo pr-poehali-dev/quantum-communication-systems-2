@@ -49,6 +49,17 @@ interface ProfileDef {
   pvcs: { station: string; elev: string; k: string }[]
 }
 
+interface SubassemblyItem {
+  id: string; name: string; side: "Левый" | "Правый" | "Обе стороны"; type: string
+  params: Record<string, string>
+}
+
+interface AssemblyDef {
+  name: string; description: string; style: string; layer: string
+  markerStyle: string; defaultOffset: string; defaultElevAdj: string
+  subassemblies: SubassemblyItem[]
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const TREE: TreeNode[] = [
@@ -1079,6 +1090,486 @@ function TreeItem({ node, depth, selected, onSelect, onToggle }: {
   )
 }
 
+// ─── Assembly Dialog ──────────────────────────────────────────────────────────
+
+const ASSEMBLY_TEMPLATES = [
+  {
+    id: "road2",
+    name: "2-полосная дорога (7 м)",
+    description: "Автодорога III категории. Проезжая часть 7 м, обочины 2×2 м, откосы 1:1.5",
+    preview: [
+      { x: -100, y: 0, label: "" }, { x: -55, y: 0 }, { x: -35, y: 0 }, { x: 0, y: 0 }, { x: 35, y: 0 }, { x: 55, y: 0 }, { x: 100, y: 0 },
+      { x: -55, y: 8 }, { x: 55, y: 8 },
+    ],
+    subassemblies: [
+      { id: "sa1", name: "ПолосаДвижения", side: "Левый" as const, type: "Полоса движения", params: { "Ширина": "3.5", "Уклон, %": "-2.5", "Глубина покрытия, м": "0.18" } },
+      { id: "sa2", name: "ПолосаДвижения", side: "Правый" as const, type: "Полоса движения", params: { "Ширина": "3.5", "Уклон, %": "2.5", "Глубина покрытия, м": "0.18" } },
+      { id: "sa3", name: "Обочина", side: "Левый" as const, type: "Обочина укреплённая", params: { "Ширина": "2.0", "Уклон, %": "-4.0", "Тип укрепления": "Засев травой" } },
+      { id: "sa4", name: "Обочина", side: "Правый" as const, type: "Обочина укреплённая", params: { "Ширина": "2.0", "Уклон, %": "4.0", "Тип укрепления": "Засев травой" } },
+      { id: "sa5", name: "ОткосНасыпи", side: "Левый" as const, type: "Откос насыпи", params: { "Заложение": "1.5", "Высота, м": "авто" } },
+      { id: "sa6", name: "ОткосНасыпи", side: "Правый" as const, type: "Откос насыпи", params: { "Заложение": "1.5", "Высота, м": "авто" } },
+    ] as SubassemblyItem[]
+  },
+  {
+    id: "road4",
+    name: "4-полосная магистраль (28 м)",
+    description: "Магистральная улица районного значения. Разделительная полоса 4 м, 4 полосы по 3.5 м",
+    subassemblies: [
+      { id: "sa1", name: "ПолосаДвижения_Л1", side: "Левый" as const, type: "Полоса движения", params: { "Ширина": "3.5", "Уклон, %": "-2.0" } },
+      { id: "sa2", name: "ПолосаДвижения_Л2", side: "Левый" as const, type: "Полоса движения", params: { "Ширина": "3.5", "Уклон, %": "-2.0" } },
+      { id: "sa3", name: "ПолосаДвижения_П1", side: "Правый" as const, type: "Полоса движения", params: { "Ширина": "3.5", "Уклон, %": "2.0" } },
+      { id: "sa4", name: "ПолосаДвижения_П2", side: "Правый" as const, type: "Полоса движения", params: { "Ширина": "3.5", "Уклон, %": "2.0" } },
+      { id: "sa5", name: "РазделительнаяПолоса", side: "Обе стороны" as const, type: "Разделительная полоса", params: { "Ширина": "2.0", "Тип": "Газон с бордюром" } },
+      { id: "sa6", name: "Бордюр", side: "Левый" as const, type: "Бордюр", params: { "Тип": "Бортовой камень 100×300" } },
+      { id: "sa7", name: "Бордюр", side: "Правый" as const, type: "Бордюр", params: { "Тип": "Бортовой камень 100×300" } },
+      { id: "sa8", name: "Тротуар", side: "Левый" as const, type: "Тротуар", params: { "Ширина": "3.0", "Уклон, %": "-2.0" } },
+      { id: "sa9", name: "Тротуар", side: "Правый" as const, type: "Тротуар", params: { "Ширина": "3.0", "Уклон, %": "2.0" } },
+    ] as SubassemblyItem[]
+  },
+  {
+    id: "ramp",
+    name: "Съезд / пандус",
+    description: "Съезд с дороги или пандус. Переменная ширина, сопряжение с основной трассой",
+    subassemblies: [
+      { id: "sa1", name: "ПолосаСъезда", side: "Правый" as const, type: "Полоса движения", params: { "Ширина": "4.5", "Уклон, %": "2.5" } },
+      { id: "sa2", name: "Кромка", side: "Правый" as const, type: "Обочина укреплённая", params: { "Ширина": "1.0", "Уклон, %": "6.0" } },
+      { id: "sa3", name: "ОткосСъезда", side: "Правый" as const, type: "Откос насыпи", params: { "Заложение": "2.0" } },
+    ] as SubassemblyItem[]
+  },
+  {
+    id: "railway",
+    name: "Ж/д насыпь (1 путь)",
+    description: "Однопутная ж/д насыпь по нормам СП 119. Балластный слой, берма, откос 1:1.5",
+    subassemblies: [
+      { id: "sa1", name: "Балласт", side: "Обе стороны" as const, type: "Балластный слой", params: { "Ширина основания, м": "4.6", "Глубина, м": "0.45", "Материал": "Щебень фр.25-60" } },
+      { id: "sa2", name: "Берма", side: "Левый" as const, type: "Берма", params: { "Ширина": "0.5" } },
+      { id: "sa3", name: "Берма", side: "Правый" as const, type: "Берма", params: { "Ширина": "0.5" } },
+      { id: "sa4", name: "ОткосНасыпи_Л", side: "Левый" as const, type: "Откос насыпи", params: { "Заложение": "1.5" } },
+      { id: "sa5", name: "ОткосНасыпи_П", side: "Правый" as const, type: "Откос насыпи", params: { "Заложение": "1.5" } },
+      { id: "sa6", name: "КюветНасыпи_Л", side: "Левый" as const, type: "Кювет", params: { "Ширина дна": "0.4", "Глубина": "0.6", "Заложение": "1.5" } },
+      { id: "sa7", name: "КюветНасыпи_П", side: "Правый" as const, type: "Кювет", params: { "Ширина дна": "0.4", "Глубина": "0.6", "Заложение": "1.5" } },
+    ] as SubassemblyItem[]
+  },
+  {
+    id: "canal",
+    name: "Открытый канал (трапеция)",
+    description: "Ирригационный или дренажный канал трапециевидного сечения. Укрепление откосов",
+    subassemblies: [
+      { id: "sa1", name: "ДноКанала", side: "Обе стороны" as const, type: "Дно канала", params: { "Ширина дна, м": "2.0", "Поперечный уклон, %": "0.0" } },
+      { id: "sa2", name: "ОткосКанала_Л", side: "Левый" as const, type: "Откос выемки", params: { "Заложение": "1.5", "Укрепление": "Монолитный бетон" } },
+      { id: "sa3", name: "ОткосКанала_П", side: "Правый" as const, type: "Откос выемки", params: { "Заложение": "1.5", "Укрепление": "Монолитный бетон" } },
+      { id: "sa4", name: "БерегоукреплениеТело_Л", side: "Левый" as const, type: "Берма", params: { "Ширина": "2.0" } },
+      { id: "sa5", name: "БерегоукреплениеТело_П", side: "Правый" as const, type: "Берма", params: { "Ширина": "2.0" } },
+    ] as SubassemblyItem[]
+  },
+]
+
+const SA_TYPES = [
+  "Полоса движения","Обочина укреплённая","Обочина грунтовая",
+  "Откос насыпи","Откос выемки","Бордюр","Тротуар",
+  "Велодорожка","Разделительная полоса","Кювет",
+  "Балластный слой","Берма","Дно канала","Газон",
+  "Слой дорожной одежды","Субосновной слой",
+]
+
+function drawAssemblyPreview(
+  ctx: CanvasRenderingContext2D, W: number, H: number,
+  subs: SubassemblyItem[]
+) {
+  ctx.clearRect(0, 0, W, H)
+  ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, W, H)
+  const cx = W / 2, cy = H * 0.55, sc = W / 22
+
+  // ground line
+  ctx.strokeStyle = "#4b5563"; ctx.lineWidth = 1; ctx.setLineDash([4, 3])
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke()
+  ctx.setLineDash([])
+
+  // center mark
+  ctx.strokeStyle = "#6b7280"; ctx.lineWidth = 0.8
+  ctx.beginPath(); ctx.moveTo(cx, cy - 6); ctx.lineTo(cx, cy + 6); ctx.stroke()
+  ctx.fillStyle = "#9ca3af"; ctx.font = "8px monospace"; ctx.textAlign = "center"
+  ctx.fillText("ОЛ", cx, cy - 9)
+
+  // count left/right widths
+  let leftW = 0, rightW = 0
+  subs.forEach(s => {
+    const w = parseFloat(s.params["Ширина"] || s.params["Ширина основания, м"] || "3") * sc
+    if (s.side === "Левый") leftW += w
+    else if (s.side === "Правый") rightW += w
+    else { leftW += w / 2; rightW += w / 2 }
+  })
+
+  // draw surface shape
+  const COLORS: Record<string, string> = {
+    "Полоса движения": "#374151",
+    "Обочина укреплённая": "#4b5563",
+    "Обочина грунтовая": "#6b7280",
+    "Откос насыпи": "#78350f",
+    "Откос выемки": "#92400e",
+    "Бордюр": "#1f2937",
+    "Тротуар": "#6b7280",
+    "Велодорожка": "#1e40af",
+    "Разделительная полоса": "#14532d",
+    "Кювет": "#1e3a5f",
+    "Балластный слой": "#374151",
+    "Берма": "#4b5563",
+    "Дно канала": "#1e3a5f",
+    "Газон": "#14532d",
+    "Слой дорожной одежды": "#1c1917",
+    "Субосновной слой": "#292524",
+  }
+  const LABELS: Record<string, string> = {
+    "Полоса движения": "ПД", "Обочина укреплённая": "Об", "Откос насыпи": "Отк",
+    "Откос выемки": "Отк", "Бордюр": "Бд", "Тротуар": "Тр",
+    "Разделительная полоса": "РП", "Кювет": "Кв", "Балластный слой": "Бл",
+    "Берма": "Бм", "Дно канала": "Дн", "Газон": "Гз",
+  }
+
+  let lx = cx, rx = cx
+  subs.forEach(s => {
+    const w = parseFloat(s.params["Ширина"] || s.params["Ширина основания, м"] || "3") * sc
+    const slope = parseFloat(s.params["Заложение"] || "0")
+    const isSlope = s.type.includes("Откос") || s.type === "Кювет" || s.type === "Дно канала"
+    const col = COLORS[s.type] || "#374151"
+    const depth = 14
+
+    const drawSide = (startX: number, dir: 1 | -1) => {
+      const x0 = startX, x1 = startX + dir * w
+      const slopeH = isSlope ? Math.min(w * 0.7, 20) : 0
+      ctx.fillStyle = col
+      ctx.beginPath()
+      ctx.moveTo(x0, cy)
+      ctx.lineTo(x1, cy - slopeH)
+      ctx.lineTo(x1, cy - slopeH + depth)
+      ctx.lineTo(x0, cy + depth)
+      ctx.closePath(); ctx.fill()
+      ctx.strokeStyle = "#60a5fa"; ctx.lineWidth = 0.5; ctx.stroke()
+      ctx.fillStyle = "#d1d5db"; ctx.font = "7px Arial"; ctx.textAlign = "center"
+      ctx.fillText(LABELS[s.type] || s.type.slice(0, 2), (x0 + x1) / 2, cy - slopeH / 2 + 4)
+      // dimension
+      ctx.strokeStyle = "#4b5563"; ctx.lineWidth = 0.5
+      ctx.beginPath(); ctx.moveTo(x0, cy - slopeH - 8); ctx.lineTo(x1, cy - slopeH - 8); ctx.stroke()
+      ctx.fillStyle = "#9ca3af"; ctx.font = "7px monospace"; ctx.textAlign = "center"
+      ctx.fillText(`${(w / sc).toFixed(1)}м`, (x0 + x1) / 2, cy - slopeH - 11)
+      return x1
+    }
+
+    if (s.side === "Левый") { lx = drawSide(lx, -1) }
+    else if (s.side === "Правый") { rx = drawSide(rx, 1) }
+    else { lx = drawSide(lx, -1); rx = drawSide(rx, 1) }
+  })
+
+  // road surface top
+  ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(lx, cy); ctx.lineTo(cx, cy); ctx.lineTo(rx, cy); ctx.stroke()
+}
+
+function AssemblyDialog({ onClose, onOK }: {
+  onClose: () => void
+  onOK: (d: AssemblyDef) => void
+}) {
+  const [tab, setTab] = useState<"info" | "subs" | "template" | "params">("template")
+  const [def, setDef] = useState<AssemblyDef>({
+    name: "Типовое сечение 1",
+    description: "",
+    style: "Базовый",
+    layer: "С-ДОРОГА-ТС",
+    markerStyle: "Базовый",
+    defaultOffset: "0.000",
+    defaultElevAdj: "0.000",
+    subassemblies: ASSEMBLY_TEMPLATES[0].subassemblies,
+  })
+  const [selSub, setSelSub] = useState<string | null>(null)
+  const [selTemplate, setSelTemplate] = useState<string>("road2")
+  const canvasRef2 = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const c = canvasRef2.current; if (!c) return
+    c.width = c.offsetWidth; c.height = c.offsetHeight
+    const ctx = c.getContext("2d")!
+    drawAssemblyPreview(ctx, c.width, c.height, def.subassemblies)
+  }, [def.subassemblies, tab])
+
+  const applyTemplate = (id: string) => {
+    const tpl = ASSEMBLY_TEMPLATES.find(t => t.id === id)
+    if (!tpl) return
+    setSelTemplate(id)
+    setDef(d => ({ ...d, name: tpl.name, description: tpl.description, subassemblies: tpl.subassemblies }))
+  }
+
+  const addSub = () => {
+    const ns: SubassemblyItem = {
+      id: `sa_${Date.now()}`, name: "НовоеПодсечение", side: "Правый", type: "Полоса движения",
+      params: { "Ширина": "3.5", "Уклон, %": "2.0" }
+    }
+    setDef(d => ({ ...d, subassemblies: [...d.subassemblies, ns] }))
+    setSelSub(ns.id)
+  }
+
+  const removeSub = (id: string) => {
+    setDef(d => ({ ...d, subassemblies: d.subassemblies.filter(s => s.id !== id) }))
+    setSelSub(null)
+  }
+
+  const updateSub = (id: string, patch: Partial<SubassemblyItem>) => {
+    setDef(d => ({ ...d, subassemblies: d.subassemblies.map(s => s.id === id ? { ...s, ...patch } : s) }))
+  }
+
+  const updateParam = (id: string, key: string, val: string) => {
+    setDef(d => ({ ...d, subassemblies: d.subassemblies.map(s => s.id === id ? { ...s, params: { ...s.params, [key]: val } } : s) }))
+  }
+
+  const selSubData = def.subassemblies.find(s => s.id === selSub)
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col"
+        style={{ fontFamily: "Arial, sans-serif", fontSize: 12, width: 700, maxHeight: "92vh" }}>
+
+        {/* Title */}
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
+          <span className="text-white font-bold text-sm">Создать типовое сечение (Assembly)</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-300 bg-[#e8e8e8] flex-shrink-0">
+          {([["template","Типовые схемы"],["info","Информация"],["subs","Подсечения"],["params","Параметры"]] as [typeof tab, string][]).map(([t, l]) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab === t ? "bg-white text-blue-700 border-b-2 border-blue-600" : "text-gray-600 hover:bg-gray-100"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ─── Типовые схемы ─── */}
+          {tab === "template" && (
+            <div className="flex h-full" style={{ minHeight: 380 }}>
+              {/* Template list */}
+              <div className="w-56 border-r border-gray-300 bg-[#f8f8f8] flex-shrink-0">
+                <div className="bg-[#d8d8d8] px-2 py-1 text-[10px] font-bold text-gray-600 uppercase tracking-wide border-b border-gray-300">
+                  Выберите схему
+                </div>
+                {ASSEMBLY_TEMPLATES.map(tpl => (
+                  <div key={tpl.id} onClick={() => applyTemplate(tpl.id)}
+                    className={`px-3 py-2 cursor-pointer border-b border-gray-200 transition-colors ${selTemplate === tpl.id ? "bg-[#cce4ff] border-l-2 border-l-blue-600" : "hover:bg-gray-100"}`}>
+                    <div className="text-xs font-semibold text-gray-800">{tpl.name}</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">{tpl.description.slice(0, 55)}…</div>
+                  </div>
+                ))}
+              </div>
+              {/* Preview + info */}
+              <div className="flex-1 flex flex-col p-3 gap-2">
+                {/* Canvas preview */}
+                <div className="border border-gray-400 bg-[#1a1a2e] rounded" style={{ height: 140 }}>
+                  <canvas ref={canvasRef2} className="w-full h-full block" style={{ borderRadius: 4 }} />
+                </div>
+                {/* Template description */}
+                {(() => {
+                  const tpl = ASSEMBLY_TEMPLATES.find(t => t.id === selTemplate)
+                  return tpl ? (
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-gray-800">{tpl.name}</div>
+                      <div className="text-[11px] text-gray-600">{tpl.description}</div>
+                      <div className="border border-gray-300 bg-white rounded">
+                        <div className="bg-[#e0e0e0] px-2 py-0.5 text-[10px] font-bold text-gray-700 border-b border-gray-300">
+                          Состав подсечений ({tpl.subassemblies.length} эл.)
+                        </div>
+                        <div className="max-h-28 overflow-y-auto">
+                          {tpl.subassemblies.map((s, i) => (
+                            <div key={i} className={`flex items-center px-2 py-1 text-[11px] border-b border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                              <span className="w-5 text-gray-400 text-[10px]">{i + 1}.</span>
+                              <span className="w-40 font-mono text-gray-700">{s.name}</span>
+                              <span className="flex-1 text-gray-500">{s.type}</span>
+                              <span className={`text-[10px] px-1 rounded ${s.side === "Левый" ? "bg-blue-100 text-blue-700" : s.side === "Правый" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                                {s.side}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null
+                })()}
+                <button onClick={() => setTab("subs")}
+                  className="self-start mt-auto px-4 py-1 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 rounded">
+                  Применить схему и редактировать →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Информация ─── */}
+          {tab === "info" && (
+            <div className="p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="w-36 text-xs text-gray-700 shrink-0">Название:</label>
+                <input value={def.name} onChange={e => setDef(d => ({ ...d, name: e.target.value }))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+                <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">⋯</button>
+              </div>
+              <div className="flex items-start gap-2">
+                <label className="w-36 text-xs text-gray-700 shrink-0 mt-1">Описание:</label>
+                <textarea value={def.description} onChange={e => setDef(d => ({ ...d, description: e.target.value }))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white h-12 resize-none" />
+              </div>
+              {[
+                ["Стиль типового сечения:", "style", ["Базовый","Без отображения","Разработка","Существующий"]],
+                ["Стиль маркеров:", "markerStyle", ["Базовый","Точки","Без маркеров"]],
+              ].map(([lbl, field, opts]) => (
+                <div key={field as string} className="flex items-center gap-2">
+                  <label className="w-36 text-xs text-gray-700 shrink-0">{lbl as string}</label>
+                  <select value={(def as Record<string,string>)[field as string]} onChange={e => setDef(d => ({ ...d, [field as string]: e.target.value }))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                    {(opts as string[]).map(o => <option key={o}>{o}</option>)}
+                  </select>
+                  <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <label className="w-36 text-xs text-gray-700 shrink-0">Слой:</label>
+                <input value={def.layer} onChange={e => setDef(d => ({ ...d, layer: e.target.value }))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+              </div>
+              <div className="flex gap-3">
+                {[["Смещение по умолчанию:", "defaultOffset"],["Поправка по высоте:", "defaultElevAdj"]].map(([lbl, field]) => (
+                  <div key={field} className="flex items-center gap-1 flex-1">
+                    <label className="text-xs text-gray-700 shrink-0">{lbl}</label>
+                    <input value={(def as Record<string,string>)[field]} onChange={e => setDef(d => ({ ...d, [field]: e.target.value }))} className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── Подсечения ─── */}
+          {tab === "subs" && (
+            <div className="flex" style={{ minHeight: 380 }}>
+              {/* Left: list */}
+              <div className="w-64 border-r border-gray-300 flex flex-col flex-shrink-0">
+                <div className="bg-[#d8d8d8] px-2 py-1 flex items-center justify-between border-b border-gray-300">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase">Подсечения</span>
+                  <div className="flex gap-1">
+                    <button onClick={addSub} className="px-2 py-0.5 bg-[#0078d4] text-white text-[10px] hover:bg-blue-700">+ Добавить</button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {def.subassemblies.map((s, i) => (
+                    <div key={s.id} onClick={() => setSelSub(s.id)}
+                      className={`flex items-center px-2 py-1.5 cursor-pointer border-b border-gray-100 transition-colors ${selSub === s.id ? "bg-[#cce4ff]" : i % 2 === 0 ? "bg-white hover:bg-blue-50" : "bg-gray-50 hover:bg-blue-50"}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-gray-800 truncate">{s.name}</div>
+                        <div className="text-[10px] text-gray-500">{s.type}</div>
+                      </div>
+                      <span className={`text-[9px] px-1 rounded mr-1 flex-shrink-0 ${s.side === "Левый" ? "bg-blue-100 text-blue-700" : s.side === "Правый" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                        {s.side === "Левый" ? "Л" : s.side === "Правый" ? "П" : "ОС"}
+                      </span>
+                      <button onClick={e => { e.stopPropagation(); removeSub(s.id) }} className="text-gray-400 hover:text-red-500 text-xs ml-1">✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Right: editor + preview */}
+              <div className="flex-1 flex flex-col gap-2 p-3">
+                {/* Preview */}
+                <div className="border border-gray-400 bg-[#1a1a2e] rounded" style={{ height: 120 }}>
+                  <canvas ref={canvasRef2} className="w-full h-full block" style={{ borderRadius: 4 }} />
+                </div>
+                {selSubData ? (
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-gray-700 border-b border-gray-300 pb-1">{selSubData.name} — редактирование</div>
+                    <div className="flex items-center gap-2">
+                      <label className="w-28 text-xs text-gray-700 shrink-0">Имя:</label>
+                      <input value={selSubData.name} onChange={e => updateSub(selSubData.id, { name: e.target.value })} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="w-28 text-xs text-gray-700 shrink-0">Тип подсечения:</label>
+                      <select value={selSubData.type} onChange={e => updateSub(selSubData.id, { type: e.target.value })} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                        {SA_TYPES.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="w-28 text-xs text-gray-700 shrink-0">Сторона:</label>
+                      <select value={selSubData.side} onChange={e => updateSub(selSubData.id, { side: e.target.value as SubassemblyItem["side"] })} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                        {["Левый","Правый","Обе стороны"].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="border border-gray-300 bg-white">
+                      <div className="bg-[#e8e8e8] px-2 py-0.5 text-[10px] font-bold text-gray-700 border-b border-gray-300">Параметры</div>
+                      {Object.entries(selSubData.params).map(([k, v]) => (
+                        <div key={k} className="flex items-center px-2 py-1 border-b border-gray-100">
+                          <span className="w-40 text-xs text-gray-700">{k}:</span>
+                          <input value={v} onChange={e => updateParam(selSubData.id, k, e.target.value)} className="flex-1 border border-gray-300 px-2 py-0.5 text-xs bg-white font-mono" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 text-center py-6">Выберите подсечение для редактирования</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ─── Параметры ─── */}
+          {tab === "params" && (
+            <div className="p-3 space-y-3">
+              <div className="text-xs font-bold text-gray-700 border-b border-gray-300 pb-1">Параметры построения коридора</div>
+              {[
+                { label: "Метод интерполяции откосов:", options: ["Линейная","По поверхности","Фиксированная отметка"] },
+                { label: "Тип кювета:", options: ["Треугольный","Трапециевидный","Параболический","Без кювета"] },
+                { label: "Поведение при пересечениях:", options: ["Автоматически","Приоритет основной трассы","Игнорировать"] },
+                { label: "Расчёт объёмов:", options: ["Метод средних площадей","Метод призматоида","Без расчёта"] },
+              ].map(({ label, options }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <label className="w-52 text-xs text-gray-700 shrink-0">{label}</label>
+                  <select className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                    {options.map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              ))}
+              <div className="border border-gray-300 bg-white p-2 rounded mt-2 space-y-1">
+                <div className="text-xs font-bold text-gray-700 mb-1">Допуски</div>
+                {[
+                  ["Допуск по высоте, м:", "0.001"],
+                  ["Допуск по горизонтали, м:", "0.001"],
+                  ["Макс. шаг разбивки, м:", "5.000"],
+                ].map(([lbl, val]) => (
+                  <div key={lbl as string} className="flex items-center gap-2">
+                    <label className="w-48 text-xs text-gray-600">{lbl}</label>
+                    <input defaultValue={val as string} className="w-20 border border-gray-300 px-2 py-0.5 text-xs bg-white font-mono" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-4 pt-1">
+                {[
+                  ["Создавать точки на бровках", true],
+                  ["Отображать коды подсечений", true],
+                  ["Строить поверхность верха", false],
+                  ["Строить поверхность низа", false],
+                ].map(([lbl, def]) => (
+                  <label key={lbl as string} className="flex items-center gap-1.5 text-xs cursor-pointer text-gray-700">
+                    <input type="checkbox" defaultChecked={def as boolean} className="accent-blue-600" />
+                    {lbl as string}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end gap-2 px-3 py-2 border-t border-gray-300 bg-[#e8e8e8] flex-shrink-0">
+          <button onClick={() => onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
+          <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
+          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 // ─── Create Corridor Dialog ──────────────────────────────────────────────────
 
 function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: CorridorDef) => void }) {
@@ -1377,6 +1868,7 @@ export default function CivilCADModule() {
   const [showSurface, setShowSurface] = useState(false)
   const [showAlignment, setShowAlignment] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [showAssembly, setShowAssembly] = useState(false)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1426,6 +1918,7 @@ export default function CivilCADModule() {
     else if (c === "ПОВЕРХНОСТЬ" || c === "SURFACE" || c === "TIN") setShowSurface(true)
     else if (c === "ТРАССА" || c === "ALIGNMENT") setShowAlignment(true)
     else if (c === "ПРОФИЛЬ" || c === "PROFILE") setShowProfile(true)
+    else if (c === "СЕЧЕНИЕ" || c === "ASSEMBLY" || c === "ТС") setShowAssembly(true)
     else if (c === "ZOOM E" || c === "ВПИСАТЬ") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
     else if (c === "REGEN" || c === "РЕГЕН") draw()
     setStatusMsg(`Команда: ${cmd}`)
@@ -1440,6 +1933,7 @@ export default function CivilCADModule() {
     else if (key.includes("Поверхност") || key.includes("TIN") || key.includes("Grid") || key.includes("поверхност")) { setShowSurface(true) }
     else if (key.includes("Трасс") || key.includes("трасс")) { setShowAlignment(true) }
     else if (key.includes("Профиль") || key.includes("профиль") || key.includes("рельеф") || key.includes("Профиль из")) { setShowProfile(true) }
+    else if (key.includes("Типовое") || key.includes("типовое") || key.includes("сечение") || key.includes("Assembly")) { setShowAssembly(true) }
   }
 
   const handleToolbarItem = (item: string) => {
@@ -1708,6 +2202,22 @@ export default function CivilCADModule() {
                 alignments={["Трасса ШД-38","Ул. Трумана","Бордюр периметра"]}
               />
             )}
+            {showAssembly && (
+              <AssemblyDialog
+                onClose={() => setShowAssembly(false)}
+                onOK={def => {
+                  setShowAssembly(false)
+                  setStatusMsg(`Типовое сечение «${def.name}» создано (${def.subassemblies.length} подсечений)`)
+                  setTreeData(prev => {
+                    const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
+                      if (n.id === "assemblies") return { ...n, children: [...(n.children||[]), { id: `asm_${Date.now()}`, label: def.name, icon: "Layers", color: "#94a3b8" }] }
+                      return { ...n, children: n.children ? add(n.children) : undefined }
+                    })
+                    return add(prev)
+                  })
+                }}
+              />
+            )}
           </AnimatePresence>
         </div>
 
@@ -1724,7 +2234,7 @@ export default function CivilCADModule() {
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Введите команду  (ПОВЕРХНОСТЬ, ТРАССА, ПРОФИЛЬ, КОРИДОР, ZOOM E)"
+            placeholder="Введите команду  (ПОВЕРХНОСТЬ, ТРАССА, ПРОФИЛЬ, КОРИДОР, СЕЧЕНИЕ, ZOOM E)"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
