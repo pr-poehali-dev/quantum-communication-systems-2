@@ -143,7 +143,7 @@ export default function Dashboard() {
         </aside>
 
         {/* Content */}
-        <div className={`flex-1 ${activeModule === "civilcad" ? "overflow-hidden" : "overflow-auto p-6"}`}>
+        <div className={`flex-1 ${activeModule === "civilcad" || activeModule === "viewer3d" ? "overflow-hidden" : "overflow-auto p-6"}`}>
           <AnimatePresence mode="wait">
             {!activeModule ? (
               <motion.div
@@ -187,11 +187,11 @@ export default function Dashboard() {
             ) : (
               <motion.div
                 key={activeModule}
-                initial={activeModule === "civilcad" ? {} : { opacity: 0, x: 20 }}
-                animate={activeModule === "civilcad" ? {} : { opacity: 1, x: 0 }}
-                exit={activeModule === "civilcad" ? {} : { opacity: 0, x: -20 }}
+                initial={activeModule === "civilcad" || activeModule === "viewer3d" ? {} : { opacity: 0, x: 20 }}
+                animate={activeModule === "civilcad" || activeModule === "viewer3d" ? {} : { opacity: 1, x: 0 }}
+                exit={activeModule === "civilcad" || activeModule === "viewer3d" ? {} : { opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
-                className={activeModule === "civilcad" ? "h-full" : ""}
+                className={activeModule === "civilcad" || activeModule === "viewer3d" ? "h-full" : ""}
               >
                 {current?.component ? (
                   <ErrorBoundary key={activeModule}>
