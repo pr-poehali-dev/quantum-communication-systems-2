@@ -66,7 +66,7 @@ const TREE: TreeNode[] = [
   {
     id: "project", label: "Главная парковка_Финал", icon: "FolderOpen", expanded: true, children: [
       { id: "points", label: "Точки", icon: "MapPin", color: "#f59e0b" },
-      { id: "ptgroups", label: "Группы точек", icon: "Group", color: "#f59e0b" },
+      { id: "ptgroups", label: "Группы точек", icon: "Users", color: "#f59e0b" },
       {
         id: "surfaces", label: "Поверхности", icon: "Mountain", color: "#4ade80", expanded: true, children: [
           { id: "s1", label: "Существующая поверхность", icon: "Triangle", color: "#4ade80" },
@@ -86,17 +86,17 @@ const TREE: TreeNode[] = [
       { id: "catchments", label: "Водосборные бассейны", icon: "Droplets", color: "#60a5fa" },
       { id: "pipenet", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
       { id: "pressnet", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
-      { id: "bridges", label: "Мосты", icon: "Bridge", color: "#f59e0b" },
+      { id: "bridges", label: "Мосты", icon: "Milestone", color: "#f59e0b" },
       {
-        id: "corridors", label: "Коридоры", icon: "RoadHorizon", color: "#f97316", expanded: true, children: [
+        id: "corridors", label: "Коридоры", icon: "Navigation", color: "#f97316", expanded: true, children: [
           { id: "c1", label: "Дорога и парковочная зона", icon: "Minus", color: "#f97316" },
         ]
       },
       { id: "assemblies", label: "Типовые сечения", icon: "Layers", color: "#94a3b8" },
-      { id: "subassemblies", label: "Подсечения", icon: "Component", color: "#94a3b8" },
+      { id: "subassemblies", label: "Подсечения", icon: "Layers2", color: "#94a3b8" },
       { id: "intersections", label: "Пересечения", icon: "Plus", color: "#f43f5e" },
       { id: "survey", label: "Геодезия", icon: "Compass", color: "#10b981" },
-      { id: "vfg", label: "Группы видовых рамок", icon: "Frame", color: "#64748b" },
+      { id: "vfg", label: "Группы видовых рамок", icon: "RectangleHorizontal", color: "#64748b" },
     ]
   },
   {
@@ -105,8 +105,8 @@ const TREE: TreeNode[] = [
       { id: "ds2", label: "Трассы", icon: "Route", color: "#f97316" },
       { id: "ds3", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
       { id: "ds4", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
-      { id: "ds5", label: "Коридоры", icon: "RoadHorizon", color: "#f97316" },
-      { id: "ds6", label: "Группы видовых рамок", icon: "Frame", color: "#64748b" },
+      { id: "ds5", label: "Коридоры", icon: "Navigation", color: "#f97316" },
+      { id: "ds6", label: "Группы видовых рамок", icon: "RectangleHorizontal", color: "#64748b" },
     ]
   },
 ]
@@ -1312,27 +1312,33 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
 
 // ─── Tree node component ─────────────────────────────────────────────────────
 
-function TreeItem({ node, depth, selected, onSelect, onToggle }: {
+function TreeItem({ node, depth, selected, onSelect, onToggle, onAction }: {
   node: TreeNode; depth: number; selected: string | null
   onSelect: (id: string) => void; onToggle: (id: string) => void
+  onAction?: (node: TreeNode) => void
 }) {
   return (
     <>
       <div
-        className={`flex items-center gap-1 px-1 py-0.5 cursor-pointer text-xs select-none hover:bg-blue-900/40 transition-colors ${selected === node.id ? "bg-blue-800/60" : ""}`}
+        className={`flex items-center gap-1 px-1 py-0.5 cursor-pointer text-xs select-none hover:bg-blue-900/40 transition-colors group ${selected === node.id ? "bg-blue-800/60" : ""}`}
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
         onClick={() => onSelect(node.id)}
-        onDoubleClick={() => node.children && onToggle(node.id)}
+        onDoubleClick={() => {
+          if (node.children) onToggle(node.id)
+          else onAction?.(node)
+        }}
+        onContextMenu={e => { e.preventDefault(); onAction?.(node) }}
       >
         {node.children ? (
           <Icon name={node.expanded ? "ChevronDown" : "ChevronRight"} size={10} className="text-gray-400 flex-shrink-0"
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggle(node.id) }} />
-        ) : <span className="w-2.5" />}
-        <Icon name={node.icon} size={12} className="flex-shrink-0" style={{ color: node.color || "#94a3b8" }} fallback="File" />
-        <span className="text-gray-200 truncate">{node.label}</span>
+        ) : <span className="w-2.5 flex-shrink-0" />}
+        <Icon name={node.icon} size={13} className="flex-shrink-0" style={{ color: node.color || "#94a3b8" }} fallback="File" />
+        <span className="text-gray-200 truncate flex-1">{node.label}</span>
       </div>
       {node.expanded && node.children?.map(child => (
-        <TreeItem key={child.id} node={child} depth={depth + 1} selected={selected} onSelect={onSelect} onToggle={onToggle} />
+        <TreeItem key={child.id} node={child} depth={depth + 1} selected={selected}
+          onSelect={onSelect} onToggle={onToggle} onAction={onAction} />
       ))}
     </>
   )
@@ -2177,21 +2183,30 @@ export default function CivilCADModule() {
 
   const openDialog = (key: string) => {
     setOpenDropdown(null)
-    if (key.includes("Коридор") || key.includes("коридор")) { setShowCorridor(true) }
-    else if (key.includes("Поверхност") || key.includes("TIN") || key.includes("Grid") || key.includes("поверхност")) { setShowSurface(true) }
-    else if (key.includes("Трасс") || key.includes("трасс")) { setShowAlignment(true) }
-    else if (key.includes("Профиль") || key.includes("профиль") || key.includes("рельеф") || key.includes("Профиль из")) { setShowProfile(true) }
-    else if (key.includes("Типовое") || key.includes("типовое") || key.includes("сечение") || key.includes("Тип.") || key.includes("Assembly")) { setShowAssembly(true) }
+    const k = key.toLowerCase()
+    if (k.includes("коридор")) { setShowCorridor(true) }
+    else if (k.includes("поверхност") || k.includes("tin") || k.includes("grid")) { setShowSurface(true) }
+    else if (k.includes("трасс")) { setShowAlignment(true) }
+    else if (k.includes("профиль") || k.includes("рельеф")) { setShowProfile(true) }
+    else if (k.includes("типовое") || k.includes("сечение") || k.includes("тип.") || k.includes("assembly")) { setShowAssembly(true) }
   }
 
   const handleToolbarItem = (item: string) => {
     openDialog(item)
-    setStatusMsg(`Команда: ${item.replace(" ▾","")}`)
+    setStatusMsg(`Команда: ${item}`)
   }
 
   const handleDropdownItem = (parent: string, sub: string) => {
     openDialog(parent + " " + sub)
     setStatusMsg(`${parent.replace(" ▾","")}: ${sub}`)
+  }
+
+  const handleTreeNodeAction = (node: TreeNode) => {
+    if (node.id === "surfaces" || node.id === "s1" || node.id === "s2" || node.id === "ds1") { setShowSurface(true) }
+    else if (node.id === "alignments" || node.id.startsWith("a") || node.id === "ds2") { setShowAlignment(true) }
+    else if (node.id === "corridors" || node.id === "c1" || node.id === "ds5") { setShowCorridor(true) }
+    else if (node.id === "assemblies" || node.id.startsWith("asm_")) { setShowAssembly(true) }
+    else { setStatusMsg(`Выбран объект: ${node.label}`) }
   }
 
   const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"] || []
@@ -2341,10 +2356,22 @@ export default function CivilCADModule() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Left: Toolbox strip ── */}
-        <div className="bg-[#252535] border-r border-gray-700 w-6 flex flex-col items-center py-1 gap-1">
-          {["MousePointer2","Move","ZoomIn","RotateCcw","Layers","Settings"].map(ic => (
-            <button key={ic} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 rounded">
-              <Icon name={ic} size={12} fallback="Square" />
+        <div className="bg-[#252535] border-r border-gray-700 w-6 flex flex-col items-center py-1 gap-0.5">
+          {[
+            { icon: "MousePointer2", title: "Выбор" },
+            { icon: "Move", title: "Перенести" },
+            { icon: "ZoomIn", title: "Увеличить" },
+            { icon: "ZoomOut", title: "Уменьшить" },
+            { icon: "Hand", title: "Панорама" },
+            { icon: "RotateCcw", title: "Орбита" },
+            { icon: "Ruler", title: "Измерение" },
+            { icon: "Layers", title: "Слои" },
+            { icon: "Settings", title: "Параметры" },
+          ].map(({ icon, title }) => (
+            <button key={icon} title={title}
+              onClick={() => setStatusMsg(`Инструмент: ${title}`)}
+              className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
+              <Icon name={icon} size={11} fallback="Square" />
             </button>
           ))}
         </div>
@@ -2385,7 +2412,7 @@ export default function CivilCADModule() {
           <div className="flex-1 overflow-y-auto">
             {treeData.map(node => (
               <TreeItem key={node.id} node={node} depth={0} selected={selectedNode}
-                onSelect={setSelectedNode} onToggle={toggleNode} />
+                onSelect={setSelectedNode} onToggle={toggleNode} onAction={handleTreeNodeAction} />
             ))}
           </div>
         </div>
