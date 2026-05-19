@@ -63,7 +63,7 @@ const MODULES = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [activeModule, setActiveModule] = useState<string | null>("civilcad")
+  const [activeModule, setActiveModule] = useState<string | null>(null)
 
   useEffect(() => {
     if (!localStorage.getItem("civilpro_auth")) navigate("/login")
