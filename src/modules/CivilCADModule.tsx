@@ -2575,6 +2575,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
+  const saveObject = (type: string, name: string, data: Record<string, unknown> = {}) => {
+    fetch("https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: 1, object_type: type, name, data }),
+    }).catch(() => {})
+  }
+
   const toggleNode = (id: string) => {
     const toggle = (nodes: TreeNode[]): TreeNode[] =>
       nodes.map(n => n.id === id ? { ...n, expanded: !n.expanded } : { ...n, children: n.children ? toggle(n.children) : undefined })
@@ -2988,6 +2996,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   setCorridors(prev => prev.includes(def.name) ? prev : [...prev, def.name])
                   setShowCorridor(false)
                   setStatusMsg(`Коридор «${def.name}» успешно создан`)
+                  saveObject("corridor", def.name, { name: def.name })
+                  showToast(`💾 Коридор «${def.name}» сохранён в проект`)
                 }}
               />
             )}
@@ -2997,6 +3007,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 onOK={def => {
                   setShowSurface(false)
                   setStatusMsg(`Поверхность «${def.name}» (${def.type}) создана`)
+                  saveObject("surface", def.name, { type: def.type })
+                  showToast(`💾 Поверхность «${def.name}» сохранена`)
                   setTreeData(prev => {
                     const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
                       if (n.id === "surfaces") return { ...n, children: [...(n.children||[]), { id: `surf_${Date.now()}`, label: def.name, icon: "Triangle", color: "#4ade80" }] }
@@ -3011,8 +3023,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <AlignmentDialog
                 onClose={() => setShowAlignment(false)}
                 onOK={def => {
+                  const length = def.elements.reduce((s,e)=>s+(parseFloat(e.length)||0),0).toFixed(0)
                   setShowAlignment(false)
-                  setStatusMsg(`Трасса «${def.name}» создана, длина ${def.elements.reduce((s,e)=>s+(parseFloat(e.length)||0),0).toFixed(0)} м`)
+                  setStatusMsg(`Трасса «${def.name}» создана, длина ${length} м`)
+                  saveObject("alignment", def.name, { length })
+                  showToast(`💾 Трасса «${def.name}» сохранена`)
                   setTreeData(prev => {
                     const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
                       if (n.id === "alignments") return { ...n, children: [...(n.children||[]), { id: `al_${Date.now()}`, label: def.name, icon: "Minus", color: "#f97316" }] }
@@ -3029,6 +3044,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 onOK={def => {
                   setShowProfile(false)
                   setStatusMsg(`Профиль «${def.name}» создан для трассы ${def.alignment}`)
+                  saveObject("profile", def.name, { alignment: def.alignment })
+                  showToast(`💾 Профиль «${def.name}» сохранён`)
                 }}
                 alignments={["Трасса ШД-38","Ул. Трумана","Бордюр периметра"]}
               />
@@ -3039,6 +3056,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 onOK={def => {
                   setShowAssembly(false)
                   setStatusMsg(`Типовое сечение «${def.name}» создано (${def.subassemblies.length} подсечений)`)
+                  saveObject("assembly", def.name, { count: def.subassemblies.length })
+                  showToast(`💾 Типовое сечение «${def.name}» сохранено`)
                   setTreeData(prev => {
                     const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
                       if (n.id === "assemblies") return { ...n, children: [...(n.children||[]), { id: `asm_${Date.now()}`, label: def.name, icon: "Layers", color: "#94a3b8" }] }
@@ -3053,6 +3072,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <PointsDialog onClose={()=>setShowPoints(false)} onOK={pts=>{
                 setShowPoints(false)
                 setStatusMsg(`Создано точек: ${pts.length}`)
+                saveObject("points", `Группа точек (${pts.length})`, { count: pts.length, pts })
+                showToast(`💾 Точек сохранено: ${pts.length}`)
                 setTreeData(prev=>{
                   const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="points"?{...n,children:[...(n.children||[]),...pts.map((p,i)=>({id:`pt_${Date.now()+i}`,label:p.name,icon:"MapPin",color:"#f59e0b"}))]}:{...n,children:n.children?add(n.children):undefined})
                   return add(prev)
@@ -3063,6 +3084,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <PipeNetDialog onClose={()=>setShowPipeNet(false)} onOK={d=>{
                 setShowPipeNet(false)
                 setStatusMsg(`Сеть «${d.name}» создана (${d.type})`)
+                saveObject("pipe_network", d.name, { type: d.type, material: d.material })
+                showToast(`💾 Сеть «${d.name}» сохранена`)
                 setTreeData(prev=>{
                   const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="pipenet"?{...n,children:[...(n.children||[]),{id:`pipe_${Date.now()}`,label:d.name,icon:"Network",color:"#6366f1"}]}:{...n,children:n.children?add(n.children):undefined})
                   return add(prev)
@@ -3073,6 +3096,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <IntersectionDialog onClose={()=>setShowIntersection(false)} onOK={d=>{
                 setShowIntersection(false)
                 setStatusMsg(`Пересечение «${d.name}»: ${d.mainRoad} × ${d.secRoad}`)
+                saveObject("intersection", d.name, { mainRoad: d.mainRoad, secRoad: d.secRoad })
+                showToast(`💾 Пересечение «${d.name}» сохранено`)
                 setTreeData(prev=>{
                   const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="intersections"?{...n,children:[...(n.children||[]),{id:`int_${Date.now()}`,label:d.name,icon:"Plus",color:"#f43f5e"}]}:{...n,children:n.children?add(n.children):undefined})
                   return add(prev)
@@ -3083,6 +3108,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <FeatureLineDialog onClose={()=>setShowFeatureLine(false)} onOK={d=>{
                 setShowFeatureLine(false)
                 setStatusMsg(`Характерная линия «${d.name}» создана`)
+                saveObject("feature_line", d.name, { site: d.site })
+                showToast(`💾 Характерная линия «${d.name}» сохранена`)
                 setTreeData(prev=>{
                   const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="featurelines"?{...n,children:[...(n.children||[]),{id:`fl_${Date.now()}`,label:d.name,icon:"Spline",color:"#ec4899"}]}:{...n,children:n.children?add(n.children):undefined})
                   return add(prev)

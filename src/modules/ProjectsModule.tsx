@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,29 +40,12 @@ const STATUS_COLORS: Record<string, string> = {
 }
 const STATUS_LABELS: Record<string, string> = { active: "В работе", review: "На проверке", approved: "Утверждён", archived: "Архив" }
 
-const INIT_PROJECTS: Project[] = [
-  {
-    id: 1, name: "Автодорога М-5 обход г. Пример", type: "Автодорога", stage: "РД — Рабочая документация",
-    length: 12400, status: "active", created: "2024-03-15", updated: "2024-11-02",
-    versions: [
-      { id: 1, num: "v1.0", date: "2024-03-15", author: "Иванов А.А.", comment: "Первичная версия", size: "24 МБ" },
-      { id: 2, num: "v1.1", date: "2024-06-20", author: "Петров В.В.", comment: "Правки по замечаниям ГГЭ", size: "26 МБ" },
-      { id: 3, num: "v2.0", date: "2024-11-02", author: "Иванов А.А.", comment: "Актуализация после съёмки", size: "31 МБ" },
-    ],
-    team: ["Иванов А.А.", "Петров В.В.", "Сидорова Е.Н."],
-  },
-  {
-    id: 2, name: "Водоснабжение пос. Новый", type: "Инженерные сети", stage: "ПД — Проектная документация",
-    length: 3200, status: "review", created: "2024-07-10", updated: "2024-10-28",
-    versions: [
-      { id: 1, num: "v1.0", date: "2024-07-10", author: "Смирнов Д.К.", comment: "Исходная версия", size: "8 МБ" },
-    ],
-    team: ["Смирнов Д.К.", "Козлова И.П."],
-  },
-]
+const API = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
 
 export default function ProjectsModule() {
-  const [projects, setProjects] = useState<Project[]>(INIT_PROJECTS)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [activeProject, setActiveProject] = useState<number | null>(null)
   const [form, setForm] = useState({ name: "", type: PROJECT_TYPES[0], stage: STAGES[0], length: "" })
   const [versionComment, setVersionComment] = useState("")
@@ -71,16 +54,49 @@ export default function ProjectsModule() {
 
   const current = projects.find(p => p.id === activeProject)
 
-  const addProject = () => {
+  // Загрузка проектов из БД
+  useEffect(() => {
+    setLoading(true)
+    fetch(API)
+      .then(r => r.json())
+      .then((data: {id:number;name:string;description:string;type:string;status:string;created_at:string;updated_at:string;objects_count:number}[]) => {
+        const mapped: Project[] = data.map(p => ({
+          id: p.id,
+          name: p.name,
+          type: p.type === "road" ? "Автодорога" : p.type === "network" ? "Инженерные сети" : p.type,
+          stage: "РД — Рабочая документация",
+          length: 0,
+          status: (p.status as Project["status"]) || "active",
+          created: p.created_at.split(" ")[0],
+          updated: p.updated_at.split(" ")[0],
+          versions: [{ id: 1, num: "v1.0", date: p.created_at.split(" ")[0], author: "test@test", comment: "Создание проекта", size: "—" }],
+          team: ["test@test"],
+        }))
+        setProjects(mapped)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const addProject = async () => {
     if (!form.name) return
-    const now = new Date().toISOString().split("T")[0]
-    setProjects(prev => [...prev, {
-      id: Date.now(), name: form.name, type: form.type, stage: form.stage,
-      length: +form.length || 0, status: "active", created: now, updated: now,
-      versions: [{ id: 1, num: "v1.0", date: now, author: "test@test", comment: "Создание проекта", size: "—" }],
-      team: ["test@test"],
-    }])
-    setForm(f => ({ ...f, name: "", length: "" }))
+    setSaving(true)
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, description: form.stage, type: "road", status: "active" }),
+      })
+      const p = await res.json()
+      const now = new Date().toISOString().split("T")[0]
+      setProjects(prev => [...prev, {
+        id: p.id, name: p.name, type: form.type, stage: form.stage,
+        length: +form.length || 0, status: "active", created: now, updated: now,
+        versions: [{ id: 1, num: "v1.0", date: now, author: "test@test", comment: "Создание проекта", size: "—" }],
+        team: ["test@test"],
+      }])
+      setForm(f => ({ ...f, name: "", length: "" }))
+    } finally { setSaving(false) }
   }
 
   const addVersion = (pid: number) => {
@@ -90,14 +106,18 @@ export default function ProjectsModule() {
       if (p.id !== pid) return p
       const last = p.versions[p.versions.length - 1]
       const [major, minor] = last.num.replace("v", "").split(".").map(Number)
-      const newNum = `v${major}.${minor + 1}`
-      return { ...p, updated: now, versions: [...p.versions, { id: Date.now(), num: newNum, date: now, author: "test@test", comment: versionComment, size: "—" }] }
+      return { ...p, updated: now, versions: [...p.versions, { id: Date.now(), num: `v${major}.${minor + 1}`, date: now, author: "test@test", comment: versionComment, size: "—" }] }
     }))
+    // Сохраняем объект-версию в БД
+    fetch(API, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: pid, object_type: "version", name: versionComment, data: {} }) })
     setVersionComment("")
   }
 
-  const setStatus = (pid: number, status: Project["status"]) => {
+  const setStatus = async (pid: number, status: Project["status"]) => {
     setProjects(prev => prev.map(p => p.id === pid ? { ...p, status } : p))
+    await fetch(API, { method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: pid, status }) })
   }
 
   const deleteProject = (pid: number) => {
@@ -105,18 +125,28 @@ export default function ProjectsModule() {
     if (activeProject === pid) setActiveProject(null)
   }
 
-  const archiveProject = (pid: number) => {
+  const archiveProject = async (pid: number) => {
     setProjects(prev => prev.map(p => p.id === pid ? { ...p, status: "archived" } : p))
     setActiveProject(null)
+    await fetch(API, { method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: pid, status: "archived" }) })
   }
 
-  const restoreProject = (pid: number) => {
+  const restoreProject = async (pid: number) => {
     setProjects(prev => prev.map(p => p.id === pid ? { ...p, status: "active" } : p))
+    await fetch(API, { method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: pid, status: "active" }) })
   }
 
   const filtered = projects.filter(p =>
     (filterStatus === "all" || p.status === filterStatus) &&
     p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-24 text-muted-foreground gap-3">
+      <Icon name="Loader" size={20} className="animate-spin" /> Загрузка проектов…
+    </div>
   )
 
   return (
@@ -157,7 +187,10 @@ export default function ProjectsModule() {
                 </div>
                 <div><Label>Длина объекта (м)</Label><Input type="number" placeholder="1000" value={form.length} onChange={e => setForm(f => ({ ...f, length: e.target.value }))} /></div>
               </div>
-              <Button onClick={addProject} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Icon name="FolderPlus" size={16} /> Создать проект</Button>
+              <Button onClick={addProject} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                {saving ? <Icon name="Loader" size={16} className="animate-spin" /> : <Icon name="FolderPlus" size={16} />}
+                {saving ? "Сохранение…" : "Создать проект"}
+              </Button>
             </div>
 
             {/* Project cards */}

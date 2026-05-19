@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "GET projects list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST create project",
+      "method": "POST",
+      "path": "/",
+      "body": {"name": "Тестовый проект", "description": "Тест", "type": "road", "status": "active"},
+      "expectedStatus": 201,
+      "expectedBody": {"name": "Тестовый проект"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
