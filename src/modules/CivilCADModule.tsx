@@ -1320,21 +1320,27 @@ function TreeItem({ node, depth, selected, onSelect, onToggle, onAction }: {
   return (
     <>
       <div
-        className={`flex items-center gap-1 px-1 py-0.5 cursor-pointer text-xs select-none hover:bg-blue-900/40 transition-colors group ${selected === node.id ? "bg-blue-800/60" : ""}`}
-        style={{ paddingLeft: `${depth * 14 + 4}px` }}
+        className={`flex items-center gap-0.5 cursor-pointer select-none transition-colors
+          ${selected === node.id ? "bg-[#0078d4]" : "hover:bg-[#2a2a3e]"}`}
+        style={{ paddingLeft: `${depth * 16 + 2}px`, paddingTop: 1, paddingBottom: 1, paddingRight: 4 }}
         onClick={() => onSelect(node.id)}
-        onDoubleClick={() => {
-          if (node.children) onToggle(node.id)
-          else onAction?.(node)
-        }}
+        onDoubleClick={() => { if (node.children) onToggle(node.id); else onAction?.(node) }}
         onContextMenu={e => { e.preventDefault(); onAction?.(node) }}
       >
-        {node.children ? (
-          <Icon name={node.expanded ? "ChevronDown" : "ChevronRight"} size={10} className="text-gray-400 flex-shrink-0"
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggle(node.id) }} />
-        ) : <span className="w-2.5 flex-shrink-0" />}
-        <Icon name={node.icon} size={13} className="flex-shrink-0" style={{ color: node.color || "#94a3b8" }} fallback="File" />
-        <span className="text-gray-200 truncate flex-1">{node.label}</span>
+        {/* expand arrow */}
+        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+          {node.children ? (
+            <Icon name={node.expanded ? "ChevronDown" : "ChevronRight"} size={11}
+              className="text-gray-400"
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggle(node.id) }} />
+          ) : null}
+        </span>
+        {/* node icon */}
+        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+          <Icon name={node.icon} size={14} style={{ color: node.color || "#94a3b8" }} fallback="File" />
+        </span>
+        {/* label */}
+        <span className="text-[12px] leading-5 text-gray-100 truncate ml-0.5">{node.label}</span>
       </div>
       {node.expanded && node.children?.map(child => (
         <TreeItem key={child.id} node={child} depth={depth + 1} selected={selected}
@@ -2377,10 +2383,10 @@ export default function CivilCADModule() {
         </div>
 
         {/* ── Left: Toolspace / Tree ── */}
-        <div className="bg-[#1a1a2e] border-r border-gray-700 w-40 flex flex-col overflow-hidden flex-shrink-0">
-          {/* Toolspace header */}
-          <div className="bg-[#2b2b3f] px-1.5 py-0.5 flex items-center justify-between border-b border-gray-700">
-            <span className="text-[9px] text-gray-200 font-bold tracking-widest uppercase">TOOLSPACE</span>
+        <div className="bg-[#1e1e2e] border-r border-gray-600 flex flex-col overflow-hidden flex-shrink-0" style={{ width: 160 }}>
+          {/* TOOL SPACE header */}
+          <div className="bg-[#252535] px-2 py-1 flex items-center justify-between border-b border-gray-600">
+            <span className="text-[10px] text-gray-300 font-bold tracking-widest uppercase">TOOL SPACE</span>
             <div className="flex gap-0.5">
               {[
                 { icon: "ClipboardList", title: "Проспект" },
@@ -2390,30 +2396,31 @@ export default function CivilCADModule() {
               ].map(({ icon, title }) => (
                 <button key={icon} title={title}
                   onClick={() => setStatusMsg(`Toolspace: ${title}`)}
-                  className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-white hover:bg-blue-600 rounded transition-colors">
-                  <Icon name={icon} size={9} fallback="Square" />
+                  className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
+                  <Icon name={icon} size={11} fallback="Square" />
                 </button>
               ))}
             </div>
           </div>
-          {/* Prospector / Settings tabs */}
-          <div className="flex border-b border-gray-700 bg-[#222235]">
+          {/* Диспетчер / Параметры tabs */}
+          <div className="flex border-b border-gray-600">
             {["Диспетчер","Параметры"].map((t, i) => (
               <button key={t}
-                className={`flex-1 text-[9px] py-0.5 border-r border-gray-700 last:border-0 transition-colors
-                  ${i === 0 ? "bg-[#1a1a2e] text-white border-b-2 border-b-[#0078d4]" : "text-gray-400 hover:bg-[#2d2d4e] hover:text-white"}`}
+                className={`flex-1 text-[11px] py-1 border-r border-gray-600 last:border-0 transition-colors font-medium
+                  ${i === 0 ? "bg-[#1e1e2e] text-white border-b-2 border-b-[#0078d4]" : "bg-[#252535] text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}
                 onClick={() => setStatusMsg(`Вкладка: ${t}`)}>
                 {t}
               </button>
             ))}
           </div>
-          {/* Active Drawing View dropdown */}
-          <div className="bg-[#1e1e30] px-1.5 py-0.5 flex items-center gap-1 border-b border-gray-700 cursor-pointer hover:bg-[#252540]"
+          {/* Active Drawing View */}
+          <div className="bg-[#252535] px-2 py-1 flex items-center gap-1 border-b border-gray-600 cursor-pointer hover:bg-[#2e2e45]"
             onClick={() => setStatusMsg("Активный чертёж: Главная парковка_Финал")}>
-            <span className="text-[9px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
-            <Icon name="ChevronDown" size={9} className="text-gray-500 flex-shrink-0" />
+            <span className="text-[11px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
+            <Icon name="ChevronDown" size={10} className="text-gray-500 flex-shrink-0" />
           </div>
-          <div className="flex-1 overflow-y-auto text-[11px]">
+          {/* Tree */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#1e1e2e]">
             {treeData.map(node => (
               <TreeItem key={node.id} node={node} depth={0} selected={selectedNode}
                 onSelect={setSelectedNode} onToggle={toggleNode} onAction={handleTreeNodeAction} />
