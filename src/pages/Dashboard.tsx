@@ -124,7 +124,7 @@ export default function Dashboard() {
 
       <main className="flex-1 flex">
         {/* Sidebar */}
-        <aside className="hidden md:flex flex-col w-56 border-r border-gray-200 bg-white py-4 px-2 gap-1">
+        <aside className={`flex-col w-56 border-r border-gray-200 bg-white py-4 px-2 gap-1 ${activeModule === "civilcad" ? "hidden" : "hidden md:flex"}`}>
           {MODULES.map(m => (
             <button
               key={m.id}

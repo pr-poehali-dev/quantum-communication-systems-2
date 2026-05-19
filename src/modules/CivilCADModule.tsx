@@ -2241,28 +2241,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"] || []
 
   return (
-    <div className="flex h-full bg-[#1e1e2e] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
-
-      {/* ── Left nav sidebar ── */}
-      <aside className="flex flex-col bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0" style={{ width: 200 }}>
-        {NAV_MODULES.map(m => (
-          <button
-            key={m.id}
-            onClick={() => onNavigate ? onNavigate(m.id) : undefined}
-            className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-all border-b border-gray-100 last:border-0
-              ${m.id === "civilcad"
-                ? "bg-indigo-600 text-white font-semibold"
-                : "text-gray-600 hover:bg-gray-100 font-medium"}`}
-          >
-            <Icon name={m.icon} size={16} fallback="Square"
-              className={m.id === "civilcad" ? "text-white" : "text-gray-500"} />
-            <span className="leading-tight text-[13px]">{m.label}</span>
-          </button>
-        ))}
-      </aside>
-
-      {/* ── CivilCAD editor (все остальное) ── */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
 
       {/* ── Title bar ── */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
@@ -2654,7 +2633,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <span className="text-gray-600">МОДЕЛЬ</span>
         </div>
       </div>
-      </div>{/* end editor flex-col */}
     </div>
   )
 }
