@@ -2253,23 +2253,24 @@ export default function CivilCADModule() {
       </div>
 
       {/* ── Ribbon toolbar ── */}
-      <div ref={dropdownRef} className="bg-[#2a2a3a] border-b border-gray-700 flex items-stretch gap-0 overflow-x-auto flex-shrink-0 relative" style={{minHeight:72}}>
+      <div ref={dropdownRef} className="bg-[#2a2a3a] border-b border-gray-700 flex items-stretch gap-0 overflow-x-auto flex-shrink-0 relative" style={{height:82}}>
         {currentToolbar.map(group => {
           const lgItems = (group.items as RibbonItem[]).filter(i => i.size === "lg")
           const smItems = (group.items as RibbonItem[]).filter(i => i.size === "sm")
-          const dropdownPanel = (dropKey: string, top: boolean) => (
-            <div className={`absolute ${top ? "top-full" : "top-full"} left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[210px] py-1 rounded mt-0.5`}>
+          const dropdownPanel = (dropKey: string) => (
+            <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[200px] py-1 rounded mt-0.5">
               {(DROPDOWN_ITEMS[dropKey] || []).map(sub => (
                 <button key={sub} onClick={() => { handleDropdownItem(dropKey, sub); setOpenDropdown(null) }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
+                  className="w-full text-left px-3 py-1 text-[11px] text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
                   {sub}
                 </button>
               ))}
             </div>
           )
           return (
-            <div key={group.label} className="flex flex-col border-r border-gray-700 flex-shrink-0">
-              <div className="flex flex-1 items-start px-1 pt-1 gap-0.5">
+            <div key={group.label} className="flex flex-col border-r border-gray-700 flex-shrink-0" style={{height:82}}>
+              {/* buttons row — fixed height 66px */}
+              <div className="flex items-stretch px-1 pt-1 gap-0.5" style={{height:66}}>
 
                 {/* ─ Large buttons ─ */}
                 {lgItems.map(item => {
@@ -2278,35 +2279,32 @@ export default function CivilCADModule() {
                   const dKey = dropKey || item.label
                   const isOpen = openDropdown === dKey
                   return (
-                    <div key={item.label} className="relative flex-shrink-0">
-                      <div className={`flex flex-col items-center rounded transition-colors min-w-[46px] ${isOpen ? "bg-[#0078d4]" : "hover:bg-[#3a3a4e]"}`}>
-                        {/* main click area → opens dialog */}
+                    <div key={item.label} className="relative flex-shrink-0 flex flex-col" style={{width:52}}>
+                      <div className={`flex flex-col items-center rounded transition-colors flex-1 ${isOpen ? "bg-[#0078d4]" : "hover:bg-[#3a3a4e]"}`}>
                         <button
                           onClick={() => { handleToolbarItem(item.label); setOpenDropdown(null) }}
-                          className="flex flex-col items-center justify-center gap-0.5 px-1.5 pt-1.5 pb-0.5 w-full">
-                          <Icon name={item.icon} size={22} fallback="Square" className={isOpen ? "text-white" : "text-gray-300"} />
-                          <span className={`text-[9px] leading-tight text-center whitespace-nowrap max-w-[54px] truncate ${isOpen ? "text-white" : "text-gray-300"}`}>
+                          className="flex flex-col items-center justify-start gap-1 px-1 pt-2 w-full flex-1">
+                          <Icon name={item.icon} size={24} fallback="Square" className={isOpen ? "text-white" : "text-[#c8d4e0]"} />
+                          <span className={`text-[9px] leading-tight text-center w-full truncate px-0.5 ${isOpen ? "text-white" : "text-[#c8d4e0]"}`}>
                             {item.label}
                           </span>
                         </button>
-                        {/* drop arrow — separate click */}
                         {hasDrop && (
                           <button
                             onClick={e => { e.stopPropagation(); setOpenDropdown(isOpen ? null : dKey) }}
-                            className={`text-[9px] px-2 pb-0.5 w-full text-center hover:bg-[#0078d4] rounded-b transition-colors ${isOpen ? "text-white" : "text-gray-500 hover:text-white"}`}>
+                            className={`text-[9px] w-full text-center pb-0.5 hover:bg-[#005fa3] rounded-b transition-colors ${isOpen ? "text-white" : "text-gray-400 hover:text-white"}`}>
                             ▾
                           </button>
                         )}
-                        {!hasDrop && <div className="h-3" />}
                       </div>
-                      {hasDrop && isOpen && dropdownPanel(dropKey!, true)}
+                      {hasDrop && isOpen && dropdownPanel(dropKey!)}
                     </div>
                   )
                 })}
 
                 {/* ─ Small buttons ─ */}
                 {smItems.length > 0 && (
-                  <div className="flex flex-col gap-px ml-0.5 justify-center h-full">
+                  <div className="flex flex-col justify-around py-0.5 ml-0.5" style={{height:66}}>
                     {smItems.map(item => {
                       const dropKey = item.drop
                       const hasDrop = !!(dropKey && DROPDOWN_ITEMS[dropKey])
@@ -2314,22 +2312,20 @@ export default function CivilCADModule() {
                       const isOpen = openDropdown === dKey
                       return (
                         <div key={item.label} className="relative flex items-center">
-                          {/* main click */}
                           <button
                             onClick={() => { handleToolbarItem(item.label); setOpenDropdown(null) }}
-                            className={`flex items-center gap-1.5 pl-1.5 pr-1 py-0.5 rounded-l transition-colors text-[10px] ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-[#3a3a4e] hover:text-white"}`}>
-                            <Icon name={item.icon} size={12} fallback="Square" />
-                            <span className="max-w-[78px] truncate">{item.label}</span>
+                            className={`flex items-center gap-1 pl-1 pr-0.5 py-px rounded-l transition-colors text-[10px] leading-tight whitespace-nowrap ${isOpen ? "bg-[#0078d4] text-white" : "text-[#c8d4e0] hover:bg-[#3a3a4e] hover:text-white"}`}>
+                            <Icon name={item.icon} size={13} fallback="Square" />
+                            <span className="max-w-[80px] truncate">{item.label}</span>
                           </button>
-                          {/* drop arrow */}
                           {hasDrop && (
                             <button
                               onClick={e => { e.stopPropagation(); setOpenDropdown(isOpen ? null : dKey) }}
-                              className={`px-0.5 py-0.5 text-[9px] rounded-r border-l border-gray-600 transition-colors ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-500 hover:bg-[#3a3a4e] hover:text-white"}`}>
+                              className={`px-0.5 py-px text-[9px] rounded-r border-l border-gray-600 transition-colors ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-400 hover:bg-[#3a3a4e] hover:text-white"}`}>
                               ▾
                             </button>
                           )}
-                          {hasDrop && isOpen && dropdownPanel(dropKey!, false)}
+                          {hasDrop && isOpen && dropdownPanel(dropKey!)}
                         </div>
                       )
                     })}
@@ -2337,9 +2333,9 @@ export default function CivilCADModule() {
                 )}
               </div>
 
-              {/* group label */}
-              <div className="text-[9px] text-gray-500 text-center px-1 pb-0.5 border-t border-gray-700 mt-auto pt-0.5 bg-[#252535] whitespace-nowrap">
-                {group.label}
+              {/* group label — fixed 16px */}
+              <div className="flex items-center justify-center border-t border-gray-700 bg-[#252535] whitespace-nowrap" style={{height:16}}>
+                <span className="text-[9px] text-gray-500 px-1">{group.label}</span>
               </div>
             </div>
           )
