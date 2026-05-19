@@ -2181,12 +2181,12 @@ export default function CivilCADModule() {
     else if (key.includes("Поверхност") || key.includes("TIN") || key.includes("Grid") || key.includes("поверхност")) { setShowSurface(true) }
     else if (key.includes("Трасс") || key.includes("трасс")) { setShowAlignment(true) }
     else if (key.includes("Профиль") || key.includes("профиль") || key.includes("рельеф") || key.includes("Профиль из")) { setShowProfile(true) }
-    else if (key.includes("Типовое") || key.includes("типовое") || key.includes("сечение") || key.includes("Assembly")) { setShowAssembly(true) }
+    else if (key.includes("Типовое") || key.includes("типовое") || key.includes("сечение") || key.includes("Тип.") || key.includes("Assembly")) { setShowAssembly(true) }
   }
 
   const handleToolbarItem = (item: string) => {
     openDialog(item)
-    setStatusMsg(`Активировано: ${item.replace(" ▾","")}`)
+    setStatusMsg(`Команда: ${item.replace(" ▾","")}`)
   }
 
   const handleDropdownItem = (parent: string, sub: string) => {
@@ -2236,73 +2236,88 @@ export default function CivilCADModule() {
         {currentToolbar.map(group => {
           const lgItems = (group.items as RibbonItem[]).filter(i => i.size === "lg")
           const smItems = (group.items as RibbonItem[]).filter(i => i.size === "sm")
+          const dropdownPanel = (dropKey: string, top: boolean) => (
+            <div className={`absolute ${top ? "top-full" : "top-full"} left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[210px] py-1 rounded mt-0.5`}>
+              {(DROPDOWN_ITEMS[dropKey] || []).map(sub => (
+                <button key={sub} onClick={() => { handleDropdownItem(dropKey, sub); setOpenDropdown(null) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
+                  {sub}
+                </button>
+              ))}
+            </div>
+          )
           return (
-            <div key={group.label} className="flex flex-col border-r border-gray-700 flex-shrink-0" style={{minWidth: lgItems.length ? undefined : 80}}>
-              {/* item area */}
+            <div key={group.label} className="flex flex-col border-r border-gray-700 flex-shrink-0">
               <div className="flex flex-1 items-start px-1 pt-1 gap-0.5">
-                {/* large buttons */}
+
+                {/* ─ Large buttons ─ */}
                 {lgItems.map(item => {
                   const dropKey = item.drop
-                  const hasDrop = dropKey && DROPDOWN_ITEMS[dropKey]
-                  const isOpen = openDropdown === (dropKey || item.label)
+                  const hasDrop = !!(dropKey && DROPDOWN_ITEMS[dropKey])
+                  const dKey = dropKey || item.label
+                  const isOpen = openDropdown === dKey
                   return (
-                    <div key={item.label} className="relative flex flex-col items-center">
-                      <div className="flex flex-col items-center">
+                    <div key={item.label} className="relative flex-shrink-0">
+                      <div className={`flex flex-col items-center rounded transition-colors min-w-[46px] ${isOpen ? "bg-[#0078d4]" : "hover:bg-[#3a3a4e]"}`}>
+                        {/* main click area → opens dialog */}
                         <button
-                          onClick={() => hasDrop ? setOpenDropdown(isOpen ? null : (dropKey || item.label)) : handleToolbarItem(item.label)}
-                          className={`flex flex-col items-center justify-center gap-0.5 px-1.5 py-1 rounded transition-colors min-w-[44px] ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-[#3a3a4e] hover:text-white"}`}>
+                          onClick={() => { handleToolbarItem(item.label); setOpenDropdown(null) }}
+                          className="flex flex-col items-center justify-center gap-0.5 px-1.5 pt-1.5 pb-0.5 w-full">
                           <Icon name={item.icon} size={22} fallback="Square" className={isOpen ? "text-white" : "text-gray-300"} />
-                          <span className="text-[9px] leading-tight text-center whitespace-nowrap max-w-[52px] truncate">{item.label}</span>
-                          {hasDrop && <span className="text-[8px] leading-none text-gray-500">▾</span>}
+                          <span className={`text-[9px] leading-tight text-center whitespace-nowrap max-w-[54px] truncate ${isOpen ? "text-white" : "text-gray-300"}`}>
+                            {item.label}
+                          </span>
                         </button>
+                        {/* drop arrow — separate click */}
+                        {hasDrop && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setOpenDropdown(isOpen ? null : dKey) }}
+                            className={`text-[9px] px-2 pb-0.5 w-full text-center hover:bg-[#0078d4] rounded-b transition-colors ${isOpen ? "text-white" : "text-gray-500 hover:text-white"}`}>
+                            ▾
+                          </button>
+                        )}
+                        {!hasDrop && <div className="h-3" />}
                       </div>
-                      {hasDrop && isOpen && (
-                        <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[200px] py-1 rounded mt-0.5">
-                          {(DROPDOWN_ITEMS[dropKey!] || []).map(sub => (
-                            <button key={sub} onClick={() => handleDropdownItem(dropKey!, sub)}
-                              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
-                              {sub}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {hasDrop && isOpen && dropdownPanel(dropKey!, true)}
                     </div>
                   )
                 })}
-                {/* small buttons column */}
+
+                {/* ─ Small buttons ─ */}
                 {smItems.length > 0 && (
-                  <div className="flex flex-col gap-0 ml-0.5">
+                  <div className="flex flex-col gap-px ml-0.5 justify-center h-full">
                     {smItems.map(item => {
                       const dropKey = item.drop
-                      const hasDrop = dropKey && DROPDOWN_ITEMS[dropKey]
-                      const isOpen = openDropdown === (dropKey || item.label)
+                      const hasDrop = !!(dropKey && DROPDOWN_ITEMS[dropKey])
+                      const dKey = dropKey || item.label
+                      const isOpen = openDropdown === dKey
                       return (
-                        <div key={item.label} className="relative">
+                        <div key={item.label} className="relative flex items-center">
+                          {/* main click */}
                           <button
-                            onClick={() => hasDrop ? setOpenDropdown(isOpen ? null : (dropKey || item.label)) : handleToolbarItem(item.label)}
-                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors whitespace-nowrap text-[10px] ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-[#3a3a4e] hover:text-white"}`}>
+                            onClick={() => { handleToolbarItem(item.label); setOpenDropdown(null) }}
+                            className={`flex items-center gap-1.5 pl-1.5 pr-1 py-0.5 rounded-l transition-colors text-[10px] ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-[#3a3a4e] hover:text-white"}`}>
                             <Icon name={item.icon} size={12} fallback="Square" />
-                            <span className="max-w-[80px] truncate">{item.label}</span>
-                            {hasDrop && <span className="text-[8px] text-gray-500 ml-auto pl-1">▾</span>}
+                            <span className="max-w-[78px] truncate">{item.label}</span>
                           </button>
-                          {hasDrop && isOpen && (
-                            <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[200px] py-1 rounded mt-0.5">
-                              {(DROPDOWN_ITEMS[dropKey!] || []).map(sub => (
-                                <button key={sub} onClick={() => handleDropdownItem(dropKey!, sub)}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
-                                  {sub}
-                                </button>
-                              ))}
-                            </div>
+                          {/* drop arrow */}
+                          {hasDrop && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setOpenDropdown(isOpen ? null : dKey) }}
+                              className={`px-0.5 py-0.5 text-[9px] rounded-r border-l border-gray-600 transition-colors ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-500 hover:bg-[#3a3a4e] hover:text-white"}`}>
+                              ▾
+                            </button>
                           )}
+                          {hasDrop && isOpen && dropdownPanel(dropKey!, false)}
                         </div>
                       )
                     })}
                   </div>
                 )}
               </div>
-              {/* group label bottom */}
-              <div className="text-[9px] text-gray-500 text-center px-1 pb-0.5 border-t border-gray-700 mt-auto pt-0.5 bg-[#252535]">
+
+              {/* group label */}
+              <div className="text-[9px] text-gray-500 text-center px-1 pb-0.5 border-t border-gray-700 mt-auto pt-0.5 bg-[#252535] whitespace-nowrap">
                 {group.label}
               </div>
             </div>
