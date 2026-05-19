@@ -127,215 +127,220 @@ const FEATURE_LINES: FeatureLine[] = [
   { name: "Бордюр пр.ч. Пр. 2", assembly: "Бордюр проезжей ч. Пр." },
 ]
 
-const MENU_ITEMS = ["Home","Insert","Annotate","Modify","Analyze","View","Manage","Output","Survey","Rail","Transparent","InfraWorks","Collaborate","Help","Add-ins","Express Tools","Vehicle Tracking","Featured Apps","Geolocation"]
+const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Геодезия","Ж/д путь","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Инструменты Express","Отслеживание транспорта","Избранные приложения","Геолокация"]
 
 const TOOLBAR_BY_MENU: Record<string, { label: string; items: string[] }[]> = {
-  "Home": [
-    { label: "Palettes", items: ["Toolspace ▾","Panorama","Properties ▾"] },
-    { label: "Explore", items: ["Project Explorer","Optimize"] },
-    { label: "Grading", items: ["Grading Optimization"] },
-    { label: "Create Ground Data", items: ["Points ▾","Surfaces ▾","Feature Line ▾","Traverse ▾"] },
-    { label: "Create Design", items: ["Alignment ▾","Intersections ▾","Profile ▾","Assembly ▾","Corridor ▾","Pipe Network ▾"] },
-    { label: "Profile & Section Views", items: ["Profile View ▾","Section Views ▾","Sample Lines"] },
-    { label: "Draw", items: ["Draw ▾"] },
-    { label: "Modify", items: ["Move","Copy ▾","Rotate","Mirror","Trim ▾","Stretch","Scale","Array ▾","Fillet"] },
-    { label: "Layer", items: ["Layer Properties","Make Current","Match Layer"] },
-    { label: "Clipboard", items: ["Paste ▾"] },
+  "Главная": [
+    { label: "Палитры", items: ["Пространство инструментов ▾","Панорама","Свойства ▾"] },
+    { label: "Обзор", items: ["Диспетчер проекта","Оптимизация"] },
+    { label: "Вертикальная планировка", items: ["Оптимизация планировки"] },
+    { label: "Создать топооснову", items: ["Точки ▾","Поверхности ▾","Характерная линия ▾","Теодолитный ход ▾"] },
+    { label: "Создать проект", items: ["Трасса ▾","Пересечения ▾","Профиль ▾","Типовое сечение ▾","Коридор ▾","Трубопроводная сеть ▾"] },
+    { label: "Профиль и поперечники", items: ["Вид профиля ▾","Виды поперечников ▾","Линии образцов"] },
+    { label: "Черчение", items: ["Черчение ▾"] },
+    { label: "Редактирование", items: ["Перенести","Копировать ▾","Повернуть","Зеркало","Обрезать ▾","Растянуть","Масштаб","Массив ▾","Сопряжение"] },
+    { label: "Слои", items: ["Слои","Сделать текущим","Совместить слои"] },
+    { label: "Буфер обмена", items: ["Вставить ▾"] },
   ],
-  "Insert": [
-    { label: "Block", items: ["Insert ▾","Create Block","Edit Block"] },
-    { label: "Attributes", items: ["Define Attribute","Synchronize"] },
-    { label: "Reference", items: ["Attach ▾","Clip","Adjust"] },
-    { label: "Import", items: ["Import ▾","LandXML","IFC","Point Cloud"] },
-    { label: "Coordinate System", items: ["Assign ▾","Transform"] },
+  "Вставка": [
+    { label: "Блоки", items: ["Вставить ▾","Создать блок","Редактировать блок"] },
+    { label: "Атрибуты", items: ["Определить атрибут","Синхронизировать"] },
+    { label: "Ссылки", items: ["Присоединить ▾","Обрезать","Настроить"] },
+    { label: "Импорт", items: ["Импорт ▾","LandXML","IFC","Облако точек"] },
+    { label: "Система координат", items: ["Назначить ▾","Преобразовать"] },
   ],
-  "Annotate": [
-    { label: "Text", items: ["Single Line","Multiline ▾","Edit Text"] },
-    { label: "Dimensions", items: ["Linear ▾","Aligned","Angular","Radius","Leader ▾"] },
-    { label: "Styles", items: ["Text Style ▾","Dim Style ▾","Table Style"] },
-    { label: "Tables", items: ["Table ▾","Export","Alignment Labels"] },
-    { label: "Labels", items: ["Add Labels ▾","Edit Label ▾","Label Style"] },
+  "Аннотации": [
+    { label: "Текст", items: ["Однострочный","Многострочный ▾","Редактировать текст"] },
+    { label: "Размеры", items: ["Линейный ▾","Параллельный","Угловой","Радиус","Выноска ▾"] },
+    { label: "Стили", items: ["Стиль текста ▾","Стиль размеров ▾","Стиль таблицы"] },
+    { label: "Таблицы", items: ["Таблица ▾","Экспорт","Марки трасс"] },
+    { label: "Марки", items: ["Добавить марки ▾","Редактировать марку ▾","Стиль марки"] },
   ],
-  "Modify": [
-    { label: "Edit", items: ["Move","Copy ▾","Mirror","Rotate","Scale"] },
-    { label: "Resize", items: ["Stretch","Trim ▾","Extend ▾","Break","Join"] },
-    { label: "Explode", items: ["Explode","Group ▾","Ungroup"] },
-    { label: "Array", items: ["Rectangular ▾","Polar ▾","Path ▾"] },
-    { label: "3D Editing", items: ["3D Move","3D Rotate","3D Mirror"] },
+  "Редактирование": [
+    { label: "Изменить", items: ["Перенести","Копировать ▾","Зеркало","Повернуть","Масштаб"] },
+    { label: "Размер", items: ["Растянуть","Обрезать ▾","Удлинить ▾","Разбить","Соединить"] },
+    { label: "Разбить", items: ["Разбить","Группировать ▾","Разгруппировать"] },
+    { label: "Массив", items: ["Прямоугольный ▾","Круговой ▾","По траектории ▾"] },
+    { label: "3D-редактирование", items: ["3D-перенос","3D-поворот","3D-зеркало"] },
   ],
-  "Analyze": [
-    { label: "Surfaces", items: ["Slope Analysis ▾","Elevation Analysis ▾","Watershed ▾","Sections ▾"] },
-    { label: "Corridors", items: ["Volumes ▾","Quantity Takeoff ▾"] },
-    { label: "Pipe Networks", items: ["Hydraulics ▾","Inspect ▾"] },
-    { label: "Ground Data", items: ["Point Cloud Analysis","Grading Analysis"] },
-    { label: "Reports", items: ["Generate Report ▾"] },
+  "Анализ": [
+    { label: "Поверхности", items: ["Анализ уклонов ▾","Анализ высот ▾","Водосборы ▾","Разрезы ▾"] },
+    { label: "Коридоры", items: ["Объёмы ▾","Ведомость объёмов ▾"] },
+    { label: "Трубопроводные сети", items: ["Гидравлика ▾","Инспекция ▾"] },
+    { label: "Топооснова", items: ["Анализ облака точек","Анализ планировки"] },
+    { label: "Отчёты", items: ["Генерировать отчёт ▾"] },
   ],
-  "View": [
-    { label: "Named Views", items: ["Top","Isometric SW ▾","Custom ▾"] },
-    { label: "Visual Style", items: ["2D Wireframe","Shaded","Realistic"] },
-    { label: "Viewports", items: ["1 Viewport","2 Viewports ▾","4 Viewports"] },
-    { label: "Navigate", items: ["Orbit ▾","Pan","Zoom ▾","SteeringWheels"] },
-    { label: "Palettes", items: ["Properties","Layer Properties","Toolspace"] },
+  "Вид": [
+    { label: "Именованные виды", items: ["Сверху","Изометрия ЮЗ ▾","Пользовательский ▾"] },
+    { label: "Визуальный стиль", items: ["2D Каркас","Тонирование","Реалистичный"] },
+    { label: "Видовые экраны", items: ["1 видовой экран","2 видовых экрана ▾","4 видовых экрана"] },
+    { label: "Навигация", items: ["Орбита ▾","Панорама","Зум ▾","Штурвалы"] },
+    { label: "Палитры", items: ["Свойства","Слои","Пространство инструментов"] },
   ],
-  "Manage": [
-    { label: "Settings", items: ["Drawing Settings","Units & Zone","Ambient Settings"] },
-    { label: "Styles", items: ["Edit Feature Settings","Label Style Manager ▾"] },
-    { label: "Action Recorder", items: ["Record","Play","Edit Actions"] },
-    { label: "CAD Standards", items: ["Configure","Check","Layer Translator"] },
+  "Управление": [
+    { label: "Параметры", items: ["Параметры чертежа","Единицы и зона","Общие параметры"] },
+    { label: "Стили", items: ["Параметры объекта","Диспетчер стилей марок ▾"] },
+    { label: "Запись действий", items: ["Запись","Воспроизведение","Редактировать действия"] },
+    { label: "Стандарты САПР", items: ["Настройка","Проверка","Преобразователь слоёв"] },
   ],
-  "Output": [
-    { label: "Print", items: ["Plot ▾","Batch Plot","Preview"] },
-    { label: "Export", items: ["PDF ▾","DWF ▾","LandXML","IFC","Shapefile"] },
-    { label: "Publish", items: ["Autodesk Docs","Sheet Sets ▾","eTransmit"] },
-    { label: "Send to", items: ["InfraWorks","Navisworks","Revit"] },
+  "Вывод": [
+    { label: "Печать", items: ["Печать ▾","Пакетная печать","Просмотр"] },
+    { label: "Экспорт", items: ["PDF ▾","DWF ▾","LandXML","IFC","Shapefile"] },
+    { label: "Публикация", items: ["Autodesk Docs","Комплекты листов ▾","eTransmit"] },
+    { label: "Отправить в", items: ["InfraWorks","Navisworks","Revit"] },
   ],
-  "Survey": [
-    { label: "Points", items: ["Create Points ▾","Point Groups ▾","Import Points","Edit Points"] },
-    { label: "Survey Database", items: ["Open DB ▾","Import","Export","Settings"] },
-    { label: "Traverse", items: ["Traverse Editor","Closure Report","Adjust"] },
-    { label: "Surfaces", items: ["TIN Surface ▾","Grid Surface ▾","Volume Surface"] },
-    { label: "Figures", items: ["Create Figure","Edit Figure","Figure Style"] },
+  "Геодезия": [
+    { label: "Точки", items: ["Создать точки ▾","Группы точек ▾","Импорт точек","Редактировать точки"] },
+    { label: "База данных съёмки", items: ["Открыть БД ▾","Импорт","Экспорт","Настройки"] },
+    { label: "Теодолитный ход", items: ["Редактор хода","Отчёт о невязке","Уравнивание"] },
+    { label: "Поверхности", items: ["TIN-поверхность ▾","Grid-поверхность ▾","Поверхность объёмов"] },
+    { label: "Фигуры", items: ["Создать фигуру","Редактировать фигуру","Стиль фигуры"] },
   ],
-  "Rail": [
-    { label: "Alignment", items: ["Rail Alignment ▾","Cant ▾","Track Layout"] },
-    { label: "Design", items: ["Track Design ▾","Turnouts and Crossovers ▾","Bridges ▾"] },
-    { label: "Profile", items: ["Rail Profile ▾","Grade Points","Vertical Curves"] },
-    { label: "Section", items: ["Rail Section ▾","Clearance","Section Views"] },
+  "Ж/д путь": [
+    { label: "Трасса", items: ["Трасса ж/д ▾","Кант ▾","Расположение пути"] },
+    { label: "Проект", items: ["Проект пути ▾","Разъезды и пересечения ▾","Мосты ▾"] },
+    { label: "Профиль", items: ["Профиль ж/д ▾","Точки уклонов","Вертикальные кривые"] },
+    { label: "Поперечник", items: ["Поперечник ж/д ▾","Габарит","Виды поперечников"] },
   ],
-  "Transparent": [
-    { label: "Point", items: ["Point Number","Point Name","Point Object ▾"] },
-    { label: "Station/Offset", items: ["Station Offset ▾","Profile Station Elev","Section Offset Elev"] },
-    { label: "Grade/Slope", items: ["Grade/Slope Distance","Grade/Slope From","Bearing Distance"] },
-    { label: "Utilities", items: ["Zoom to Point","Match Properties"] },
+  "Прозрачность": [
+    { label: "Точка", items: ["Номер точки","Имя точки","Объект точки ▾"] },
+    { label: "Пикет/Смещение", items: ["Пикет и смещение ▾","Пикет профиля и отм.","Пикет попереч. и смещ."] },
+    { label: "Уклон/Расстояние", items: ["Уклон и расстояние","Уклон от точки","Расстояние и дирекционный угол"] },
+    { label: "Сервис", items: ["Перейти к точке","Совместить свойства"] },
   ],
   "InfraWorks": [
-    { label: "Exchange", items: ["Send to InfraWorks","Sync from InfraWorks","Update Model"] },
-    { label: "Design", items: ["Open in InfraWorks","Compare Designs"] },
+    { label: "Обмен данными", items: ["Отправить в InfraWorks","Синхронизировать","Обновить модель"] },
+    { label: "Проект", items: ["Открыть в InfraWorks","Сравнить варианты"] },
   ],
-  "Collaborate": [
-    { label: "Autodesk Docs", items: ["Open from Cloud","Save to Cloud","Share"] },
-    { label: "Co-Authoring", items: ["Enable Co-author","Check In","Check Out"] },
-    { label: "Data Shortcuts", items: ["Create Data Shortcut ▾","Edit Data Shortcut","Working Folder"] },
+  "Совместная работа": [
+    { label: "Autodesk Docs", items: ["Открыть из облака","Сохранить в облако","Поделиться"] },
+    { label: "Совместное редактирование", items: ["Включить совместный режим","Зафиксировать","Снять фиксацию"] },
+    { label: "Ярлыки данных", items: ["Создать ярлык ▾","Изменить ярлык","Рабочая папка"] },
   ],
-  "Add-ins": [
-    { label: "Vehicle Tracking", items: ["Add Vehicle ▾","Tracking Simulation","Swept Path"] },
-    { label: "Extensions", items: ["Manage Extensions ▾","App Manager"] },
-    { label: "Featured Apps", items: ["Browse Apps","Installed Apps","Sync Apps"] },
+  "Надстройки": [
+    { label: "Отслеживание транспорта", items: ["Добавить транспорт ▾","Симуляция движения","Траектория движения"] },
+    { label: "Расширения", items: ["Управление расширениями ▾","Менеджер приложений"] },
+    { label: "Избранные приложения", items: ["Найти приложения","Установленные","Синхронизировать"] },
   ],
-  "Express Tools": [
-    { label: "Blocks", items: ["Super Hatch","Convert Text","Block ▾"] },
-    { label: "Text", items: ["Arc Aligned Text","Justify Text ▾","Text Fit"] },
-    { label: "Layout", items: ["Layout Geometry","Flatten ▾","Superimpose"] },
-    { label: "Layers", items: ["Layer Walk","Layer Freeze","Isolate Layer ▾"] },
+  "Инструменты Express": [
+    { label: "Блоки", items: ["Супер штриховка","Конвертировать текст","Блок ▾"] },
+    { label: "Текст", items: ["Текст по дуге","Выравнивание текста ▾","Подгонка текста"] },
+    { label: "Листы", items: ["Геометрия листа","Сплющить ▾","Наложить"] },
+    { label: "Слои", items: ["Перебор слоёв","Заморозить слой","Изолировать слой ▾"] },
   ],
-  "Vehicle Tracking": [
-    { label: "Paths", items: ["Add Path ▾","Edit Path","Delete Path"] },
-    { label: "Vehicle", items: ["Vehicle Library ▾","Custom Vehicle","Edit Vehicle"] },
-    { label: "Simulation", items: ["Run Simulation","Animation","Report"] },
+  "Отслеживание транспорта": [
+    { label: "Маршруты", items: ["Добавить маршрут ▾","Редактировать маршрут","Удалить маршрут"] },
+    { label: "Транспортное средство", items: ["Библиотека ТС ▾","Пользовательское ТС","Редактировать ТС"] },
+    { label: "Симуляция", items: ["Запустить симуляцию","Анимация","Отчёт"] },
   ],
-  "Featured Apps": [
-    { label: "Apps", items: ["AutoCAD Raster Design","Point Layout","CAiCE Tools"] },
-    { label: "Utilities", items: ["DWG Compare","Purge ▾","Audit"] },
+  "Избранные приложения": [
+    { label: "Приложения", items: ["AutoCAD Raster Design","Point Layout","CAiCE Tools"] },
+    { label: "Сервис", items: ["Сравнение DWG","Очистить ▾","Проверка"] },
   ],
-  "Geolocation": [
-    { label: "Online Maps", items: ["Map On","Map Type ▾","Capture Area"] },
-    { label: "Location", items: ["Set Location ▾","Edit Location","Mark Position"] },
-    { label: "Coordinates", items: ["Republish ▾","Update Coordinates","Export KML"] },
+  "Геолокация": [
+    { label: "Онлайн-карты", items: ["Карта вкл.","Тип карты ▾","Захват области"] },
+    { label: "Местоположение", items: ["Задать местоположение ▾","Изменить местоположение","Отметить позицию"] },
+    { label: "Координаты", items: ["Переопубликовать ▾","Обновить координаты","Экспорт KML"] },
   ],
 }
 
-const TOOLBAR_GROUPS = TOOLBAR_BY_MENU["Home"]
+const TOOLBAR_GROUPS = TOOLBAR_BY_MENU["Главная"]
 
 const DROPDOWN_ITEMS: Record<string, string[]> = {
-  // Home
-  "Toolspace ▾": ["Prospector","Settings","Survey","Toolbox"],
-  "Properties ▾": ["Properties","Quick Properties","Selection Cycling"],
-  "Points ▾": ["Create Points — Manual","Create Points — Interpolate","Create Points — Alignment","Create Points — Surface","Import Points","Point Groups","Edit Points"],
-  "Surfaces ▾": ["Create Surface (TIN)","Create Surface (Grid)","Create Surface from Points","Create Surface from Contours","Edit Surface","Surface Properties","Export Surface"],
-  "Feature Line ▾": ["Create Feature Line","Create Feature Line from Objects","Edit Feature Line Elevations","Fillet Feature Line","Feature Line Properties"],
-  "Traverse ▾": ["Traverse Editor","Traverse Closure","Import Traverse"],
-  "Alignment ▾": ["Create Alignment — Layout","Create Alignment from Objects","Create Alignment from Polyline","Edit Alignment Geometry","Alignment Properties","Design Criteria Editor"],
-  "Intersections ▾": ["Create Intersection","Edit Intersection","Intersection Wizard"],
-  "Profile ▾": ["Create Profile from Surface","Create Profile — Layout","Edit Profile Geometry","Profile Properties","Superimpose Profile"],
-  "Assembly ▾": ["Create Assembly","Edit Assembly","Assembly Properties","Import Assembly"],
-  "Corridor ▾": ["Create Corridor","Edit Corridor","Corridor Properties","Corridor Targets","Rebuild Corridor"],
-  "Pipe Network ▾": ["Create Pipe Network","Edit Pipe Network","Pipe Network Properties","Plan Production"],
-  "Profile View ▾": ["Create Profile View","Create Multiple Profile Views","Edit Profile View Style","Stacked Profile View"],
-  "Section Views ▾": ["Create Section View","Create Multiple Section Views","Edit Section View Style","Section View Band Set"],
-  "Draw ▾": ["Polyline","Line","Arc","Circle","Rectangle","Spline","Hatch","Text"],
-  "Copy ▾": ["Copy","Copy with Base Point","Clipboard Copy"],
-  "Trim ▾": ["Trim","Extend","Break at Point","Break"],
-  "Array ▾": ["Rectangular Array","Polar Array","Path Array"],
-  "Layer Properties": ["Layer Properties Manager"],
-  "Paste ▾": ["Paste","Paste as Block","Paste to Original Coordinates"],
-  // Insert
-  "Insert ▾": ["Insert Block","Insert Block with Attributes","Recent Blocks"],
-  "Attach ▾": ["Attach DWG","Attach Image","Attach PDF","Attach Point Cloud"],
-  "Import ▾": ["LandXML","IFC","Shapefile","DEM/GeoTIFF","Point Cloud (RCP/RCS)","Survey Data"],
-  "Assign ▾": ["Assign Coordinate System","From Map","Manually Enter"],
-  // Annotate
-  "Multiline ▾": ["Create MText","Edit MText Style","Field"],
-  "Linear ▾": ["Linear","Aligned","Baseline","Continue"],
-  "Leader ▾": ["Multileader","Quick Leader","Tolerance"],
-  "Text Style ▾": ["New Style","Modify Style","Import from Drawing"],
-  "Dim Style ▾": ["New Style","Modify Style","Override","Compare"],
-  "Table ▾": ["Insert Table","From Data Link","Export to CSV"],
-  "Add Labels ▾": ["Alignment Labels","Profile Labels","Section Labels","Parcel Labels","Surface Labels","Pipe Network Labels"],
-  "Edit Label ▾": ["Flip Label","Move Label","Reset Label","Delete Label Override"],
-  // Modify
-  "Rectangular ▾": ["Rectangular Array","Path Array","Polar Array"],
-  "Polar ▾": ["Polar Array","Path Array"],
-  "Path ▾": ["Path Array","Edit Array"],
-  // Analyze
-  "Slope Analysis ▾": ["Slope Analysis","Arrow Analysis","User Defined Contours"],
-  "Elevation Analysis ▾": ["Elevation Analysis","Watersheds","User Defined Contours"],
-  "Watershed ▾": ["Watershed Analysis","Catchment Area","Flow Path"],
-  "Sections ▾": ["Sample Lines","Section Views","Section Properties"],
-  "Volumes ▾": ["Corridor Volumes","Between Surfaces","Volume Report","Earthwork Report"],
-  "Quantity Takeoff ▾": ["QTO Manager","Compute Materials","Pay Items","Export"],
-  "Hydraulics ▾": ["Run Hydraulic Analysis","Pipe Sizing","Storm Drain Report"],
-  "Inspect ▾": ["Check Network","Find Violations","Network Report"],
-  "Generate Report ▾": ["Summary Report","Surface Report","Corridor Report","Network Report","Alignment Report"],
-  // View
-  "Custom ▾": ["Save View","Restore View","View Manager"],
-  "2 Viewports ▾": ["Horizontal","Vertical"],
-  "Orbit ▾": ["Free Orbit","Constrained Orbit","Continuous Orbit"],
-  "Zoom ▾": ["Zoom Extents","Zoom Window","Zoom Scale","Zoom Center","Previous"],
-  "Isometric SW ▾": ["SW Isometric","SE Isometric","NE Isometric","NW Isometric","Top","Front","Right"],
-  // Manage
-  "Label Style Manager ▾": ["Alignment","Profile","Corridor","Pipe","Structure","Surface"],
-  // Output
-  "Plot ▾": ["Plot","Quick Plot","Batch Plot"],
-  "DWF ▾": ["Publish to DWF","Publish to 3D DWF"],
-  "PDF ▾": ["Current Sheet","All Sheets","Selected Sheets","High Quality PDF"],
-  "Sheet Sets ▾": ["Open Sheet Set","New Sheet Set","Publish Sheet Set"],
-  // Survey
-  "Create Points ▾": ["Manually","By Coordinates","From CSV File","Along Alignment","On Surface","At Geometry","Interpolate"],
-  "Point Groups ▾": ["Create Point Group","Edit Point Group","Delete Point Group","Properties"],
-  "Open DB ▾": ["New Survey Database","Open Existing","Import Survey Data","Export Survey Data"],
-  "TIN Surface ▾": ["From Points","From Figure","From Contours","From DEM File","Edit TIN Surface"],
-  "Grid Surface ▾": ["From File","From TIN Surface","Grid Settings"],
-  // Rail
-  "Rail Alignment ▾": ["Create Rail Alignment","Create from Polyline","Edit Rail Alignment"],
-  "Cant ▾": ["Create Cant","Edit Cant","Cant Properties"],
-  "Track Design ▾": ["Track Layout","Rail Profile","Cant Design"],
-  "Turnouts and Crossovers ▾": ["Create Turnout","Create Crossover","Edit"],
-  "Bridges ▾": ["Create Bridge","Edit Bridge","Bridge Properties"],
-  "Rail Profile ▾": ["Create Rail Profile","Edit Rail Profile","Rail Profile Properties"],
-  "Rail Section ▾": ["Create Rail Section","Edit Rail Section","Section Views"],
-  // Transparent
-  "Point Object ▾": ["Point Number","Point Name","Point Object"],
-  "Station Offset ▾": ["Station & Offset","Profile Station Elevation","Section Offset Elevation"],
-  // Add-ins / Express
-  "Vehicle Library ▾": ["Passenger Car","Semi Truck","Bus","Fire Truck","Custom"],
-  "Block ▾": ["List Blocks","Super Hatch","Convert Text to Block","Explode Block"],
-  "Justify Text ▾": ["Left","Center","Right","Fit","Align"],
-  "Flatten ▾": ["Flatten","Flatten to Elevation","Convert to Polyline"],
-  "Isolate Layer ▾": ["Isolate Layer","Unisolate","Layer Walk"],
-  // Geolocation
-  "Map Type ▾": ["Aerial","Road","Hybrid","Terrain"],
-  "Set Location ▾": ["From Map","By GNSS","Manual Entry"],
-  "Republish ▾": ["Republish DWG","Republish PDF"],
+  // Главная
+  "Пространство инструментов ▾": ["Диспетчер","Параметры","Геодезия","Инструменты"],
+  "Свойства ▾": ["Свойства объекта","Быстрые свойства","Циклический выбор"],
+  "Точки ▾": ["Создать точки — вручную","Создать точки — интерполяция","Создать точки — по трассе","Создать точки — по поверхности","Импорт точек","Группы точек","Редактировать точки"],
+  "Поверхности ▾": ["Создать поверхность (TIN)","Создать поверхность (Grid)","Из точек","Из горизонталей","Редактировать поверхность","Свойства поверхности","Экспорт поверхности"],
+  "Характерная линия ▾": ["Создать характерную линию","Из объектов","Редактировать отметки","Сопряжение","Свойства хар. линии"],
+  "Теодолитный ход ▾": ["Редактор хода","Отчёт о невязке","Импорт хода"],
+  "Трасса ▾": ["Создать трассу — компоновка","Из объектов","Из полилинии","Редактировать геометрию","Свойства трассы","Редактор критериев проектирования"],
+  "Пересечения ▾": ["Создать пересечение","Редактировать пересечение","Мастер пересечения"],
+  "Профиль ▾": ["Профиль из поверхности","Создать профиль — компоновка","Редактировать геометрию профиля","Свойства профиля","Наложить профиль"],
+  "Типовое сечение ▾": ["Создать типовое сечение","Редактировать","Свойства","Импорт типового сечения"],
+  "Коридор ▾": ["Создать коридор","Редактировать коридор","Свойства коридора","Целевые объекты","Перестроить коридор"],
+  "Трубопроводная сеть ▾": ["Создать сеть","Редактировать сеть","Свойства сети","Производство планов"],
+  "Вид профиля ▾": ["Создать вид профиля","Создать несколько видов","Редактировать стиль","Совмещённые виды"],
+  "Виды поперечников ▾": ["Создать вид поперечника","Создать несколько видов","Редактировать стиль","Набор полос"],
+  "Черчение ▾": ["Полилиния","Отрезок","Дуга","Окружность","Прямоугольник","Сплайн","Штриховка","Текст"],
+  "Копировать ▾": ["Копировать","С базовой точкой","Копировать в буфер"],
+  "Обрезать ▾": ["Обрезать","Удлинить","Разбить в точке","Разбить"],
+  "Массив ▾": ["Прямоугольный массив","Круговой массив","Массив по траектории"],
+  "Слои": ["Диспетчер слоёв"],
+  "Вставить ▾": ["Вставить","Вставить как блок","Вставить на исходные координаты"],
+  // Вставка
+  "Присоединить ▾": ["Присоединить DWG","Вставить изображение","Вставить PDF","Вставить облако точек"],
+  "Импорт ▾": ["LandXML","IFC","Shapefile","DEM/GeoTIFF","Облако точек (RCP/RCS)","Данные съёмки"],
+  "Назначить ▾": ["Назначить систему координат","Из карты","Ввести вручную"],
+  // Аннотации
+  "Многострочный ▾": ["Создать мтекст","Редактировать стиль","Поле"],
+  "Линейный ▾": ["Линейный","Параллельный","От базы","Цепочечный"],
+  "Выноска ▾": ["Мультивыноска","Быстрая выноска","Допуск формы"],
+  "Стиль текста ▾": ["Новый стиль","Изменить","Импорт из чертежа"],
+  "Стиль размеров ▾": ["Новый стиль","Изменить","Переопределить","Сравнить"],
+  "Таблица ▾": ["Вставить таблицу","Из связанных данных","Экспорт в CSV"],
+  "Добавить марки ▾": ["Марки трасс","Марки профилей","Марки поперечников","Марки участков","Марки поверхностей","Марки трубопроводов"],
+  "Редактировать марку ▾": ["Перевернуть марку","Перенести марку","Сбросить марку","Удалить переопределение"],
+  // Редактирование
+  "Прямоугольный ▾": ["Прямоугольный массив","Массив по траектории","Круговой массив"],
+  "Круговой ▾": ["Круговой массив","Массив по траектории"],
+  "По траектории ▾": ["Массив по траектории","Редактировать массив"],
+  // Анализ
+  "Анализ уклонов ▾": ["Анализ уклонов","Анализ стрелок уклонов","Пользовательские горизонтали"],
+  "Анализ высот ▾": ["Анализ высот","Водосборы","Пользовательские горизонтали"],
+  "Водосборы ▾": ["Анализ водосборов","Площадь водосбора","Путь стока"],
+  "Разрезы ▾": ["Линии образцов","Виды поперечников","Свойства поперечника"],
+  "Объёмы ▾": ["Объёмы по коридору","Между поверхностями","Ведомость объёмов","Ведомость земляных работ"],
+  "Ведомость объёмов ▾": ["Диспетчер ВО","Вычислить материалы","Единичные расценки","Экспорт"],
+  "Гидравлика ▾": ["Запустить гидравлический расчёт","Подбор труб","Отчёт по ливневой канализации"],
+  "Инспекция ▾": ["Проверить сеть","Найти нарушения","Отчёт по сети"],
+  "Генерировать отчёт ▾": ["Сводный отчёт","Отчёт по поверхности","Отчёт по коридору","Отчёт по сети","Отчёт по трассе"],
+  // Вид
+  "Пользовательский ▾": ["Сохранить вид","Восстановить вид","Диспетчер видов"],
+  "2 видовых экрана ▾": ["Горизонтально","Вертикально"],
+  "Орбита ▾": ["Свободная орбита","Ограниченная орбита","Непрерывная орбита"],
+  "Зум ▾": ["Вписать всё","Окном","Масштаб","Центр","Предыдущий"],
+  "Изометрия ЮЗ ▾": ["ЮЗ изометрия","ЮВ изометрия","СВ изометрия","СЗ изометрия","Сверху","Спереди","Справа"],
+  // Управление
+  "Диспетчер стилей марок ▾": ["Трассы","Профили","Коридоры","Трубопроводы","Сооружения","Поверхности"],
+  // Вывод
+  "Печать ▾": ["Печать","Быстрая печать","Пакетная печать"],
+  "DWF ▾": ["Публикация в DWF","Публикация в 3D DWF"],
+  "PDF ▾": ["Текущий лист","Все листы","Выбранные листы","PDF высокого качества"],
+  "Комплекты листов ▾": ["Открыть комплект","Новый комплект","Опубликовать комплект"],
+  // Геодезия
+  "Создать точки ▾": ["Вручную","По координатам","Из файла CSV","По трассе","По поверхности","По геометрии","Интерполяция"],
+  "Группы точек ▾": ["Создать группу точек","Редактировать группу","Удалить группу","Свойства"],
+  "Открыть БД ▾": ["Новая база данных съёмки","Открыть существующую","Импорт данных съёмки","Экспорт данных съёмки"],
+  "TIN-поверхность ▾": ["Из точек","Из фигур","Из горизонталей","Из файла DEM","Редактировать TIN"],
+  "Grid-поверхность ▾": ["Из файла","Из TIN-поверхности","Параметры сетки"],
+  // Ж/д путь
+  "Трасса ж/д ▾": ["Создать трассу ж/д","Из полилинии","Редактировать трассу ж/д"],
+  "Кант ▾": ["Создать кант","Редактировать кант","Свойства канта"],
+  "Проект пути ▾": ["Расположение пути","Профиль ж/д","Проект канта"],
+  "Разъезды и пересечения ▾": ["Создать разъезд","Создать пересечение","Редактировать"],
+  "Мосты ▾": ["Создать мост","Редактировать мост","Свойства моста"],
+  "Профиль ж/д ▾": ["Создать профиль ж/д","Редактировать профиль","Свойства профиля"],
+  "Поперечник ж/д ▾": ["Создать поперечник","Редактировать","Виды поперечников"],
+  // Прозрачность
+  "Объект точки ▾": ["Номер точки","Имя точки","Объект точки"],
+  "Пикет и смещение ▾": ["Пикет и смещение","Пикет профиля и отметка","Смещение поперечника и отметка"],
+  // Надстройки / Express
+  "Библиотека ТС ▾": ["Легковой автомобиль","Грузовик (фура)","Автобус","Пожарная машина","Пользовательский"],
+  "Блок ▾": ["Список блоков","Супер штриховка","Конвертировать текст в блок","Разбить блок"],
+  "Выравнивание текста ▾": ["По левому краю","По центру","По правому краю","Вписать","Выровнять"],
+  "Сплющить ▾": ["Сплющить","На отметку","Конвертировать в полилинию"],
+  "Изолировать слой ▾": ["Изолировать слой","Снять изоляцию","Перебор слоёв"],
+  "Добавить транспорт ▾": ["Добавить транспорт","Изменить транспорт","Удалить транспорт"],
+  "Управление расширениями ▾": ["Установленные расширения","Найти расширения","Обновить"],
+  // Геолокация
+  "Тип карты ▾": ["Спутник","Схема","Гибрид","Рельеф"],
+  "Задать местоположение ▾": ["С карты","По ГНСС","Ввести вручную"],
+  "Переопубликовать ▾": ["Переопубликовать DWG","Переопубликовать PDF"],
+  // Совместная работа
+  "Создать ярлык ▾": ["Поверхности","Трассы","Трубопроводные сети","Коридоры","Группы видовых рамок"],
+  // Очистить (Express)
+  "Очистить ▾": ["Очистить всё","Блоки","Слои","Стили текста","Стили размеров"],
 }
 
 // ─── Canvas drawing ──────────────────────────────────────────────────────────
@@ -519,7 +524,7 @@ function drawCanvas(
   ctx.stroke()
   // label
   ctx.fillStyle = viewMode==="wireframe"?"#60a5fa":"#1d4ed8"; ctx.font = "bold 8px Arial"
-  ctx.fillText("Second Street  PV  0+000 m ... 1000 m", pvX + 4, pvY + 10)
+  ctx.fillText("Вторая улица  ВП  0+000 м ... 1000 м", pvX + 4, pvY + 10)
 
   // ── Second profile view (below) ──────────────────────────────────────────
   const pv2Y = pvY + pvH + 8
@@ -554,7 +559,7 @@ function drawCanvas(
   }))
   dp2.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke()
   ctx.fillStyle = viewMode==="wireframe"?"#818cf8":"#4f46e5"; ctx.font="bold 8px Arial"
-  ctx.fillText("Ул. Трумана  PV  0+000 m ... 640 m", pvX + 4, pv2Y + 9)
+  ctx.fillText("Ул. Трумана  ВП  0+000 м ... 640 м", pvX + 4, pv2Y + 9)
 
   ctx.restore()
 }
@@ -1417,10 +1422,10 @@ export default function CivilCADModule() {
 
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
-    if (c === "CREATECORRIDOR" || c === "CORRIDOR") setShowCorridor(true)
-    else if (c === "CREATESURFACE" || c === "SURFACE" || c === "TIN") setShowSurface(true)
-    else if (c === "CREATEALIGNMENT" || c === "ALIGNMENT" || c === "ТРАССА") setShowAlignment(true)
-    else if (c === "CREATEPROFILE" || c === "PROFILE" || c === "ПРОФИЛЬ") setShowProfile(true)
+    if (c === "КОРИДОР" || c === "CORRIDOR") setShowCorridor(true)
+    else if (c === "ПОВЕРХНОСТЬ" || c === "SURFACE" || c === "TIN") setShowSurface(true)
+    else if (c === "ТРАССА" || c === "ALIGNMENT") setShowAlignment(true)
+    else if (c === "ПРОФИЛЬ" || c === "PROFILE") setShowProfile(true)
     else if (c === "ZOOM E" || c === "ВПИСАТЬ") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
     else if (c === "REGEN" || c === "РЕГЕН") draw()
     setStatusMsg(`Команда: ${cmd}`)
@@ -1432,9 +1437,9 @@ export default function CivilCADModule() {
   const openDialog = (key: string) => {
     setOpenDropdown(null)
     if (key.includes("Коридор") || key.includes("коридор")) { setShowCorridor(true) }
-    else if (key.includes("Поверхност") || key.includes("TIN") || key.includes("Grid")) { setShowSurface(true) }
+    else if (key.includes("Поверхност") || key.includes("TIN") || key.includes("Grid") || key.includes("поверхност")) { setShowSurface(true) }
     else if (key.includes("Трасс") || key.includes("трасс")) { setShowAlignment(true) }
-    else if (key.includes("Профиль") || key.includes("профиль") || key.includes("рельеф")) { setShowProfile(true) }
+    else if (key.includes("Профиль") || key.includes("профиль") || key.includes("рельеф") || key.includes("Профиль из")) { setShowProfile(true) }
   }
 
   const handleToolbarItem = (item: string) => {
@@ -1466,18 +1471,18 @@ export default function CivilCADModule() {
           <option>Civil 3D</option>
         </select>
         <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          Autodesk Civil 3D 2026 — Intro-1.dwg [Read Only]
+          Autodesk Civil 3D 2026 — Главная_парковка.dwg [Только чтение]
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          <input placeholder="Type a keyword or phrase" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-36 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
-          <span className="text-[10px] text-gray-500 ml-1">tony1978</span>
+          <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
+          <span className="text-[10px] text-gray-500 ml-1">пользователь</span>
         </div>
       </div>
 
       {/* ── Menu bar (ribbon tabs) ── */}
       <div className="bg-[#2d2d3d] border-b border-gray-700 flex items-center gap-0 overflow-x-auto flex-shrink-0">
         {MENU_ITEMS.map(m => (
-          <button key={m} onClick={() => { setActiveMenuTab(m); setStatusMsg(`Ribbon: ${m}`) }}
+          <button key={m} onClick={() => { setActiveMenuTab(m); setStatusMsg(`Лента: ${m}`) }}
             className={`px-3 py-1.5 text-xs whitespace-nowrap transition-colors border-b-2 ${activeMenuTab === m ? "border-[#0078d4] bg-[#252535] text-white" : "border-transparent text-gray-400 hover:bg-gray-700 hover:text-white"}`}>
             {m}
           </button>
@@ -1560,7 +1565,7 @@ export default function CivilCADModule() {
           </div>
           {/* Prospector / Settings tabs */}
           <div className="flex border-b border-gray-700">
-            {["Prospector","Settings"].map(t=>(
+            {["Диспетчер","Параметры"].map(t=>(
               <button key={t} className="flex-1 text-[9px] py-0.5 bg-[#1e1e2e] text-gray-400 hover:bg-[#2d2d4e] hover:text-white border-r border-gray-700 last:border-0 transition-colors">
                 {t}
               </button>
@@ -1568,7 +1573,7 @@ export default function CivilCADModule() {
           </div>
           {/* Active Drawing label */}
           <div className="bg-[#1e1e30] px-2 py-0.5 flex items-center gap-1 border-b border-gray-700">
-            <span className="text-[9px] text-blue-400 font-semibold">Active Drawing View</span>
+            <span className="text-[9px] text-blue-400 font-semibold">Активный чертёж</span>
             <Icon name="ChevronDown" size={9} className="text-gray-500 ml-auto" />
           </div>
           {/* Layer toggles */}
@@ -1588,10 +1593,10 @@ export default function CivilCADModule() {
           </div>
         </div>
 
-        {/* ── Side tabs (Prospector/Survey/Settings) ── */}
+        {/* ── Side tabs ── */}
         <div className="bg-[#1e1e2e] border-r border-gray-700 w-4 flex flex-col items-center py-4 gap-4">
-          {["Prospector","Settings","Survey","Toolbox"].map(t => (
-            <div key={t} onClick={() => setStatusMsg(`Panel: ${t}`)}
+          {["Диспетчер","Параметры","Геодезия","Инструменты"].map(t => (
+            <div key={t} onClick={() => setStatusMsg(`Панель: ${t}`)}
               className="text-[8px] text-gray-600 hover:text-gray-300 cursor-pointer active:text-blue-400 transition-colors"
               style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t}</div>
           ))}
@@ -1607,13 +1612,13 @@ export default function CivilCADModule() {
           }}>
           {/* viewport toolbar — Civil 3D style */}
           <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800">
-            <button onClick={() => setStatusMsg("Viewport menu")}
+            <button onClick={() => setStatusMsg("Меню видового экрана")}
               className="text-[10px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
-            <button onClick={() => setStatusMsg("Custom view")}
-              className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5 border-r border-gray-700">[Top]</button>
+            <button onClick={() => setStatusMsg("Вид сверху")}
+              className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5 border-r border-gray-700">[Сверху]</button>
             <button onClick={() => setViewMode(m => m === "wireframe" ? "shaded" : "wireframe")}
               className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5">
-              [{viewMode === "wireframe" ? "2D Wireframe" : "Shaded"}]
+              [{viewMode === "wireframe" ? "2D Каркас" : "Тонирование"}]
             </button>
           </div>
           {/* Viewport compass (top-right) */}
@@ -1625,7 +1630,7 @@ export default function CivilCADModule() {
               <text x="6" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">W</text>
               <text x="46" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">E</text>
               <rect x="16" y="16" width="20" height="20" rx="3" fill="#0078d4" opacity="0.85"/>
-              <text x="26" y="30" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">TOP</text>
+              <text x="26" y="30" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">ПЛАН</text>
               <line x1="26" y1="12" x2="26" y2="17" stroke="#888" strokeWidth="1"/>
               <line x1="26" y1="35" x2="26" y2="40" stroke="#888" strokeWidth="1"/>
               <line x1="10" y1="26" x2="15" y2="26" stroke="#888" strokeWidth="1"/>
@@ -1634,7 +1639,7 @@ export default function CivilCADModule() {
           </div>
           {/* Scale / zoom controls top-right corner */}
           <div className="absolute top-1 right-14 z-10 flex items-center gap-1">
-            <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">Extents</button>
+            <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">Вписать</button>
             <button onClick={() => setZoom(z => z * 1.25)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">+</button>
             <button onClick={() => setZoom(z => z * 0.8)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">−</button>
             <button onClick={() => setShowRightPanel(s => !s)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">
@@ -1719,7 +1724,7 @@ export default function CivilCADModule() {
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Type a command  (SURFACE, ALIGNMENT, PROFILE, CORRIDOR, ZOOM E)"
+            placeholder="Введите команду  (ПОВЕРХНОСТЬ, ТРАССА, ПРОФИЛЬ, КОРИДОР, ZOOM E)"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
@@ -1732,19 +1737,19 @@ export default function CivilCADModule() {
         <div className="flex items-center gap-0 border-r border-gray-700 pr-1 mr-1">
           <button onClick={() => setStatusMsg("Главная парковка_Финал")}
             className="text-[9px] text-gray-400 hover:text-white px-0.5 py-0.5">☰</button>
-          {["Model","Layout1","Layout2"].map(t => (
-            <button key={t} onClick={() => { setActiveLayout(t); setStatusMsg(`Layout: ${t}`) }}
-              className={`text-[9px] px-2 py-0.5 border-x border-gray-700 transition-colors ${activeLayout===t?"bg-[#2d2d4e] text-white":"text-gray-500 hover:text-white hover:bg-[#252535]"}`}>
-              {t}
+          {[{key:"Model",label:"Модель"},{key:"Layout1",label:"Лист 1"},{key:"Layout2",label:"Лист 2"}].map(t => (
+            <button key={t.key} onClick={() => { setActiveLayout(t.key); setStatusMsg(`Макет: ${t.label}`) }}
+              className={`text-[9px] px-2 py-0.5 border-x border-gray-700 transition-colors ${activeLayout===t.key?"bg-[#2d2d4e] text-white":"text-gray-500 hover:text-white hover:bg-[#252535]"}`}>
+              {t.label}
             </button>
           ))}
-          <button onClick={() => setStatusMsg("New layout")}
+          <button onClick={() => setStatusMsg("Новый лист")}
             className="text-[9px] text-gray-500 hover:text-white px-1.5 py-0.5">+</button>
         </div>
         {/* Center status icons */}
         <div className="flex items-center gap-1 text-[9px] text-gray-500 flex-1">
           <span className={`font-bold px-1 ${activeLayout==="Model"?"text-white bg-[#0078d4]":"text-gray-400"}`}>
-            {activeLayout==="Model"?"MODEL":"PAPER"}
+            {activeLayout==="Model"?"МОДЕЛЬ":"ЛИСТ"}
           </span>
           <button onClick={() => setScale(s=>s==="1:500"?"1:1000":s==="1:1000"?"1:200":"1:500")}
             className="hover:text-white px-1 border border-gray-700 text-[9px]">{scale}</button>
@@ -1755,7 +1760,7 @@ export default function CivilCADModule() {
         {/* Cursor coordinates right */}
         <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 border-l border-gray-700 pl-2">
           <span className="text-gray-400">{cursorCoords.x.toFixed(2)}, {cursorCoords.y.toFixed(2)}, 0.00</span>
-          <span className="text-gray-600">MODEL</span>
+          <span className="text-gray-600">МОДЕЛЬ</span>
         </div>
       </div>
     </div>
