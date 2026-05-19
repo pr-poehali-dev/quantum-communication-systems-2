@@ -28,6 +28,27 @@ interface CorridorDef {
   targetSurface: string; rows: CorridorRow[]; features: FeatureLine[]
 }
 
+// ─── Additional dialog types ────────────────────────────────────────────────
+
+interface SurfaceDef {
+  name: string; description: string; type: "TIN" | "Grid"
+  style: string; layer: string; gridX: string; gridY: string
+  pointFiles: { name: string; format: string }[]
+}
+
+interface AlignmentDef {
+  name: string; description: string; type: string
+  startStation: string; stationIncrement: string
+  style: string; layer: string
+  elements: { type: "line" | "curve" | "spiral"; length: string; radius: string; Az: string; A: string }[]
+}
+
+interface ProfileDef {
+  name: string; alignment: string; surface: string
+  description: string; style: string; layer: string
+  pvcs: { station: string; elev: string; k: string }[]
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const TREE: TreeNode[] = [
@@ -366,6 +387,493 @@ function drawCanvas(
   ctx.fillText("1510603.43, 550465.55, 0.00  МОДЕЛЬ", W/2-60, H-5)
 }
 
+// ─── Surface Dialog ──────────────────────────────────────────────────────────
+
+function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: SurfaceDef) => void }) {
+  const SURF_STYLES = ["Стандарт", "Горизонтали 1м", "Горизонтали 5м", "Без отображения", "Анализ уклонов"]
+  const [def, setDef] = useState<SurfaceDef>({
+    name: "Существующая поверхность", description: "", type: "TIN",
+    style: "Горизонтали 1м", layer: "C-TOPO-SURF", gridX: "10", gridY: "10",
+    pointFiles: [{ name: "Точки_съёмки.csv", format: "CSV (N,E,Z,Desc)" }],
+  })
+  const [tab, setTab] = useState<"info" | "build" | "analysis">("info")
+  const [addFile, setAddFile] = useState("")
+  const [addFormat, setAddFormat] = useState("CSV (N,E,Z,Desc)")
+  const FORMATS = ["CSV (N,E,Z,Desc)", "TXT (X,Y,Z)", "LandXML", "DEM/GeoTIFF", "Облако точек RCP"]
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[560px] max-h-[90vh] overflow-y-auto"
+        style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
+          <span className="text-white font-bold text-sm">Создать поверхность</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
+          {(["info","build","analysis"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
+              {t==="info"?"Информация":t==="build"?"Построение":"Анализ"}
+            </button>
+          ))}
+        </div>
+        <div className="p-3 space-y-2">
+          {tab === "info" && <>
+            <div className="flex items-center gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0">Тип поверхности:</label>
+              <div className="flex gap-3">
+                {(["TIN","Grid"] as const).map(t => (
+                  <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
+                    <input type="radio" checked={def.type===t} onChange={() => setDef(d=>({...d,type:t}))} />
+                    <span className="font-semibold">{t}</span>
+                    <span className="text-gray-500">{t==="TIN"?"— триангуляция":"— регулярная сетка"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0">Название:</label>
+              <input value={def.name} onChange={e=>setDef(d=>({...d,name:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+              <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">⋯</button>
+            </div>
+            <div className="flex items-start gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0 mt-1">Описание:</label>
+              <textarea value={def.description} onChange={e=>setDef(d=>({...d,description:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white h-10 resize-none" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0">Стиль:</label>
+              <select value={def.style} onChange={e=>setDef(d=>({...d,style:e.target.value}))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {SURF_STYLES.map(s=><option key={s}>{s}</option>)}
+              </select>
+              <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">⋯</button>
+              <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0">Слой:</label>
+              <input value={def.layer} onChange={e=>setDef(d=>({...d,layer:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+            </div>
+            {def.type==="Grid" && <div className="flex items-center gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0">Шаг сетки (м):</label>
+              <span className="text-xs text-gray-600">X:</span>
+              <input value={def.gridX} onChange={e=>setDef(d=>({...d,gridX:e.target.value}))} className="w-16 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+              <span className="text-xs text-gray-600">Y:</span>
+              <input value={def.gridY} onChange={e=>setDef(d=>({...d,gridY:e.target.value}))} className="w-16 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+            </div>}
+          </>}
+
+          {tab === "build" && <>
+            <div className="border border-gray-400 bg-white">
+              <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
+                <span className="text-blue-600">▼</span> Источники данных
+              </div>
+              <div className="flex items-center gap-1 bg-[#e8e8e8] border-b border-gray-300 text-xs font-semibold px-2 py-0.5">
+                <span className="flex-1">Файл / источник</span>
+                <span className="w-40">Формат</span>
+              </div>
+              <div className="max-h-36 overflow-y-auto">
+                {def.pointFiles.map((f,i) => (
+                  <div key={i} className={`flex items-center px-2 py-1 text-xs border-b border-gray-100 ${i%2===0?"bg-white":"bg-gray-50"}`}>
+                    <span className="flex-1 text-blue-700 font-mono">{f.name}</span>
+                    <span className="w-40 text-gray-600">{f.format}</span>
+                    <button onClick={() => setDef(d=>({...d,pointFiles:d.pointFiles.filter((_,j)=>j!==i)}))}
+                      className="text-gray-400 hover:text-red-500 ml-2 text-xs">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <div className="text-xs text-gray-600 mb-0.5">Файл:</div>
+                <input value={addFile} onChange={e=>setAddFile(e.target.value)} placeholder="имя_файла.csv" className="w-full border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+              </div>
+              <div className="w-44">
+                <div className="text-xs text-gray-600 mb-0.5">Формат:</div>
+                <select value={addFormat} onChange={e=>setAddFormat(e.target.value)} className="w-full border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                  {FORMATS.map(f=><option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <button onClick={() => { if(addFile){setDef(d=>({...d,pointFiles:[...d.pointFiles,{name:addFile,format:addFormat}]}));setAddFile("")}}}
+                className="px-3 py-1 bg-[#0078d4] text-white text-xs border border-blue-700 hover:bg-blue-700">Добавить</button>
+            </div>
+            <p className="text-[10px] text-gray-500">После добавления источников нажмите ОК — поверхность будет построена и добавлена в дерево проекта.</p>
+          </>}
+
+          {tab === "analysis" && <>
+            <div className="space-y-2">
+              {[
+                { label: "Анализ уклонов", desc: "Диапазоны уклонов с цветовой заливкой по категориям", icon: "🎨" },
+                { label: "Анализ высот", desc: "Градиентная заливка по отметкам от min до max", icon: "📊" },
+                { label: "Стрелки уклонов", desc: "Направление стока воды по рельефу", icon: "↓" },
+                { label: "Водосборные бассейны", desc: "Автоматическое разбиение на водосборные зоны", icon: "💧" },
+              ].map(a => (
+                <label key={a.label} className="flex items-start gap-2 p-2 border border-gray-200 bg-white rounded cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" className="mt-0.5 accent-blue-600" />
+                  <span className="text-lg leading-none">{a.icon}</span>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-800">{a.label}</div>
+                    <div className="text-[10px] text-gray-500">{a.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </>}
+        </div>
+        <div className="flex justify-end gap-2 px-3 pb-3">
+          <button onClick={() => onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
+          <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
+          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Alignment Dialog ─────────────────────────────────────────────────────────
+
+function AlignmentDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: AlignmentDef) => void }) {
+  const AL_TYPES = ["Осевая линия дороги","Пешеходная дорожка","Рельсовый путь","Бордюрная линия","Произвольная"]
+  const AL_STYLES = ["Базовый","Автодорога","Ж/д путь","Без отображения"]
+  const [def, setDef] = useState<AlignmentDef>({
+    name: "Трасса-1", description: "", type: AL_TYPES[0],
+    startStation: "0+00", stationIncrement: "20",
+    style: "Автодорога", layer: "C-ROAD-ALIGN",
+    elements: [
+      { type: "line", length: "250.00", radius: "—", Az: "45°12′30″", A: "—" },
+      { type: "spiral", length: "60.00", radius: "300", Az: "—", A: "60" },
+      { type: "curve", length: "314.16", radius: "300", Az: "—", A: "—" },
+      { type: "spiral", length: "60.00", radius: "300", Az: "—", A: "60" },
+      { type: "line", length: "180.00", radius: "—", Az: "105°45′00″", A: "—" },
+    ],
+  })
+  const [tab, setTab] = useState<"info"|"geom"|"station">("info")
+  const TYPE_LABELS: Record<string,string> = { line: "Прямая", curve: "Круговая кривая", spiral: "Клотоида" }
+  const TYPE_COLORS: Record<string,string> = { line: "text-blue-700", curve: "text-orange-600", spiral: "text-green-700" }
+
+  const addElement = (type: "line"|"curve"|"spiral") => {
+    setDef(d=>({...d, elements:[...d.elements, { type, length:"100.00", radius: type==="line"?"—":"500", Az: type==="line"?"0°00′00″":"—", A: type==="spiral"?"50":"—" }]}))
+  }
+  const removeEl = (i: number) => setDef(d=>({...d, elements:d.elements.filter((_,j)=>j!==i)}))
+
+  const totalLength = def.elements.reduce((s,e) => s + (parseFloat(e.length)||0), 0)
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto"
+        style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
+          <span className="text-white font-bold text-sm">Создать трассу</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+        <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
+          {(["info","geom","station"] as const).map(t=>(
+            <button key={t} onClick={()=>setTab(t)}
+              className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
+              {t==="info"?"Информация":t==="geom"?"Геометрия элементов":"Пикетаж"}
+            </button>
+          ))}
+        </div>
+        <div className="p-3 space-y-2">
+          {tab==="info" && <>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Название:</label>
+              <input value={def.name} onChange={e=>setDef(d=>({...d,name:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+              <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">⋯</button>
+            </div>
+            <div className="flex items-start gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0 mt-1">Описание:</label>
+              <textarea value={def.description} onChange={e=>setDef(d=>({...d,description:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white h-10 resize-none" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Тип трассы:</label>
+              <select value={def.type} onChange={e=>setDef(d=>({...d,type:e.target.value}))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {AL_TYPES.map(t=><option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Стиль:</label>
+              <select value={def.style} onChange={e=>setDef(d=>({...d,style:e.target.value}))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {AL_STYLES.map(s=><option key={s}>{s}</option>)}
+              </select>
+              <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Слой:</label>
+              <input value={def.layer} onChange={e=>setDef(d=>({...d,layer:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+            </div>
+            <div className="flex items-center gap-2 mt-1 p-2 bg-blue-50 border border-blue-200 rounded">
+              <span className="text-xs text-blue-700 font-semibold">Общая длина трассы:</span>
+              <span className="text-xs font-mono font-bold text-blue-900">{totalLength.toFixed(2)} м</span>
+            </div>
+          </>}
+
+          {tab==="geom" && <>
+            <div className="border border-gray-400 bg-white">
+              <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
+                <span className="text-blue-600">▼</span> Элементы геометрии
+                <div className="ml-auto flex gap-1">
+                  {([["line","Пр"],["curve","КК"],["spiral","КЛ"]] as [string,string][]).map(([t,l])=>(
+                    <button key={t} onClick={()=>addElement(t as "line"|"curve"|"spiral")}
+                      className="px-2 py-0.5 bg-[#0078d4] text-white text-[10px] hover:bg-blue-700">+ {l}</button>
+                  ))}
+                </div>
+              </div>
+              <table className="w-full text-xs">
+                <thead className="bg-[#e8e8e8] border-b border-gray-300">
+                  <tr>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200 w-8">#</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200 w-28">Тип</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Длина (м)</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">R (м)</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Азимут / A</th>
+                    <th className="px-1 py-1 w-6"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {def.elements.map((el,i)=>(
+                    <tr key={i} className={i%2===0?"bg-white":"bg-gray-50"}>
+                      <td className="px-2 py-1 border-r border-gray-100 text-gray-500">{i+1}</td>
+                      <td className={`px-2 py-1 border-r border-gray-100 font-semibold ${TYPE_COLORS[el.type]}`}>{TYPE_LABELS[el.type]}</td>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input value={el.length} onChange={e=>{const els=[...def.elements];els[i]={...els[i],length:e.target.value};setDef(d=>({...d,elements:els}))}}
+                          className="w-full bg-transparent outline-none text-xs font-mono" />
+                      </td>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input value={el.radius} onChange={e=>{const els=[...def.elements];els[i]={...els[i],radius:e.target.value};setDef(d=>({...d,elements:els}))}}
+                          className="w-full bg-transparent outline-none text-xs font-mono" disabled={el.type==="line"} />
+                      </td>
+                      <td className="px-1 py-0.5 border-r border-gray-100 font-mono text-[10px] text-gray-600">
+                        {el.type==="line"?el.Az:el.type==="spiral"?`A=${el.A}`:"—"}
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <button onClick={()=>removeEl(i)} className="text-gray-400 hover:text-red-500">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-[#e8e8e8] border-t border-gray-300">
+                  <tr><td colSpan={2} className="px-2 py-1 text-xs font-bold">Итого:</td>
+                    <td className="px-2 py-1 text-xs font-bold font-mono">{totalLength.toFixed(2)}</td>
+                    <td colSpan={3}></td></tr>
+                </tfoot>
+              </table>
+            </div>
+          </>}
+
+          {tab==="station" && <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <label className="w-36 text-xs text-gray-700 shrink-0">Начало пикетажа:</label>
+                <input value={def.startStation} onChange={e=>setDef(d=>({...d,startStation:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="w-36 text-xs text-gray-700 shrink-0">Шаг пикетажа (м):</label>
+                <input value={def.stationIncrement} onChange={e=>setDef(d=>({...d,stationIncrement:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
+              </div>
+            </div>
+            <div className="border border-gray-300 bg-white p-3 rounded space-y-1">
+              <div className="text-xs font-semibold text-gray-700 mb-2">Разбивочные элементы:</div>
+              {def.elements.map((el,i) => {
+                const pk = def.elements.slice(0,i).reduce((s,e)=>s+(parseFloat(e.length)||0),0)
+                return (
+                  <div key={i} className="flex gap-2 text-xs text-gray-600 font-mono">
+                    <span className="w-6 text-gray-400">{i+1}.</span>
+                    <span className={`w-28 font-semibold ${TYPE_COLORS[el.type]}`}>{TYPE_LABELS[el.type]}</span>
+                    <span>ПК {(pk/100).toFixed(0).padStart(2,"0")}+{String(pk%100).padStart(2,"0")} … ПК {((pk+(parseFloat(el.length)||0))/100).toFixed(0).padStart(2,"0")}+{String(Math.round((pk+(parseFloat(el.length)||0))%100)).padStart(2,"0")}</span>
+                    <span className="text-gray-400 ml-auto">{el.length} м</span>
+                  </div>
+                )
+              })}
+              <div className="border-t border-gray-200 mt-2 pt-2 flex gap-2 text-xs font-bold">
+                <span className="text-gray-600">Конец трассы:</span>
+                <span className="font-mono text-blue-700">ПК {(totalLength/100).toFixed(0).padStart(2,"0")}+{String(Math.round(totalLength%100)).padStart(2,"0")}</span>
+              </div>
+            </div>
+          </>}
+        </div>
+        <div className="flex justify-end gap-2 px-3 pb-3">
+          <button onClick={()=>onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
+          <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
+          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Profile Dialog ───────────────────────────────────────────────────────────
+
+function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onOK: (d: ProfileDef) => void; alignments: string[] }) {
+  const PROF_STYLES = ["Базовый","Профиль разработки","Существующий рельеф","Без отображения"]
+  const [def, setDef] = useState<ProfileDef>({
+    name: "Проект_Трасса-1", alignment: alignments[0] || "Трасса ШД-38",
+    surface: "Существующая поверхность", description: "", style: "Профиль разработки", layer: "C-ROAD-PROF",
+    pvcs: [
+      { station: "0+00", elev: "120.50", k: "—" },
+      { station: "2+50", elev: "125.80", k: "40" },
+      { station: "5+00", elev: "122.30", k: "60" },
+      { station: "8+00", elev: "118.90", k: "35" },
+      { station: "10+00", elev: "121.40", k: "—" },
+    ],
+  })
+  const [tab, setTab] = useState<"info"|"pvc"|"preview">("info")
+  const [newSt, setNewSt] = useState(""); const [newEl, setNewEl] = useState(""); const [newK, setNewK] = useState("—")
+
+  const addPVC = () => {
+    if (!newSt || !newEl) return
+    setDef(d=>({...d, pvcs: [...d.pvcs, {station:newSt, elev:newEl, k:newK}].sort((a,b)=>{
+      const parse = (s:string) => { const [pk,m]=s.split("+"); return +(pk||0)*100+(+(m||0)) }
+      return parse(a.station)-parse(b.station)
+    })}))
+    setNewSt(""); setNewEl(""); setNewK("—")
+  }
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[580px] max-h-[90vh] overflow-y-auto"
+        style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
+          <span className="text-white font-bold text-sm">Создать профиль разработки</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+        <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
+          {(["info","pvc","preview"] as const).map(t=>(
+            <button key={t} onClick={()=>setTab(t)}
+              className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
+              {t==="info"?"Информация":t==="pvc"?"Точки ВК":"Предпросмотр"}
+            </button>
+          ))}
+        </div>
+        <div className="p-3 space-y-2">
+          {tab==="info" && <>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Трасса:</label>
+              <select value={def.alignment} onChange={e=>setDef(d=>({...d,alignment:e.target.value}))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {alignments.map(a=><option key={a}>{a}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Поверхность рельефа:</label>
+              <select value={def.surface} onChange={e=>setDef(d=>({...d,surface:e.target.value}))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {["Существующая поверхность","Проектная поверхность"].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Название профиля:</label>
+              <input value={def.name} onChange={e=>setDef(d=>({...d,name:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Стиль:</label>
+              <select value={def.style} onChange={e=>setDef(d=>({...d,style:e.target.value}))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {PROF_STYLES.map(s=><option key={s}>{s}</option>)}
+              </select>
+              <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">Слой:</label>
+              <input value={def.layer} onChange={e=>setDef(d=>({...d,layer:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+            </div>
+          </>}
+
+          {tab==="pvc" && <>
+            <div className="border border-gray-400 bg-white">
+              <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
+                <span className="text-blue-600">▼</span> Вертикальные кривые (ВК)
+              </div>
+              <table className="w-full text-xs">
+                <thead className="bg-[#e8e8e8] border-b border-gray-300">
+                  <tr>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Пикет</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Отметка (м)</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Параметр K</th>
+                    <th className="w-6"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {def.pvcs.map((pvc,i)=>(
+                    <tr key={i} className={i%2===0?"bg-white":"bg-gray-50"}>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input value={pvc.station} onChange={e=>{const p=[...def.pvcs];p[i]={...p[i],station:e.target.value};setDef(d=>({...d,pvcs:p}))}}
+                          className="w-full bg-transparent outline-none font-mono text-xs" />
+                      </td>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input value={pvc.elev} onChange={e=>{const p=[...def.pvcs];p[i]={...p[i],elev:e.target.value};setDef(d=>({...d,pvcs:p}))}}
+                          className="w-full bg-transparent outline-none font-mono text-xs" />
+                      </td>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input value={pvc.k} onChange={e=>{const p=[...def.pvcs];p[i]={...p[i],k:e.target.value};setDef(d=>({...d,pvcs:p}))}}
+                          className="w-full bg-transparent outline-none font-mono text-xs" />
+                      </td>
+                      <td className="px-1"><button onClick={()=>setDef(d=>({...d,pvcs:d.pvcs.filter((_,j)=>j!==i)}))} className="text-gray-400 hover:text-red-500">✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2 items-end">
+              <div><div className="text-xs text-gray-600 mb-0.5">Пикет:</div><input value={newSt} onChange={e=>setNewSt(e.target.value)} placeholder="0+00" className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" /></div>
+              <div><div className="text-xs text-gray-600 mb-0.5">Отметка:</div><input value={newEl} onChange={e=>setNewEl(e.target.value)} placeholder="120.00" className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" /></div>
+              <div><div className="text-xs text-gray-600 mb-0.5">K:</div><input value={newK} onChange={e=>setNewK(e.target.value)} placeholder="—" className="w-14 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" /></div>
+              <button onClick={addPVC} className="px-3 py-1 bg-[#0078d4] text-white text-xs border border-blue-700 hover:bg-blue-700">+ ВК</button>
+            </div>
+          </>}
+
+          {tab==="preview" && <>
+            <div className="bg-[#1a1a2e] rounded border border-gray-600 p-2" style={{height:160}}>
+              <svg width="100%" height="100%" viewBox="0 0 520 140">
+                <line x1="20" y1="120" x2="500" y2="120" stroke="#444" strokeWidth="1"/>
+                {def.pvcs.map((_,i)=>{
+                  const x = 20 + i*(480/(def.pvcs.length-1||1))
+                  return <line key={i} x1={x} y1="118" x2={x} y2="124" stroke="#666" strokeWidth="1"/>
+                })}
+                {def.pvcs.map((p,i)=>{
+                  const x = 20 + i*(480/(def.pvcs.length-1||1))
+                  const minE = Math.min(...def.pvcs.map(p=>parseFloat(p.elev)||0))
+                  const maxE = Math.max(...def.pvcs.map(p=>parseFloat(p.elev)||0))
+                  const range = maxE-minE || 1
+                  const y = 110 - ((parseFloat(p.elev)||0)-minE)/range*80
+                  return <text key={i} x={x} y="133" fill="#6b7280" fontSize="7" textAnchor="middle">{p.station}</text>
+                })}
+                <polyline
+                  points={def.pvcs.map((p,i)=>{
+                    const x = 20 + i*(480/(def.pvcs.length-1||1))
+                    const minE = Math.min(...def.pvcs.map(p=>parseFloat(p.elev)||0))
+                    const maxE = Math.max(...def.pvcs.map(p=>parseFloat(p.elev)||0))
+                    const range = maxE-minE || 1
+                    const y = 110 - ((parseFloat(p.elev)||0)-minE)/range*80
+                    return `${x},${y}`
+                  }).join(" ")}
+                  fill="none" stroke="#f97316" strokeWidth="2"/>
+                {def.pvcs.map((p,i)=>{
+                  const x = 20 + i*(480/(def.pvcs.length-1||1))
+                  const minE = Math.min(...def.pvcs.map(p=>parseFloat(p.elev)||0))
+                  const maxE = Math.max(...def.pvcs.map(p=>parseFloat(p.elev)||0))
+                  const range = maxE-minE || 1
+                  const y = 110 - ((parseFloat(p.elev)||0)-minE)/range*80
+                  return <g key={i}>
+                    <circle cx={x} cy={y} r="3" fill="#f97316"/>
+                    <text x={x} y={y-6} fill="#fb923c" fontSize="7" textAnchor="middle">{p.elev}</text>
+                  </g>
+                })}
+                <text x="20" y="12" fill="#9ca3af" fontSize="8">Профиль: {def.name}</text>
+              </svg>
+            </div>
+            <p className="text-[10px] text-gray-500 text-center">Предпросмотр продольного профиля. Оранжевая линия — профиль разработки.</p>
+          </>}
+        </div>
+        <div className="flex justify-end gap-2 px-3 pb-3">
+          <button onClick={()=>onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
+          <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
+          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 // ─── Tree node component ─────────────────────────────────────────────────────
 
 function TreeItem({ node, depth, selected, onSelect, onToggle }: {
@@ -686,6 +1194,9 @@ export default function CivilCADModule() {
   const [commandLine, setCommandLine] = useState("")
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [showSurface, setShowSurface] = useState(false)
+  const [showAlignment, setShowAlignment] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -731,7 +1242,10 @@ export default function CivilCADModule() {
 
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
-    if (c === "CREATECORRIDOR" || c === "CORRIDOR" || c === "СОЗДАТКОРИДОР") setShowCorridor(true)
+    if (c === "CREATECORRIDOR" || c === "CORRIDOR") setShowCorridor(true)
+    else if (c === "CREATESURFACE" || c === "SURFACE" || c === "TIN") setShowSurface(true)
+    else if (c === "CREATEALIGNMENT" || c === "ALIGNMENT" || c === "ТРАССА") setShowAlignment(true)
+    else if (c === "CREATEPROFILE" || c === "PROFILE" || c === "ПРОФИЛЬ") setShowProfile(true)
     else if (c === "ZOOM E" || c === "ВПИСАТЬ") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
     else if (c === "REGEN" || c === "РЕГЕН") draw()
     setStatusMsg(`Команда: ${cmd}`)
@@ -740,15 +1254,21 @@ export default function CivilCADModule() {
 
   const toggleLayer = (key: keyof typeof visLayers) => setVisLayers(v => ({ ...v, [key]: !v[key] }))
 
-  const handleToolbarItem = (item: string) => {
+  const openDialog = (key: string) => {
     setOpenDropdown(null)
-    if (item.includes("Коридор")) { setShowCorridor(true); return }
+    if (key.includes("Коридор") || key.includes("коридор")) { setShowCorridor(true) }
+    else if (key.includes("Поверхност") || key.includes("TIN") || key.includes("Grid")) { setShowSurface(true) }
+    else if (key.includes("Трасс") || key.includes("трасс")) { setShowAlignment(true) }
+    else if (key.includes("Профиль") || key.includes("профиль") || key.includes("рельеф")) { setShowProfile(true) }
+  }
+
+  const handleToolbarItem = (item: string) => {
+    openDialog(item)
     setStatusMsg(`Активировано: ${item.replace(" ▾","")}`)
   }
 
   const handleDropdownItem = (parent: string, sub: string) => {
-    setOpenDropdown(null)
-    if (parent.includes("Коридор") || sub.includes("коридор")) { setShowCorridor(true); return }
+    openDialog(parent + " " + sub)
     setStatusMsg(`${parent.replace(" ▾","")}: ${sub}`)
   }
 
@@ -898,7 +1418,7 @@ export default function CivilCADModule() {
             onContextMenu={e => e.preventDefault()}
             onDoubleClick={() => setShowCorridor(true)} />
 
-          {/* Corridor dialog */}
+          {/* Dialogs */}
           <AnimatePresence>
             {showCorridor && (
               <CorridorDialog
@@ -908,6 +1428,48 @@ export default function CivilCADModule() {
                   setShowCorridor(false)
                   setStatusMsg(`Коридор «${def.name}» успешно создан`)
                 }}
+              />
+            )}
+            {showSurface && (
+              <SurfaceDialog
+                onClose={() => setShowSurface(false)}
+                onOK={def => {
+                  setShowSurface(false)
+                  setStatusMsg(`Поверхность «${def.name}» (${def.type}) создана`)
+                  setTreeData(prev => {
+                    const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
+                      if (n.id === "surfaces") return { ...n, children: [...(n.children||[]), { id: `surf_${Date.now()}`, label: def.name, icon: "Triangle", color: "#4ade80" }] }
+                      return { ...n, children: n.children ? add(n.children) : undefined }
+                    })
+                    return add(prev)
+                  })
+                }}
+              />
+            )}
+            {showAlignment && (
+              <AlignmentDialog
+                onClose={() => setShowAlignment(false)}
+                onOK={def => {
+                  setShowAlignment(false)
+                  setStatusMsg(`Трасса «${def.name}» создана, длина ${def.elements.reduce((s,e)=>s+(parseFloat(e.length)||0),0).toFixed(0)} м`)
+                  setTreeData(prev => {
+                    const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
+                      if (n.id === "alignments") return { ...n, children: [...(n.children||[]), { id: `al_${Date.now()}`, label: def.name, icon: "Minus", color: "#f97316" }] }
+                      return { ...n, children: n.children ? add(n.children) : undefined }
+                    })
+                    return add(prev)
+                  })
+                }}
+              />
+            )}
+            {showProfile && (
+              <ProfileDialog
+                onClose={() => setShowProfile(false)}
+                onOK={def => {
+                  setShowProfile(false)
+                  setStatusMsg(`Профиль «${def.name}» создан для трассы ${def.alignment}`)
+                }}
+                alignments={["Трасса ШД-38","Ул. Трумана","Бордюр периметра"]}
               />
             )}
           </AnimatePresence>
@@ -926,7 +1488,7 @@ export default function CivilCADModule() {
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Команда… (CREATECORRIDOR, ZOOM E, REGEN)"
+            placeholder="Команда… (SURFACE, ALIGNMENT, PROFILE, CORRIDOR, ZOOM E)"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
