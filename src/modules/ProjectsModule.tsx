@@ -100,6 +100,20 @@ export default function ProjectsModule() {
     setProjects(prev => prev.map(p => p.id === pid ? { ...p, status } : p))
   }
 
+  const deleteProject = (pid: number) => {
+    setProjects(prev => prev.filter(p => p.id !== pid))
+    if (activeProject === pid) setActiveProject(null)
+  }
+
+  const archiveProject = (pid: number) => {
+    setProjects(prev => prev.map(p => p.id === pid ? { ...p, status: "archived" } : p))
+    setActiveProject(null)
+  }
+
+  const restoreProject = (pid: number) => {
+    setProjects(prev => prev.map(p => p.id === pid ? { ...p, status: "active" } : p))
+  }
+
   const filtered = projects.filter(p =>
     (filterStatus === "all" || p.status === filterStatus) &&
     p.name.toLowerCase().includes(search.toLowerCase())
@@ -152,10 +166,9 @@ export default function ProjectsModule() {
                 <motion.div
                   key={p.id}
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="rounded-2xl border border-gray-200 bg-white p-5 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => setActiveProject(p.id)}
+                  className={`rounded-2xl border bg-white p-5 hover:shadow-md transition-all ${p.status === "archived" ? "border-gray-100 opacity-70" : "border-gray-200 hover:border-indigo-300"}`}
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-3 cursor-pointer" onClick={() => setActiveProject(p.id)}>
                     <div className="flex-1">
                       <div className="font-bold text-gray-900 text-sm leading-tight">{p.name}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{p.type} · {p.stage.split("—")[0].trim()}</div>
@@ -167,6 +180,23 @@ export default function ProjectsModule() {
                     <span className="flex items-center gap-1"><Icon name="GitBranch" size={11} />{p.versions.length} вер.</span>
                     <span className="flex items-center gap-1"><Icon name="Users" size={11} />{p.team.length} уч.</span>
                     <span className="ml-auto">{p.updated}</span>
+                    <div className="flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
+                      {p.status === "archived" ? (
+                        <button title="Восстановить" onClick={() => restoreProject(p.id)}
+                          className="p-1 rounded hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors">
+                          <Icon name="ArchiveRestore" size={14} />
+                        </button>
+                      ) : (
+                        <button title="В архив" onClick={() => archiveProject(p.id)}
+                          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                          <Icon name="Archive" size={14} />
+                        </button>
+                      )}
+                      <button title="Удалить проект" onClick={() => { if (confirm(`Удалить проект «${p.name}»?`)) deleteProject(p.id) }}
+                        className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                        <Icon name="Trash2" size={14} />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -181,6 +211,21 @@ export default function ProjectsModule() {
                 <div className="text-sm text-muted-foreground">{current.type} · {current.stage}</div>
               </div>
               <span className={`ml-auto text-xs px-3 py-1 rounded-full font-semibold ${STATUS_COLORS[current.status]}`}>{STATUS_LABELS[current.status]}</span>
+              {current.status !== "archived" ? (
+                <button title="В архив" onClick={() => archiveProject(current.id)}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors">
+                  <Icon name="Archive" size={13} /> В архив
+                </button>
+              ) : (
+                <button title="Восстановить" onClick={() => restoreProject(current.id)}
+                  className="flex items-center gap-1.5 text-xs text-green-600 border border-green-200 rounded-lg px-3 py-1.5 hover:bg-green-50 transition-colors">
+                  <Icon name="ArchiveRestore" size={13} /> Восстановить
+                </button>
+              )}
+              <button title="Удалить" onClick={() => { if (confirm(`Удалить проект «${current.name}»?`)) deleteProject(current.id) }}
+                className="flex items-center gap-1.5 text-xs text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
+                <Icon name="Trash2" size={13} /> Удалить
+              </button>
             </div>
 
             <Tabs defaultValue="info">

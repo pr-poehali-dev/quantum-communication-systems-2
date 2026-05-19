@@ -64,7 +64,9 @@ export default function Dashboard() {
   const [activeModule, setActiveModule] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!localStorage.getItem("civilpro_auth")) navigate("/login")
+    if (!localStorage.getItem("civilpro_auth")) { navigate("/login"); return }
+    const profile = JSON.parse(localStorage.getItem("civilpro_profile") || "{}")
+    if (!profile.onboarded) navigate("/onboarding")
   }, [navigate])
 
   const handleLogout = () => {
@@ -98,7 +100,21 @@ export default function Dashboard() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground hidden sm:block">test@test</span>
+          {(() => {
+            const p = JSON.parse(localStorage.getItem("civilpro_profile") || "{}")
+            const initials = (p.name || "").trim().split(" ").slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("") || null
+            return p.avatar ? (
+              <img src={p.avatar} alt="avatar" className="w-8 h-8 rounded-full object-cover border border-gray-200 cursor-pointer" onClick={() => navigate("/settings")} />
+            ) : initials ? (
+              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center cursor-pointer border border-indigo-200" onClick={() => navigate("/settings")}>{initials}</div>
+            ) : (
+              <span className="text-sm text-muted-foreground hidden sm:block">test@test</span>
+            )
+          })()}
+          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")} className="gap-1.5 text-gray-500 hover:text-gray-800">
+            <Icon name="Settings" size={15} />
+            <span className="hidden sm:inline">Настройки</span>
+          </Button>
           <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
             <Icon name="LogOut" size={15} />
             Выйти
