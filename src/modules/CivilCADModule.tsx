@@ -82,11 +82,11 @@ const TREE: TreeNode[] = [
       },
       { id: "featurelines", label: "Характерные линии", icon: "Spline", color: "#ec4899" },
       { id: "sites", label: "Площадки", icon: "LayoutGrid", color: "#84cc16" },
-      { id: "turnouts", label: "Разъезды и пересечения", icon: "ArrowLeftRight", color: "#94a3b8" },
       { id: "catchments", label: "Водосборные бассейны", icon: "Droplets", color: "#60a5fa" },
       { id: "pipenet", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
       { id: "pressnet", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
       { id: "bridges", label: "Мосты", icon: "Milestone", color: "#f59e0b" },
+      { id: "turnouts", label: "Разъезды и пересечения", icon: "ArrowLeftRight", color: "#94a3b8" },
       {
         id: "corridors", label: "Коридоры", icon: "Navigation", color: "#f97316", expanded: true, children: [
           { id: "c1", label: "Дорога и парковочная зона", icon: "Minus", color: "#f97316" },
@@ -100,7 +100,7 @@ const TREE: TreeNode[] = [
     ]
   },
   {
-    id: "datasrc", label: "Внешние ссылки []", icon: "Database", expanded: false, children: [
+    id: "datasrc", label: "Ярлыки данных []", icon: "Database", expanded: false, children: [
       { id: "ds1", label: "Поверхности", icon: "Mountain", color: "#4ade80" },
       { id: "ds2", label: "Трассы", icon: "Route", color: "#f97316" },
       { id: "ds3", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
@@ -2377,39 +2377,43 @@ export default function CivilCADModule() {
         </div>
 
         {/* ── Left: Toolspace / Tree ── */}
-        <div className="bg-[#1a1a2e] border-r border-gray-700 w-44 flex flex-col overflow-hidden flex-shrink-0">
+        <div className="bg-[#1a1a2e] border-r border-gray-700 w-40 flex flex-col overflow-hidden flex-shrink-0">
           {/* Toolspace header */}
-          <div className="bg-[#252540] px-2 py-0.5 flex items-center justify-between border-b border-gray-700">
-            <span className="text-[9px] text-gray-300 font-bold tracking-wide uppercase">TOOLSPACE</span>
+          <div className="bg-[#2b2b3f] px-1.5 py-0.5 flex items-center justify-between border-b border-gray-700">
+            <span className="text-[9px] text-gray-200 font-bold tracking-widest uppercase">TOOLSPACE</span>
             <div className="flex gap-0.5">
-              {["📋","📁","🔍","❓"].map((ic,i)=>(
-                <button key={i} className="text-[9px] text-gray-500 hover:text-white w-4 h-4 flex items-center justify-center">{ic}</button>
+              {[
+                { icon: "ClipboardList", title: "Проспект" },
+                { icon: "FolderOpen",    title: "Открыть" },
+                { icon: "Search",        title: "Поиск" },
+                { icon: "HelpCircle",    title: "Справка" },
+              ].map(({ icon, title }) => (
+                <button key={icon} title={title}
+                  onClick={() => setStatusMsg(`Toolspace: ${title}`)}
+                  className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-white hover:bg-blue-600 rounded transition-colors">
+                  <Icon name={icon} size={9} fallback="Square" />
+                </button>
               ))}
             </div>
           </div>
           {/* Prospector / Settings tabs */}
-          <div className="flex border-b border-gray-700">
-            {["Диспетчер","Параметры"].map(t=>(
-              <button key={t} className="flex-1 text-[9px] py-0.5 bg-[#1e1e2e] text-gray-400 hover:bg-[#2d2d4e] hover:text-white border-r border-gray-700 last:border-0 transition-colors">
+          <div className="flex border-b border-gray-700 bg-[#222235]">
+            {["Диспетчер","Параметры"].map((t, i) => (
+              <button key={t}
+                className={`flex-1 text-[9px] py-0.5 border-r border-gray-700 last:border-0 transition-colors
+                  ${i === 0 ? "bg-[#1a1a2e] text-white border-b-2 border-b-[#0078d4]" : "text-gray-400 hover:bg-[#2d2d4e] hover:text-white"}`}
+                onClick={() => setStatusMsg(`Вкладка: ${t}`)}>
                 {t}
               </button>
             ))}
           </div>
-          {/* Active Drawing label */}
-          <div className="bg-[#1e1e30] px-2 py-0.5 flex items-center gap-1 border-b border-gray-700">
-            <span className="text-[9px] text-blue-400 font-semibold">Активный чертёж</span>
-            <Icon name="ChevronDown" size={9} className="text-gray-500 ml-auto" />
+          {/* Active Drawing View dropdown */}
+          <div className="bg-[#1e1e30] px-1.5 py-0.5 flex items-center gap-1 border-b border-gray-700 cursor-pointer hover:bg-[#252540]"
+            onClick={() => setStatusMsg("Активный чертёж: Главная парковка_Финал")}>
+            <span className="text-[9px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
+            <Icon name="ChevronDown" size={9} className="text-gray-500 flex-shrink-0" />
           </div>
-          {/* Layer toggles */}
-          <div className="flex gap-1 px-1.5 py-1 border-b border-gray-700 flex-wrap">
-            {(Object.keys(visLayers) as (keyof typeof visLayers)[]).map(k => (
-              <button key={k} onClick={() => toggleLayer(k)}
-                className={`text-[8px] px-1 py-0.5 rounded transition-colors ${visLayers[k] ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-400"}`}>
-                {k}
-              </button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto text-[11px]">
             {treeData.map(node => (
               <TreeItem key={node.id} node={node} depth={0} selected={selectedNode}
                 onSelect={setSelectedNode} onToggle={toggleNode} onAction={handleTreeNodeAction} />
