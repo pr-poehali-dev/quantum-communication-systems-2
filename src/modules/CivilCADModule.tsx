@@ -2612,12 +2612,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
     if (c === "КОРИДОР" || c === "CORRIDOR") setShowCorridor(true)
-    else if (c === "ПОВЕРХНОСТЬ" || c === "SURFACE" || c === "TIN") setShowSurface(true)
-    else if (c === "ТРАССА" || c === "ALIGNMENT") setShowAlignment(true)
-    else if (c === "ПРОФИЛЬ" || c === "PROFILE") setShowProfile(true)
-    else if (c === "СЕЧЕНИЕ" || c === "ASSEMBLY" || c === "ТС") setShowAssembly(true)
-    else if (c === "ZOOM E" || c === "ВПИСАТЬ") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
-    else if (c === "REGEN" || c === "РЕГЕН") draw()
+    else if (c === "ПОВЕРХНОСТЬ" || c === "SURFACE" || c === "TIN" || c === "GRID") setShowSurface(true)
+    else if (c === "ТРАССА" || c === "ALIGNMENT" || c === "AL") setShowAlignment(true)
+    else if (c === "ПРОФИЛЬ" || c === "PROFILE" || c === "ПРОВ") setShowProfile(true)
+    else if (c === "СЕЧЕНИЕ" || c === "ASSEMBLY" || c === "ТС" || c === "AS") setShowAssembly(true)
+    else if (c === "ТОЧКИ" || c === "POINTS" || c === "ТЧК") setShowPoints(true)
+    else if (c === "СЕТЬ" || c === "PIPE" || c === "ТРУБЫ") setShowPipeNet(true)
+    else if (c === "ПЕРЕСЕЧЕНИЕ" || c === "INTERSECT" || c === "INT") setShowIntersection(true)
+    else if (c === "ХАРЛИНИЯ" || c === "FEATURELINE" || c === "ХЛ" || c === "FL") setShowFeatureLine(true)
+    else if (c === "АНАЛИЗ" || c === "УКЛОНЫ" || c === "SLOPES") { setAnalysisType("Анализ уклонов"); setShowAnalysis(true) }
+    else if (c === "ОБЪЁМЫ" || c === "VOLUMES" || c === "ОБЪ") setShowVolume(true)
+    else if (c === "СЛОИ" || c === "LAYERS" || c === "LA") setShowLayers(true)
+    else if (c === "ИМПОРТ" || c === "IMPORT") setShowImport(true)
+    else if (c === "ЭКСПОРТ" || c === "EXPORT") { setExportMode("export"); setShowExport(true) }
+    else if (c === "ПЕЧАТЬ" || c === "PRINT" || c === "PLOT") { setExportMode("print"); setShowExport(true) }
+    else if (c === "ПАРАМ" || c === "DRAWING" || c === "DWGSETTINGS") setShowDrawingSettings(true)
+    else if (c === "ZOOM E" || c === "ВПИСАТЬ" || c === "ZE") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
+    else if (c === "REGEN" || c === "РЕГЕН" || c === "RE") draw()
+    else { setStatusMsg(`Неизвестная команда: ${cmd}. Введите ? для справки`); setCommandLine(""); return }
     setStatusMsg(`Команда: ${cmd}`)
     setCommandLine("")
   }
@@ -2716,7 +2728,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <option>Civil 3D</option>
         </select>
         <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          Autodesk Civil 3D 2026 — Главная_парковка.dwg [Только чтение]
+          Autodesk Civil 3D 2026 — Главная_парковка.dwg
         </div>
         <div className="flex items-center gap-1 ml-auto">
           <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
@@ -3109,7 +3121,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Введите команду  (ПОВЕРХНОСТЬ, ТРАССА, ПРОФИЛЬ, КОРИДОР, СЕЧЕНИЕ, ZOOM E)"
+            placeholder="Введите команду: ТРАССА, КОРИДОР, ПОВЕРХНОСТЬ, ПРОФИЛЬ, СЕЧЕНИЕ, ТОЧКИ, СЕТЬ, СЛОИ, АНАЛИЗ, ОБЪЁМЫ, ИМПОРТ, ПЕЧАТЬ, ZE…"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
