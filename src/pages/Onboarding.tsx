@@ -45,6 +45,12 @@ export default function Onboarding() {
     navigate("/dashboard")
   }
 
+  const skip = () => {
+    const profile = JSON.parse(localStorage.getItem("civilpro_profile") || "{}")
+    localStorage.setItem("civilpro_profile", JSON.stringify({ ...profile, onboarded: true }))
+    navigate("/dashboard")
+  }
+
   const canNext = [
     true,
     role !== "",
@@ -58,6 +64,16 @@ export default function Onboarding() {
       style={{ background: "radial-gradient(125% 125% at 50% 10%, #fff 40%, #6366f1 100%)" }}
     >
       <div className="w-full max-w-2xl">
+        {/* Skip */}
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={() => navigate("/login")} className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
+            <Icon name="ChevronLeft" size={15} /> Назад ко входу
+          </button>
+          <button onClick={skip} className="text-sm text-gray-400 hover:text-gray-600">
+            Пропустить →
+          </button>
+        </div>
+
         {/* Progress */}
         <div className="flex items-center justify-center gap-2 mb-8">
           {STEPS.map((s, i) => (

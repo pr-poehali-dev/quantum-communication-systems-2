@@ -20,7 +20,8 @@ export default function Login() {
     e.preventDefault()
     if (email === TEST_EMAIL && password === TEST_PASSWORD) {
       localStorage.setItem("civilpro_auth", "true")
-      navigate("/dashboard")
+      const profile = JSON.parse(localStorage.getItem("civilpro_profile") || "{}")
+      navigate(profile.onboarded ? "/dashboard" : "/onboarding")
     } else {
       setError("Неверный email или пароль")
     }

@@ -4,16 +4,18 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Icon from "@/components/ui/icon"
 
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
-  state = { error: false }
-  static getDerivedStateFromError() { return { error: true } }
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean; msg: string }> {
+  state = { error: false, msg: "" }
+  static getDerivedStateFromError(e: Error) { return { error: true, msg: e?.message || "" } }
+  componentDidCatch(e: Error) { console.error("Module error:", e) }
   render() {
     if (this.state.error) return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className="rounded-2xl bg-red-50 p-6 mb-4"><Icon name="AlertTriangle" size={40} className="text-red-400" /></div>
         <p className="font-semibold text-gray-800 mb-1">Не удалось загрузить модуль</p>
+        {this.state.msg && <p className="text-xs font-mono text-red-400 mb-1">{this.state.msg}</p>}
         <p className="text-sm text-muted-foreground">Попробуйте обновить страницу</p>
-        <button className="mt-4 text-sm text-indigo-600 hover:underline" onClick={() => this.setState({ error: false })}>Повторить</button>
+        <button className="mt-4 text-sm text-indigo-600 hover:underline" onClick={() => this.setState({ error: false, msg: "" })}>Повторить</button>
       </div>
     )
     return this.props.children
@@ -64,9 +66,7 @@ export default function Dashboard() {
   const [activeModule, setActiveModule] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!localStorage.getItem("civilpro_auth")) { navigate("/login"); return }
-    const profile = JSON.parse(localStorage.getItem("civilpro_profile") || "{}")
-    if (!profile.onboarded) navigate("/onboarding")
+    if (!localStorage.getItem("civilpro_auth")) navigate("/login")
   }, [navigate])
 
   const handleLogout = () => {
