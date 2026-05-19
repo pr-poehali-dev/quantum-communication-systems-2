@@ -108,16 +108,111 @@ const FEATURE_LINES: FeatureLine[] = [
 
 const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Геодезия","Ж/д","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Геолокация"]
 
-const TOOLBAR_GROUPS = [
-  { label: "Планировка", items: ["Участок ▾","Точки ▾","Поверхности ▾"] },
-  { label: "Создать топооснову", items: ["Трасса ▾","Хар. линия ▾","Профиль ▾","Сечение ▾","Линии образцов"] },
-  { label: "Создать проект", items: ["Вид профиля ▾","Планировка ▾","Коридор ▾","Труб. сеть ▾"] },
-  { label: "Профиль и поперечники", items: ["Виды сечений ▾"] },
-  { label: "Черчение", items: ["Черчение ▾"] },
-  { label: "Редактирование", items: ["Копировать ▾","Зеркало","Сопряжение","Массив ▾"] },
-  { label: "Слои", items: ["Слои ▾"] },
-  { label: "Буфер обмена", items: ["Буфер обмена"] },
-]
+const TOOLBAR_BY_MENU: Record<string, { label: string; items: string[] }[]> = {
+  "Главная": [
+    { label: "Планировка", items: ["Участок ▾","Точки ▾","Поверхности ▾"] },
+    { label: "Создать топооснову", items: ["Трасса ▾","Хар. линия ▾","Профиль ▾","Сечение ▾","Линии образцов"] },
+    { label: "Создать проект", items: ["Вид профиля ▾","Планировка ▾","Коридор ▾","Труб. сеть ▾"] },
+    { label: "Профиль и поперечники", items: ["Виды сечений ▾"] },
+    { label: "Черчение", items: ["Черчение ▾"] },
+    { label: "Редактирование", items: ["Копировать ▾","Зеркало","Сопряжение","Массив ▾"] },
+    { label: "Слои", items: ["Слои ▾"] },
+    { label: "Буфер обмена", items: ["Буфер обмена"] },
+  ],
+  "Вставка": [
+    { label: "Блоки", items: ["Вставить ▾","Создать блок","Редактировать блок"] },
+    { label: "Атрибуты", items: ["Определить атрибут","Синхронизировать"] },
+    { label: "Ссылки", items: ["Внешняя ссылка ▾","Подложка ▾"] },
+    { label: "Импорт", items: ["Импорт ▾","LandXML","IFC"] },
+  ],
+  "Аннотации": [
+    { label: "Текст", items: ["Однострочный","Многострочный ▾","Редактировать"] },
+    { label: "Размеры", items: ["Линейный ▾","Угловой","Радиус","Выноска ▾"] },
+    { label: "Стили", items: ["Стили текста ▾","Стили размеров ▾"] },
+    { label: "Таблицы", items: ["Таблица ▾","Экспорт"] },
+  ],
+  "Редактирование": [
+    { label: "Изменить", items: ["Копировать ▾","Зеркало","Переместить","Поворот"] },
+    { label: "Размер", items: ["Масштаб","Растянуть","Обрезать ▾","Удлинить ▾"] },
+    { label: "Объекты", items: ["Фаска","Сопряжение","Разбить","Соединить"] },
+    { label: "Массив", items: ["Прямоугольный ▾","Круговой ▾","По траектории ▾"] },
+  ],
+  "Анализ": [
+    { label: "Поверхности", items: ["Уклоны ▾","Водосборы ▾","Разрезы ▾"] },
+    { label: "Коридоры", items: ["Объёмы ▾","Ведомость ▾"] },
+    { label: "Сети", items: ["Гидравлика ▾","Инспекция ▾"] },
+    { label: "Отчёты", items: ["Генерировать отчёт ▾"] },
+  ],
+  "Вид": [
+    { label: "Вид", items: ["Вид сверху","Изометрия","Пользовательский ▾"] },
+    { label: "Визуальный стиль", items: ["Каркас","Закрашенный","Реалистичный"] },
+    { label: "Окна", items: ["1 окно","2 окна ▾","4 окна"] },
+    { label: "Навигация", items: ["Орбита ▾","Панорама","Зум ▾"] },
+  ],
+  "Управление": [
+    { label: "Параметры", items: ["Настройки чертежа","Единицы","Пространство модели"] },
+    { label: "Стили", items: ["Диспетчер стилей ▾","Импорт стилей"] },
+    { label: "Макросы", items: ["Запись","Воспроизведение","Редактировать"] },
+  ],
+  "Вывод": [
+    { label: "Печать", items: ["Печать ▾","Пакетная печать","Просмотр"] },
+    { label: "Экспорт", items: ["PDF ▾","DWF","LandXML","IFC"] },
+    { label: "Публикация", items: ["Autodesk Docs","Sheets ▾"] },
+  ],
+  "Геодезия": [
+    { label: "Точки", items: ["Создать точки ▾","Группы точек","Импорт точек"] },
+    { label: "Съёмка", items: ["База данных ▾","Фигуры","Построение"] },
+    { label: "Рельеф", items: ["TIN-поверхность ▾","Grid-поверхность ▾"] },
+  ],
+}
+
+const TOOLBAR_GROUPS = TOOLBAR_BY_MENU["Главная"]
+
+const DROPDOWN_ITEMS: Record<string, string[]> = {
+  "Участок ▾": ["Создать участок из объектов","По линиям и кривым","Редактировать геометрию"],
+  "Точки ▾": ["Создать точки вручную","Импорт из CSV","По трассе","По поверхности"],
+  "Поверхности ▾": ["Создать TIN","Создать Grid","Из точек","Из контуров","Редактировать"],
+  "Трасса ▾": ["Создать трассу","По существующей геометрии","Редактировать геометрию трассы"],
+  "Хар. линия ▾": ["Создать хар. линию","По 3D-полилинии","Редактировать"],
+  "Профиль ▾": ["Существующий рельеф","Профиль разработки","Редактировать профиль"],
+  "Сечение ▾": ["Создать типовое сечение","Редактировать","Группа типовых сечений"],
+  "Вид профиля ▾": ["Создать вид профиля","Группа видов профиля","Редактировать стиль"],
+  "Планировка ▾": ["Планировочная отметка","По поверхности","Редактировать"],
+  "Коридор ▾": ["Создать коридор","Редактировать коридор","Параметры коридора"],
+  "Труб. сеть ▾": ["Создать трубопроводную сеть","По объектам","Редактировать детали"],
+  "Виды сечений ▾": ["Создать виды сечений","Группа видов","Параметры листа"],
+  "Черчение ▾": ["Полилиния","Прямая","Дуга","Прямоугольник","Сплайн"],
+  "Копировать ▾": ["Копировать","Копировать с базовой точкой","Буфер обмена"],
+  "Массив ▾": ["Прямоугольный массив","Круговой массив","По траектории"],
+  "Слои ▾": ["Диспетчер слоёв","Создать слой","Заморозить","Изолировать слой"],
+  "Внешняя ссылка ▾": ["Вставить","Отделить","Перезагрузить","Управление"],
+  "Подложка ▾": ["DWF-подложка","PDF-подложка","Изображение","Карта"],
+  "Импорт ▾": ["LandXML","IFC","Shapefile","DEM","Облако точек"],
+  "Многострочный ▾": ["Создать мтекст","Редактировать стиль","Поле"],
+  "Линейный ▾": ["Линейный","Параллельный","Базовый","Непрерывный"],
+  "Выноска ▾": ["Выноска","Аннотационная выноска","Допуск"],
+  "Стили текста ▾": ["Новый стиль","Редактировать","Импорт из чертежа"],
+  "Стили размеров ▾": ["Новый стиль","Редактировать","Сопоставить"],
+  "Таблица ▾": ["Вставить таблицу","Из данных связи","Экспорт в CSV"],
+  "Уклоны ▾": ["Анализ уклонов","Анализ высот","Стрелки уклонов"],
+  "Водосборы ▾": ["Создать водосборный бассейн","Анализ стока","Объём стока"],
+  "Разрезы ▾": ["Создать линию разреза","Типовые разрезы","Экспорт"],
+  "Объёмы ▾": ["Объёмы по коридору","Между поверхностями","Отчёт"],
+  "Ведомость ▾": ["Ведомость поперечников","Координаты разбивки","Экспорт"],
+  "Гидравлика ▾": ["Анализ сети","Расчёт потерь","Отчёт"],
+  "Инспекция ▾": ["Проверить сеть","Найти нарушения","Отчёт"],
+  "Генерировать отчёт ▾": ["Сводный отчёт","По поверхности","По коридору","По сетям"],
+  "Пользовательский ▾": ["Сохранить вид","Восстановить вид","Управление видами"],
+  "Орбита ▾": ["Орбита","Свободная орбита","Непрерывная орбита"],
+  "Зум ▾": ["Вписать","Окном","Масштаб","Центр"],
+  "1 окно": ["1 окно"], "2 окна ▾": ["Горизонтально","Вертикально"], "4 окна": ["4 равных окна"],
+  "Диспетчер стилей ▾": ["Трассы","Профили","Коридоры","Поверхности","Сети"],
+  "PDF ▾": ["Текущий лист","Все листы","Выбранные листы"],
+  "Создать точки ▾": ["Вручную","По координатам","Из файла CSV","По трассе","По поверхности"],
+  "База данных ▾": ["Открыть БД","Импорт","Экспорт","Настройки"],
+  "TIN-поверхность ▾": ["Из точек","Из контуров","Из файла DEM","Редактировать"],
+  "Grid-поверхность ▾": ["Из файла","Из TIN","Настройки сетки"],
+}
 
 // ─── Canvas drawing ──────────────────────────────────────────────────────────
 
@@ -504,20 +599,22 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
 
 // ─── Cross Section Panel ─────────────────────────────────────────────────────
 
-function CrossSectionPanel({ alignments }: { alignments: string[] }) {
+function CrossSectionPanel({ alignments, onClose }: { alignments: string[]; onClose?: () => void }) {
+  const [minimized, setMinimized] = useState(false)
   const canvases = alignments.slice(0, 3)
   return (
     <div className="bg-[#1a1a2e] border-l border-gray-700 w-72 flex flex-col overflow-hidden">
       <div className="bg-[#252540] px-2 py-1 flex items-center justify-between border-b border-gray-700">
         <span className="text-gray-300 text-xs font-mono">Виды поперечников</span>
         <div className="flex gap-1">
-          <button className="text-gray-400 hover:text-white text-xs px-1">─</button>
-          <button className="text-gray-400 hover:text-white text-xs px-1">□</button>
-          <button className="text-gray-400 hover:text-white text-xs px-1">✕</button>
+          <button onClick={() => setMinimized(m => !m)} className="text-gray-400 hover:text-white text-xs px-1" title="Свернуть">─</button>
+          <button onClick={() => setMinimized(false)} className="text-gray-400 hover:text-white text-xs px-1" title="Развернуть">□</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-400 text-xs px-1" title="Закрыть">✕</button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto divide-y divide-gray-800">
-        {(canvases.length ? canvases : ["SH 38","Truman Ave"]).map((name, i) => (
+      {minimized && <div className="flex-1 flex items-center justify-center text-xs text-gray-600 cursor-pointer" onClick={() => setMinimized(false)}>Панель свёрнута — нажмите □ чтобы развернуть</div>}
+      {!minimized && <div className="flex-1 overflow-y-auto divide-y divide-gray-800">
+        {(canvases.length ? canvases : ["Трасса ШД-38","Ул. Трумана"]).map((name, i) => (
           <CrossSectionView key={name} name={name} index={i} />
         ))}
         <div className="p-3 text-center">
@@ -525,7 +622,7 @@ function CrossSectionPanel({ alignments }: { alignments: string[] }) {
           <CrossSectionView name="Бордюр периметра" index={2} />
           <div className="text-[#06b6d4] text-xs font-mono mt-1">V-ОБРАЗНЫЙ ЛОТОК</div>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
@@ -583,10 +680,20 @@ export default function CivilCADModule() {
   const drag = useRef<{ x: number; y: number } | null>(null)
   const [showCorridor, setShowCorridor] = useState(false)
   const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
-  const [activeMenuTab, setActiveMenuTab] = useState("Home")
+  const [activeMenuTab, setActiveMenuTab] = useState("Главная")
   const [showRightPanel, setShowRightPanel] = useState(true)
   const [statusMsg, setStatusMsg] = useState("Выберите трассу: <Отмена>*")
   const [commandLine, setCommandLine] = useState("")
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setOpenDropdown(null)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
 
   const toggleNode = (id: string) => {
     const toggle = (nodes: TreeNode[]): TreeNode[] =>
@@ -633,6 +740,20 @@ export default function CivilCADModule() {
 
   const toggleLayer = (key: keyof typeof visLayers) => setVisLayers(v => ({ ...v, [key]: !v[key] }))
 
+  const handleToolbarItem = (item: string) => {
+    setOpenDropdown(null)
+    if (item.includes("Коридор")) { setShowCorridor(true); return }
+    setStatusMsg(`Активировано: ${item.replace(" ▾","")}`)
+  }
+
+  const handleDropdownItem = (parent: string, sub: string) => {
+    setOpenDropdown(null)
+    if (parent.includes("Коридор") || sub.includes("коридор")) { setShowCorridor(true); return }
+    setStatusMsg(`${parent.replace(" ▾","")}: ${sub}`)
+  }
+
+  const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"]
+
   return (
     <div className="flex flex-col bg-[#1e1e2e] text-gray-200 rounded-xl overflow-hidden border border-gray-700" style={{ height: "calc(100vh - 160px)", minHeight: 620, fontFamily: "Arial, sans-serif", fontSize: 12 }}>
 
@@ -643,7 +764,7 @@ export default function CivilCADModule() {
           <span className="text-xs text-gray-300 font-mono ml-1">Civil 3D</span>
         </div>
         {MENU_ITEMS.map(m => (
-          <button key={m} onClick={() => setActiveMenuTab(m)}
+          <button key={m} onClick={() => { setActiveMenuTab(m); setStatusMsg(`Вкладка: ${m}`) }}
             className={`px-3 py-1.5 text-xs transition-colors ${activeMenuTab === m ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-gray-700"}`}>
             {m}
           </button>
@@ -651,20 +772,38 @@ export default function CivilCADModule() {
       </div>
 
       {/* ── Ribbon toolbar ── */}
-      <div className="bg-[#252535] border-b border-gray-700 flex items-end gap-0 overflow-x-auto flex-shrink-0">
-        {TOOLBAR_GROUPS.map(group => (
+      <div ref={dropdownRef} className="bg-[#252535] border-b border-gray-700 flex items-end gap-0 overflow-x-auto flex-shrink-0 relative">
+        {currentToolbar.map(group => (
           <div key={group.label} className="flex flex-col items-start border-r border-gray-700 px-2 py-1">
             <div className="flex gap-1 flex-wrap">
-              {group.items.map(item => (
-                <button key={item}
-                  onClick={() => {
-                    if (item.includes("Коридор") || item.includes("Corridor")) setShowCorridor(true)
-                    setStatusMsg(`Активировано: ${item}`)
-                  }}
-                  className="px-2 py-0.5 text-xs text-gray-300 hover:bg-gray-600 hover:text-white rounded transition-colors whitespace-nowrap">
-                  {item}
-                </button>
-              ))}
+              {group.items.map(item => {
+                const hasDropdown = item.endsWith("▾") && DROPDOWN_ITEMS[item]
+                return (
+                  <div key={item} className="relative">
+                    <button
+                      onClick={() => {
+                        if (hasDropdown) {
+                          setOpenDropdown(openDropdown === item ? null : item)
+                        } else {
+                          handleToolbarItem(item)
+                        }
+                      }}
+                      className={`px-2 py-0.5 text-xs rounded transition-colors whitespace-nowrap ${openDropdown === item ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"}`}>
+                      {item}
+                    </button>
+                    {hasDropdown && openDropdown === item && (
+                      <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[180px] py-1 rounded">
+                        {DROPDOWN_ITEMS[item].map(sub => (
+                          <button key={sub} onClick={() => handleDropdownItem(item, sub)}
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
+                            {sub}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             <span className="text-[9px] text-gray-500 mt-0.5">{group.label}</span>
           </div>
@@ -680,12 +819,13 @@ export default function CivilCADModule() {
             <Icon name="FileText" size={10} /> Главная парковка_Финал*
             <span className="ml-1 text-gray-500 hover:text-white">✕</span>
           </button>
-          <button className="text-gray-500 hover:text-white px-2 py-0.5">+</button>
+          <button className="text-gray-500 hover:text-white px-2 py-0.5" onClick={() => setStatusMsg("Новая вкладка создана")}>+</button>
         </div>
         <div className="ml-auto flex gap-1">
-          <button className="text-xs text-gray-400 hover:text-white px-2">Модель</button>
-          <button className="text-xs text-gray-400 hover:text-white px-2">Лист 1</button>
-          <button className="text-xs text-gray-400 hover:text-white px-2">Лист 2</button>
+          {["Модель","Лист 1","Лист 2"].map(t => (
+            <button key={t} onClick={() => setStatusMsg(`Переключено на: ${t}`)}
+              className="text-xs text-gray-400 hover:text-white hover:bg-[#2d2d4e] px-2 py-0.5 rounded transition-colors">{t}</button>
+          ))}
         </div>
       </div>
 
@@ -727,7 +867,9 @@ export default function CivilCADModule() {
         {/* ── Side tabs ── */}
         <div className="bg-[#1e1e2e] border-r border-gray-700 w-5 flex flex-col items-center py-4 gap-4">
           {["Инструменты","Настройки","Геодезия"].map(t => (
-            <div key={t} className="text-[9px] text-gray-500 hover:text-gray-300 cursor-pointer" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t}</div>
+            <div key={t} onClick={() => setStatusMsg(`Панель: ${t}`)}
+              className="text-[9px] text-gray-500 hover:text-gray-300 cursor-pointer active:text-blue-400 transition-colors"
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t}</div>
           ))}
         </div>
 
@@ -772,7 +914,7 @@ export default function CivilCADModule() {
         </div>
 
         {/* ── Right: Section views ── */}
-        {showRightPanel && <CrossSectionPanel alignments={corridors} />}
+        {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
       </div>
 
       {/* ── Command line ── */}
