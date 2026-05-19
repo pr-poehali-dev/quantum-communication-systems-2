@@ -140,118 +140,365 @@ const FEATURE_LINES: FeatureLine[] = [
 
 const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Геодезия","Ж/д путь","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Инструменты Express","Отслеживание транспорта","Избранные приложения","Геолокация"]
 
-const TOOLBAR_BY_MENU: Record<string, { label: string; items: string[] }[]> = {
+// size: "lg" = большая кнопка с иконкой сверху, "sm" = маленькая кнопка строчкой
+interface RibbonItem { label: string; icon: string; size: "lg" | "sm"; drop?: string }
+interface RibbonGroup { label: string; items: RibbonItem[] }
+
+const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
   "Главная": [
-    { label: "Палитры", items: ["Пространство инструментов ▾","Панорама","Свойства ▾"] },
-    { label: "Обзор", items: ["Диспетчер проекта","Оптимизация"] },
-    { label: "Вертикальная планировка", items: ["Оптимизация планировки"] },
-    { label: "Создать топооснову", items: ["Точки ▾","Поверхности ▾","Характерная линия ▾","Теодолитный ход ▾"] },
-    { label: "Создать проект", items: ["Трасса ▾","Пересечения ▾","Профиль ▾","Типовое сечение ▾","Коридор ▾","Трубопроводная сеть ▾"] },
-    { label: "Профиль и поперечники", items: ["Вид профиля ▾","Виды поперечников ▾","Линии образцов"] },
-    { label: "Черчение", items: ["Черчение ▾"] },
-    { label: "Редактирование", items: ["Перенести","Копировать ▾","Повернуть","Зеркало","Обрезать ▾","Растянуть","Масштаб","Массив ▾","Сопряжение"] },
-    { label: "Слои", items: ["Слои","Сделать текущим","Совместить слои"] },
-    { label: "Буфер обмена", items: ["Вставить ▾"] },
+    { label: "Палитры", items: [
+      { label: "Пространство инструментов", icon: "PanelLeft", size: "lg", drop: "Пространство инструментов ▾" },
+      { label: "Диспетчер проекта", icon: "FolderOpen", size: "sm" },
+      { label: "Оптимизация", icon: "Sliders", size: "sm" },
+    ]},
+    { label: "Вертикальная планировка", items: [
+      { label: "Оптимизация планировки", icon: "Mountain", size: "lg" },
+    ]},
+    { label: "Создать топооснову", items: [
+      { label: "Точки", icon: "MapPin", size: "lg", drop: "Точки ▾" },
+      { label: "Поверхности", icon: "Triangle", size: "lg", drop: "Поверхности ▾" },
+      { label: "Хар. линия", icon: "Spline", size: "sm", drop: "Характерная линия ▾" },
+      { label: "Теодолит. ход", icon: "Navigation", size: "sm", drop: "Теодолитный ход ▾" },
+    ]},
+    { label: "Создать проект", items: [
+      { label: "Трасса", icon: "Route", size: "lg", drop: "Трасса ▾" },
+      { label: "Пересечения", icon: "GitMerge", size: "sm", drop: "Пересечения ▾" },
+      { label: "Профиль", icon: "TrendingUp", size: "sm", drop: "Профиль ▾" },
+      { label: "Тип. сечение", icon: "Layers", size: "sm", drop: "Типовое сечение ▾" },
+      { label: "Коридор", icon: "RectangleHorizontal", size: "lg", drop: "Коридор ▾" },
+      { label: "Труб. сеть", icon: "Network", size: "sm", drop: "Трубопроводная сеть ▾" },
+    ]},
+    { label: "Профиль и поперечники", items: [
+      { label: "Вид профиля", icon: "BarChart2", size: "lg", drop: "Вид профиля ▾" },
+      { label: "Виды попереч.", icon: "AlignJustify", size: "sm", drop: "Виды поперечников ▾" },
+      { label: "Линии образцов", icon: "Minus", size: "sm" },
+    ]},
+    { label: "Черчение", items: [
+      { label: "Черчение", icon: "Pen", size: "lg", drop: "Черчение ▾" },
+    ]},
+    { label: "Редактирование", items: [
+      { label: "Перенести", icon: "Move", size: "sm" },
+      { label: "Копировать", icon: "Copy", size: "sm", drop: "Копировать ▾" },
+      { label: "Повернуть", icon: "RotateCw", size: "sm" },
+      { label: "Зеркало", icon: "FlipHorizontal", size: "sm" },
+      { label: "Обрезать", icon: "Scissors", size: "sm", drop: "Обрезать ▾" },
+      { label: "Растянуть", icon: "Maximize2", size: "sm" },
+      { label: "Масштаб", icon: "ZoomIn", size: "sm" },
+      { label: "Массив", icon: "LayoutGrid", size: "sm", drop: "Массив ▾" },
+      { label: "Сопряжение", icon: "CircleDot", size: "sm" },
+    ]},
+    { label: "Слои", items: [
+      { label: "Слои", icon: "Layers2", size: "lg", drop: "Слои ▾" },
+      { label: "Сделать текущим", icon: "Check", size: "sm" },
+      { label: "Совместить слои", icon: "Merge", size: "sm" },
+    ]},
+    { label: "Буфер обмена", items: [
+      { label: "Вставить", icon: "ClipboardPaste", size: "lg", drop: "Вставить ▾" },
+    ]},
   ],
   "Вставка": [
-    { label: "Блоки", items: ["Вставить ▾","Создать блок","Редактировать блок"] },
-    { label: "Атрибуты", items: ["Определить атрибут","Синхронизировать"] },
-    { label: "Ссылки", items: ["Присоединить ▾","Обрезать","Настроить"] },
-    { label: "Импорт", items: ["Импорт ▾","LandXML","IFC","Облако точек"] },
-    { label: "Система координат", items: ["Назначить ▾","Преобразовать"] },
+    { label: "Блоки", items: [
+      { label: "Вставить", icon: "Package", size: "lg", drop: "Вставить ▾" },
+      { label: "Создать блок", icon: "PackagePlus", size: "sm" },
+      { label: "Редактировать блок", icon: "PackageOpen", size: "sm" },
+    ]},
+    { label: "Ссылки", items: [
+      { label: "Присоединить", icon: "Paperclip", size: "lg", drop: "Присоединить ▾" },
+      { label: "Обрезать", icon: "Scissors", size: "sm" },
+    ]},
+    { label: "Импорт", items: [
+      { label: "Импорт", icon: "Download", size: "lg", drop: "Импорт ▾" },
+      { label: "LandXML", icon: "FileCode", size: "sm" },
+      { label: "Облако точек", icon: "Cloud", size: "sm" },
+    ]},
+    { label: "Система координат", items: [
+      { label: "Назначить СК", icon: "Globe", size: "lg", drop: "Назначить ▾" },
+      { label: "Преобразовать", icon: "RefreshCw", size: "sm" },
+    ]},
   ],
   "Аннотации": [
-    { label: "Текст", items: ["Однострочный","Многострочный ▾","Редактировать текст"] },
-    { label: "Размеры", items: ["Линейный ▾","Параллельный","Угловой","Радиус","Выноска ▾"] },
-    { label: "Стили", items: ["Стиль текста ▾","Стиль размеров ▾","Стиль таблицы"] },
-    { label: "Таблицы", items: ["Таблица ▾","Экспорт","Марки трасс"] },
-    { label: "Марки", items: ["Добавить марки ▾","Редактировать марку ▾","Стиль марки"] },
+    { label: "Текст", items: [
+      { label: "Многострочный", icon: "Type", size: "lg", drop: "Многострочный ▾" },
+      { label: "Однострочный", icon: "Minus", size: "sm" },
+      { label: "Редактировать", icon: "Pencil", size: "sm" },
+    ]},
+    { label: "Размеры", items: [
+      { label: "Линейный", icon: "Ruler", size: "lg", drop: "Линейный ▾" },
+      { label: "Угловой", icon: "Combine", size: "sm" },
+      { label: "Радиус", icon: "Circle", size: "sm" },
+      { label: "Выноска", icon: "MessageSquare", size: "sm", drop: "Выноска ▾" },
+    ]},
+    { label: "Марки", items: [
+      { label: "Добавить марки", icon: "Tag", size: "lg", drop: "Добавить марки ▾" },
+      { label: "Стиль марки", icon: "Tags", size: "sm" },
+      { label: "Таблица", icon: "Table", size: "sm", drop: "Таблица ▾" },
+    ]},
   ],
   "Редактирование": [
-    { label: "Изменить", items: ["Перенести","Копировать ▾","Зеркало","Повернуть","Масштаб"] },
-    { label: "Размер", items: ["Растянуть","Обрезать ▾","Удлинить ▾","Разбить","Соединить"] },
-    { label: "Разбить", items: ["Разбить","Группировать ▾","Разгруппировать"] },
-    { label: "Массив", items: ["Прямоугольный ▾","Круговой ▾","По траектории ▾"] },
-    { label: "3D-редактирование", items: ["3D-перенос","3D-поворот","3D-зеркало"] },
+    { label: "Изменить", items: [
+      { label: "Перенести", icon: "Move", size: "lg" },
+      { label: "Копировать", icon: "Copy", size: "sm", drop: "Копировать ▾" },
+      { label: "Повернуть", icon: "RotateCw", size: "sm" },
+      { label: "Зеркало", icon: "FlipHorizontal", size: "sm" },
+      { label: "Масштаб", icon: "ZoomIn", size: "sm" },
+    ]},
+    { label: "Изменить размер", items: [
+      { label: "Обрезать", icon: "Scissors", size: "lg", drop: "Обрезать ▾" },
+      { label: "Растянуть", icon: "Maximize2", size: "sm" },
+      { label: "Разбить", icon: "Split", size: "sm" },
+      { label: "Соединить", icon: "Link", size: "sm" },
+    ]},
+    { label: "Массив", items: [
+      { label: "Прямоугольный", icon: "LayoutGrid", size: "lg", drop: "Прямоугольный ▾" },
+      { label: "Круговой", icon: "RefreshCw", size: "sm", drop: "Круговой ▾" },
+      { label: "По траектории", icon: "GitBranch", size: "sm", drop: "По траектории ▾" },
+    ]},
+    { label: "3D", items: [
+      { label: "3D-перенос", icon: "Box", size: "sm" },
+      { label: "3D-поворот", icon: "RefreshCcw", size: "sm" },
+      { label: "3D-зеркало", icon: "Layers", size: "sm" },
+    ]},
   ],
   "Анализ": [
-    { label: "Поверхности", items: ["Анализ уклонов ▾","Анализ высот ▾","Водосборы ▾","Разрезы ▾"] },
-    { label: "Коридоры", items: ["Объёмы ▾","Ведомость объёмов ▾"] },
-    { label: "Трубопроводные сети", items: ["Гидравлика ▾","Инспекция ▾"] },
-    { label: "Топооснова", items: ["Анализ облака точек","Анализ планировки"] },
-    { label: "Отчёты", items: ["Генерировать отчёт ▾"] },
+    { label: "Поверхности", items: [
+      { label: "Анализ уклонов", icon: "TrendingUp", size: "lg", drop: "Анализ уклонов ▾" },
+      { label: "Анализ высот", icon: "BarChart2", size: "sm", drop: "Анализ высот ▾" },
+      { label: "Водосборы", icon: "Droplets", size: "sm", drop: "Водосборы ▾" },
+      { label: "Разрезы", icon: "ScanLine", size: "sm", drop: "Разрезы ▾" },
+    ]},
+    { label: "Коридоры", items: [
+      { label: "Объёмы", icon: "Database", size: "lg", drop: "Объёмы ▾" },
+      { label: "Ведомость", icon: "FileSpreadsheet", size: "sm", drop: "Ведомость объёмов ▾" },
+    ]},
+    { label: "Сети", items: [
+      { label: "Гидравлика", icon: "Gauge", size: "lg", drop: "Гидравлика ▾" },
+      { label: "Инспекция", icon: "Search", size: "sm", drop: "Инспекция ▾" },
+    ]},
+    { label: "Отчёты", items: [
+      { label: "Отчёт", icon: "FileText", size: "lg", drop: "Генерировать отчёт ▾" },
+    ]},
   ],
   "Вид": [
-    { label: "Именованные виды", items: ["Сверху","Изометрия ЮЗ ▾","Пользовательский ▾"] },
-    { label: "Визуальный стиль", items: ["2D Каркас","Тонирование","Реалистичный"] },
-    { label: "Видовые экраны", items: ["1 видовой экран","2 видовых экрана ▾","4 видовых экрана"] },
-    { label: "Навигация", items: ["Орбита ▾","Панорама","Зум ▾","Штурвалы"] },
-    { label: "Палитры", items: ["Свойства","Слои","Пространство инструментов"] },
+    { label: "Виды", items: [
+      { label: "Сверху", icon: "Square", size: "lg" },
+      { label: "Изометрия ЮЗ", icon: "Box", size: "sm", drop: "Изометрия ЮЗ ▾" },
+      { label: "Пользовательский", icon: "Monitor", size: "sm", drop: "Пользовательский ▾" },
+    ]},
+    { label: "Визуальный стиль", items: [
+      { label: "2D Каркас", icon: "Grid", size: "sm" },
+      { label: "Тонирование", icon: "Sun", size: "sm" },
+      { label: "Реалистичный", icon: "Image", size: "sm" },
+    ]},
+    { label: "Видовые экраны", items: [
+      { label: "1 экран", icon: "Square", size: "sm" },
+      { label: "2 экрана", icon: "Columns2", size: "sm", drop: "2 видовых экрана ▾" },
+      { label: "4 экрана", icon: "LayoutGrid", size: "sm" },
+    ]},
+    { label: "Навигация", items: [
+      { label: "Орбита", icon: "RefreshCw", size: "sm", drop: "Орбита ▾" },
+      { label: "Панорама", icon: "Hand", size: "sm" },
+      { label: "Зум", icon: "ZoomIn", size: "sm", drop: "Зум ▾" },
+    ]},
+    { label: "Палитры", items: [
+      { label: "Свойства", icon: "Info", size: "sm" },
+      { label: "Слои", icon: "Layers", size: "sm" },
+      { label: "П. инструментов", icon: "PanelLeft", size: "sm" },
+    ]},
   ],
   "Управление": [
-    { label: "Параметры", items: ["Параметры чертежа","Единицы и зона","Общие параметры"] },
-    { label: "Стили", items: ["Параметры объекта","Диспетчер стилей марок ▾"] },
-    { label: "Запись действий", items: ["Запись","Воспроизведение","Редактировать действия"] },
-    { label: "Стандарты САПР", items: ["Настройка","Проверка","Преобразователь слоёв"] },
+    { label: "Параметры", items: [
+      { label: "Параметры чертежа", icon: "Settings", size: "lg" },
+      { label: "Единицы и зона", icon: "Globe", size: "sm" },
+      { label: "Общие параметры", icon: "SlidersHorizontal", size: "sm" },
+    ]},
+    { label: "Стили", items: [
+      { label: "Параметры объекта", icon: "Palette", size: "lg" },
+      { label: "Диспетчер стилей", icon: "Paintbrush", size: "sm", drop: "Диспетчер стилей марок ▾" },
+    ]},
+    { label: "Запись действий", items: [
+      { label: "Запись", icon: "Circle", size: "sm" },
+      { label: "Воспроизведение", icon: "Play", size: "sm" },
+      { label: "Редактировать", icon: "Edit", size: "sm" },
+    ]},
+    { label: "Стандарты САПР", items: [
+      { label: "Настройка", icon: "Wrench", size: "sm" },
+      { label: "Проверка", icon: "CheckCircle", size: "sm" },
+      { label: "Преобразователь", icon: "ArrowLeftRight", size: "sm" },
+    ]},
   ],
   "Вывод": [
-    { label: "Печать", items: ["Печать ▾","Пакетная печать","Просмотр"] },
-    { label: "Экспорт", items: ["PDF ▾","DWF ▾","LandXML","IFC","Shapefile"] },
-    { label: "Публикация", items: ["Autodesk Docs","Комплекты листов ▾","eTransmit"] },
-    { label: "Отправить в", items: ["InfraWorks","Navisworks","Revit"] },
+    { label: "Печать", items: [
+      { label: "Печать", icon: "Printer", size: "lg", drop: "Печать ▾" },
+      { label: "Пакетная печать", icon: "PrinterCheck", size: "sm" },
+      { label: "Просмотр", icon: "Eye", size: "sm" },
+    ]},
+    { label: "Экспорт", items: [
+      { label: "PDF", icon: "FileDown", size: "lg", drop: "PDF ▾" },
+      { label: "DWF", icon: "File", size: "sm", drop: "DWF ▾" },
+      { label: "LandXML", icon: "FileCode", size: "sm" },
+      { label: "IFC", icon: "FileJson", size: "sm" },
+    ]},
+    { label: "Публикация", items: [
+      { label: "Autodesk Docs", icon: "Cloud", size: "lg" },
+      { label: "Комплекты листов", icon: "BookOpen", size: "sm", drop: "Комплекты листов ▾" },
+    ]},
+    { label: "Отправить в", items: [
+      { label: "InfraWorks", icon: "Building2", size: "sm" },
+      { label: "Navisworks", icon: "Cube", size: "sm" },
+      { label: "Revit", icon: "Home", size: "sm" },
+    ]},
   ],
   "Геодезия": [
-    { label: "Точки", items: ["Создать точки ▾","Группы точек ▾","Импорт точек","Редактировать точки"] },
-    { label: "База данных съёмки", items: ["Открыть БД ▾","Импорт","Экспорт","Настройки"] },
-    { label: "Теодолитный ход", items: ["Редактор хода","Отчёт о невязке","Уравнивание"] },
-    { label: "Поверхности", items: ["TIN-поверхность ▾","Grid-поверхность ▾","Поверхность объёмов"] },
-    { label: "Фигуры", items: ["Создать фигуру","Редактировать фигуру","Стиль фигуры"] },
+    { label: "Точки", items: [
+      { label: "Создать точки", icon: "MapPin", size: "lg", drop: "Создать точки ▾" },
+      { label: "Группы точек", icon: "Group", size: "sm", drop: "Группы точек ▾" },
+      { label: "Импорт точек", icon: "Import", size: "sm" },
+      { label: "Редактировать точки", icon: "Edit", size: "sm" },
+    ]},
+    { label: "База данных", items: [
+      { label: "Открыть БД", icon: "Database", size: "lg", drop: "Открыть БД ▾" },
+      { label: "Импорт данных", icon: "Download", size: "sm" },
+      { label: "Экспорт данных", icon: "Upload", size: "sm" },
+    ]},
+    { label: "Теодолитный ход", items: [
+      { label: "Редактор хода", icon: "Navigation", size: "lg" },
+      { label: "Отчёт о невязке", icon: "FileText", size: "sm" },
+      { label: "Уравнивание", icon: "BarChart", size: "sm" },
+    ]},
+    { label: "Поверхности", items: [
+      { label: "TIN-поверхность", icon: "Triangle", size: "lg", drop: "TIN-поверхность ▾" },
+      { label: "Grid-поверхность", icon: "Grid", size: "sm", drop: "Grid-поверхность ▾" },
+    ]},
   ],
   "Ж/д путь": [
-    { label: "Трасса", items: ["Трасса ж/д ▾","Кант ▾","Расположение пути"] },
-    { label: "Проект", items: ["Проект пути ▾","Разъезды и пересечения ▾","Мосты ▾"] },
-    { label: "Профиль", items: ["Профиль ж/д ▾","Точки уклонов","Вертикальные кривые"] },
-    { label: "Поперечник", items: ["Поперечник ж/д ▾","Габарит","Виды поперечников"] },
+    { label: "Трасса", items: [
+      { label: "Трасса ж/д", icon: "Train", size: "lg", drop: "Трасса ж/д ▾" },
+      { label: "Кант", icon: "ArrowUpDown", size: "sm", drop: "Кант ▾" },
+      { label: "Расположение", icon: "Map", size: "sm" },
+    ]},
+    { label: "Проект", items: [
+      { label: "Проект пути", icon: "RailSymbol", size: "lg", drop: "Проект пути ▾" },
+      { label: "Разъезды", icon: "GitFork", size: "sm", drop: "Разъезды и пересечения ▾" },
+      { label: "Мосты", icon: "Milestone", size: "sm", drop: "Мосты ▾" },
+    ]},
+    { label: "Профиль", items: [
+      { label: "Профиль ж/д", icon: "TrendingUp", size: "lg", drop: "Профиль ж/д ▾" },
+      { label: "Точки уклонов", icon: "Dot", size: "sm" },
+    ]},
   ],
   "Прозрачность": [
-    { label: "Точка", items: ["Номер точки","Имя точки","Объект точки ▾"] },
-    { label: "Пикет/Смещение", items: ["Пикет и смещение ▾","Пикет профиля и отм.","Пикет попереч. и смещ."] },
-    { label: "Уклон/Расстояние", items: ["Уклон и расстояние","Уклон от точки","Расстояние и дирекционный угол"] },
-    { label: "Сервис", items: ["Перейти к точке","Совместить свойства"] },
+    { label: "Точка", items: [
+      { label: "Номер точки", icon: "Hash", size: "sm" },
+      { label: "Имя точки", icon: "Tag", size: "sm" },
+      { label: "Объект точки", icon: "MapPin", size: "sm", drop: "Объект точки ▾" },
+    ]},
+    { label: "Пикет/Смещение", items: [
+      { label: "Пикет и смещение", icon: "Milestone", size: "lg", drop: "Пикет и смещение ▾" },
+      { label: "Пикет профиля", icon: "TrendingUp", size: "sm" },
+    ]},
+    { label: "Уклон", items: [
+      { label: "Уклон и расстояние", icon: "TrendingDown", size: "sm" },
+      { label: "Уклон от точки", icon: "ArrowUpRight", size: "sm" },
+      { label: "Дирекционный угол", icon: "Compass", size: "sm" },
+    ]},
   ],
   "InfraWorks": [
-    { label: "Обмен данными", items: ["Отправить в InfraWorks","Синхронизировать","Обновить модель"] },
-    { label: "Проект", items: ["Открыть в InfraWorks","Сравнить варианты"] },
+    { label: "Обмен данными", items: [
+      { label: "Отправить в InfraWorks", icon: "Send", size: "lg" },
+      { label: "Синхронизировать", icon: "RefreshCw", size: "sm" },
+      { label: "Обновить модель", icon: "Download", size: "sm" },
+    ]},
+    { label: "Проект", items: [
+      { label: "Открыть в InfraWorks", icon: "ExternalLink", size: "lg" },
+      { label: "Сравнить варианты", icon: "GitCompare", size: "sm" },
+    ]},
   ],
   "Совместная работа": [
-    { label: "Autodesk Docs", items: ["Открыть из облака","Сохранить в облако","Поделиться"] },
-    { label: "Совместное редактирование", items: ["Включить совместный режим","Зафиксировать","Снять фиксацию"] },
-    { label: "Ярлыки данных", items: ["Создать ярлык ▾","Изменить ярлык","Рабочая папка"] },
+    { label: "Autodesk Docs", items: [
+      { label: "Открыть из облака", icon: "CloudDownload", size: "lg" },
+      { label: "Сохранить в облако", icon: "CloudUpload", size: "sm" },
+      { label: "Поделиться", icon: "Share2", size: "sm" },
+    ]},
+    { label: "Совм. редактирование", items: [
+      { label: "Включить совм. режим", icon: "Users", size: "lg" },
+      { label: "Зафиксировать", icon: "Lock", size: "sm" },
+      { label: "Снять фиксацию", icon: "Unlock", size: "sm" },
+    ]},
+    { label: "Ярлыки данных", items: [
+      { label: "Создать ярлык", icon: "Link", size: "lg", drop: "Создать ярлык ▾" },
+      { label: "Изменить ярлык", icon: "Edit", size: "sm" },
+      { label: "Рабочая папка", icon: "Folder", size: "sm" },
+    ]},
   ],
   "Надстройки": [
-    { label: "Отслеживание транспорта", items: ["Добавить транспорт ▾","Симуляция движения","Траектория движения"] },
-    { label: "Расширения", items: ["Управление расширениями ▾","Менеджер приложений"] },
-    { label: "Избранные приложения", items: ["Найти приложения","Установленные","Синхронизировать"] },
+    { label: "Отслеживание транспорта", items: [
+      { label: "Добавить транспорт", icon: "Car", size: "lg", drop: "Добавить транспорт ▾" },
+      { label: "Симуляция", icon: "Play", size: "sm" },
+      { label: "Траектория", icon: "Route", size: "sm" },
+    ]},
+    { label: "Расширения", items: [
+      { label: "Управление", icon: "Package", size: "lg", drop: "Управление расширениями ▾" },
+      { label: "Менеджер приложений", icon: "AppWindow", size: "sm" },
+    ]},
   ],
   "Инструменты Express": [
-    { label: "Блоки", items: ["Супер штриховка","Конвертировать текст","Блок ▾"] },
-    { label: "Текст", items: ["Текст по дуге","Выравнивание текста ▾","Подгонка текста"] },
-    { label: "Листы", items: ["Геометрия листа","Сплющить ▾","Наложить"] },
-    { label: "Слои", items: ["Перебор слоёв","Заморозить слой","Изолировать слой ▾"] },
+    { label: "Блоки", items: [
+      { label: "Супер штриховка", icon: "PaintBucket", size: "lg" },
+      { label: "Конверт. текст", icon: "Type", size: "sm" },
+      { label: "Блок", icon: "Package", size: "sm", drop: "Блок ▾" },
+    ]},
+    { label: "Текст", items: [
+      { label: "Текст по дуге", icon: "RefreshCw", size: "sm" },
+      { label: "Выравнивание", icon: "AlignLeft", size: "sm", drop: "Выравнивание текста ▾" },
+    ]},
+    { label: "Слои", items: [
+      { label: "Перебор слоёв", icon: "List", size: "sm" },
+      { label: "Заморозить", icon: "Snowflake", size: "sm" },
+      { label: "Изолировать", icon: "Focus", size: "sm", drop: "Изолировать слой ▾" },
+    ]},
   ],
   "Отслеживание транспорта": [
-    { label: "Маршруты", items: ["Добавить маршрут ▾","Редактировать маршрут","Удалить маршрут"] },
-    { label: "Транспортное средство", items: ["Библиотека ТС ▾","Пользовательское ТС","Редактировать ТС"] },
-    { label: "Симуляция", items: ["Запустить симуляцию","Анимация","Отчёт"] },
+    { label: "Маршруты", items: [
+      { label: "Добавить маршрут", icon: "Route", size: "lg", drop: "Добавить маршрут ▾" },
+      { label: "Редактировать", icon: "Edit", size: "sm" },
+      { label: "Удалить маршрут", icon: "Trash2", size: "sm" },
+    ]},
+    { label: "ТС", items: [
+      { label: "Библиотека ТС", icon: "Car", size: "lg", drop: "Библиотека ТС ▾" },
+      { label: "Польз. ТС", icon: "Truck", size: "sm" },
+    ]},
+    { label: "Симуляция", items: [
+      { label: "Запустить", icon: "Play", size: "lg" },
+      { label: "Анимация", icon: "Film", size: "sm" },
+    ]},
   ],
   "Избранные приложения": [
-    { label: "Приложения", items: ["AutoCAD Raster Design","Point Layout","CAiCE Tools"] },
-    { label: "Сервис", items: ["Сравнение DWG","Очистить ▾","Проверка"] },
+    { label: "Приложения", items: [
+      { label: "Raster Design", icon: "Image", size: "sm" },
+      { label: "Point Layout", icon: "MapPin", size: "sm" },
+      { label: "CAiCE Tools", icon: "Wrench", size: "sm" },
+    ]},
+    { label: "Сервис", items: [
+      { label: "Сравнение DWG", icon: "GitCompare", size: "sm" },
+      { label: "Очистить", icon: "Trash2", size: "sm", drop: "Очистить ▾" },
+      { label: "Проверка", icon: "CheckCircle", size: "sm" },
+    ]},
   ],
   "Геолокация": [
-    { label: "Онлайн-карты", items: ["Карта вкл.","Тип карты ▾","Захват области"] },
-    { label: "Местоположение", items: ["Задать местоположение ▾","Изменить местоположение","Отметить позицию"] },
-    { label: "Координаты", items: ["Переопубликовать ▾","Обновить координаты","Экспорт KML"] },
+    { label: "Онлайн-карты", items: [
+      { label: "Карта вкл.", icon: "Map", size: "lg" },
+      { label: "Тип карты", icon: "MapPin", size: "sm", drop: "Тип карты ▾" },
+      { label: "Захват области", icon: "Crop", size: "sm" },
+    ]},
+    { label: "Местоположение", items: [
+      { label: "Задать местоположение", icon: "LocateFixed", size: "lg", drop: "Задать местоположение ▾" },
+      { label: "Изменить местополож.", icon: "MapPinned", size: "sm" },
+    ]},
+    { label: "Координаты", items: [
+      { label: "Переопубликовать", icon: "Upload", size: "sm", drop: "Переопубликовать ▾" },
+      { label: "Обновить координаты", icon: "RefreshCw", size: "sm" },
+      { label: "Экспорт KML", icon: "FileDown", size: "sm" },
+    ]},
   ],
 }
 
@@ -278,6 +525,7 @@ const DROPDOWN_ITEMS: Record<string, string[]> = {
   "Обрезать ▾": ["Обрезать","Удлинить","Разбить в точке","Разбить"],
   "Массив ▾": ["Прямоугольный массив","Круговой массив","Массив по траектории"],
   "Слои": ["Диспетчер слоёв"],
+  "Слои ▾": ["Диспетчер слоёв","Создать слой","Заморозить","Изолировать слой","Совместить слои"],
   "Вставить ▾": ["Вставить","Вставить как блок","Вставить на исходные координаты"],
   // Вставка
   "Присоединить ▾": ["Присоединить DWG","Вставить изображение","Вставить PDF","Вставить облако точек"],
@@ -1984,42 +2232,82 @@ export default function CivilCADModule() {
       </div>
 
       {/* ── Ribbon toolbar ── */}
-      <div ref={dropdownRef} className="bg-[#252535] border-b border-gray-700 flex items-end gap-0 overflow-x-auto flex-shrink-0 relative">
-        {currentToolbar.map(group => (
-          <div key={group.label} className="flex flex-col items-start border-r border-gray-700 px-2 py-1">
-            <div className="flex gap-1 flex-wrap">
-              {(group.items || []).map(item => {
-                const hasDropdown = item.endsWith("▾") && DROPDOWN_ITEMS[item]
-                return (
-                  <div key={item} className="relative">
-                    <button
-                      onClick={() => {
-                        if (hasDropdown) {
-                          setOpenDropdown(openDropdown === item ? null : item)
-                        } else {
-                          handleToolbarItem(item)
-                        }
-                      }}
-                      className={`px-2 py-0.5 text-xs rounded transition-colors whitespace-nowrap ${openDropdown === item ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"}`}>
-                      {item}
-                    </button>
-                    {hasDropdown && openDropdown === item && (
-                      <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[180px] py-1 rounded">
-                        {(DROPDOWN_ITEMS[item] || []).map(sub => (
-                          <button key={sub} onClick={() => handleDropdownItem(item, sub)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
-                            {sub}
-                          </button>
-                        ))}
+      <div ref={dropdownRef} className="bg-[#2a2a3a] border-b border-gray-700 flex items-stretch gap-0 overflow-x-auto flex-shrink-0 relative" style={{minHeight:72}}>
+        {currentToolbar.map(group => {
+          const lgItems = (group.items as RibbonItem[]).filter(i => i.size === "lg")
+          const smItems = (group.items as RibbonItem[]).filter(i => i.size === "sm")
+          return (
+            <div key={group.label} className="flex flex-col border-r border-gray-700 flex-shrink-0" style={{minWidth: lgItems.length ? undefined : 80}}>
+              {/* item area */}
+              <div className="flex flex-1 items-start px-1 pt-1 gap-0.5">
+                {/* large buttons */}
+                {lgItems.map(item => {
+                  const dropKey = item.drop
+                  const hasDrop = dropKey && DROPDOWN_ITEMS[dropKey]
+                  const isOpen = openDropdown === (dropKey || item.label)
+                  return (
+                    <div key={item.label} className="relative flex flex-col items-center">
+                      <div className="flex flex-col items-center">
+                        <button
+                          onClick={() => hasDrop ? setOpenDropdown(isOpen ? null : (dropKey || item.label)) : handleToolbarItem(item.label)}
+                          className={`flex flex-col items-center justify-center gap-0.5 px-1.5 py-1 rounded transition-colors min-w-[44px] ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-[#3a3a4e] hover:text-white"}`}>
+                          <Icon name={item.icon} size={22} fallback="Square" className={isOpen ? "text-white" : "text-gray-300"} />
+                          <span className="text-[9px] leading-tight text-center whitespace-nowrap max-w-[52px] truncate">{item.label}</span>
+                          {hasDrop && <span className="text-[8px] leading-none text-gray-500">▾</span>}
+                        </button>
                       </div>
-                    )}
+                      {hasDrop && isOpen && (
+                        <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[200px] py-1 rounded mt-0.5">
+                          {(DROPDOWN_ITEMS[dropKey!] || []).map(sub => (
+                            <button key={sub} onClick={() => handleDropdownItem(dropKey!, sub)}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
+                              {sub}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {/* small buttons column */}
+                {smItems.length > 0 && (
+                  <div className="flex flex-col gap-0 ml-0.5">
+                    {smItems.map(item => {
+                      const dropKey = item.drop
+                      const hasDrop = dropKey && DROPDOWN_ITEMS[dropKey]
+                      const isOpen = openDropdown === (dropKey || item.label)
+                      return (
+                        <div key={item.label} className="relative">
+                          <button
+                            onClick={() => hasDrop ? setOpenDropdown(isOpen ? null : (dropKey || item.label)) : handleToolbarItem(item.label)}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors whitespace-nowrap text-[10px] ${isOpen ? "bg-[#0078d4] text-white" : "text-gray-300 hover:bg-[#3a3a4e] hover:text-white"}`}>
+                            <Icon name={item.icon} size={12} fallback="Square" />
+                            <span className="max-w-[80px] truncate">{item.label}</span>
+                            {hasDrop && <span className="text-[8px] text-gray-500 ml-auto pl-1">▾</span>}
+                          </button>
+                          {hasDrop && isOpen && (
+                            <div className="absolute top-full left-0 z-50 bg-[#2d2d3d] border border-gray-600 shadow-xl min-w-[200px] py-1 rounded mt-0.5">
+                              {(DROPDOWN_ITEMS[dropKey!] || []).map(sub => (
+                                <button key={sub} onClick={() => handleDropdownItem(dropKey!, sub)}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0078d4] hover:text-white transition-colors whitespace-nowrap">
+                                  {sub}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
+                )}
+              </div>
+              {/* group label bottom */}
+              <div className="text-[9px] text-gray-500 text-center px-1 pb-0.5 border-t border-gray-700 mt-auto pt-0.5 bg-[#252535]">
+                {group.label}
+              </div>
             </div>
-            <span className="text-[9px] text-gray-500 mt-0.5">{group.label}</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Drawing tab bar ── */}
