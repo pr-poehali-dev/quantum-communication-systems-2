@@ -14,6 +14,24 @@ interface Alignment {
   pts: [number, number][]
 }
 
+// ─── Canvas Object types ────────────────────────────────────────────────────
+
+type CanvasObjType = "line" | "polyline" | "point" | "text" | "alignment" | "surface" | "corridor" | "pipe" | "rect"
+
+interface CanvasObject {
+  id: string
+  type: CanvasObjType
+  label: string
+  pts: [number, number][]
+  color: string
+  lineWidth?: number
+  layer?: string
+  selected?: boolean
+  properties?: Record<string, string>
+}
+
+type EditTool = "select" | "move" | "line" | "polyline" | "point" | "text" | "rect" | "delete" | "pan" | "measure"
+
 interface CorridorRow {
   alignment: string; profile: string; assembly: string
 }
@@ -115,6 +133,20 @@ const ALIGNMENTS: Alignment[] = [
   { id: "sh38", name: "Трасса ШД-38", color: "#ef4444", pts: [[80,60],[160,90],[260,110],[370,95],[460,80],[540,70],[630,85],[720,100],[810,88],[880,72]] },
   { id: "truman", name: "Ул. Трумана", color: "#a855f7", pts: [[100,180],[200,190],[310,185],[420,195],[530,188],[640,200],[740,195],[840,188]] },
   { id: "perimeter", name: "Бордюр периметра", color: "#06b6d4", pts: [[180,120],[220,130],[270,160],[290,210],[280,260],[250,300],[210,320],[170,310],[140,280],[130,240],[140,190],[160,155],[180,120]] },
+]
+
+// ─── Initial editable canvas objects ─────────────────────────────────────────
+
+const INITIAL_CANVAS_OBJECTS: CanvasObject[] = [
+  { id: "al_sh38",    type: "alignment", label: "Трасса ШД-38",       color: "#ef4444", lineWidth: 2.5, layer: "C-ROAD-CNTR", pts: [[80,60],[160,90],[260,110],[370,95],[460,80],[540,70],[630,85],[720,100],[810,88],[880,72]], properties: { "Тип": "Трасса", "Длина": "850 м", "Стиль": "Базовый", "Слой": "C-ROAD-CNTR" } },
+  { id: "al_truman",  type: "alignment", label: "Ул. Трумана",         color: "#a855f7", lineWidth: 2.5, layer: "C-ROAD-CNTR", pts: [[100,180],[200,190],[310,185],[420,195],[530,188],[640,200],[740,195],[840,188]], properties: { "Тип": "Трасса", "Длина": "750 м", "Стиль": "Базовый", "Слой": "C-ROAD-CNTR" } },
+  { id: "al_perim",   type: "alignment", label: "Бордюр периметра",    color: "#06b6d4", lineWidth: 2,   layer: "C-PKNG-CURB", pts: [[180,120],[220,130],[270,160],[290,210],[280,260],[250,300],[210,320],[170,310],[140,280],[130,240],[140,190],[160,155],[180,120]], properties: { "Тип": "Трасса", "Длина": "640 м", "Стиль": "Базовый", "Слой": "C-PKNG-CURB" } },
+  { id: "pipe_storm", type: "pipe",      label: "Ливневая канализация", color: "#6366f1", lineWidth: 2,   layer: "C-STRM-PIPE", pts: [[120,280],[180,275],[240,268],[300,260],[360,255],[420,258],[480,265]], properties: { "Тип": "Труба", "Диаметр": "500 мм", "Материал": "Железобетон", "Слой": "C-STRM-PIPE" } },
+  { id: "pt_1001",   type: "point",     label: "1001",                 color: "#f59e0b", lineWidth: 1,   layer: "C-TOPO-PNTS", pts: [[95,55]],  properties: { "Тип": "Точка", "X": "95.00", "Y": "55.00", "Z": "128.45", "Слой": "C-TOPO-PNTS" } },
+  { id: "pt_1002",   type: "point",     label: "1002",                 color: "#f59e0b", lineWidth: 1,   layer: "C-TOPO-PNTS", pts: [[305,108]], properties: { "Тип": "Точка", "X": "305.00", "Y": "108.00", "Z": "131.20", "Слой": "C-TOPO-PNTS" } },
+  { id: "pt_1003",   type: "point",     label: "1003",                 color: "#f59e0b", lineWidth: 1,   layer: "C-TOPO-PNTS", pts: [[485,78]],  properties: { "Тип": "Точка", "X": "485.00", "Y": "78.00", "Z": "129.80", "Слой": "C-TOPO-PNTS" } },
+  { id: "pt_1004",   type: "point",     label: "1004",                 color: "#f59e0b", lineWidth: 1,   layer: "C-TOPO-PNTS", pts: [[680,92]],  properties: { "Тип": "Точка", "X": "680.00", "Y": "92.00", "Z": "130.55", "Слой": "C-TOPO-PNTS" } },
+  { id: "pt_1005",   type: "point",     label: "1005",                 color: "#f59e0b", lineWidth: 1,   layer: "C-TOPO-PNTS", pts: [[870,68]],  properties: { "Тип": "Точка", "X": "870.00", "Y": "68.00", "Z": "127.90", "Слой": "C-TOPO-PNTS" } },
 ]
 
 const ASSEMBLIES = ["Трасса ШД-38", "Ул. Трумана", "Тротуар", "Бордюр проезжей ч. Лев.", "Бордюр проезжей ч. Пр.", "Парковочный бордюр", "Бордюр периметра", "V-образный лоток"]
@@ -2893,6 +2925,17 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [undoStack, setUndoStack] = useState<string[]>(["Начальное состояние"])
   const [redoStack, setRedoStack] = useState<string[]>([])
 
+  // ── Edit state ───────────────────────────────────────────────────────────
+  const [activeTool, setActiveTool] = useState<EditTool>("select")
+  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(INITIAL_CANVAS_OBJECTS)
+  const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
+  const [drawingPts, setDrawingPts] = useState<[number,number][]>([])
+  const [cursorCanvasPos, setCursorCanvasPos] = useState<[number,number] | null>(null)
+  const [snapPos, setSnapPos] = useState<[number,number] | null>(null)
+  const [showProperties, setShowProperties] = useState(false)
+  const [editingProp, setEditingProp] = useState<{id:string, key:string, val:string} | null>(null)
+  const moveRef = useRef<{objId:string; startMouse:[number,number]; startPts:[number,number][]} | null>(null)
+
   const pushUndo = (label: string) => {
     setUndoStack(prev => [...prev, label])
     setRedoStack([])
@@ -2984,11 +3027,134 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setTreeData(toggle)
   }
 
+  // ── Canvas → World coordinates ────────────────────────────────────────────
+  const toWorld = useCallback((cx: number, cy: number, rect: DOMRect): [number,number] => {
+    return [(cx - rect.left - pan.x) / zoom, (cy - rect.top - pan.y) / zoom]
+  }, [pan, zoom])
+
+  // ── Snap to nearest point ─────────────────────────────────────────────────
+  const findSnap = useCallback((wx: number, wy: number): [number,number] | null => {
+    const SNAP_R = 12 / zoom
+    let best: [number,number] | null = null
+    let bestD = SNAP_R
+    canvasObjects.forEach(obj => {
+      obj.pts.forEach(([px, py]) => {
+        const d = Math.hypot(px - wx, py - wy)
+        if (d < bestD) { bestD = d; best = [px, py] }
+      })
+    })
+    return best
+  }, [canvasObjects, zoom])
+
+  // ── Hit-test: find object under cursor ────────────────────────────────────
+  const hitTest = useCallback((wx: number, wy: number): string | null => {
+    const HIT = 8 / zoom
+    for (let i = canvasObjects.length - 1; i >= 0; i--) {
+      const obj = canvasObjects[i]
+      if (obj.type === "point") {
+        const [px, py] = obj.pts[0]
+        if (Math.hypot(px - wx, py - wy) < HIT * 2) return obj.id
+      } else {
+        for (let j = 0; j < obj.pts.length - 1; j++) {
+          const [x1,y1] = obj.pts[j], [x2,y2] = obj.pts[j+1]
+          const len = Math.hypot(x2-x1, y2-y1); if (len < 0.001) continue
+          const t = Math.max(0, Math.min(1, ((wx-x1)*(x2-x1)+(wy-y1)*(y2-y1))/(len*len)))
+          const nearX = x1 + t*(x2-x1), nearY = y1 + t*(y2-y1)
+          if (Math.hypot(nearX-wx, nearY-wy) < HIT) return obj.id
+        }
+      }
+    }
+    return null
+  }, [canvasObjects, zoom])
+
+  // ── Draw canvas objects on top of base drawing ────────────────────────────
+  const drawObjects = useCallback((ctx: CanvasRenderingContext2D) => {
+    ctx.save()
+    ctx.translate(pan.x, pan.y)
+    ctx.scale(zoom, zoom)
+
+    canvasObjects.forEach(obj => {
+      const isSelected = obj.id === selectedObjId
+      ctx.strokeStyle = isSelected ? "#ffffff" : obj.color
+      ctx.lineWidth = (obj.lineWidth ?? 2) / zoom
+      if (isSelected) { ctx.setLineDash([6/zoom, 3/zoom]) } else { ctx.setLineDash([]) }
+
+      if (obj.type === "point") {
+        const [px,py] = obj.pts[0]
+        ctx.beginPath(); ctx.arc(px, py, 5/zoom, 0, Math.PI*2)
+        ctx.fillStyle = obj.color; ctx.fill()
+        ctx.strokeStyle = isSelected ? "#ffffff" : "rgba(255,255,255,0.6)"
+        ctx.lineWidth = 1/zoom; ctx.stroke()
+        ctx.fillStyle = obj.color; ctx.font = `bold ${9/zoom}px monospace`
+        ctx.fillText(obj.label, px+7/zoom, py-4/zoom)
+        if (isSelected) {
+          ctx.beginPath(); ctx.arc(px, py, 9/zoom, 0, Math.PI*2)
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.5/zoom
+          ctx.setLineDash([3/zoom, 2/zoom]); ctx.stroke(); ctx.setLineDash([])
+        }
+      } else if (obj.pts.length > 1) {
+        ctx.beginPath()
+        ctx.moveTo(obj.pts[0][0], obj.pts[0][1])
+        for (let i = 1; i < obj.pts.length; i++) ctx.lineTo(obj.pts[i][0], obj.pts[i][1])
+        if (obj.type === "alignment" && obj.id === "al_perim") ctx.closePath()
+        ctx.stroke()
+        const mid = obj.pts[Math.floor(obj.pts.length/2)]
+        ctx.setLineDash([])
+        ctx.fillStyle = obj.color; ctx.font = `bold ${10/zoom}px Arial`
+        ctx.fillText(obj.label, mid[0]+4/zoom, mid[1]-6/zoom)
+      }
+
+      // Grip points on selected object
+      if (isSelected) {
+        ctx.setLineDash([])
+        obj.pts.forEach(([gx,gy]) => {
+          ctx.beginPath(); ctx.rect(gx-5/zoom, gy-5/zoom, 10/zoom, 10/zoom)
+          ctx.fillStyle = "#0078d4"; ctx.fill()
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1/zoom; ctx.stroke()
+        })
+        if (obj.pts.length > 1) {
+          const mid = obj.pts[Math.floor(obj.pts.length/2)]
+          ctx.beginPath(); ctx.arc(mid[0], mid[1], 5/zoom, 0, Math.PI*2)
+          ctx.fillStyle = "#22c55e"; ctx.fill()
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1/zoom; ctx.stroke()
+        }
+      }
+    })
+
+    // Draw in-progress polyline/line
+    if (drawingPts.length > 0 && cursorCanvasPos) {
+      ctx.setLineDash([6/zoom, 3/zoom])
+      ctx.strokeStyle = "#22d3ee"; ctx.lineWidth = 1.5/zoom
+      ctx.beginPath(); ctx.moveTo(drawingPts[0][0], drawingPts[0][1])
+      for (let i = 1; i < drawingPts.length; i++) ctx.lineTo(drawingPts[i][0], drawingPts[i][1])
+      const snp = snapPos ?? cursorCanvasPos
+      ctx.lineTo(snp[0], snp[1]); ctx.stroke()
+      drawingPts.forEach(([px,py]) => {
+        ctx.beginPath(); ctx.arc(px, py, 4/zoom, 0, Math.PI*2)
+        ctx.fillStyle = "#22d3ee"; ctx.fill()
+      })
+      ctx.setLineDash([])
+    }
+
+    // Snap indicator
+    if (snapPos) {
+      ctx.beginPath()
+      ctx.moveTo(snapPos[0]-8/zoom, snapPos[1]); ctx.lineTo(snapPos[0]+8/zoom, snapPos[1])
+      ctx.moveTo(snapPos[0], snapPos[1]-8/zoom); ctx.lineTo(snapPos[0], snapPos[1]+8/zoom)
+      ctx.strokeStyle = "#22d3ee"; ctx.lineWidth = 1.5/zoom; ctx.stroke()
+      ctx.beginPath(); ctx.arc(snapPos[0], snapPos[1], 5/zoom, 0, Math.PI*2)
+      ctx.strokeStyle = "#22d3ee"; ctx.lineWidth = 1/zoom; ctx.stroke()
+    }
+
+    ctx.restore()
+  }, [canvasObjects, selectedObjId, drawingPts, cursorCanvasPos, snapPos, pan, zoom])
+
   const draw = useCallback(() => {
     const c = canvasRef.current; if (!c || c.width < 10) return
     const ctx = c.getContext("2d")!
     drawCanvas(ctx, c.width, c.height, visLayers, zoom, pan.x, pan.y, viewMode)
-  }, [visLayers, zoom, pan, viewMode])
+    drawObjects(ctx)
+  }, [visLayers, zoom, pan, viewMode, drawObjects])
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return
@@ -2999,18 +3165,141 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   useEffect(() => { draw() }, [draw])
 
+  // ── Delete selected ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedObjId && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        const obj = canvasObjects.find(o => o.id === selectedObjId)
+        if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
+      }
+      if (e.key === "Escape") { setDrawingPts([]); setActiveTool("select"); setSelectedObjId(null) }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+   
+  }, [selectedObjId, canvasObjects])
+
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault()
     setZoom(z => Math.max(0.3, Math.min(6, z * (e.deltaY < 0 ? 1.12 : 0.9))))
   }
-  const onMouseDown = (e: React.MouseEvent) => { drag.current = { x: e.clientX, y: e.clientY } }
+
+  const getCanvasRect = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).getBoundingClientRect()
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    const rect = getCanvasRect(e)
+    const [wx, wy] = toWorld(e.clientX, e.clientY, rect)
+    const snapped = findSnap(wx, wy)
+    const pt: [number,number] = snapped ?? [wx, wy]
+
+    if (activeTool === "pan" || (activeTool === "select" && e.button === 1)) {
+      drag.current = { x: e.clientX, y: e.clientY }
+      return
+    }
+    if (activeTool === "select" || activeTool === "move") {
+      const hit = hitTest(wx, wy)
+      if (hit) {
+        setSelectedObjId(hit)
+        const obj = canvasObjects.find(o => o.id === hit)!
+        if (activeTool === "move") {
+          moveRef.current = { objId: hit, startMouse: [wx, wy], startPts: obj.pts.map(p => [p[0], p[1]] as [number,number]) }
+        }
+        setShowProperties(true)
+      } else {
+        setSelectedObjId(null)
+      }
+      return
+    }
+    if (activeTool === "delete") {
+      const hit = hitTest(wx, wy)
+      if (hit) {
+        const obj = canvasObjects.find(o => o.id === hit)!
+        pushUndo(`Удалено: ${obj.label}`)
+        setCanvasObjects(prev => prev.filter(o => o.id !== hit))
+        showToast(`Удалён: ${obj.label}`)
+      }
+      return
+    }
+    if (activeTool === "point") {
+      const newObj: CanvasObject = { id: `pt_${Date.now()}`, type: "point", label: `Т.${canvasObjects.filter(o=>o.type==="point").length+1001}`, color: "#f59e0b", pts: [pt], layer: "C-TOPO-PNTS", properties: { "Тип": "Точка", "X": pt[0].toFixed(2), "Y": pt[1].toFixed(2), "Z": "0.00", "Слой": "C-TOPO-PNTS" } }
+      pushUndo(`Добавлена точка ${newObj.label}`)
+      setCanvasObjects(prev => [...prev, newObj])
+      setSelectedObjId(newObj.id)
+      showToast(`Точка ${newObj.label} добавлена`)
+      return
+    }
+    if (activeTool === "line") {
+      if (drawingPts.length === 0) {
+        setDrawingPts([pt])
+      } else {
+        const newObj: CanvasObject = { id: `ln_${Date.now()}`, type: "line", label: "Линия", color: "#22d3ee", lineWidth: 1.5, pts: [drawingPts[0], pt], layer: "0", properties: { "Тип": "Линия", "Длина": Math.hypot(pt[0]-drawingPts[0][0], pt[1]-drawingPts[0][1]).toFixed(1)+" м", "Слой": "0" } }
+        pushUndo("Нарисована линия")
+        setCanvasObjects(prev => [...prev, newObj])
+        setSelectedObjId(newObj.id)
+        setDrawingPts([])
+        showToast("Линия добавлена")
+      }
+      return
+    }
+    if (activeTool === "polyline") {
+      if (e.detail === 2 && drawingPts.length >= 2) {
+        const newObj: CanvasObject = { id: `pl_${Date.now()}`, type: "polyline", label: "Полилиния", color: "#22d3ee", lineWidth: 1.5, pts: [...drawingPts, pt], layer: "0", properties: { "Тип": "Полилиния", "Точек": String(drawingPts.length+1), "Слой": "0" } }
+        pushUndo("Нарисована полилиния")
+        setCanvasObjects(prev => [...prev, newObj])
+        setSelectedObjId(newObj.id)
+        setDrawingPts([])
+        showToast("Полилиния добавлена")
+      } else {
+        setDrawingPts(prev => [...prev, pt])
+      }
+      return
+    }
+    if (activeTool === "rect") {
+      if (drawingPts.length === 0) {
+        setDrawingPts([pt])
+      } else {
+        const [x1,y1] = drawingPts[0], [x2,y2] = pt
+        const newObj: CanvasObject = { id: `rc_${Date.now()}`, type: "rect", label: "Прямоугольник", color: "#22d3ee", lineWidth: 1.5, pts: [[x1,y1],[x2,y1],[x2,y2],[x1,y2],[x1,y1]], layer: "0", properties: { "Тип": "Прямоугольник", "Ширина": Math.abs(x2-x1).toFixed(1)+" м", "Высота": Math.abs(y2-y1).toFixed(1)+" м", "Слой": "0" } }
+        pushUndo("Нарисован прямоугольник")
+        setCanvasObjects(prev => [...prev, newObj])
+        setSelectedObjId(newObj.id)
+        setDrawingPts([])
+        showToast("Прямоугольник добавлен")
+      }
+      return
+    }
+    drag.current = { x: e.clientX, y: e.clientY }
+  }
+
   const onMouseMove = (e: React.MouseEvent) => {
+    const rect = getCanvasRect(e)
+    const [wx, wy] = toWorld(e.clientX, e.clientY, rect)
+    setCursorCoords({ x: Math.round(wx*10)/10, y: Math.round(wy*10)/10 })
+    const snp = findSnap(wx, wy)
+    setSnapPos(snp)
+    setCursorCanvasPos([wx, wy])
+
+    if (moveRef.current) {
+      const { objId, startMouse, startPts } = moveRef.current
+      const dx = wx - startMouse[0], dy = wy - startMouse[1]
+      setCanvasObjects(prev => prev.map(o => o.id === objId ? { ...o, pts: startPts.map(([px,py]) => [px+dx, py+dy] as [number,number]) } : o))
+      return
+    }
     if (!drag.current) return
     const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y
     drag.current = { x: e.clientX, y: e.clientY }
     setPan(p => ({ x: p.x + dx, y: p.y + dy }))
   }
-  const onMouseUp = () => { drag.current = null }
+
+  const onMouseUp = (e: React.MouseEvent) => {
+    if (moveRef.current) {
+      const obj = canvasObjects.find(o => o.id === moveRef.current!.objId)
+      if (obj) pushUndo(`Перемещён: ${obj.label}`)
+      moveRef.current = null
+    }
+    drag.current = null
+    void e
+  }
 
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
@@ -3032,6 +3321,15 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "ПАРАМ" || c === "DRAWING" || c === "DWGSETTINGS") setShowDrawingSettings(true)
     else if (c === "ZOOM E" || c === "ВПИСАТЬ" || c === "ZE") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
     else if (c === "REGEN" || c === "РЕГЕН" || c === "RE") draw()
+    else if (c === "S" || c === "SELECT" || c === "ВЫБОР") { setActiveTool("select"); setStatusMsg("Инструмент: Выбор"); setCommandLine(""); return }
+    else if (c === "M" || c === "MOVE" || c === "ПЕРЕНЕСТИ") { setActiveTool("move"); setStatusMsg("Инструмент: Перенести — кликните объект и перетащите"); setCommandLine(""); return }
+    else if (c === "L" || c === "LINE" || c === "ЛИНИЯ") { setActiveTool("line"); setDrawingPts([]); setStatusMsg("Инструмент: Линия — укажите первую точку"); setCommandLine(""); return }
+    else if (c === "PL" || c === "PLINE" || c === "ПОЛИЛИНИЯ") { setActiveTool("polyline"); setDrawingPts([]); setStatusMsg("Инструмент: Полилиния — укажите первую точку"); setCommandLine(""); return }
+    else if (c === "O" || c === "POINT" || c === "ТОЧКА") { setActiveTool("point"); setStatusMsg("Инструмент: Точка — кликните для добавления"); setCommandLine(""); return }
+    else if (c === "R" || c === "RECT" || c === "ПРЯМОУГОЛЬНИК") { setActiveTool("rect"); setDrawingPts([]); setStatusMsg("Инструмент: Прямоугольник — укажите первый угол"); setCommandLine(""); return }
+    else if (c === "DEL" || c === "ERASE" || c === "УДАЛИТЬ" || c === "E") { setActiveTool("delete"); setStatusMsg("Инструмент: Удалить — кликните объект"); setCommandLine(""); return }
+    else if (c === "ESC" || c === "ОТМЕНА") { setActiveTool("select"); setDrawingPts([]); setSelectedObjId(null); setCommandLine(""); return }
+    else if (c === "PROPS" || c === "СВОЙСТВА" || c === "PR") { setShowProperties(p=>!p); setCommandLine(""); return }
     else if (c === "ЛИНИЯ" || c === "LINE" || c === "L" || c === "ПОЛИЛИНИЯ" || c === "PLINE" || c === "PL" || c === "КРУГ" || c === "CIRCLE" || c === "C" || c === "ДУГА" || c === "ARC" || c === "A" || c === "ТЕКСТ" || c === "TEXT" || c === "T" || c === "ШТРИХОВКА" || c === "HATCH" || c === "H" || c === "ЧЕРЧЕНИЕ" || c === "DRAW") setShowDraw2D(true)
     else if (c === "АННОТАЦИИ" || c === "ANNOTATION" || c === "РАЗМЕР" || c === "DIM" || c === "D" || c === "ВЫНОСКА" || c === "LEADER") setShowAnnotation(true)
     else if (c === "ВОДОСБОР" || c === "CATCHMENT" || c === "ГИДРОЛОГИЯ" || c === "HYDROLOGY" || c === "ДРЕНАЖ") setShowHydrology(true)
@@ -3296,24 +3594,42 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Left: Toolbox strip ── */}
-        <div className="bg-[#252535] border-r border-gray-700 w-6 flex flex-col items-center py-1 gap-0.5">
-          {[
-            { icon: "MousePointer2", title: "Выбор" },
-            { icon: "Move", title: "Перенести" },
-            { icon: "ZoomIn", title: "Увеличить" },
-            { icon: "ZoomOut", title: "Уменьшить" },
-            { icon: "Hand", title: "Панорама" },
-            { icon: "RotateCcw", title: "Орбита" },
-            { icon: "Ruler", title: "Измерение" },
-            { icon: "Layers", title: "Слои" },
-            { icon: "Settings", title: "Параметры" },
-          ].map(({ icon, title }) => (
-            <button key={icon} title={title}
-              onClick={() => setStatusMsg(`Инструмент: ${title}`)}
-              className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
-              <Icon name={icon} size={11} fallback="Square" />
+        <div className="bg-[#252535] border-r border-gray-700 w-7 flex flex-col items-center py-1 gap-0.5">
+          {([
+            { icon: "MousePointer2", title: "Выбор (S)",        tool: "select" as EditTool },
+            { icon: "Move",          title: "Перенести (M)",    tool: "move" as EditTool },
+            { icon: "Minus",         title: "Линия (L)",        tool: "line" as EditTool },
+            { icon: "Spline",        title: "Полилиния (P)",    tool: "polyline" as EditTool },
+            { icon: "MapPin",        title: "Точка (O)",        tool: "point" as EditTool },
+            { icon: "Square",        title: "Прямоугольник (R)",tool: "rect" as EditTool },
+            { icon: "Trash2",        title: "Удалить (Del)",    tool: "delete" as EditTool },
+          ] as {icon:string;title:string;tool:EditTool}[]).map(({ icon, title, tool }) => (
+            <button key={tool} title={title}
+              onClick={() => { setActiveTool(tool); setDrawingPts([]); setStatusMsg(`Инструмент: ${title}`) }}
+              className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${activeTool === tool ? "bg-[#0078d4] text-white" : "text-gray-400 hover:text-white hover:bg-[#3a3a4e]"}`}>
+              <Icon name={icon} size={12} fallback="Square" />
             </button>
           ))}
+          <div className="w-full border-t border-gray-700 my-0.5"/>
+          {([
+            { icon: "Hand",    title: "Панорама",    tool: "pan" as EditTool },
+            { icon: "ZoomIn",  title: "Увеличить",   tool: "select" as EditTool, action: () => setZoom(z => z*1.25) },
+            { icon: "ZoomOut", title: "Уменьшить",   tool: "select" as EditTool, action: () => setZoom(z => z*0.8) },
+            { icon: "Ruler",   title: "Измерение",   tool: "measure" as EditTool },
+            { icon: "Layers",  title: "Слои",        tool: "select" as EditTool, action: () => setShowLayers(true) },
+          ] as {icon:string;title:string;tool:EditTool;action?:()=>void}[]).map(({ icon, title, tool, action }) => (
+            <button key={icon} title={title}
+              onClick={() => { if (action) action(); else { setActiveTool(tool); setDrawingPts([]) }; setStatusMsg(`Инструмент: ${title}`) }}
+              className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${activeTool === tool && !action ? "bg-[#0078d4] text-white" : "text-gray-400 hover:text-white hover:bg-[#3a3a4e]"}`}>
+              <Icon name={icon} size={12} fallback="Square" />
+            </button>
+          ))}
+          <div className="w-full border-t border-gray-700 my-0.5"/>
+          <button title="Свойства выделенного (Ctrl+1)"
+            onClick={() => setShowProperties(p => !p)}
+            className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${showProperties ? "bg-[#0078d4] text-white" : "text-gray-400 hover:text-white hover:bg-[#3a3a4e]"}`}>
+            <Icon name="ListFilter" size={12} fallback="List" />
+          </button>
         </div>
 
         {/* ── Left: Toolspace / Tree ── */}
@@ -3383,13 +3699,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
 
         {/* ── Centre: Viewport ── */}
-        <div className="flex-1 relative overflow-hidden bg-[#1a1a2e]"
-          onMouseMove={e => {
-            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-            const mx = (e.clientX - rect.left - pan.x) / zoom
-            const my = (e.clientY - rect.top - pan.y) / zoom
-            setCursorCoords({ x: Math.round(mx * 10)/10, y: Math.round(my * 10)/10 })
-          }}>
+        <div className="flex-1 relative overflow-hidden bg-[#1a1a2e]">
           {/* viewport toolbar — Civil 3D style */}
           <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800">
             <button onClick={() => setStatusMsg("Меню видового экрана")}
@@ -3427,12 +3737,30 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             </button>
           </div>
 
+          {/* Active tool hint */}
+          {activeTool !== "select" && activeTool !== "pan" && (
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 bg-black/70 text-[10px] text-cyan-300 px-3 py-1 rounded pointer-events-none border border-cyan-800">
+              {activeTool === "line" && (drawingPts.length === 0 ? "Укажите первую точку линии" : "Укажите конечную точку")}
+              {activeTool === "polyline" && (drawingPts.length === 0 ? "Укажите первую точку полилинии" : `Точек: ${drawingPts.length} — двойной клик для завершения`)}
+              {activeTool === "rect" && (drawingPts.length === 0 ? "Укажите первый угол прямоугольника" : "Укажите противоположный угол")}
+              {activeTool === "point" && "Укажите положение точки"}
+              {activeTool === "delete" && "Кликните объект для удаления"}
+              {activeTool === "move" && "Кликните объект и перетащите"}
+              {activeTool === "measure" && "Кликните для измерения расстояния"}
+              &nbsp;· Esc — отмена
+            </div>
+          )}
           <canvas ref={canvasRef} className="w-full h-full block"
-            style={{ cursor: drag.current ? "grabbing" : "crosshair" }}
+            style={{ cursor:
+              activeTool === "pan" || (drag.current && activeTool === "select") ? "grabbing" :
+              activeTool === "move" ? "move" :
+              activeTool === "delete" ? "not-allowed" :
+              activeTool === "select" ? "default" : "crosshair"
+            }}
             onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove}
             onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-            onContextMenu={e => e.preventDefault()}
-            onDoubleClick={() => setShowCorridor(true)} />
+            onContextMenu={e => { e.preventDefault(); if (drawingPts.length > 0) { setDrawingPts([]); setStatusMsg("Черчение отменено") } }}
+          />
 
           {/* Dialogs */}
           <AnimatePresence>
@@ -3650,6 +3978,90 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </AnimatePresence>
         </div>
 
+        {/* ── Right: Properties Panel ── */}
+        {showProperties && (() => {
+          const selObj = canvasObjects.find(o => o.id === selectedObjId)
+          return (
+            <div className="bg-[#1a1a2e] border-l border-gray-700 flex flex-col flex-shrink-0 overflow-hidden" style={{width:200}}>
+              <div className="bg-[#252535] px-2 py-1.5 border-b border-gray-600 flex items-center justify-between">
+                <span className="text-[11px] text-white font-bold flex items-center gap-1.5">
+                  <Icon name="ListFilter" size={11} className="text-[#0078d4]"/> Свойства
+                </span>
+                <button onClick={()=>setShowProperties(false)} className="text-gray-500 hover:text-white text-xs">✕</button>
+              </div>
+              {selObj ? (
+                <div className="flex-1 overflow-y-auto">
+                  <div className="px-2 py-1.5 border-b border-gray-700 bg-[#1e1e2e]">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background: selObj.color}}/>
+                      <span className="text-[11px] text-white font-semibold truncate">{selObj.label}</span>
+                    </div>
+                    <span className="text-[9px] text-gray-500 capitalize">{selObj.type} · {selObj.layer}</span>
+                  </div>
+                  <div className="px-1 py-1">
+                    {Object.entries(selObj.properties ?? {}).map(([key, val]) => (
+                      <div key={key} className="flex items-center border-b border-gray-800 hover:bg-[#252535] group">
+                        <span className="text-[10px] text-gray-400 px-1.5 py-0.5 w-20 flex-shrink-0 truncate">{key}</span>
+                        {editingProp?.id === selObj.id && editingProp?.key === key ? (
+                          <input autoFocus
+                            value={editingProp.val}
+                            onChange={e => setEditingProp(p => p ? {...p, val: e.target.value} : null)}
+                            onBlur={() => {
+                              setCanvasObjects(prev => prev.map(o => o.id === selObj.id ? {...o, properties: {...(o.properties??{}), [key]: editingProp.val}} : o))
+                              setEditingProp(null)
+                            }}
+                            onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingProp(null) }}
+                            className="flex-1 bg-[#0078d4]/20 text-white text-[10px] px-1 py-0.5 outline-none border border-[#0078d4]"
+                          />
+                        ) : (
+                          <span className="flex-1 text-[10px] text-white px-1.5 py-0.5 truncate cursor-text group-hover:bg-[#2a2a3e]"
+                            onDoubleClick={() => setEditingProp({id: selObj.id, key, val})}>
+                            {val}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-2 py-1.5 border-t border-gray-700 space-y-1">
+                    <div className="text-[9px] text-gray-500 mb-1">Цвет объекта</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {["#ef4444","#f97316","#f59e0b","#22c55e","#06b6d4","#a855f7","#6366f1","#ffffff","#0078d4"].map(c => (
+                        <button key={c} onClick={() => setCanvasObjects(prev => prev.map(o => o.id===selObj.id ? {...o, color:c} : o))}
+                          className={`w-4 h-4 rounded border transition-all ${selObj.color===c?"border-white scale-110":"border-transparent hover:border-gray-400"}`}
+                          style={{background:c}}/>
+                      ))}
+                    </div>
+                    <button onClick={() => {
+                      pushUndo(`Удалено: ${selObj.label}`)
+                      setCanvasObjects(prev => prev.filter(o => o.id !== selObj.id))
+                      setSelectedObjId(null)
+                      showToast(`Удалён: ${selObj.label}`)
+                    }} className="w-full mt-1 text-[10px] text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 rounded py-0.5 transition-colors flex items-center justify-center gap-1">
+                      <Icon name="Trash2" size={10}/> Удалить объект
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                  <Icon name="MousePointer2" size={20} className="text-gray-600 mb-2"/>
+                  <span className="text-[10px] text-gray-500">Выберите объект на чертеже</span>
+                  <span className="text-[9px] text-gray-600 mt-1">инструмент «Выбор»</span>
+                  <div className="mt-4 text-[9px] text-gray-600 space-y-1 text-left w-full border border-gray-700 rounded p-2">
+                    <div className="text-gray-400 font-semibold mb-1">Объектов на чертеже:</div>
+                    {canvasObjects.map(o => (
+                      <button key={o.id} onClick={() => { setSelectedObjId(o.id); setActiveTool("select") }}
+                        className="w-full text-left flex items-center gap-1.5 hover:text-white transition-colors py-0.5 group">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background: o.color}}/>
+                        <span className="truncate text-[9px]">{o.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {/* ── Right: Section views ── */}
         {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
         {showInsights && <InsightsPanel onClose={()=>setShowInsights(false)}/>}
@@ -3707,7 +4119,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Введите команду: ТРАССА, КОРИДОР, ПОВЕРХНОСТЬ, ПРОФИЛЬ, СЕЧЕНИЕ, ТОЧКИ, СЕТЬ, СЛОИ, АНАЛИЗ, ОБЪЁМЫ, ИМПОРТ, ПЕЧАТЬ, ZE…"
+            placeholder="Команды: L=Линия, PL=Полилиния, O=Точка, R=Прямоугольник, M=Перенести, S=Выбор, E=Удалить, PR=Свойства, ZE=Вписать…"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
