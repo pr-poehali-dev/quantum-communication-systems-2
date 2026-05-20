@@ -2929,6 +2929,293 @@ function SuperelevationDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ─── EarthworksDialog ────────────────────────────────────────────────────────
+
+function EarthworksDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: {name:string;cut:string;fill:string;balance:string}) => void }) {
+  const [name, setName] = useState("Земляные работы ШД-38")
+  const [corridor, setCorridor] = useState("Дорога и парковочная зона")
+  const [method, setMethod] = useState("Объёмы по сечениям")
+  const [interval, setInterval] = useState("20")
+  const [rows] = useState([
+    { pk: "0+000", cut: "1245.3", fill: "0.0",    net: "+1245.3", cumCut: "1245.3",  cumFill: "0.0"    },
+    { pk: "0+020", cut: "2103.7", fill: "15.2",   net: "+2088.5", cumCut: "3349.0",  cumFill: "15.2"   },
+    { pk: "0+040", cut: "1876.4", fill: "124.8",  net: "+1751.6", cumCut: "5225.4",  cumFill: "140.0"  },
+    { pk: "0+060", cut: "932.1",  fill: "478.3",  net: "+453.8",  cumCut: "6157.5",  cumFill: "618.3"  },
+    { pk: "0+080", cut: "0.0",    fill: "1024.6", net: "-1024.6", cumCut: "6157.5",  cumFill: "1642.9" },
+    { pk: "0+100", cut: "0.0",    fill: "2187.4", net: "-2187.4", cumCut: "6157.5",  cumFill: "3830.3" },
+    { pk: "0+120", cut: "456.2",  fill: "1543.1", net: "-1086.9", cumCut: "6613.7",  cumFill: "5373.4" },
+    { pk: "0+140", cut: "1234.5", fill: "678.9",  net: "+555.6",  cumCut: "7848.2",  cumFill: "6052.3" },
+    { pk: "0+160", cut: "2456.8", fill: "102.3",  net: "+2354.5", cumCut: "10305.0", cumFill: "6154.6" },
+    { pk: "0+180", cut: "3102.4", fill: "0.0",    net: "+3102.4", cumCut: "13407.4", cumFill: "6154.6" },
+  ])
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50"
+      onClick={onClose}>
+      <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:720,maxHeight:"85vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535]">
+          <span className="text-white text-[13px] font-bold flex items-center gap-2">
+            <Icon name="BarChart3" size={14} className="text-yellow-400"/> Ведомость земляных работ
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+        </div>
+        <div className="flex gap-3 p-3 border-b border-gray-700 flex-shrink-0">
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-gray-400 w-28">Наименование</label>
+              <input value={name} onChange={e=>setName(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-[#0078d4]"/>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-gray-400 w-28">Коридор</label>
+              <select value={corridor} onChange={e=>setCorridor(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none">
+                <option>Дорога и парковочная зона</option>
+                <option>Ул. Трумана</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-gray-400 w-24">Метод</label>
+              <select value={method} onChange={e=>setMethod(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none">
+                <option>Объёмы по сечениям</option>
+                <option>Метод призматоида</option>
+                <option>Средних площадей</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-gray-400 w-24">Шаг, м</label>
+              <input value={interval} onChange={e=>setInterval(e.target.value)} className="w-20 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none"/>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 justify-center">
+            <div className="text-[10px] text-gray-400">Итого выемка:</div>
+            <div className="text-[13px] text-yellow-400 font-bold">13 407.4 м³</div>
+            <div className="text-[10px] text-gray-400">Итого насыпь:</div>
+            <div className="text-[13px] text-green-400 font-bold">6 154.6 м³</div>
+            <div className="text-[10px] text-gray-400">Баланс:</div>
+            <div className="text-[13px] text-blue-400 font-bold">+7 252.8 м³</div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-[11px] border-collapse">
+            <thead className="sticky top-0 bg-[#252535]">
+              <tr>
+                {["Пикет","Выемка, м³","Насыпь, м³","Нетто, м³","Накоп. выемка","Накоп. насыпь"].map(h=>(
+                  <th key={h} className="text-left text-gray-400 px-2 py-1.5 border-b border-gray-700 font-medium whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r,i)=>(
+                <tr key={i} className={`border-b border-gray-800 hover:bg-[#252535] ${parseFloat(r.net)<0?"bg-green-900/10":"bg-yellow-900/10"}`}>
+                  <td className="px-2 py-1 text-white font-mono">{r.pk}</td>
+                  <td className="px-2 py-1 text-yellow-400">{r.cut}</td>
+                  <td className="px-2 py-1 text-green-400">{r.fill}</td>
+                  <td className={`px-2 py-1 font-mono ${parseFloat(r.net)>=0?"text-yellow-300":"text-green-300"}`}>{r.net}</td>
+                  <td className="px-2 py-1 text-gray-300 font-mono">{r.cumCut}</td>
+                  <td className="px-2 py-1 text-gray-300 font-mono">{r.cumFill}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2 border-t border-gray-700 bg-[#1a1a2a]">
+          <div className="flex gap-2">
+            <button onClick={()=>onOK({name,cut:"13407.4",fill:"6154.6",balance:"+7252.8"})} className="text-[11px] text-white px-3 py-1 rounded transition-colors" style={{background:"#0078d4"}}>Экспорт CSV</button>
+            <button className="text-[11px] text-gray-300 hover:text-white px-3 py-1 rounded border border-gray-600 transition-colors">Построить диаграмму</button>
+          </div>
+          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Закрыть</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── ProjectManagerDialog ─────────────────────────────────────────────────────
+
+function ProjectManagerDialog({ onClose }: { onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<"files"|"versions"|"team">("files")
+  const files = [
+    { name: "Align-Superelevation-5.dwg", type: "DWG", size: "31 МБ",  date: "20.05.2026 14:32", status: "Активен" },
+    { name: "ЦМР_Съёмка_2024.tin",        type: "TIN", size: "8 МБ",   date: "19.05.2026 18:10", status: "Связан" },
+    { name: "Трасса_ШД-38_v2.xml",        type: "XML", size: "2 МБ",   date: "18.05.2026 11:45", status: "Связан" },
+    { name: "Коридор_дорога.dwg",         type: "DWG", size: "14 МБ",  date: "17.05.2026 09:20", status: "Связан" },
+    { name: "Сети_ливневые.dwg",          type: "DWG", size: "5 МБ",   date: "16.05.2026 16:05", status: "Связан" },
+  ]
+  const versions = [
+    { ver: "v2.3", date: "20.05.2026 14:32", author: "Иванов А.С.", comment: "Добавлен поперечный уклон" },
+    { ver: "v2.2", date: "19.05.2026 10:14", author: "Петров К.В.", comment: "Обновлена поверхность ЦМР" },
+    { ver: "v2.1", date: "18.05.2026 16:30", author: "Иванов А.С.", comment: "Исправлены пикеты трассы" },
+    { ver: "v2.0", date: "17.05.2026 09:00", author: "Сидоров М.Л.", comment: "Базовая версия коридора" },
+    { ver: "v1.0", date: "15.05.2026 12:00", author: "Иванов А.С.", comment: "Начало проекта" },
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:580,height:440}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535]">
+          <span className="text-white text-[13px] font-bold flex items-center gap-2">
+            <Icon name="FolderKanban" size={14} className="text-[#0078d4]"/> Диспетчер проекта
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700">
+          {(["files","versions","team"] as const).map((id) => {
+            const label = id === "files" ? "Файлы" : id === "versions" ? "Версии" : "Команда"
+            return (
+              <button key={id} onClick={()=>setActiveTab(id)}
+                className={`px-4 py-2 text-[11px] transition-colors border-b-2 ${activeTab===id?"border-[#0078d4] text-white bg-[#1e1e2e]":"border-transparent text-gray-400 hover:text-white bg-[#252535]"}`}>
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex-1 overflow-auto p-3">
+          {activeTab === "files" && (
+            <table className="w-full text-[11px]">
+              <thead><tr className="text-gray-400 border-b border-gray-700">
+                {["Файл","Тип","Размер","Изменён","Статус"].map(h=><th key={h} className="text-left px-2 py-1.5 font-medium">{h}</th>)}
+              </tr></thead>
+              <tbody>{files.map((f,i)=>(
+                <tr key={i} className="border-b border-gray-800 hover:bg-[#252535] cursor-pointer">
+                  <td className="px-2 py-1.5 text-white">
+                    <span className="flex items-center gap-1.5"><Icon name="FileText" size={11} className="text-blue-400"/>{f.name}</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-gray-400">{f.type}</td>
+                  <td className="px-2 py-1.5 text-gray-400">{f.size}</td>
+                  <td className="px-2 py-1.5 text-gray-400 font-mono text-[10px]">{f.date}</td>
+                  <td className="px-2 py-1.5"><span className={`px-1.5 py-0.5 rounded text-[10px] ${f.status==="Активен"?"bg-green-500/20 text-green-400":"bg-blue-500/20 text-blue-400"}`}>{f.status}</span></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )}
+          {activeTab === "versions" && (
+            <div className="space-y-1">
+              {versions.map((v,i)=>(
+                <div key={i} className={`flex items-start gap-3 p-2 rounded border transition-colors cursor-pointer hover:bg-[#252535] ${i===0?"border-[#0078d4]/40 bg-[#0078d4]/5":"border-gray-800"}`}>
+                  <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${i===0?"bg-[#0078d4] text-white":"bg-gray-700 text-gray-300"}`}>{v.ver.replace("v","")}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white text-[11px] font-semibold">{v.ver}</span>
+                      {i===0&&<span className="text-[9px] px-1.5 bg-green-500/20 text-green-400 rounded">Текущая</span>}
+                      <span className="text-gray-500 text-[10px] ml-auto">{v.date}</span>
+                    </div>
+                    <div className="text-gray-400 text-[10px]">{v.author} — {v.comment}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {activeTab === "team" && (
+            <div className="space-y-2 p-2">
+              {[
+                { name: "Иванов Алексей Сергеевич", role: "Главный проектировщик", online: true },
+                { name: "Петров Константин Вадимович", role: "Геодезист", online: true },
+                { name: "Сидоров Михаил Леонидович", role: "ГИП", online: false },
+              ].map((m,i)=>(
+                <div key={i} className="flex items-center gap-3 p-2 rounded border border-gray-700 hover:bg-[#252535]">
+                  <div className="relative">
+                    <div className="w-8 h-8 rounded-full bg-[#0078d4] flex items-center justify-center text-white text-[12px] font-bold">{m.name[0]}</div>
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#1e1e2e] ${m.online?"bg-green-400":"bg-gray-500"}`}/>
+                  </div>
+                  <div>
+                    <div className="text-white text-[11px] font-medium">{m.name}</div>
+                    <div className="text-gray-400 text-[10px]">{m.role}</div>
+                  </div>
+                  <div className="ml-auto text-[10px] text-gray-500">{m.online?"онлайн":"офлайн"}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="px-3 py-2 border-t border-gray-700 flex justify-between items-center">
+          <button className="text-[11px] text-white px-3 py-1 rounded" style={{background:"#0078d4"}}>Добавить файл</button>
+          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Закрыть</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── SurveyTraverseDialog ─────────────────────────────────────────────────────
+
+function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
+  const rows = [
+    { pt: "ПП-1", ang: "0°00'00\"",   dist: "—",      dx: "—",       dy: "—",       x: "5420.145", y: "3817.234" },
+    { pt: "ПП-2", ang: "42°18'36\"",  dist: "125.340", dx: "+92.418", dy: "+84.126", x: "5512.563", y: "3901.360" },
+    { pt: "ПП-3", ang: "118°45'12\"", dist: "98.720",  dx: "-47.213", dy: "+87.484", x: "5465.350", y: "3988.844" },
+    { pt: "ПП-4", ang: "215°30'48\"", dist: "142.180", dx: "-82.456", dy: "-115.731",x: "5382.894", y: "3873.113" },
+    { pt: "ПП-5", ang: "304°12'24\"", dist: "87.650",  dx: "+49.823", dy: "-72.018", x: "5432.717", y: "3801.095" },
+    { pt: "ПП-1", ang: "0°00'00\"",   dist: "89.450",  dx: "-12.572", dy: "+16.139", x: "5420.145", y: "3817.234" },
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:640,maxHeight:"80vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535]">
+          <span className="text-white text-[13px] font-bold flex items-center gap-2">
+            <Icon name="GitBranch" size={14} className="text-green-400"/> Отчёт о невязке теодолитного хода
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg">✕</button>
+        </div>
+        <div className="p-3 border-b border-gray-700 grid grid-cols-3 gap-3">
+          {[
+            { label: "Угловая невязка", val: "f_β = +0°00'48\"", ok: true },
+            { label: "Допустимая", val: "[f_β] = ±1°43'12\"", ok: true },
+            { label: "Линейная невязка", val: "f = 0.052 м", ok: true },
+            { label: "Периметр хода", val: "P = 543.340 м", ok: true },
+            { label: "Относительная", val: "1 / 10 448", ok: true },
+            { label: "Допустимая", val: "1 / 2 000", ok: true },
+          ].map((item,i)=>(
+            <div key={i} className={`p-2 rounded border ${item.ok?"border-green-700/40 bg-green-900/10":"border-red-700/40 bg-red-900/10"}`}>
+              <div className="text-[9px] text-gray-400">{item.label}</div>
+              <div className={`text-[12px] font-mono font-bold ${item.ok?"text-green-400":"text-red-400"}`}>{item.val}</div>
+              {item.ok && <div className="text-[9px] text-green-600">✓ В норме</div>}
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-[10px] border-collapse">
+            <thead className="sticky top-0 bg-[#252535]">
+              <tr className="text-gray-400 border-b border-gray-700">
+                {["Точка","Угол","Длина, м","ΔX, м","ΔY, м","X, м","Y, м"].map(h=>(
+                  <th key={h} className="text-left px-2 py-1.5 font-medium whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r,i)=>(
+                <tr key={i} className={`border-b border-gray-800 hover:bg-[#252535] ${i===0||i===rows.length-1?"bg-blue-900/10 font-semibold":""}`}>
+                  <td className="px-2 py-1 text-[#0078d4] font-mono">{r.pt}</td>
+                  <td className="px-2 py-1 text-white font-mono">{r.ang}</td>
+                  <td className="px-2 py-1 text-gray-300 font-mono">{r.dist}</td>
+                  <td className={`px-2 py-1 font-mono ${r.dx.startsWith("+")?"text-yellow-400":r.dx.startsWith("-")?"text-cyan-400":"text-gray-400"}`}>{r.dx}</td>
+                  <td className={`px-2 py-1 font-mono ${r.dy.startsWith("+")?"text-yellow-400":r.dy.startsWith("-")?"text-cyan-400":"text-gray-400"}`}>{r.dy}</td>
+                  <td className="px-2 py-1 text-white font-mono">{r.x}</td>
+                  <td className="px-2 py-1 text-white font-mono">{r.y}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-3 py-2 border-t border-gray-700 flex justify-between">
+          <div className="flex gap-2">
+            <button className="text-[11px] text-white px-3 py-1 rounded" style={{background:"#0078d4"}}>Экспорт</button>
+            <button className="text-[11px] text-gray-300 px-3 py-1 rounded border border-gray-600">Уравнять</button>
+          </div>
+          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Закрыть</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Main CivilCAD Module ────────────────────────────────────────────────────
 
 const NAV_MODULES = [
@@ -3030,8 +3317,26 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   // ── Superelevation dialog state ──────────────────────────────────────────
   const [showSuperelevation, setShowSuperelevation] = useState(false)
 
+  // ── New dialog states ─────────────────────────────────────────────────────
+  const [showEarthworks, setShowEarthworks] = useState(false)
+  const [showProjectManager, setShowProjectManager] = useState(false)
+  const [showSurveyTraverse, setShowSurveyTraverse] = useState(false)
+  const [toolspaceTab, setToolspaceTab] = useState<"dispatcher"|"params">("dispatcher")
+
   // ── Side tab state ───────────────────────────────────────────────────────
   const [activeSideTab, setActiveSideTab] = useState<string|null>(null)
+
+  // ── Progress indicator state ──────────────────────────────────────────────
+  const [progressOp, setProgressOp] = useState<{label:string;pct:number}|null>(null)
+  const showProgress = (label: string) => {
+    setProgressOp({ label, pct: 0 })
+    const interval = setInterval(() => {
+      setProgressOp(prev => {
+        if (!prev || prev.pct >= 100) { clearInterval(interval); return null }
+        return { ...prev, pct: prev.pct + Math.random() * 25 + 5 }
+      })
+    }, 200)
+  }
 
   // ── Cursor screen position ───────────────────────────────────────────────
   const [cursorScreen, setCursorScreen] = useState({ x: 0, y: 0 })
@@ -3492,6 +3797,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "АННОТАЦИИ" || c === "ANNOTATION" || c === "РАЗМЕР" || c === "DIM" || c === "D" || c === "ВЫНОСКА" || c === "LEADER") setShowAnnotation(true)
     else if (c === "ВОДОСБОР" || c === "CATCHMENT" || c === "ГИДРОЛОГИЯ" || c === "HYDROLOGY" || c === "ДРЕНАЖ") setShowHydrology(true)
     else if (c === "INSIGHTS" || c === "ПОДСКАЗКИ") setShowInsights(prev=>!prev)
+    else if (c === "ЗЕМЛЯ" || c === "EARTHWORKS" || c === "ВЗР") { setShowEarthworks(true); setStatusMsg("Ведомость земляных работ"); setCommandLine(""); return }
+    else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
+    else if (c === "ПРОЕКТ" || c === "PROJECT" || c === "ДП") { setShowProjectManager(true); setStatusMsg("Диспетчер проекта"); setCommandLine(""); return }
     else { setStatusMsg(`Неизвестная команда: ${cmd}. Введите ? для справки`); setCommandLine(""); return }
     setStatusMsg(`Команда: ${cmd}`)
     setCommandLine("")
@@ -3559,6 +3867,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("поперечный уклон") || k.includes("superelevation") || k.includes("отгон")) { setShowSuperelevation(true) }
     // Гидрология
     else if (k.includes("водосбор") || k.includes("гидролог") || k.includes("дренаж") || k.includes("пруд")) { setShowHydrology(true) }
+    // Земляные работы
+    else if (k.includes("земляны") || k.includes("ведомост") || k.includes("earthwork")) { setShowEarthworks(true) }
+    // Диспетчер проекта
+    else if (k.includes("диспетчер проект") || k.includes("project manager")) { setShowProjectManager(true) }
+    // Невязка теодолитного хода
+    else if (k.includes("невязк") || k.includes("теодолитн") || k.includes("traverse")) { setShowSurveyTraverse(true) }
     // Всё остальное
     else { setStatusMsg(`Выполнено: ${key}`) }
   }
@@ -3825,14 +4139,17 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
           {/* Диспетчер / Параметры tabs */}
           <div className="flex border-b border-gray-600">
-            {["Диспетчер","Параметры"].map((t, i) => (
-              <button key={t}
-                className={`flex-1 text-[11px] py-1 border-r border-gray-600 last:border-0 transition-colors font-medium
-                  ${i === 0 ? "bg-[#1e1e2e] text-white border-b-2 border-b-[#0078d4]" : "bg-[#252535] text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}
-                onClick={() => setStatusMsg(`Вкладка: ${t}`)}>
-                {t}
-              </button>
-            ))}
+            {(["dispatcher","params"] as const).map((tab) => {
+              const label = tab === "dispatcher" ? "Диспетчер" : "Параметры"
+              return (
+                <button key={tab}
+                  className={`flex-1 text-[11px] py-1 border-r border-gray-600 last:border-0 transition-colors font-medium
+                    ${toolspaceTab === tab ? "bg-[#1e1e2e] text-white border-b-2 border-b-[#0078d4]" : "bg-[#252535] text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}
+                  onClick={() => setToolspaceTab(tab)}>
+                  {label}
+                </button>
+              )
+            })}
           </div>
           {/* Active Drawing View */}
           <div className="bg-[#252535] px-2 py-1 flex items-center gap-1 border-b border-gray-600 cursor-pointer hover:bg-[#2e2e45]"
@@ -3840,12 +4157,54 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <span className="text-[11px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
             <Icon name="ChevronDown" size={10} className="text-gray-500 flex-shrink-0" />
           </div>
-          {/* Tree */}
+          {/* Tree or Params panel */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#1e1e2e]">
-            {treeData.map(node => (
-              <TreeItem key={node.id} node={node} depth={0} selected={selectedNode}
-                onSelect={setSelectedNode} onToggle={toggleNode} onAction={handleTreeNodeAction} />
-            ))}
+            {toolspaceTab === "dispatcher" ? (
+              treeData.map(node => (
+                <TreeItem key={node.id} node={node} depth={0} selected={selectedNode}
+                  onSelect={setSelectedNode} onToggle={toggleNode} onAction={handleTreeNodeAction} />
+              ))
+            ) : (
+              <div className="p-2 space-y-2 text-[11px]">
+                <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider px-1">Единицы измерения</div>
+                {[
+                  { label: "Угловые единицы", val: "Градусы" },
+                  { label: "Расстояние", val: "Метры" },
+                  { label: "Высота", val: "Метры" },
+                  { label: "Площадь", val: "м²" },
+                  { label: "Объём", val: "м³" },
+                  { label: "Масштаб", val: "1:500" },
+                ].map(p => (
+                  <div key={p.label} className="flex items-center justify-between gap-1 py-1 border-b border-gray-800">
+                    <span className="text-gray-400 text-[10px] truncate">{p.label}</span>
+                    <span className="text-white text-[10px] font-mono">{p.val}</span>
+                  </div>
+                ))}
+                <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider px-1 pt-2">Система координат</div>
+                {[
+                  { label: "СК", val: "МСК-63" },
+                  { label: "Проекция", val: "Гаусс-Крюгер" },
+                  { label: "Зона", val: "3" },
+                  { label: "Эллипсоид", val: "Красовского" },
+                ].map(p => (
+                  <div key={p.label} className="flex items-center justify-between gap-1 py-1 border-b border-gray-800">
+                    <span className="text-gray-400 text-[10px] truncate">{p.label}</span>
+                    <span className="text-white text-[10px] font-mono">{p.val}</span>
+                  </div>
+                ))}
+                <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider px-1 pt-2">Стили</div>
+                {[
+                  { label: "Стиль точек", val: "Базовый" },
+                  { label: "Стиль трасс", val: "Все подписи" },
+                  { label: "Стиль поверх.", val: "Без отобр." },
+                ].map(p => (
+                  <div key={p.label} className="flex items-center justify-between gap-1 py-1 border-b border-gray-800">
+                    <span className="text-gray-400 text-[10px] truncate">{p.label}</span>
+                    <span className="text-white text-[10px] font-mono">{p.val}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -4060,6 +4419,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   setCorridors(prev => prev.includes(def.name) ? prev : [...prev, def.name])
                   setShowCorridor(false)
                   setStatusMsg(`Коридор «${def.name}» успешно создан`)
+                  showProgress("Создание коридора…")
                   saveObject("corridor", def.name, { name: def.name })
                   showToast(`💾 Коридор «${def.name}» сохранён в проект`)
                 }}
@@ -4071,6 +4431,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 onOK={def => {
                   setShowSurface(false)
                   setStatusMsg(`Поверхность «${def.name}» (${def.type}) создана`)
+                  showProgress("Построение поверхности TIN…")
                   saveObject("surface", def.name, { type: def.type })
                   showToast(`💾 Поверхность «${def.name}» сохранена`)
                   setTreeData(prev => {
@@ -4204,6 +4565,20 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showSuperelevation && (
               <SuperelevationDialog onClose={() => setShowSuperelevation(false)} />
             )}
+            {showEarthworks && (
+              <EarthworksDialog onClose={()=>setShowEarthworks(false)} onOK={d=>{
+                setShowEarthworks(false)
+                pushUndo(`Земляные работы: ${d.name}`)
+                showToast(`Ведомость «${d.name}» экспортирована`)
+                setStatusMsg(`Земляные работы: выемка ${d.cut} м³, насыпь ${d.fill} м³`)
+              }}/>
+            )}
+            {showProjectManager && (
+              <ProjectManagerDialog onClose={()=>setShowProjectManager(false)}/>
+            )}
+            {showSurveyTraverse && (
+              <SurveyTraverseDialog onClose={()=>setShowSurveyTraverse(false)}/>
+            )}
             {showHydrology && (
               <HydrologyDialog onClose={()=>setShowHydrology(false)} onOK={obj=>{
                 setShowHydrology(false)
@@ -4265,6 +4640,23 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} exit={{opacity:0,y:20}}
                 className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#0078d4] text-white text-[11px] px-4 py-2 rounded shadow-xl z-50 pointer-events-none">
                 {toast}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Progress indicator */}
+          <AnimatePresence>
+            {progressOp && (
+              <motion.div initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-20}}
+                className="absolute top-8 left-1/2 -translate-x-1/2 z-50 bg-[#1a1a2e] border border-[#0078d4] rounded shadow-xl px-4 py-2 min-w-[240px]">
+                <div className="text-[11px] text-white mb-1.5 flex items-center gap-2">
+                  <Icon name="Loader" size={11} className="animate-spin text-[#0078d4]"/>
+                  {progressOp.label}
+                  <span className="ml-auto text-[#0078d4] font-mono">{Math.min(100,Math.round(progressOp.pct))}%</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-1.5">
+                  <div className="bg-[#0078d4] h-1.5 rounded-full transition-all" style={{width:`${Math.min(100,progressOp.pct)}%`}}/>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -4414,7 +4806,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Команды: L=Линия, PL=Полилиния, O=Точка, R=Прямоугольник, M=Перенести, S=Выбор, E=Удалить, PR=Свойства, ZE=Вписать…"
+            placeholder="Команды: L=Линия, PL=Полилиния, O=Точка, M=Перенести, E=Удалить, ZE=Вписать, ЗЕМЛЯ, НЕВЯЗКА, ПРОЕКТ, ТРАССА, КОРИДОР, ПОВЕРХНОСТЬ…"
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
