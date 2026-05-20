@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import { экспортCSV, экспортExcel as утилExcel, экспортLandXML, экспортТекст } from "@/utils/exportImport"
 
 interface SpecItem {
   id: number
@@ -87,6 +88,39 @@ export default function SpecsModule() {
   })).filter(c => c.items.length > 0)
 
   const handleExport = (fmt: string) => {
+    if (fmt === "Excel" || fmt === "Excel (.xlsx)") {
+      утилExcel(
+        ["Код", "Наименование", "Ед.изм", "Кол-во", "Ед.цена", "Сумма"],
+        specs.map(s => [s.code, s.name, s.unit, s.qty, s.unitPrice, s.qty * s.unitPrice]),
+        "Ведомость",
+        "specs.xls"
+      )
+    } else if (fmt === "CSV") {
+      экспортCSV(
+        ["Код", "Наименование", "Ед.изм", "Кол-во", "Ед.цена", "Сумма"],
+        specs.map(s => [s.code, s.name, s.unit, s.qty, s.unitPrice, s.qty * s.unitPrice]),
+        "specs.csv"
+      )
+    } else if (fmt === "LandXML") {
+      экспортLandXML({ имя: "Ведомость объёмов" }, "specs.xml")
+    } else if (fmt === "PDF" || fmt === "PDF-отчёт") {
+      экспортТекст([
+        "ВЕДОМОСТЬ ОБЪЁМОВ",
+        "==================",
+        `Дата: ${new Date().toLocaleDateString("ru")}`,
+        "",
+        "Код  Наименование  Ед.изм  Кол-во  Ед.цена  Сумма",
+        ...specs.map(s => `${s.code}  ${s.name}  ${s.unit}  ${s.qty}  ${s.unitPrice}  ${s.qty * s.unitPrice}`),
+        "",
+        `Итого: ${specs.reduce((sum, s) => sum + s.qty * s.unitPrice, 0).toLocaleString("ru")} руб.`,
+      ], "specs_report.txt")
+    } else {
+      экспортТекст([
+        `Экспорт ведомости в формат ${fmt}`,
+        `Дата: ${new Date().toLocaleDateString("ru")}`,
+        `Позиций: ${specs.length}`,
+      ], `specs_${fmt}.txt`)
+    }
     setExportMsg(`Экспорт в ${fmt} выполнен`)
     setTimeout(() => setExportMsg(""), 2500)
   }

@@ -120,6 +120,33 @@ export default function GeodesyModule() {
     a.click()
   }
 
+  const exportPointsTXT = () => {
+    const строки = [
+      "# Точки COGO - ЛАПА 3D",
+      "# N(Y)    E(X)    Z    Имя    Код",
+      ...points.map(p =>
+        `${p.y.toFixed(3)}\t${p.x.toFixed(3)}\t${p.z.toFixed(3)}\t${p.name || p.id}\t${p.code || "TOPO"}`
+      ),
+    ]
+    import("@/utils/exportImport").then(({ скачать }) =>
+      скачать(строки.join("\n"), "points.txt", "text/plain")
+    )
+  }
+
+  const exportPointsDXF = () => {
+    import("@/utils/exportImport").then(({ экспортDXF }) => {
+      экспортDXF(
+        points.map(p => ({
+          тип: "TEXT" as const,
+          данные: [p.x, p.y],
+          текст: `${p.name || p.id} ${p.z.toFixed(2)}`,
+          слой: "COGO_POINTS",
+        })),
+        "points.dxf"
+      )
+    })
+  }
+
   const addGroup = () => {
     if (!groupForm.name) return
     setGroups(prev => [...prev, { id: Date.now(), ...groupForm }])
@@ -372,8 +399,8 @@ export default function GeodesyModule() {
               {[
                 { fmt: "LandXML", desc: "Обмен с Civil 3D, InfraWorks", color: "bg-blue-50 border-blue-200", btn: "bg-blue-600", fn: exportPointsLandXML },
                 { fmt: "CSV", desc: "Excel, таблицы, расчёты", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: exportPointsCSV },
-                { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsCSV },
-                { fmt: "DWG", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsCSV },
+                { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsTXT },
+                { fmt: "DXF", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsDXF },
               ].map(f => (
                 <div key={f.fmt} className={`rounded-xl border p-4 ${f.color} space-y-2`}>
                   <div className="font-bold text-gray-900">{f.fmt}</div>

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import { экспортCSV, экспортLandXML, экспортТекст } from "@/utils/exportImport"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -280,12 +281,47 @@ export default function DTMModule() {
   }
 
   const экспорт = (формат: string) => {
-    const данные = формат === "CSV"
-      ? ["X,Y,Z,Класс", ...облако.slice(0, 100).map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)},${p.cls}`)].join("\n")
-      : `<?xml version="1.0"?>\n<LandXML>\n  <Surfaces>\n    <Surface name="ЦМР" desc="${цмрПарамы.метод}">\n      <SourceData>\n        <RawObservations name="Облако точек" count="${облако.length}"/>\n      </SourceData>\n    </Surface>\n  </Surfaces>\n</LandXML>`
-    const blob = new Blob([данные], { type: "text/plain" })
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob)
-    a.download = `dtm.${формат.toLowerCase()}`; a.click()
+    if (формат === "CSV" || формат === "DEM") {
+      экспортCSV(
+        ["ID", "X", "Y", "Z", "Интенсивность", "Класс", "Код класса"],
+        облако.slice(0, 10000).map((p, i) => [
+          i + 1, p.x.toFixed(3), p.y.toFixed(3), p.z.toFixed(3), p.i, p.cls, КЛАССЫ_ТОЧЕК[p.cls] || "—",
+        ]),
+        `dtm_${формат.toLowerCase()}.csv`
+      )
+    } else if (формат === "XML") {
+      экспортLandXML({
+        имя: "ЦМР ЛАПА 3D",
+        точки: облако.slice(0, 5000).map((p, i) => ({ name: `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z })),
+      }, "dtm.xml")
+    } else if (формат === "PDF") {
+      экспортТекст([
+        "ТЕХНИЧЕСКИЙ ОТЧЁТ ЦМР",
+        "=".repeat(40),
+        `Дата: ${new Date().toLocaleDateString("ru")}`,
+        `Метод: ${цмрПарамы.метод}`,
+        `Шаг сетки: ${цмрПарамы.шаг} м`,
+        `Точек: ${итогоТочек.toLocaleString("ru")}`,
+        `Источники: ${загруженныеДанные.map(д => д.источник).join(", ") || "—"}`,
+        `Фильтрация шума: ${цмрПарамы.фильтрация ? "Да" : "Нет"}`,
+        `Нормализация: ${цмрПарамы.удалениеВегет ? "Да" : "Нет"}`,
+        "",
+        "КЛАССИФИКАЦИЯ ТОЧЕК:",
+        ...Object.entries(статистика).map(([кл, n]) => `  ${кл}: ${n.toLocaleString("ru")} (${((n / итогоТочек) * 100).toFixed(1)}%)`),
+      ], "dtm_report.txt")
+    } else if (формат === "SHP" || формат === "LAS") {
+      экспортCSV(
+        ["X", "Y", "Z", "Класс"],
+        облако.slice(0, 10000).map(p => [p.x.toFixed(3), p.y.toFixed(3), p.z.toFixed(3), p.cls]),
+        `dtm.${формат.toLowerCase() === "las" ? "csv" : "csv"}`
+      )
+    } else {
+      экспортCSV(
+        ["X", "Y", "Z", "I", "Класс"],
+        облако.slice(0, 5000).map(p => [p.x.toFixed(3), p.y.toFixed(3), p.z.toFixed(3), p.i, p.cls]),
+        `dtm_${формат}.csv`
+      )
+    }
   }
 
   const итогоТочек = облако.length

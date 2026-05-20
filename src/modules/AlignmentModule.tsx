@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { экспортCSV, экспортLandXML, экспортТекст, экспортDXF } from "@/utils/exportImport"
 
 interface VPI { id: number; pk: number; elev: number; vcl: number }
 interface HorzCurve { id: number; pk: number; radius: number; delta: number; type: "right" | "left" }
@@ -79,6 +80,82 @@ export default function AlignmentModule() {
 
   const minRadius = speed >= 120 ? 800 : speed >= 100 ? 600 : speed >= 80 ? 300 : 150
 
+  const formatPK = (pk: number) => `ПК${Math.floor(pk / 100)}+${String(pk % 100).padStart(2, "0")}`
+
+  const totalLength = vpis.length >= 2 ? vpis[vpis.length - 1].pk - vpis[0].pk : 0
+
+  const stakeoutRows = profileData.filter((_, i) => i % 5 === 0).map((p, i) => {
+    const prev = profileData[i * 5 - 5]
+    const bearing = (Math.atan2(p.pk * Math.sin(0.15), p.pk * Math.cos(0.15)) * 180 / Math.PI).toFixed(4)
+    const distance = i > 0 && prev ? Math.sqrt((p.pk - prev.pk) ** 2).toFixed(2) : "0"
+    const inCurve = horzCurves.find(c => p.pk >= c.pk && p.pk <= c.pk + c.radius * (c.delta * Math.PI / 180))
+    return {
+      pk: formatPK(p.pk),
+      x: (1245000 + p.pk * Math.cos(0.15)).toFixed(2),
+      y: (356000 + p.pk * Math.sin(0.15)).toFixed(2),
+      bearing,
+      distance,
+      element: inCurve ? `Кривая R=${inCurve.radius}` : "Прямая",
+    }
+  })
+
+  const doExportLandXML = () => {
+    экспортLandXML({
+      имя: "Трасса",
+      трассы: horzCurves.map(c => ({
+        name: `Кривая_${c.id}`,
+        length: +(c.radius * (c.delta * Math.PI / 180)).toFixed(2),
+        elements: [{ radius: c.radius, delta: c.delta }],
+      })),
+    }, "alignment.xml")
+  }
+
+  const doExportCSV = () => {
+    экспортCSV(
+      ["ПК", "Радиус", "Дельта", "Длина", "Тип", "Направление"],
+      horzCurves.map(c => [
+        formatPK(c.pk),
+        c.radius,
+        c.delta,
+        +(c.radius * (c.delta * Math.PI / 180)).toFixed(2),
+        "Простая",
+        c.type === "right" ? "Правая" : "Левая",
+      ]),
+      "alignment_curves.csv"
+    )
+  }
+
+  const doExportDXF = () => {
+    экспортDXF(
+      horzCurves.map(c => ({ тип: "ARC" as const, данные: [0, 0, c.radius, 0, c.delta], слой: "ALIGNMENT" })),
+      "alignment.dxf"
+    )
+  }
+
+  const doExportReport = () => {
+    экспортТекст([
+      "ОТЧЁТ ПО ТРАССЕ",
+      "================",
+      `Дата: ${new Date().toLocaleDateString("ru")}`,
+      `Расчётная скорость: ${speed} км/ч`,
+      `Длина трассы: ${totalLength.toFixed(0)} м`,
+      "",
+      "ГОРИЗОНТАЛЬНЫЕ КРИВЫЕ:",
+      ...horzCurves.map((c, i) => `  ${i + 1}. ПК ${formatPK(c.pk)}, R=${c.radius}м, Δ=${c.delta}°, ${c.type === "right" ? "Правая" : "Левая"}`),
+      "",
+      "ВЕРТИКАЛЬНЫЕ ТОЧКИ:",
+      ...vpis.map((v, i) => `  ${i + 1}. ПК ${formatPK(v.pk)}, отм.=${v.elev}м, VCL=${v.vcl}м`),
+    ], "alignment_report.txt")
+  }
+
+  const doExportStakeoutCSV = () => {
+    экспортCSV(
+      ["Пикет", "X", "Y", "Дир.угол", "Расстояние", "Элемент"],
+      stakeoutRows.map(r => [r.pk, r.x, r.y, r.bearing, r.distance, r.element]),
+      "stakeout.csv"
+    )
+  }
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <Tabs defaultValue="vertical">
@@ -87,6 +164,7 @@ export default function AlignmentModule() {
           <TabsTrigger value="horizontal">Горизонтальное</TabsTrigger>
           <TabsTrigger value="clothoids">Переходные кривые</TabsTrigger>
           <TabsTrigger value="stakeout">Разбивочные данные</TabsTrigger>
+          <TabsTrigger value="export">Экспорт</TabsTrigger>
         </TabsList>
 
         {/* VERTICAL */}
@@ -251,7 +329,12 @@ export default function AlignmentModule() {
         {/* STAKEOUT */}
         <TabsContent value="stakeout" className="space-y-4">
           <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <h3 className="font-semibold text-gray-800 mb-4">Разбивочные данные по пикетам</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-800">Разбивочные данные по пикетам</h3>
+              <Button onClick={doExportStakeoutCSV} variant="outline" className="gap-2 text-sm">
+                <Icon name="Download" size={15} /> Экспорт CSV
+              </Button>
+            </div>
             <div className="rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 font-semibold">
@@ -282,6 +365,31 @@ export default function AlignmentModule() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* EXPORT */}
+        <TabsContent value="export" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800 mb-2">Экспорт данных трассы</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={doExportLandXML} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> LandXML — горизонтальные кривые
+              </Button>
+              <Button onClick={doExportCSV} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> CSV — таблица кривых
+              </Button>
+              <Button onClick={doExportDXF} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> DXF — геометрия (AutoCAD)
+              </Button>
+              <Button onClick={doExportReport} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> TXT — отчёт по трассе
+              </Button>
+              <Button onClick={doExportStakeoutCSV} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> CSV — разбивочные данные
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Все файлы формируются в браузере без сервера и сохраняются локально.</p>
           </div>
         </TabsContent>
       </Tabs>

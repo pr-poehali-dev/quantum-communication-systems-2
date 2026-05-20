@@ -3,6 +3,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
+import { экспортCSV, экспортLandXML, экспортDXF, экспортIFC, экспортТекст, импортФайл, импортLandXML } from "@/utils/exportImport"
 
 interface FormatItem {
   ext: string; name: string; app: string; icon: string
@@ -59,16 +60,61 @@ export default function IntegrationModule() {
 
   const filtered = FORMATS.filter(f => filter === "all" || f.direction === filter || f.direction === "both")
 
-  const handleImport = (ext: string) => {
-    setImportMsg(`Импорт ${ext} выполнен успешно — данные загружены в модель`)
-    setTimeout(() => setImportMsg(""), 3000)
+  const handleImport = (формат: string) => {
+    const extensions: Record<string, string> = {
+      "DWG/DXF": ".dxf,.dwg", "LandXML": ".xml,.landxml",
+      "IFC": ".ifc", "CSV": ".csv,.txt",
+      "Shapefile": ".shp,.zip", "KML/KMZ": ".kml,.kmz",
+      "DEM/GeoTIFF": ".tif,.tiff,.dem", "default": ".*",
+    }
+    const ext = extensions[формат] || extensions["default"]
+    импортФайл(ext, (содержимое, имяФайла) => {
+      let сообщение = `Импорт ${формат}: файл «${имяФайла}» загружен`
+      if (формат === "LandXML" || имяФайла.endsWith(".xml")) {
+        const данные = импортLandXML(содержимое)
+        сообщение = `Импорт LandXML: точек ${данные.точки.length}, трасс ${данные.трассы.length}, поверхностей ${данные.поверхности.length}`
+      }
+      setImportMsg(сообщение)
+      setTimeout(() => setImportMsg(""), 4000)
+    })
   }
-  const handleExport = (ext: string) => {
-    setExportMsg(`Экспорт в ${ext} завершён`)
+
+  const handleExport = (формат: string) => {
+    if (формат === "LandXML") {
+      экспортLandXML({ имя: "Проект ЛАПА 3D" }, "export.xml")
+    } else if (формат === "DWG" || формат === "DXF") {
+      экспортDXF([
+        { тип: "LINE", данные: [0, 0, 0, 100, 0, 0], слой: "ROADS" },
+        { тип: "LINE", данные: [0, 0, 0, 0, 100, 0], слой: "ROADS" },
+        { тип: "TEXT", данные: [50, 50], текст: "ЛАПА 3D Export", слой: "TEXT" },
+      ], "export.dxf")
+    } else if (формат === "IFC") {
+      экспортIFC([
+        { тип: "IfcRoad", имя: "Дорога", guid: "road-001", описание: "Экспорт из ЛАПА 3D" },
+      ], "export.ifc")
+    } else if (формат === "CSV" || формат === "Shapefile" || формат === "KML/KMZ") {
+      экспортCSV(
+        ["Тип", "Имя", "X", "Y", "Z"],
+        [["Трасса", "ШД-38", 100, 200, 120.5], ["Поверхность", "DTM", 0, 0, 0]],
+        `export_${формат}.csv`
+      )
+    } else {
+      экспортТекст(
+        [`Экспорт ЛАПА 3D в формат ${формат}`, `Дата: ${new Date().toLocaleDateString("ru")}`],
+        `export_${формат}.txt`
+      )
+    }
+    setExportMsg(`Экспорт в ${формат} завершён`)
     setTimeout(() => setExportMsg(""), 3000)
   }
 
-  const importTacheometer = () => setImportedPoints(prev => prev + Math.floor(Math.random() * 50 + 20))
+  const importTacheometer = () => {
+    импортФайл(".csv,.txt,.raw,.gsi,.job", (содержимое, имяФайла) => {
+      const строки = содержимое.trim().split("\n").filter(s => s.trim()).length
+      setImportedPoints(prev => prev + строки)
+      alert(`Тахеометр: импортировано ${строки} точек из «${имяФайла}»`)
+    })
+  }
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -307,7 +353,7 @@ export default function IntegrationModule() {
                     </button>
                   ))}
                 </div>
-                <Button variant="outline" className="gap-2 ml-auto">
+                <Button variant="outline" className="gap-2 ml-auto" onClick={() => handleExport(gisFormat)}>
                   <Icon name="Download" size={14} />Экспортировать как {gisFormat}
                 </Button>
               </div>

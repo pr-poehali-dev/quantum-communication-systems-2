@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts"
+import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV } from "@/utils/exportImport"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,66 @@ export default function SurfacesModule() {
     }, 1200)
   }
 
+  const doЭкспортLandXML = () => {
+    экспортLandXML({
+      имя: surf.name,
+      поверхности: surfaces.map(s => ({ name: s.name, type: s.type })),
+    }, `${surf.name}.xml`)
+  }
+
+  const doЭкспортCSV = () => {
+    экспортCSV(
+      ["ID", "Имя", "X", "Y", "Z", "Код"],
+      points.map((p, i) => [i + 1, p.name || `ТЧК-${i + 1}`, p.x, p.y, p.z, p.code || "TOPO"]),
+      `${surf.name}_points.csv`
+    )
+  }
+
+  const doЭкспортExcel = () => {
+    экспортExcel(
+      ["ID", "Имя", "X (E)", "Y (N)", "Z (м)", "Код"],
+      points.map((p, i) => [i + 1, p.name || `ТЧК-${i + 1}`, p.x, p.y, p.z, p.code || "TOPO"]),
+      "Точки поверхности",
+      `${surf.name}_points.xls`
+    )
+  }
+
+  const doЭкспортОтчёт = () => {
+    экспортТекст([
+      `ОТЧЁТ ПО ПОВЕРХНОСТИ: ${surf.name}`,
+      "=".repeat(40),
+      `Дата: ${new Date().toLocaleDateString("ru")}`,
+      `Тип: ${surf.type}`,
+      `Стиль: ${surf.style}`,
+      `Слой: ${surf.layer}`,
+      `Точек: ${points.length}`,
+      `Мин. отметка: ${minZ.toFixed(2)} м`,
+      `Макс. отметка: ${maxZ.toFixed(2)} м`,
+      `Перепад: ${(maxZ - minZ).toFixed(2)} м`,
+      "",
+      "ИСТОЧНИКИ ДАННЫХ:",
+      ...surf.sources.map(s => `  - ${s.name} (${s.format}, ${s.count} точек)`),
+    ], `${surf.name}_report.txt`)
+  }
+
+  const doИмпорт = () => {
+    импортФайл(".csv,.txt,.xml,.las", (содержимое, имя) => {
+      if (имя.endsWith(".csv") || имя.endsWith(".txt")) {
+        const rows = импортCSV(содержимое)
+        const newPts = rows.map((r, i) => ({
+          id: Date.now() + i,
+          name: r["Имя"] || r["name"] || `ТЧК-${i + 1}`,
+          x: parseFloat(r["X"] || r["x"] || r["E"] || "0"),
+          y: parseFloat(r["Y"] || r["y"] || r["N"] || "0"),
+          z: parseFloat(r["Z"] || r["z"] || r["Отм"] || "0"),
+          code: r["Код"] || r["code"] || "TOPO",
+          group: "Импорт",
+        }))
+        setPoints(prev => [...prev, ...newPts])
+      }
+    })
+  }
+
   // Slope histogram data
   const slopeData = SLOPE_RANGES.map(r => ({ name: r.label, area: +(Math.random() * 3000 + 500).toFixed(0), color: r.color }))
   const slopePie = slopeData.map(d => ({ name: d.name, value: d.area }))
@@ -513,9 +574,12 @@ export default function SurfacesModule() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button onClick={() => setStep(3)} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
                     Далее — редактирование <Icon name="ChevronRight" size={16} />
+                  </Button>
+                  <Button variant="outline" onClick={doИмпорт} className="gap-2">
+                    <Icon name="Upload" size={15} /> Импорт из CSV
                   </Button>
                   <Button variant="outline" onClick={() => setStep(1)}>Назад</Button>
                 </div>
@@ -752,13 +816,20 @@ export default function SurfacesModule() {
                         </div>
                       ))}
                     </div>
-                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 mt-2">
+                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 mt-2" onClick={() => {
+                      if (exportFormat === "LandXML") doЭкспортLandXML()
+                      else if (exportFormat === "CSV") doЭкспортCSV()
+                      else if (exportFormat === "GeoTIFF") doЭкспортCSV()
+                      else if (exportFormat === "IFC") doЭкспортLandXML()
+                      else if (exportFormat === "DWG") doЭкспортExcel()
+                      else doЭкспортCSV()
+                    }}>
                       <Icon name="Download" size={16} /> Экспортировать {exportFormat}
                     </Button>
-                    <Button variant="outline" className="w-full gap-2">
+                    <Button variant="outline" className="w-full gap-2" onClick={doЭкспортОтчёт}>
                       <Icon name="Printer" size={16} /> Печать / PDF
                     </Button>
-                    <Button variant="outline" className="w-full gap-2">
+                    <Button variant="outline" className="w-full gap-2" onClick={() => alert("Публикация в облаке: функция доступна в коммерческой версии ЛАПА 3D")}>
                       <Icon name="Share2" size={16} /> Опубликовать в облаке
                     </Button>
                   </div>

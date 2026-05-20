@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts"
+import { экспортCSV, экспортLandXML, экспортDXF, экспортIFC } from "@/utils/exportImport"
 
 interface CorridorStation {
   pk: number
@@ -111,6 +112,61 @@ export default function CorridorModule() {
     )
   }
 
+  const formatPK = (pk: number) => `ПК${Math.floor(pk / 100)}+${String(pk % 100).padStart(2, "0")}`
+
+  const exportCorridorLandXML = () => {
+    экспортLandXML({
+      имя: `Коридор ${length}м`,
+      коридоры: [{ name: "Коридор", length, stations: stations.map(s => ({ pk: s.pk, cut: s.cutArea, fill: s.fillArea })) }],
+    }, "corridor.xml")
+  }
+
+  const exportCorridorCSV = () => {
+    экспортCSV(
+      ["Пикет", "Отм.земли", "Отм.проект", "Вык.лев", "Вык.пр", "Нас.лев", "Нас.пр", "Пл.выемки", "Пл.насыпи", "Об.выемки", "Об.насыпи"],
+      stations.map(s => [
+        formatPK(s.pk),
+        s.groundElev.toFixed(2),
+        s.designElev.toFixed(2),
+        s.leftCut.toFixed(2),
+        s.rightCut.toFixed(2),
+        s.leftFill.toFixed(2),
+        s.rightFill.toFixed(2),
+        s.cutArea.toFixed(2),
+        s.fillArea.toFixed(2),
+        (s.cutArea * step / 1000).toFixed(1),
+        (s.fillArea * step / 1000).toFixed(1),
+      ]),
+      "corridor_volumes.csv"
+    )
+  }
+
+  const exportCrossSections = () => {
+    экспортCSV(
+      ["Пикет", "Пл.выемки м²", "Пл.насыпи м²", "Тип"],
+      stations.map(s => [formatPK(s.pk), s.cutArea.toFixed(2), s.fillArea.toFixed(2), s.cutArea > s.fillArea ? "Выемка" : "Насыпь"]),
+      "cross_sections.csv"
+    )
+  }
+
+  const exportCorridorDWG = () => {
+    экспортDXF(
+      stations.filter((_, i) => i % 5 === 0).map(s => ({
+        тип: "LINE" as const,
+        данные: [s.pk / 10, s.groundElev, 0, s.pk / 10, s.designElev, 0],
+        слой: "CORRIDOR",
+      })),
+      "corridor.dxf"
+    )
+  }
+
+  const exportCorridorIFC = () => {
+    экспортIFC(
+      [{ тип: "IfcRoad", имя: `Коридор ${length}м`, guid: crypto.randomUUID?.() || "corridor-001", описание: `Длина ${length}м, шаг ${step}м` }],
+      "corridor.ifc"
+    )
+  }
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <Tabs defaultValue="params">
@@ -119,6 +175,7 @@ export default function CorridorModule() {
           <TabsTrigger value="profile">Продольный профиль</TabsTrigger>
           <TabsTrigger value="cross">Поперечники</TabsTrigger>
           <TabsTrigger value="volumes">Объёмы</TabsTrigger>
+          <TabsTrigger value="export">Экспорт</TabsTrigger>
         </TabsList>
 
         <TabsContent value="params" className="space-y-5">
@@ -262,6 +319,34 @@ export default function CorridorModule() {
               </div>
             </div>
           )}
+        </TabsContent>
+
+        {/* EXPORT */}
+        <TabsContent value="export" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800 mb-2">Экспорт данных коридора</h3>
+            {!computed && (
+              <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-2">Сначала постройте коридор на вкладке «Параметры».</p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={exportCorridorLandXML} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="Download" size={16} /> LandXML — коридор
+              </Button>
+              <Button onClick={exportCorridorCSV} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="Download" size={16} /> CSV — объёмы по пикетам
+              </Button>
+              <Button onClick={exportCrossSections} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="Download" size={16} /> CSV — поперечные сечения
+              </Button>
+              <Button onClick={exportCorridorDWG} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="Download" size={16} /> DXF — профиль (AutoCAD)
+              </Button>
+              <Button onClick={exportCorridorIFC} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="Download" size={16} /> IFC — BIM-модель
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Все файлы формируются в браузере без сервера и сохраняются локально.</p>
+          </div>
         </TabsContent>
       </Tabs>
     </motion.div>

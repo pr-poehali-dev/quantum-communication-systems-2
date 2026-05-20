@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { экспортCSV, экспортLandXML } from "@/utils/exportImport"
 
 interface Pipe {
   id: number
@@ -62,6 +63,51 @@ export default function NetworksModule() {
     headLoss: calcHeadLoss(p),
   }))
 
+  // Spec rows grouped by material + diameter
+  const specMap = new Map<string, { material: string; diameter: number; count: number; totalLength: number }>()
+  pipes.forEach(p => {
+    const key = `${p.material}_${p.diameter}`
+    const existing = specMap.get(key)
+    if (existing) {
+      existing.count++
+      existing.totalLength += p.length
+    } else {
+      specMap.set(key, { material: p.material, diameter: p.diameter, count: 1, totalLength: p.length })
+    }
+  })
+  const specRows = Array.from(specMap.values())
+
+  const exportPipesCSV = () => {
+    экспортCSV(
+      ["ID", "От", "До", "Длина м", "Диаметр мм", "Материал", "Расход л/с", "Уклон"],
+      pipes.map(p => [p.id, p.from, p.to, p.length, p.diameter, p.material, p.flow, p.slope]),
+      "pipes.csv"
+    )
+  }
+
+  const exportSpecsCSV = () => {
+    экспортCSV(
+      ["Материал", "Диаметр", "Кол-во", "Общая длина м", "Доля %"],
+      specRows.map(r => [
+        r.material,
+        r.diameter,
+        r.count,
+        r.totalLength.toFixed(1),
+        pipes.reduce((s, p) => s + p.length, 0) > 0
+          ? ((r.totalLength / pipes.reduce((s, p) => s + p.length, 0)) * 100).toFixed(1)
+          : "0",
+      ]),
+      "specs.csv"
+    )
+  }
+
+  const exportNetworkLandXML = () => {
+    экспортLandXML({
+      имя: "Инженерные сети",
+      трубы: pipes.map(p => ({ id: p.id, from: p.from, to: p.to, length: p.length, diameter: p.diameter, material: p.material })),
+    }, "network.xml")
+  }
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div className="flex gap-3 flex-wrap">
@@ -87,6 +133,7 @@ export default function NetworksModule() {
           <TabsTrigger value="pipes">Трубопроводы</TabsTrigger>
           <TabsTrigger value="hydraulics">Гидравлика</TabsTrigger>
           <TabsTrigger value="schema">Схема сети</TabsTrigger>
+          <TabsTrigger value="export">Экспорт</TabsTrigger>
         </TabsList>
 
         {/* PIPES */}
@@ -210,6 +257,25 @@ export default function NetworksModule() {
                 ))}
               </g>
             </svg>
+          </div>
+        </TabsContent>
+
+        {/* EXPORT */}
+        <TabsContent value="export" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800 mb-2">Экспорт данных сети</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={exportPipesCSV} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> CSV — трубопроводы
+              </Button>
+              <Button onClick={exportSpecsCSV} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> CSV — спецификация материалов
+              </Button>
+              <Button onClick={exportNetworkLandXML} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> LandXML — инженерные сети
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Все файлы формируются в браузере без сервера и сохраняются локально.</p>
           </div>
         </TabsContent>
       </Tabs>

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { экспортТекст, экспортCSV } from "@/utils/exportImport"
 
 const TRACK_CLASSES = [
   { value: "1", label: "1 класс — скоростные (до 200 км/ч)", speed: 200, gauge: 1520, minRadius: 4000, maxSlope: 8 },
@@ -61,6 +62,43 @@ export default function RailwayModule() {
   const profileData = points.map(p => ({ name: p.name, pk: p.pk, elev: p.elev }))
   const minE = Math.min(...points.map(p => p.elev))
   const maxE = Math.max(...points.map(p => p.elev))
+
+  const gauge = cls.gauge
+  const lineCategory = "Нормальная"
+  const cantMm = Math.round(calcCantAngle(cls.speed, radius))
+  const axleLoad = 25
+
+  const exportReport = () => {
+    экспортТекст([
+      "ТЕХНИЧЕСКИЙ ОТЧЁТ Ж/Д ПУТИ",
+      "============================",
+      `Дата: ${new Date().toLocaleDateString("ru")}`,
+      `Класс пути: ${trackClass}`,
+      `Категория линии: ${lineCategory}`,
+      `Ширина колеи: ${gauge} мм`,
+      `Длина участка: ${length} м`,
+      `Расчётный радиус: ${radius} м`,
+      `Уклон профиля: ${grade}‰`,
+      `Расчётная скорость: ${cls.speed} км/ч`,
+      `Проектное возвышение: ${cantMm} мм`,
+      `Нагрузка на ось: ${axleLoad} т`,
+      "",
+      "НОРМАТИВНЫЕ ПАРАМЕТРЫ (СП 119.13330):",
+      `  Макс. уклон: ${cls.maxSlope}‰`,
+      `  Мин. радиус: ${cls.minRadius} м`,
+      "",
+      "ПРОФИЛЬНЫЕ ТОЧКИ:",
+      ...points.map((p, i) => `  ${i + 1}. ПК ${Math.floor(p.pk / 100)}+${String(p.pk % 100).padStart(2, "0")}, отм.=${p.elev}м`),
+    ], "railway_report.txt")
+  }
+
+  const exportProfileCSV = () => {
+    экспортCSV(
+      ["№", "Имя", "Пикет", "Отметка м"],
+      points.map((p, i) => [i + 1, p.name || `Т${i + 1}`, p.pk, p.elev]),
+      "railway_profile.csv"
+    )
+  }
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -133,7 +171,17 @@ export default function RailwayModule() {
               <Icon name="Plus" size={16} /> Добавить точку
             </Button>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <h3 className="font-semibold text-gray-800 mb-4">Продольный профиль пути</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-800">Продольный профиль пути</h3>
+                <div className="flex gap-2">
+                  <Button onClick={exportProfileCSV} variant="outline" className="gap-2 text-sm">
+                    <Icon name="Download" size={14} /> CSV
+                  </Button>
+                  <Button onClick={exportReport} variant="outline" className="gap-2 text-sm">
+                    <Icon name="Download" size={14} /> TXT-отчёт
+                  </Button>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={profileData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
+import { экспортТекст, экспортCSV } from "@/utils/exportImport"
 
 interface EarthSection {
   id: number
@@ -84,11 +85,11 @@ export default function AnalysisModule() {
   ]
 
   const exportReport = () => {
-    const lines = [
+    экспортТекст([
       "ОТЧЁТ ПО АНАЛИЗУ ДОРОГИ",
       "========================",
       `Дата: ${new Date().toLocaleDateString("ru")}`,
-      `Категория дороги: ${category}`,
+      `Категория дороги: Категория ${category}`,
       `Расчётная скорость: ${speed} км/ч`,
       `Тип местности: ${terrain}`,
       "",
@@ -96,12 +97,24 @@ export default function AnalysisModule() {
       ...normChecks.map(c => `${c.ok ? "✓" : "✗"} ${c.label}: ${c.actual} (норма: ${c.norm}) [${c.ref}]`),
       "",
       `Пройдено проверок: ${normChecks.filter(c => c.ok).length} из ${normChecks.length}`,
-    ]
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'analysis_report.txt'
-    a.click()
+      "",
+      "ПАРАМЕТРЫ:",
+      `  Радиус кривой: ${roadRadius} м`,
+      `  Продольный уклон: ${roadGrade}‰`,
+      `  Видимость: ${sightDist} м`,
+      `  Ширина полосы: ${laneWidth} м`,
+    ], "analysis_report.txt")
+  }
+
+  const exportEarthworksCSV = () => {
+    экспортCSV(
+      ["Участок", "Длина м", "Откос", "Пл.выемки м²", "Пл.насыпи м²", "Об.выемки м³", "Об.насыпи м³"],
+      sections.map(s => {
+        const vol = calcSectionVolume(s)
+        return [s.name, s.area, "1:1.5", vol.cut > 0 ? vol.cut : 0, vol.fill > 0 ? vol.fill : 0, (vol.cut * 20).toFixed(0), (vol.fill * 20).toFixed(0)]
+      }),
+      "earthworks.csv"
+    )
   }
 
   const earthChartData = sections.map(s => ({
@@ -184,6 +197,9 @@ export default function AnalysisModule() {
               </div>
             </div>
           </div>
+          <Button onClick={exportEarthworksCSV} variant="outline" className="gap-2">
+            <Icon name="Download" size={15} /> Экспорт CSV — объёмы по сечениям
+          </Button>
         </TabsContent>
 
         {/* SLOPE */}
