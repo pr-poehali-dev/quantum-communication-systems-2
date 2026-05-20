@@ -2874,6 +2874,32 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showInsights, setShowInsights] = useState(false)
   const [draw2DObjects, setDraw2DObjects] = useState<{type:string;name:string;id:string}[]>([])
   const [activeProjectObjects, setActiveProjectObjects] = useState<{object_type:string;name:string;data:Record<string,unknown>}[]>([])
+  const [viewDimension, setViewDimension] = useState<"3D"|"2D">("3D")
+  const [undoStack, setUndoStack] = useState<string[]>(["Начальное состояние"])
+  const [redoStack, setRedoStack] = useState<string[]>([])
+
+  const pushUndo = (label: string) => {
+    setUndoStack(prev => [...prev, label])
+    setRedoStack([])
+  }
+  const doUndo = () => {
+    setUndoStack(prev => {
+      if (prev.length <= 1) return prev
+      const last = prev[prev.length - 1]
+      setRedoStack(r => [...r, last])
+      showToast(`↩ Отменено: ${last}`)
+      return prev.slice(0, -1)
+    })
+  }
+  const doRedo = () => {
+    setRedoStack(prev => {
+      if (prev.length === 0) return prev
+      const last = prev[prev.length - 1]
+      setUndoStack(u => [...u, last])
+      showToast(`↪ Повторено: ${last}`)
+      return prev.slice(0, -1)
+    })
+  }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -2884,6 +2910,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   }, [])
 
   const saveObject = (type: string, name: string, data: Record<string, unknown> = {}) => {
+    pushUndo(`Создан ${type}: ${name}`)
     fetch("https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3091,16 +3118,25 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         <div className="flex items-center gap-1">
           <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">C</div>
         </div>
-        <div className="flex items-center gap-1 ml-1">
-          {["🗁","💾","↩","↪"].map((ic,i)=>(
-            <button key={i} className="text-gray-400 hover:text-white text-xs px-0.5 py-0.5">{ic}</button>
-          ))}
+        <div className="flex items-center gap-0.5 ml-1">
+          <button title="Открыть проект" onClick={openProjectDialog}
+            className="text-gray-400 hover:text-white hover:bg-[#0078d4] rounded px-1 py-0.5 transition-colors text-xs">🗁</button>
+          <button title="Сохранить" onClick={() => { pushUndo("Сохранение"); showToast("💾 Проект сохранён") }}
+            className="text-gray-400 hover:text-white hover:bg-[#0078d4] rounded px-1 py-0.5 transition-colors text-xs">💾</button>
+          <button title={`Отменить${undoStack.length > 1 ? ": " + undoStack[undoStack.length-1] : ""}`}
+            onClick={doUndo} disabled={undoStack.length <= 1}
+            className={`rounded px-1 py-0.5 transition-colors text-xs ${undoStack.length > 1 ? "text-gray-400 hover:text-white hover:bg-[#0078d4]" : "text-gray-700 cursor-not-allowed"}`}>↩</button>
+          <button title={`Повторить${redoStack.length > 0 ? ": " + redoStack[redoStack.length-1] : ""}`}
+            onClick={doRedo} disabled={redoStack.length === 0}
+            className={`rounded px-1 py-0.5 transition-colors text-xs ${redoStack.length > 0 ? "text-gray-400 hover:text-white hover:bg-[#0078d4]" : "text-gray-700 cursor-not-allowed"}`}>↪</button>
         </div>
-        <select className="bg-[#2d2d4e] border border-gray-600 text-[10px] text-gray-300 px-1 py-0.5 ml-1" style={{maxWidth:100}}>
-          <option>ЛАПА 3D</option>
+        <select value={`ЛАПА ${viewDimension}`} onChange={e => setViewDimension(e.target.value.includes("2D") ? "2D" : "3D")}
+          className="bg-[#2d2d4e] border border-gray-600 text-[10px] text-gray-300 px-1 py-0.5 ml-1 cursor-pointer outline-none focus:border-blue-500" style={{maxWidth:110}}>
+          <option value="ЛАПА 3D">ЛАПА 3D</option>
+          <option value="ЛАПА 2D">ЛАПА 2D</option>
         </select>
         <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          ЛАПА 3D 2026 — Главная_парковка.dwg
+          ЛАПА {viewDimension} 2026 — {activeDrawingTab}
         </div>
         <div className="flex items-center gap-1 ml-auto">
           <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
