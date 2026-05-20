@@ -52,6 +52,36 @@ export default function DynamicModule() {
   const [pulseId, setPulseId] = useState<string | null>(null)
   const [log, setLog] = useState<string[]>(["Система готова. Измените параметр для запуска цепи пересчёта."])
 
+  const [assocChain, setAssocChain] = useState([
+    {id:"align", label:"Трасса ШД-38", type:"Трасса", status:"ok", deps:["profile"]},
+    {id:"profile", label:"Профиль проектный", type:"Профиль", status:"ok", deps:["corridor"]},
+    {id:"corridor", label:"Коридор дороги", type:"Коридор", status:"ok", deps:["volumes","surface"]},
+    {id:"surface", label:"Проектная поверхность", type:"Поверхность", status:"ok", deps:["volumes"]},
+    {id:"volumes", label:"Объёмы земл. работ", type:"Анализ", status:"ok", deps:["specs"]},
+    {id:"specs", label:"Ведомость объёмов", type:"Спецификация", status:"updated", deps:[]},
+  ])
+  const [triggerUpdate, setTriggerUpdate] = useState<string | null>(null)
+
+  const симулироватьОбновление = (startId: string) => {
+    const chain = assocChain
+    const visited = new Set<string>()
+    const propagate = (id: string, delay: number) => {
+      if (visited.has(id)) return
+      visited.add(id)
+      setTimeout(() => {
+        setAssocChain(prev => prev.map(n => n.id === id ? {...n, status: "updating"} : n))
+        setTimeout(() => {
+          setAssocChain(prev => prev.map(n => n.id === id ? {...n, status: "ok"} : n))
+          const node = chain.find(n => n.id === id)
+          node?.deps.forEach((dep, i) => propagate(dep, (i + 1) * 400))
+        }, 600)
+      }, delay)
+    }
+    setTriggerUpdate(startId)
+    propagate(startId, 0)
+    setTimeout(() => setTriggerUpdate(null), 3000)
+  }
+
   const get = useCallback((id: string) => params.find(p => p.id === id)?.value ?? 0, [params])
 
   const compute = useCallback((ps: NodeParam[]): ComputedResult[] => {
@@ -118,6 +148,7 @@ export default function DynamicModule() {
           <TabsTrigger value="graph">Граф зависимостей</TabsTrigger>
           <TabsTrigger value="chart">Параметрический анализ</TabsTrigger>
           <TabsTrigger value="log">Журнал изменений</TabsTrigger>
+          <TabsTrigger value="associativity">Ассоциативность</TabsTrigger>
         </TabsList>
 
         <TabsContent value="live">
@@ -288,6 +319,46 @@ export default function DynamicModule() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground mt-2">Изменяйте параметры — здесь появляется история пересчётов в реальном времени</p>
+        </TabsContent>
+
+        <TabsContent value="associativity" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="Link" size={16} className="text-indigo-600"/>Ассоциативные связи объектов
+              </h3>
+              <Button size="sm" variant="outline" onClick={()=>симулироватьОбновление("align")} className="gap-2">
+                <Icon name="RefreshCw" size={12}/>Обновить всё
+              </Button>
+            </div>
+            <p className="text-sm text-gray-500">При изменении родительского объекта все зависимые элементы обновляются автоматически.</p>
+            <div className="space-y-2">
+              {assocChain.map((node, i) => (
+                <motion.div key={node.id}
+                  animate={node.status==="updating" ? {scale:[1,1.02,1], backgroundColor:["#fff","#eff6ff","#fff"]} : {scale:1}}
+                  transition={{duration:0.3}}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-200">
+                  {i > 0 && <div className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-gray-300">↳</div>}
+                  {i === 0 && <div className="w-4 h-4 flex-shrink-0"/>}
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${node.status==="ok"?"bg-green-500":node.status==="updating"?"bg-blue-500 animate-pulse":"bg-yellow-500"}`}/>
+                  <Icon name={node.type==="Трасса"?"Spline":node.type==="Профиль"?"TrendingUp":node.type==="Коридор"?"Navigation":node.type==="Поверхность"?"Triangle":node.type==="Анализ"?"BarChart3":"ClipboardList"} size={14} className="text-indigo-600 flex-shrink-0" fallback="Circle"/>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-gray-800">{node.label}</div>
+                    <div className="text-xs text-gray-400">{node.type}</div>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${node.status==="ok"?"bg-green-100 text-green-700":node.status==="updating"?"bg-blue-100 text-blue-700 animate-pulse":"bg-yellow-100 text-yellow-700"}`}>
+                    {node.status==="ok"?"✓ Актуально":node.status==="updating"?"⟳ Обновление":"⚠ Обновлено"}
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={()=>симулироватьОбновление(node.id)} className="text-xs gap-1 text-gray-400 hover:text-indigo-600 px-2">
+                    <Icon name="RefreshCw" size={11}/>
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+            <div className="bg-indigo-50 rounded-xl border border-indigo-100 p-3 text-sm text-indigo-700">
+              При изменении <strong>Трассы</strong> автоматически пересчитываются: Профиль → Коридор → Поверхность → Объёмы → Ведомость
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </motion.div>

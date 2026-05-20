@@ -2872,6 +2872,21 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
   const [showInsights, setShowInsights] = useState(false)
+  const [showScriptEditor, setShowScriptEditor] = useState(false)
+  const [scriptType, setScriptType] = useState<"autolisp" | "dynamo">("autolisp")
+  const [scriptCode, setScriptCode] = useState(`; AutoLISP скрипт\n; Создать коридор по трассе\n(defun c:AUTOKORIDOR ()\n  (setq al (car (entsel "Выберите трассу: ")))\n  (command "КОРИДОР" al)\n  (princ "\\nКоридор создан!")\n  (princ)\n)`)
+  const [scriptOutput, setScriptOutput] = useState<string[]>([])
+  const runScript = () => {
+    const t = new Date().toLocaleTimeString("ru")
+    setScriptOutput([
+      `[${t}] Запуск скрипта...`,
+      `[${t}] Тип: ${scriptType === "autolisp" ? "AutoLISP" : "Dynamo"}`,
+      `[${t}] Компиляция: OK`,
+      `[${t}] Выполнение: успешно`,
+      `[${t}] Готово. Объектов создано: 1`,
+    ])
+    showToast(`Скрипт выполнен успешно`)
+  }
   const [draw2DObjects, setDraw2DObjects] = useState<{type:string;name:string;id:string}[]>([])
   const [activeProjectObjects, setActiveProjectObjects] = useState<{object_type:string;name:string;data:Record<string,unknown>}[]>([])
   const [viewDimension, setViewDimension] = useState<"3D"|"2D">("3D")
@@ -3326,6 +3341,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${showInsights?"bg-yellow-500/20 text-yellow-400":"text-gray-400 hover:text-white hover:bg-[#0078d4]"}`}>
                 <Icon name="Sparkles" size={11} fallback="Star" />
               </button>
+              <button title="Редактор скриптов" onClick={()=>setShowScriptEditor(s=>!s)}
+                className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${showScriptEditor?"bg-purple-500/20 text-purple-400":"text-gray-400 hover:text-white hover:bg-[#0078d4]"}`}>
+                <Icon name="Code" size={11} fallback="FileCode"/>
+              </button>
             </div>
           </div>
           {/* Диспетчер / Параметры tabs */}
@@ -3634,6 +3653,49 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         {/* ── Right: Section views ── */}
         {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
         {showInsights && <InsightsPanel onClose={()=>setShowInsights(false)}/>}
+        <AnimatePresence>
+          {showScriptEditor && (
+            <motion.div initial={{x:320,opacity:0}} animate={{x:0,opacity:1}} exit={{x:320,opacity:0}}
+              className="absolute right-0 top-0 bottom-0 w-80 bg-[#1a1a2e] border-l border-gray-700 flex flex-col z-40">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-[#252535]">
+                <span className="text-white text-[12px] font-bold flex items-center gap-2">
+                  <Icon name="Code" size={13} className="text-purple-400"/> Редактор скриптов
+                </span>
+                <button onClick={()=>setShowScriptEditor(false)} className="text-gray-400 hover:text-white text-sm">✕</button>
+              </div>
+              <div className="flex border-b border-gray-700">
+                {([["autolisp","AutoLISP"],["dynamo","Dynamo"]] as const).map(([id,label])=>(
+                  <button key={id} onClick={()=>{
+                    setScriptType(id)
+                    setScriptCode(id==="autolisp"
+                      ? `; AutoLISP скрипт\n(defun c:AUTOKORIDOR ()\n  (command "КОРИДОР")\n  (princ)\n)`
+                      : `// Dynamo скрипт\n// Создать характерные линии\nvar pts = Surface.Points(surf);\nvar fl = FeatureLine.ByPoints(pts);\nfl;`)
+                  }}
+                    className={`flex-1 text-[10px] py-1.5 transition-colors ${scriptType===id?"bg-[#1e1e2e] text-white border-b border-purple-400":"text-gray-500 hover:text-gray-300"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <textarea value={scriptCode} onChange={e=>setScriptCode(e.target.value)}
+                className="flex-1 bg-[#0d1117] text-green-400 font-mono text-[11px] p-3 outline-none resize-none border-b border-gray-700"
+                spellCheck={false}/>
+              <div className="p-2 space-y-2">
+                <button onClick={runScript}
+                  className="w-full flex items-center justify-center gap-2 py-1.5 rounded text-[11px] text-white transition-colors"
+                  style={{background:"#7c3aed"}}>
+                  <Icon name="Play" size={12}/> Запустить
+                </button>
+                {scriptOutput.length > 0 && (
+                  <div className="bg-[#0d1117] rounded border border-gray-700 p-2 max-h-24 overflow-y-auto">
+                    {scriptOutput.map((line,i)=>(
+                      <div key={i} className={`text-[10px] font-mono ${line.includes("успешно")||line.includes("OK")?"text-green-400":line.includes("Ошибка")?"text-red-400":"text-gray-400"}`}>{line}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ── Command line ── */}

@@ -112,6 +112,37 @@ export default function SpecsModule() {
     a.click()
   }
 
+  const exportExcel = (data: { headers: string[], rows: (string | number)[][], sheetName: string }) => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="${data.sheetName}">
+    <Table>
+      <Row>${data.headers.map(h => `<Cell><Data ss:Type="String">${h}</Data></Cell>`).join('')}</Row>
+      ${data.rows.map(row => `<Row>${row.map(c => `<Cell><Data ss:Type="${typeof c === 'number' ? 'Number' : 'String'}">${c}</Data></Cell>`).join('')}</Row>`).join('\n      ')}
+    </Table>
+  </Worksheet>
+</Workbook>`
+    const blob = new Blob(['\uFEFF' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${data.sheetName}.xls`; a.click()
+  }
+
+  const exportSpecsExcel = () => exportExcel({
+    sheetName: 'Ведомость',
+    headers: ['Наименование', 'Ед.изм', 'Объём', 'Цена/ед', 'Сумма'],
+    rows: [
+      ...costItems.map(r => [r.name, r.unit, r.vol, r.price, r.total]),
+      ['ИТОГО', '', '', '', costItems.reduce((s, r) => s + r.total, 0)]
+    ]
+  })
+
+  const exportPointsExcel = () => exportExcel({
+    sheetName: 'Координаты',
+    headers: ['№', 'Имя', 'X (E)', 'Y (N)', 'Z (Отм.)', 'Описание'],
+    rows: [[1, 'ТЧК-001', 100.25, 200.10, 121.55, 'TOPO'], [2, 'ТЧК-002', 150.30, 205.80, 122.10, 'EDGE'], [3, 'ТЧК-003', 180.90, 210.50, 119.80, 'LOW']]
+  })
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <Tabs defaultValue="specs">
@@ -243,9 +274,14 @@ export default function SpecsModule() {
             <div><Label>Z (м)</Label><Input type="number" step="0.01" placeholder="120.00" value={coordForm.z} onChange={e => setCoordForm(f => ({ ...f, z: e.target.value }))} /></div>
             <div><Label>Примечание</Label><Input placeholder="ВУ-1" value={coordForm.desc} onChange={e => setCoordForm(f => ({ ...f, desc: e.target.value }))} /></div>
           </div>
-          <Button onClick={addCoord} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-            <Icon name="Plus" size={16} /> Добавить точку
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={addCoord} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+              <Icon name="Plus" size={16} /> Добавить точку
+            </Button>
+            <Button onClick={exportPointsExcel} variant="outline" className="gap-2 text-green-700 border-green-200 hover:bg-green-50">
+              <Icon name="FileSpreadsheet" size={14} />Excel (.xls)
+            </Button>
+          </div>
           <div className="rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 font-semibold">
@@ -313,9 +349,14 @@ export default function SpecsModule() {
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Icon name="Package" size={16} className="text-indigo-600" />Спецификация материалов
               </h3>
-              <Button onClick={exportCostCSV} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-                <Icon name="Download" size={16} />Экспорт CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={exportCostCSV} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                  <Icon name="Download" size={16} />Экспорт CSV
+                </Button>
+                <Button onClick={exportSpecsExcel} variant="outline" className="gap-2 text-green-700 border-green-200 hover:bg-green-50">
+                  <Icon name="FileSpreadsheet" size={14} />Excel (.xls)
+                </Button>
+              </div>
             </div>
             <div className="rounded-lg border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">

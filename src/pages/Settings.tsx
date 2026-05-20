@@ -32,14 +32,31 @@ const THEMES = [
   { value: "system", label: "Системная", icon: "Monitor" },
 ]
 
-const HOTKEYS = [
-  { action: "Открыть диалог коридора", key: "Двойной клик на холсте" },
-  { action: "Приблизить", key: "Scroll вверх / +" },
-  { action: "Отдалить", key: "Scroll вниз / −" },
-  { action: "Перемещение по холсту", key: "Зажать и тянуть (ЛКМ)" },
-  { action: "Вписать вид", key: "Команда: ZOOM E" },
-  { action: "Регенерировать", key: "Команда: REGEN" },
-  { action: "Создать коридор", key: "Команда: CREATECORRIDOR" },
+const HOTKEYS_DEFAULT = [
+  { action: "Приблизить / отдалить", key: "Колесо мыши", category: "Вид", cmd: "" },
+  { action: "Панорама", key: "Зажать СКМ + тянуть", category: "Вид", cmd: "" },
+  { action: "Вписать всё", key: "Ctrl+Shift+E / ZE", category: "Вид", cmd: "ZE" },
+  { action: "Регенерировать", key: "RE", category: "Вид", cmd: "REGEN" },
+  { action: "Отменить действие", key: "Ctrl+Z", category: "Правка", cmd: "U" },
+  { action: "Повторить действие", key: "Ctrl+Y", category: "Правка", cmd: "REDO" },
+  { action: "Копировать объект", key: "Ctrl+C / CO", category: "Правка", cmd: "COPY" },
+  { action: "Вставить", key: "Ctrl+V", category: "Правка", cmd: "PASTE" },
+  { action: "Удалить объект", key: "Delete / E", category: "Правка", cmd: "ERASE" },
+  { action: "Создать коридор", key: "CORRIDOR", category: "Civil", cmd: "КОРИДОР" },
+  { action: "Создать трассу", key: "AL", category: "Civil", cmd: "ТРАССА" },
+  { action: "Создать поверхность", key: "TIN / GRID", category: "Civil", cmd: "ПОВЕРХНОСТЬ" },
+  { action: "Создать профиль", key: "PROFILE", category: "Civil", cmd: "ПРОФИЛЬ" },
+  { action: "Создать точки COGO", key: "POINTS", category: "Civil", cmd: "ТОЧКИ" },
+  { action: "Инженерные сети", key: "PIPE", category: "Civil", cmd: "СЕТЬ" },
+  { action: "Анализ уклонов", key: "SLOPES", category: "Анализ", cmd: "УКЛОНЫ" },
+  { action: "Объёмы земляных работ", key: "VOL", category: "Анализ", cmd: "ОБЪЁМЫ" },
+  { action: "Диспетчер слоёв", key: "LA", category: "Слои", cmd: "СЛОИ" },
+  { action: "Импорт данных", key: "IMPORT", category: "Файл", cmd: "ИМПОРТ" },
+  { action: "Экспорт / Печать", key: "EXPORT / PLOT", category: "Файл", cmd: "ЭКСПОРТ" },
+  { action: "Параметры чертежа", key: "DWGSETTINGS", category: "Файл", cmd: "ПАРАМ" },
+  { action: "Черчение 2D", key: "DRAW / L / A", category: "2D", cmd: "ЧЕРЧЕНИЕ" },
+  { action: "Аннотации и размеры", key: "DIM", category: "2D", cmd: "РАЗМЕР" },
+  { action: "Водосборы / Гидрология", key: "HYDRO", category: "Civil", cmd: "ВОДОСБОР" },
 ]
 
 function getProfile() {
@@ -59,7 +76,10 @@ export default function Settings() {
 
   const [theme, setTheme] = useState(profile.theme || "light")
   const [units, setUnits] = useState(profile.units || "metric")
-  const [lang] = useState("Русский")
+  const [lang, setLang] = useState(localStorage.getItem("civilpro_lang") || "Русский")
+  const [editingKey, setEditingKey] = useState<number | null>(null)
+  const [customHotkeys, setCustomHotkeys] = useState<Record<number, string>>({})
+  const [hotkeyFilter, setHotkeyFilter] = useState("Все")
 
   const [oldPwd, setOldPwd] = useState("")
   const [newPwd, setNewPwd] = useState("")
@@ -67,7 +87,7 @@ export default function Settings() {
   const [pwdMsg, setPwdMsg] = useState("")
 
   const saveProfile = () => {
-    localStorage.setItem("civilpro_profile", JSON.stringify({ ...profile, name, timezone, avatar, theme, units }))
+    localStorage.setItem("civilpro_profile", JSON.stringify({ ...profile, name, timezone, avatar, theme, units, lang }))
     localStorage.setItem("civilpro_units", units)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -112,6 +132,7 @@ export default function Settings() {
               <TabsTrigger value="app" className="gap-2"><Icon name="Settings" size={14} /> Приложение</TabsTrigger>
               <TabsTrigger value="security" className="gap-2"><Icon name="Lock" size={14} /> Безопасность</TabsTrigger>
               <TabsTrigger value="hotkeys" className="gap-2"><Icon name="Keyboard" size={14} /> Горячие клавиши</TabsTrigger>
+              <TabsTrigger value="automation" className="gap-2"><Icon name="Zap" size={14} /> Автоматизация</TabsTrigger>
             </TabsList>
 
             {/* ── Профиль ── */}
@@ -207,11 +228,11 @@ export default function Settings() {
                 {/* Language */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-gray-700">Язык интерфейса</Label>
-                  <Select value={lang} onValueChange={() => {}}>
+                  <Select value={lang} onValueChange={v => { setLang(v); localStorage.setItem("civilpro_lang", v) }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Русский">Русский</SelectItem>
-                      <SelectItem value="English" disabled>English (скоро)</SelectItem>
+                      <SelectItem value="English">English</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -267,29 +288,108 @@ export default function Settings() {
             </TabsContent>
 
             {/* ── Горячие клавиши ── */}
-            <TabsContent value="hotkeys">
+            <TabsContent value="hotkeys" className="space-y-4">
               <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <p className="text-sm text-muted-foreground">Горячие клавиши и команды CivilCAD-редактора</p>
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Горячие клавиши и команды редактора</p>
+                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setCustomHotkeys({})}>
+                    <Icon name="RotateCcw" size={12} />Сбросить
+                  </Button>
+                </div>
+                {/* Category filters */}
+                <div className="flex flex-wrap gap-1 px-4 py-2 border-b border-gray-100">
+                  {["Все", "Civil", "Вид", "Правка", "2D", "Анализ", "Слои", "Файл"].map(cat => (
+                    <button key={cat} onClick={() => setHotkeyFilter(cat)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-all ${hotkeyFilter === cat ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-200 text-gray-500 hover:border-indigo-300"}`}>
+                      {cat}
+                    </button>
+                  ))}
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/50">
-                      <th className="text-left px-5 py-2.5 font-semibold text-gray-700">Действие</th>
-                      <th className="text-right px-5 py-2.5 font-semibold text-gray-700">Клавиша / команда</th>
+                    <tr className="bg-gray-50">
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Действие</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Категория</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Клавиша</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Команда</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {HOTKEYS.map((h, i) => (
-                      <tr key={h.action} className={`border-b border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50/40"}`}>
-                        <td className="px-5 py-3 text-gray-700">{h.action}</td>
-                        <td className="px-5 py-3 text-right">
-                          <kbd className="bg-gray-100 border border-gray-300 rounded px-2 py-0.5 text-xs font-mono text-gray-700">{h.key}</kbd>
+                    {HOTKEYS_DEFAULT.filter(h => hotkeyFilter === "Все" || h.category === hotkeyFilter).map((h, i) => (
+                      <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-5 py-2.5 text-gray-700 text-xs">{h.action}</td>
+                        <td className="px-5 py-2.5">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium">{h.category}</span>
+                        </td>
+                        <td className="px-5 py-2.5">
+                          {editingKey === i ? (
+                            <input autoFocus className="border border-indigo-400 rounded px-2 py-0.5 text-xs w-32 outline-none bg-indigo-50"
+                              placeholder="Нажмите клавишу..."
+                              onKeyDown={e => { e.preventDefault(); setCustomHotkeys(prev => ({ ...prev, [i]: e.key === "Escape" ? h.key : e.code })); setEditingKey(null) }}
+                              onBlur={() => setEditingKey(null)} />
+                          ) : (
+                            <button onClick={() => setEditingKey(i)}
+                              className="font-mono text-xs bg-gray-100 border border-gray-200 px-2 py-0.5 rounded hover:border-indigo-400 hover:bg-indigo-50 transition-all">
+                              {customHotkeys[i] || h.key}
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-5 py-2.5">
+                          {h.cmd && <code className="text-[10px] bg-gray-800 text-green-400 px-2 py-0.5 rounded font-mono">{h.cmd}</code>}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </TabsContent>
+
+            {/* ── Автоматизация ── */}
+            <TabsContent value="automation" className="space-y-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                  <Icon name="Zap" size={16} className="text-indigo-600" />Автоматизация и надстройки
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { title: "AutoLISP", desc: "Скрипты на языке AutoLISP для автоматизации задач черчения", icon: "FileCode", color: "bg-orange-50 border-orange-200", status: "Доступно" },
+                    { title: "Dynamo", desc: "Визуальное программирование — создание характерных линий, водосборов, меток", icon: "Zap", color: "bg-blue-50 border-blue-200", status: "Доступно" },
+                    { title: ".NET API", desc: "Разработка плагинов на C# / VB.NET для расширения функционала", icon: "Code", color: "bg-purple-50 border-purple-200", status: "Доступно" },
+                  ].map(a => (
+                    <div key={a.title} className={`p-4 rounded-xl border space-y-2 ${a.color}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Icon name={a.icon} size={16} className="text-gray-700" fallback="Code" />
+                          <span className="font-bold text-gray-800 text-sm">{a.title}</span>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 bg-green-100 text-green-700 rounded-full">{a.status}</span>
+                      </div>
+                      <p className="text-xs text-gray-500">{a.desc}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
+                  <h4 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
+                    <Icon name="Package" size={14} className="text-indigo-600" />Установленные надстройки
+                  </h4>
+                  {[
+                    { name: "ORIS for ЛАПА", desc: "Оценка углеродного следа строительства дорог и ж/д", version: "v1.2", active: true },
+                    { name: "GeoDin Ground", desc: "Геотехнический анализ свойств грунтов", version: "v2.0", active: true },
+                    { name: "AutoReport", desc: "Автоматическое формирование отчётов по ГОСТ", version: "v1.0", active: false },
+                  ].map(p => (
+                    <div key={p.name} className="flex items-center justify-between p-2 rounded-lg bg-white border border-gray-200">
+                      <div>
+                        <div className="text-sm font-medium text-gray-800">{p.name} <span className="text-xs text-gray-400">{p.version}</span></div>
+                        <div className="text-xs text-gray-400">{p.desc}</div>
+                      </div>
+                      <label className="flex items-center cursor-pointer">
+                        <div className={`w-8 h-4 rounded-full transition-colors ${p.active ? "bg-indigo-600" : "bg-gray-200"}`}>
+                          <div className={`w-3 h-3 rounded-full bg-white mt-0.5 transition-all ${p.active ? "ml-4" : "ml-0.5"}`} />
+                        </div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </TabsContent>
           </Tabs>
