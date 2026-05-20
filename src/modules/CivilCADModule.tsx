@@ -2908,36 +2908,32 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setShowOpenProject(false)
     setStatusMsg(`Открыт проект: ${project.name}`)
     showToast(`📂 Открыт: ${project.name}`)
-    fetch(`https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887/objects?project_id=${project.id}`)
+    fetch(`https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887?project_id=${project.id}`)
       .then(r => r.json())
-      .then(objs => {
+      .then(raw => {
+        // API может вернуть строку (двойная сериализация) или массив
+        const objs: {object_type:string;name:string}[] = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
         setActiveProjectObjects(objs)
-        // Add objects to tree
+        if (objs.length === 0) { showToast(`📂 Проект открыт (объектов нет)`); return }
+        const iconMap: Record<string,string> = {corridor:'Navigation',surface:'Triangle',alignment:'Minus',profile:'TrendingUp',pipe_network:'Network',points:'MapPin',assembly:'Layers',version:'GitBranch',feature_line:'Spline',intersection:'Plus',catchment:'Droplets'}
+        const colorMap: Record<string,string> = {corridor:'#f97316',surface:'#4ade80',alignment:'#f97316',pipe_network:'#6366f1',points:'#f59e0b',catchment:'#60a5fa'}
+        const nodeMap: Record<string,string> = {corridor:'corridors',surface:'surfaces',alignment:'alignments',profile:'alignments',pipe_network:'pipenet',points:'points',assembly:'assemblies',feature_line:'featurelines',intersection:'intersections',catchment:'catchments'}
         setTreeData(prev => {
-          // Add loaded objects as children to appropriate tree nodes
           let tree = [...prev]
-          objs.forEach((obj: {object_type:string;name:string}) => {
-            const nodeId = obj.object_type === 'corridor' ? 'corridors'
-              : obj.object_type === 'surface' ? 'surfaces'
-              : obj.object_type === 'alignment' ? 'alignments'
-              : obj.object_type === 'profile' ? 'profiles'
-              : obj.object_type === 'pipe_network' ? 'pipenet'
-              : obj.object_type === 'points' ? 'points'
-              : 'project'
-            const iconMap: Record<string,string> = {corridor:'Navigation',surface:'Triangle',alignment:'Minus',profile:'TrendingUp',pipe_network:'Network',points:'MapPin',assembly:'Layers',version:'GitBranch',feature_line:'Spline',intersection:'Plus'}
-            const colorMap: Record<string,string> = {corridor:'#f97316',surface:'#4ade80',alignment:'#f97316',pipe_network:'#6366f1',points:'#f59e0b'}
+          objs.forEach(obj => {
+            const nodeId = nodeMap[obj.object_type] || 'project'
             const addToNode = (nodes: TreeNode[]): TreeNode[] => nodes.map(n =>
               n.id === nodeId
-                ? {...n, children: [...(n.children||[]), {id:`loaded_${Date.now()}_${Math.random()}`,label:obj.name,icon:iconMap[obj.object_type]||'File',color:colorMap[obj.object_type]||'#94a3b8'}]}
+                ? {...n, expanded: true, children: [...(n.children||[]), {id:`loaded_${Date.now()}_${Math.random()}`,label:obj.name,icon:iconMap[obj.object_type]||'File',color:colorMap[obj.object_type]||'#94a3b8'}]}
                 : {...n, children: n.children ? addToNode(n.children) : undefined}
             )
             tree = addToNode(tree)
           })
           return tree
         })
-        showToast(`Загружено объектов: ${objs.length}`)
+        showToast(`✅ Загружено объектов: ${objs.length}`)
       })
-      .catch(() => {})
+      .catch(() => { showToast(`📂 Проект открыт`) })
   }
 
   const toggleNode = (id: string) => {

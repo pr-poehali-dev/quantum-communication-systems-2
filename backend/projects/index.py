@@ -25,8 +25,23 @@ def handler(event: dict, context) -> dict:
         conn = get_conn()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # GET /projects — список всех проектов
-        if method == "GET" and not path.endswith("/objects"):
+        # GET ?project_id=X — объекты проекта
+        if method == "GET" and qs.get("project_id"):
+            project_id = qs.get("project_id", "")
+            cur.execute("""
+                SELECT id, object_type, name, data, created_at
+                FROM project_objects WHERE project_id = %s
+                ORDER BY created_at DESC
+            """, (project_id,))
+            rows = [dict(r) for r in cur.fetchall()]
+            for r in rows:
+                r["created_at"] = str(r["created_at"])
+                r["data"] = dict(r["data"]) if r["data"] else {}
+            conn.close()
+            return {"statusCode": 200, "headers": cors, "body": json.dumps(rows, ensure_ascii=False)}
+
+        # GET — список всех проектов
+        if method == "GET":
             cur.execute("""
                 SELECT p.id, p.name, p.description, p.type, p.status,
                        p.created_at, p.updated_at,
@@ -46,20 +61,6 @@ def handler(event: dict, context) -> dict:
                 result.append(r)
             conn.close()
             return {"statusCode": 200, "headers": cors, "body": json.dumps(result, ensure_ascii=False)}
-
-        # GET /projects/objects?project_id=1 — объекты проекта
-        if method == "GET" and path.endswith("/objects"):
-            project_id = qs.get("project_id", "")
-            cur.execute("""
-                SELECT id, object_type, name, data, created_at
-                FROM project_objects WHERE project_id = %s
-                ORDER BY created_at DESC
-            """, (project_id,))
-            rows = [dict(r) for r in cur.fetchall()]
-            for r in rows:
-                r["created_at"] = str(r["created_at"])
-            conn.close()
-            return {"statusCode": 200, "headers": cors, "body": json.dumps(rows, ensure_ascii=False)}
 
         # POST /projects — создать проект
         if method == "POST":
