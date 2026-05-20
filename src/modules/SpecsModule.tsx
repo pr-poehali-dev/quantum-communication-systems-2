@@ -54,6 +54,16 @@ export default function SpecsModule() {
   const [form, setForm] = useState({ code: "", name: "", unit: "м²", qty: "", unitPrice: "", category: CATEGORIES[0] })
   const [coordForm, setCoordForm] = useState({ name: "", x: "", y: "", z: "", desc: "" })
   const [exportMsg, setExportMsg] = useState("")
+  const [costItems] = useState([
+    { id: 1, name: "Земляные работы (выемка)",      unit: "м³",   vol: 8500, price: 180,  total: 0 },
+    { id: 2, name: "Земляные работы (насыпь)",       unit: "м³",   vol: 6200, price: 210,  total: 0 },
+    { id: 3, name: "Асфальтобетон верхний слой",     unit: "т",    vol: 1240, price: 4800, total: 0 },
+    { id: 4, name: "Асфальтобетон нижний слой",      unit: "т",    vol: 1860, price: 3900, total: 0 },
+    { id: 5, name: "Щебень основание",               unit: "м³",   vol: 2100, price: 1200, total: 0 },
+    { id: 6, name: "Бортовой камень БР 100.30.15",   unit: "м.п.", vol: 840,  price: 380,  total: 0 },
+    { id: 7, name: "Дорожная разметка",              unit: "м²",   vol: 620,  price: 250,  total: 0 },
+  ].map(r => ({ ...r, total: r.vol * r.price })))
+  const [compareResult, setCompareResult] = useState<null | { type: string; obj: string; detail: string }[]>(null)
 
   const addSpec = () => {
     if (!form.name || !form.qty) return
@@ -81,6 +91,27 @@ export default function SpecsModule() {
     setTimeout(() => setExportMsg(""), 2500)
   }
 
+  const runCompare = () => setCompareResult([
+    { type: "added",    obj: "Трасса ШД-38 v2",       detail: "Добавлена новая версия трассы" },
+    { type: "modified", obj: "Поверхность DTM",        detail: "Обновлены исходные данные (284→312 точек)" },
+    { type: "removed",  obj: "Коридор_old",            detail: "Удалён устаревший коридор" },
+    { type: "added",    obj: "Ведомость объёмов v3",   detail: "Добавлена актуальная ведомость" },
+    { type: "modified", obj: "Слой C-ROAD-EDGE",       detail: "Изменён цвет слоя #ef4444→#f97316" },
+  ])
+
+  const exportCostCSV = () => {
+    const rows = [
+      "Наименование,Ед.изм,Объём,Цена/ед,Сумма",
+      ...costItems.map(r => `${r.name},${r.unit},${r.vol},${r.price},${r.total}`),
+      `ИТОГО,,,,${costItems.reduce((s, r) => s + r.total, 0)}`,
+    ].join('\n')
+    const blob = new Blob([rows], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'cost_estimate.csv'
+    a.click()
+  }
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <Tabs defaultValue="specs">
@@ -89,6 +120,8 @@ export default function SpecsModule() {
           <TabsTrigger value="materials">Сводная смета</TabsTrigger>
           <TabsTrigger value="coords">Ведомость координат</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
+          <TabsTrigger value="norms">Нормы материалов</TabsTrigger>
+          <TabsTrigger value="compare">Сравнение версий</TabsTrigger>
         </TabsList>
 
         {/* SPECS */}
@@ -270,6 +303,111 @@ export default function SpecsModule() {
                 </div>
               </div>
             ))}
+          </div>
+        </TabsContent>
+
+        {/* NORMS — Materials with unit costs */}
+        <TabsContent value="norms" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="Package" size={16} className="text-indigo-600" />Спецификация материалов
+              </h3>
+              <Button onClick={exportCostCSV} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                <Icon name="Download" size={16} />Экспорт CSV
+              </Button>
+            </div>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs font-semibold">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Материал / Работа</th>
+                    <th className="px-4 py-2 text-center">Ед.изм</th>
+                    <th className="px-4 py-2 text-right">Объём</th>
+                    <th className="px-4 py-2 text-right">Цена/ед, ₽</th>
+                    <th className="px-4 py-2 text-right">Сумма, ₽</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {costItems.map((r, i) => (
+                    <tr key={r.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
+                      <td className="px-4 py-2 font-medium text-gray-800">{r.name}</td>
+                      <td className="px-4 py-2 text-center text-gray-500">{r.unit}</td>
+                      <td className="px-4 py-2 text-right font-mono">{r.vol.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right font-mono text-gray-600">{r.price.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">{r.total.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-indigo-50 border-t-2 border-indigo-200">
+                  <tr>
+                    <td colSpan={4} className="px-4 py-3 font-bold text-indigo-800 text-right">ИТОГО:</td>
+                    <td className="px-4 py-3 font-extrabold text-indigo-700 text-right font-mono">
+                      {costItems.reduce((s, r) => s + r.total, 0).toLocaleString()} ₽
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* COMPARE — Drawing version compare */}
+        <TabsContent value="compare" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="GitCompare" size={16} className="text-indigo-600" fallback="Columns" />Сравнение версий чертежей (DWG/DWF)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 text-center space-y-2 hover:border-indigo-400 transition-colors cursor-pointer">
+                <Icon name="FileUp" size={28} className="text-gray-300 mx-auto" fallback="File" />
+                <div className="text-sm font-semibold text-gray-700">Текущий чертёж</div>
+                <div className="text-xs text-gray-400">ШД-38_план_v3.dwg</div>
+                <div className="text-xs text-indigo-600 font-medium">Загружен</div>
+              </div>
+              <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 text-center space-y-2 hover:border-indigo-400 transition-colors cursor-pointer">
+                <Icon name="FileUp" size={28} className="text-gray-300 mx-auto" fallback="File" />
+                <div className="text-sm font-semibold text-gray-700">Предыдущая версия</div>
+                <div className="text-xs text-gray-400">ШД-38_план_v2.dwg</div>
+                <div className="text-xs text-indigo-600 font-medium">Загружен</div>
+              </div>
+            </div>
+            <Button onClick={runCompare} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+              <Icon name="Diff" size={16} fallback="Search" />Сравнить версии
+            </Button>
+            {compareResult && (
+              <div className="space-y-2">
+                <div className="text-sm font-semibold text-gray-700">Найдено изменений: {compareResult.length}</div>
+                <div className="rounded-lg border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs font-semibold text-gray-500">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Тип изменения</th>
+                        <th className="px-3 py-2 text-left">Объект</th>
+                        <th className="px-3 py-2 text-left">Описание</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {compareResult.map((c, i) => (
+                        <tr key={i} className="border-t border-gray-100">
+                          <td className="px-3 py-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                              c.type === "added"    ? "bg-green-100 text-green-700" :
+                              c.type === "removed"  ? "bg-red-100 text-red-700" :
+                              "bg-orange-100 text-orange-700"
+                            }`}>
+                              {c.type === "added" ? "Добавлен" : c.type === "removed" ? "Удалён" : "Изменён"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-800">{c.obj}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">{c.detail}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

@@ -71,6 +71,17 @@ export default function BIMModule() {
   const approved = elements.filter(e => e.status === "approved").length
   const sel = elements.find(e => e.id === selected)
 
+  const [clashFilter, setClashFilter] = useState<"all" | "active" | "resolved">("all")
+  const [runningClash, setRunningClash] = useState(false)
+  const [clashItems] = useState([
+    { id: 1, e1: "Труба_ХВС_Д100",   e2: "Труба_Канал_Д200", type: "Жёсткий",       dist: "-0.05 м", status: "active"   },
+    { id: 2, e1: "Балка_Б2",          e2: "Вентканал_В3",     type: "Касание",        dist: "0.00 м",  status: "active"   },
+    { id: 3, e1: "Колонна_К12",       e2: "Труба_ХВС_Д80",   type: "Жёсткий",       dist: "-0.12 м", status: "resolved" },
+    { id: 4, e1: "Перекрытие_П1",     e2: "Труба_Канал_Д150", type: "Дублирование",  dist: "0.00 м",  status: "accepted" },
+  ])
+  const [syncing, setSyncing] = useState(false)
+  const doSync = () => { setSyncing(true); setTimeout(() => setSyncing(false), 2000) }
+
   const ifcTree = IFC_TYPES.reduce<Record<string, BIMElement[]>>((acc, t) => {
     acc[t] = elements.filter(e => e.ifc === t)
     return acc
@@ -84,6 +95,8 @@ export default function BIMModule() {
           <TabsTrigger value="tree">Дерево проекта</TabsTrigger>
           <TabsTrigger value="clashes">Коллизии</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
+          <TabsTrigger value="coordination">BIM-координация</TabsTrigger>
+          <TabsTrigger value="cloud">BIM 360 Cloud</TabsTrigger>
         </TabsList>
 
         {/* MODEL */}
@@ -295,6 +308,152 @@ export default function BIMModule() {
                 </div>
               </div>
             ))}
+          </div>
+        </TabsContent>
+
+        {/* COORDINATION */}
+        <TabsContent value="coordination" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="ShieldCheck" size={16} className="text-indigo-600" fallback="Check" />BIM-координация / Clash Detection
+              </h3>
+              <Button
+                onClick={() => { setRunningClash(true); setTimeout(() => setRunningClash(false), 1800) }}
+                disabled={runningClash}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+              >
+                <Icon name={runningClash ? "Loader" : "Play"} size={15} />
+                {runningClash ? "Проверка..." : "Запустить проверку"}
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Всего конфликтов", value: clashItems.length, color: "text-gray-900" },
+                { label: "Активных",         value: clashItems.filter(c => c.status === "active").length,   color: "text-red-600" },
+                { label: "Решённых",         value: clashItems.filter(c => c.status === "resolved").length, color: "text-green-600" },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl border border-gray-200 p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">{s.label}</div>
+                  <div className={`text-3xl font-extrabold ${s.color}`}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(["all", "active", "resolved"] as const).map(f => (
+                <button key={f} onClick={() => setClashFilter(f)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${clashFilter === f ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  {f === "all" ? "Все" : f === "active" ? "Активные" : "Решённые"}
+                </button>
+              ))}
+            </div>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-center">№</th>
+                    <th className="px-3 py-2 text-left">Элемент 1</th>
+                    <th className="px-3 py-2 text-left">Элемент 2</th>
+                    <th className="px-3 py-2 text-center">Тип</th>
+                    <th className="px-3 py-2 text-center">Дистанция</th>
+                    <th className="px-3 py-2 text-center">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clashItems
+                    .filter(c => clashFilter === "all" || c.status === clashFilter)
+                    .map((c, i) => (
+                      <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
+                        <td className="px-3 py-2 text-center text-gray-400 text-xs">{c.id}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-gray-800">{c.e1}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-gray-800">{c.e2}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            c.type === "Жёсткий" ? "bg-red-100 text-red-700" :
+                            c.type === "Касание" ? "bg-orange-100 text-orange-700" :
+                            "bg-yellow-100 text-yellow-700"
+                          }`}>{c.type}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono text-xs">{c.dist}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            c.status === "active"   ? "bg-red-100 text-red-700" :
+                            c.status === "resolved" ? "bg-green-100 text-green-700" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>
+                            {c.status === "active" ? "Активный" : c.status === "resolved" ? "Решён" : "Принят"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* CLOUD */}
+        <TabsContent value="cloud" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Cloud" size={16} className="text-indigo-600" />BIM 360 / Autodesk Construction Cloud
+            </h3>
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+              <span className="text-sm font-semibold text-green-800">Подключено — acc.autodesk.com</span>
+              <span className="ml-auto text-xs text-green-600">Аккаунт: engineer@civilpro.ru</span>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-700">Проекты в облаке</div>
+              {[
+                { name: "ШД-38 Строительство",    sync: "2 мин. назад",   size: "1.2 ГБ" },
+                { name: "Мост через р. Малая",     sync: "1 час назад",    size: "340 МБ" },
+                { name: "КАД Реконструкция уч.4",  sync: "вчера 18:42",    size: "2.8 ГБ" },
+              ].map(p => (
+                <div key={p.name} className="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <Icon name="FolderOpen" size={16} className="text-indigo-500" />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{p.name}</div>
+                      <div className="text-xs text-gray-400">Синхронизировано: {p.sync} · {p.size}</div>
+                    </div>
+                  </div>
+                  <Icon name="CheckCircle" size={16} className="text-green-500" />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <Button onClick={doSync} disabled={syncing} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                <Icon name={syncing ? "Loader" : "RefreshCw"} size={15} />
+                {syncing ? "Синхронизация..." : "Синхронизировать"}
+              </Button>
+              <Button variant="outline" className="gap-2">
+                <Icon name="Upload" size={15} />Опубликовать модель
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-700">Замечания (Issues)</div>
+              {[
+                { id: "ISS-041", text: "Пересечение труб ХВС и кан. на ПК12",    status: "open",     author: "Иванов А." },
+                { id: "ISS-042", text: "Недостаточный уклон лотка дренажа",       status: "answered", author: "Петрова М." },
+                { id: "ISS-043", text: "Коридор выходит за красные линии",        status: "open",     author: "Сидоров К." },
+                { id: "ISS-044", text: "Отсутствует привязка ОДД на ПК8–ПК11",   status: "closed",   author: "Нов К." },
+                { id: "ISS-045", text: "Ошибка отметки лотка у ВК-3",            status: "closed",   author: "Иванов А." },
+              ].map(issue => (
+                <div key={issue.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200">
+                  <span className="font-mono text-xs text-gray-400 w-16">{issue.id}</span>
+                  <span className="flex-1 text-sm text-gray-700">{issue.text}</span>
+                  <span className="text-xs text-gray-400">{issue.author}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                    issue.status === "open"     ? "bg-red-100 text-red-700" :
+                    issue.status === "answered" ? "bg-yellow-100 text-yellow-700" :
+                    "bg-green-100 text-green-700"
+                  }`}>
+                    {issue.status === "open" ? "Открыто" : issue.status === "answered" ? "Ответ дан" : "Закрыто"}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </TabsContent>
       </Tabs>

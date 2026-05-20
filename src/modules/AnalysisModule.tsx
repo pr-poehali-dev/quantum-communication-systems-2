@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
 
@@ -44,6 +45,14 @@ export default function AnalysisModule() {
   const [gamma, setGamma] = useState(18)
   const [height, setHeight] = useState(5)
 
+  const [speed, setSpeed] = useState(80)
+  const [category, setCategory] = useState("II")
+  const [terrain, setTerrain] = useState("Равнинный")
+  const [roadRadius, setRoadRadius] = useState(400)
+  const [roadGrade, setRoadGrade] = useState(4.5)
+  const [sightDist, setSightDist] = useState(200)
+  const [laneWidth, setLaneWidth] = useState(3.75)
+
   const addSection = () => {
     if (!secForm.name || !secForm.area) return
     setSections(prev => [...prev, { id: Date.now(), name: secForm.name, area: +secForm.area, h1: +secForm.h1 || 0, h2: +secForm.h2 || 0 }])
@@ -57,6 +66,43 @@ export default function AnalysisModule() {
   const fs = calcSlopeStability(slopeAngle, cohesion, gamma, height)
   const fsColor = fs >= 1.5 ? "text-green-600" : fs >= 1.2 ? "text-yellow-600" : "text-red-600"
   const fsLabel = fs >= 1.5 ? "Устойчив" : fs >= 1.2 ? "Условно устойчив" : "Неустойчив"
+
+  const SP34_NORMS: Record<string, Record<number, { minR: number; maxGrade: number; sight: number; laneW: number }>> = {
+    "I":   { 120: { minR: 1200, maxGrade: 3, sight: 450, laneW: 3.75 }, 100: { minR: 800, maxGrade: 4, sight: 350, laneW: 3.75 } },
+    "II":  { 100: { minR: 600,  maxGrade: 5, sight: 350, laneW: 3.75 }, 80:  { minR: 300, maxGrade: 6, sight: 250, laneW: 3.5  } },
+    "III": { 80:  { minR: 300,  maxGrade: 6, sight: 250, laneW: 3.5  }, 60:  { minR: 150, maxGrade: 7, sight: 200, laneW: 3.0  } },
+    "IV":  { 60:  { minR: 150,  maxGrade: 7, sight: 200, laneW: 3.0  }, 40:  { minR: 60,  maxGrade: 9, sight: 150, laneW: 3.0  } },
+  }
+  const speeds = Object.keys(SP34_NORMS[category] || {}).map(Number)
+  const normSpeed = speeds.reduce((a, b) => Math.abs(b - speed) < Math.abs(a - speed) ? b : a, speeds[0] || 80)
+  const norms = SP34_NORMS[category]?.[normSpeed] || { minR: 300, maxGrade: 6, sight: 250, laneW: 3.5 }
+  const normChecks = [
+    { label: "Мин. радиус кривой",       norm: `≥ ${norms.minR} м`,    actual: `${roadRadius} м`,  ok: roadRadius >= norms.minR,    ref: "п.5.13" },
+    { label: "Макс. продольный уклон",   norm: `≤ ${norms.maxGrade}‰`, actual: `${roadGrade}‰`,    ok: roadGrade <= norms.maxGrade, ref: "п.5.21" },
+    { label: "Расстояние видимости",     norm: `≥ ${norms.sight} м`,   actual: `${sightDist} м`,   ok: sightDist >= norms.sight,    ref: "п.5.28" },
+    { label: "Ширина полосы движения",   norm: `≥ ${norms.laneW} м`,   actual: `${laneWidth} м`,   ok: laneWidth >= norms.laneW,    ref: "п.5.35" },
+  ]
+
+  const exportReport = () => {
+    const lines = [
+      "ОТЧЁТ ПО АНАЛИЗУ ДОРОГИ",
+      "========================",
+      `Дата: ${new Date().toLocaleDateString("ru")}`,
+      `Категория дороги: ${category}`,
+      `Расчётная скорость: ${speed} км/ч`,
+      `Тип местности: ${terrain}`,
+      "",
+      "ПРОВЕРКА НОРМ СП 34.13330:",
+      ...normChecks.map(c => `${c.ok ? "✓" : "✗"} ${c.label}: ${c.actual} (норма: ${c.norm}) [${c.ref}]`),
+      "",
+      `Пройдено проверок: ${normChecks.filter(c => c.ok).length} из ${normChecks.length}`,
+    ]
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'analysis_report.txt'
+    a.click()
+  }
 
   const earthChartData = sections.map(s => ({
     name: s.name,
@@ -76,6 +122,8 @@ export default function AnalysisModule() {
           <TabsTrigger value="earth">Объёмы земляных работ</TabsTrigger>
           <TabsTrigger value="slope">Устойчивость откосов</TabsTrigger>
           <TabsTrigger value="drainage">Дренаж и сток</TabsTrigger>
+          <TabsTrigger value="norms">Нормы СП 34</TabsTrigger>
+          <TabsTrigger value="report">Отчёт</TabsTrigger>
         </TabsList>
 
         {/* EARTH */}
@@ -197,6 +245,135 @@ export default function AnalysisModule() {
         {/* DRAINAGE */}
         <TabsContent value="drainage" className="space-y-4">
           <DrainageCalc />
+        </TabsContent>
+
+        {/* NORMS */}
+        <TabsContent value="norms" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="BookCheck" size={16} className="text-indigo-600" />Проверка норм СП 34.13330
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <Label className="text-xs">Категория дороги</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="mt-1 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["I", "II", "III", "IV"].map(c => <SelectItem key={c} value={c}>Категория {c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Расчётная скорость (км/ч)</Label>
+                <Input type="number" value={speed} onChange={e => setSpeed(+e.target.value)} className="mt-1 h-8" />
+              </div>
+              <div>
+                <Label className="text-xs">Тип местности</Label>
+                <Select value={terrain} onValueChange={setTerrain}>
+                  <SelectTrigger className="mt-1 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Равнинный", "Пересечённый", "Горный"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Радиус кривой (м)</Label>
+                <Input type="number" value={roadRadius} onChange={e => setRoadRadius(+e.target.value)} className="mt-1 h-8" />
+              </div>
+              <div>
+                <Label className="text-xs">Продольный уклон (‰)</Label>
+                <Input type="number" step="0.1" value={roadGrade} onChange={e => setRoadGrade(+e.target.value)} className="mt-1 h-8" />
+              </div>
+              <div>
+                <Label className="text-xs">Видимость (м)</Label>
+                <Input type="number" value={sightDist} onChange={e => setSightDist(+e.target.value)} className="mt-1 h-8" />
+              </div>
+              <div>
+                <Label className="text-xs">Ширина полосы (м)</Label>
+                <Input type="number" step="0.25" value={laneWidth} onChange={e => setLaneWidth(+e.target.value)} className="mt-1 h-8" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              {normChecks.map(c => (
+                <div key={c.label} className={`flex items-center justify-between p-3 rounded-xl border ${c.ok ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                  <div className="flex items-center gap-3">
+                    <Icon name={c.ok ? "CheckCircle" : "XCircle"} size={18} className={c.ok ? "text-green-600" : "text-red-600"} fallback="Circle" />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{c.label}</div>
+                      <div className="text-xs text-gray-500">СП 34.13330, {c.ref}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-sm font-bold ${c.ok ? "text-green-700" : "text-red-700"}`}>{c.actual}</div>
+                    <div className="text-xs text-gray-400">норма: {c.norm}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={`flex items-center gap-3 p-3 rounded-xl ${normChecks.every(c => c.ok) ? "bg-green-100 border border-green-300" : "bg-amber-50 border border-amber-200"}`}>
+              <Icon name={normChecks.every(c => c.ok) ? "CheckCircle" : "AlertTriangle"} size={20} className={normChecks.every(c => c.ok) ? "text-green-700" : "text-amber-600"} fallback="Circle" />
+              <span className="font-semibold text-gray-800">
+                {normChecks.filter(c => c.ok).length} из {normChecks.length} проверок пройдено
+              </span>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* REPORT */}
+        <TabsContent value="report" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="FileText" size={16} className="text-indigo-600" />Сводный отчёт анализа
+              </h3>
+              <Button onClick={exportReport} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                <Icon name="Download" size={16} />Экспорт TXT
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: "Категория дороги",    value: `Категория ${category}` },
+                { label: "Расчётная скорость",  value: `${speed} км/ч` },
+                { label: "Тип местности",       value: terrain },
+                { label: "Проверок пройдено",   value: `${normChecks.filter(c => c.ok).length} / ${normChecks.length}` },
+                { label: "Радиус кривой",       value: `${roadRadius} м` },
+                { label: "Продольный уклон",    value: `${roadGrade}‰` },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl border border-gray-200 p-3">
+                  <div className="text-xs text-gray-400">{s.label}</div>
+                  <div className="text-base font-bold text-gray-900 mt-0.5">{s.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Параметр</th>
+                    <th className="px-3 py-2">Норма</th>
+                    <th className="px-3 py-2">Факт</th>
+                    <th className="px-3 py-2">Ссылка</th>
+                    <th className="px-3 py-2">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {normChecks.map((c, i) => (
+                    <tr key={c.label} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
+                      <td className="px-3 py-2 font-medium">{c.label}</td>
+                      <td className="px-3 py-2 text-center text-gray-600">{c.norm}</td>
+                      <td className="px-3 py-2 text-center font-semibold">{c.actual}</td>
+                      <td className="px-3 py-2 text-center text-xs text-gray-400">{c.ref}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          {c.ok ? "✓ OK" : "✗ Нарушение"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </motion.div>

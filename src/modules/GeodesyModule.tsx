@@ -15,6 +15,7 @@ interface Point {
   y: number
   z: number
   name: string
+  code?: string
 }
 
 function calcVolume(points: Point[]): number {
@@ -43,6 +44,17 @@ export default function GeodesyModule() {
   ])
   const [form, setForm] = useState({ name: "", x: "", y: "", z: "" })
   const [activePoint, setActivePoint] = useState<number | null>(null)
+  const [ptCode, setPtCode] = useState("TOPO")
+  const [importText, setImportText] = useState("")
+  const [ptFilter, setPtFilter] = useState("")
+  const [groups, setGroups] = useState([
+    { id: 1, name: "Все точки", filter: "*", style: "Стандарт" },
+    { id: 2, name: "TOPO — рельеф", filter: "TOPO", style: "Рельеф" },
+    { id: 3, name: "EDGE — бровки", filter: "EDGE", style: "Бровка" },
+    { id: 4, name: "LOW — пониженные", filter: "LOW", style: "Синий" },
+    { id: 5, name: "HIGH — повышенные", filter: "HIGH", style: "Красный" },
+  ])
+  const [groupForm, setGroupForm] = useState({ name: "", filter: "", style: "Стандарт" })
 
   const addPoint = () => {
     if (!form.name || !form.x || !form.y || !form.z) return
@@ -69,6 +81,51 @@ export default function GeodesyModule() {
     z: p.z,
   }))
 
+  const importCSV = (text: string) => {
+    const lines = text.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'))
+    const newPts: Point[] = lines.map((line, i) => {
+      const parts = line.split(',').map(s => s.trim())
+      return {
+        id: Date.now() + i,
+        name: parts[0] || `ТЧК-${i + 1}`,
+        x: parseFloat(parts[1]) || 0,
+        y: parseFloat(parts[2]) || 0,
+        z: parseFloat(parts[3]) || 0,
+        code: parts[4] || "TOPO",
+      }
+    })
+    setPoints(prev => [...prev, ...newPts])
+  }
+
+  const loadDemoPoints = () => importCSV(
+    "ТЧК-101,150.25,200.10,121.55,TOPO\nТЧК-102,155.30,205.80,122.10,EDGE\nТЧК-103,148.90,210.50,119.80,LOW\nТЧК-104,160.00,215.20,124.30,HIGH\nТЧК-105,152.50,220.00,121.90,TOPO"
+  )
+
+  const exportPointsCSV = () => {
+    const header = "Имя,X,Y,Z,Код"
+    const rows = points.map(p => `${p.name || p.id},${p.x},${p.y},${p.z},${p.code || "TOPO"}`)
+    const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'points_cogo.csv'
+    a.click()
+  }
+
+  const exportPointsLandXML = () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<LandXML>\n  <CgPoints>\n${points.map(p => `    <CgPoint name="${p.name || p.id}" oID="${p.id}">${p.y} ${p.x} ${p.z}</CgPoint>`).join('\n')}\n  </CgPoints>\n</LandXML>`
+    const blob = new Blob([xml], { type: 'text/xml' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'points.xml'
+    a.click()
+  }
+
+  const addGroup = () => {
+    if (!groupForm.name) return
+    setGroups(prev => [...prev, { id: Date.now(), ...groupForm }])
+    setGroupForm({ name: "", filter: "", style: "Стандарт" })
+  }
+
   const volume = calcVolume(points)
   const minZ = Math.min(...points.map((p) => p.z))
   const maxZ = Math.max(...points.map((p) => p.z))
@@ -85,6 +142,9 @@ export default function GeodesyModule() {
           <TabsTrigger value="points">Точки съёмки</TabsTrigger>
           <TabsTrigger value="profile">Профиль рельефа</TabsTrigger>
           <TabsTrigger value="analysis">Анализ DTM</TabsTrigger>
+          <TabsTrigger value="import">Импорт</TabsTrigger>
+          <TabsTrigger value="groups">Группы</TabsTrigger>
+          <TabsTrigger value="export">Экспорт</TabsTrigger>
         </TabsList>
 
         {/* POINTS */}
@@ -206,6 +266,125 @@ export default function GeodesyModule() {
                 <Line type="monotone" dataKey="slope" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4, fill: "#f59e0b" }} />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+        </TabsContent>
+
+        {/* IMPORT */}
+        <TabsContent value="import" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Upload" size={16} className="text-indigo-600" />Импорт точек COGO
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)"].map(f => (
+                <button key={f} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">
+                  <Icon name="FileText" size={14} className="text-indigo-600 mb-1" />
+                  <div>{f}</div>
+                </button>
+              ))}
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Вставьте данные (CSV: Имя,X,Y,Z,Код)</Label>
+              <textarea
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                placeholder={"ТЧК-001,150.25,200.10,121.55,TOPO\nТЧК-002,155.30,205.80,122.10,EDGE"}
+                className="w-full h-32 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono bg-gray-50 resize-none outline-none focus:border-indigo-400"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => { if (importText.trim()) { importCSV(importText); setImportText("") } }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+              >
+                <Icon name="Upload" size={16} />Импортировать
+              </Button>
+              <Button variant="outline" onClick={loadDemoPoints} className="gap-2">
+                <Icon name="Database" size={16} />Загрузить демо (5 точек)
+              </Button>
+            </div>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 text-xs text-gray-500">
+              <div className="font-semibold text-gray-700 mb-1">Поддерживаемые форматы:</div>
+              <div>• CSV: Имя,X(E),Y(N),Z,Код — разделитель запятая</div>
+              <div>• Коды: TOPO, EDGE, HIGH, LOW, ROAD, BLDG, UTIL</div>
+              <div>• Импортировано точек в текущей сессии: {points.length}</div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* GROUPS */}
+        <TabsContent value="groups" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Users" size={16} className="text-indigo-600" />Группы точек
+            </h3>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs font-semibold">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Группа</th>
+                    <th className="px-3 py-2 text-left">Фильтр по коду</th>
+                    <th className="px-3 py-2 text-right">Точек</th>
+                    <th className="px-3 py-2 text-left">Стиль</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((g, i) => (
+                    <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
+                      <td className="px-3 py-2 font-medium text-gray-800">{g.name}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-indigo-700">{g.filter}</td>
+                      <td className="px-3 py-2 text-right text-gray-600">
+                        {g.filter === "*" ? points.length : points.filter(p => p.code === g.filter).length}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500 text-xs">{g.style}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Название группы"
+                value={groupForm.name}
+                onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Код (TOPO, EDGE...)"
+                value={groupForm.filter}
+                onChange={e => setGroupForm(f => ({ ...f, filter: e.target.value }))}
+                className="w-36"
+              />
+              <Button onClick={addGroup} variant="outline" className="gap-1">
+                <Icon name="Plus" size={14} />Добавить
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* EXPORT */}
+        <TabsContent value="export" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Download" size={16} className="text-indigo-600" />Экспорт точек COGO
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { fmt: "LandXML", desc: "Обмен с Civil 3D, InfraWorks", color: "bg-blue-50 border-blue-200", btn: "bg-blue-600", fn: exportPointsLandXML },
+                { fmt: "CSV", desc: "Excel, таблицы, расчёты", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: exportPointsCSV },
+                { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsCSV },
+                { fmt: "DWG", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsCSV },
+              ].map(f => (
+                <div key={f.fmt} className={`rounded-xl border p-4 ${f.color} space-y-2`}>
+                  <div className="font-bold text-gray-900">{f.fmt}</div>
+                  <div className="text-xs text-gray-500">{f.desc}</div>
+                  <div className="text-xs text-gray-400">{points.length} точек</div>
+                  <Button onClick={f.fn} className={`w-full text-white text-xs ${f.btn} hover:opacity-90 gap-2`}>
+                    <Icon name="Download" size={13} />Скачать {f.fmt}
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         </TabsContent>
       </Tabs>

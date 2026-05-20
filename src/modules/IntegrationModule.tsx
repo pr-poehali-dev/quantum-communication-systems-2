@@ -54,6 +54,8 @@ export default function IntegrationModule() {
   const [filter, setFilter] = useState<"all" | "in" | "out" | "both">("all")
   const [importMsg, setImportMsg] = useState("")
   const [exportMsg, setExportMsg] = useState("")
+  const [gisFormat, setGisFormat] = useState("Shapefile")
+  const [importedPoints, setImportedPoints] = useState(0)
 
   const filtered = FORMATS.filter(f => filter === "all" || f.direction === filter || f.direction === "both")
 
@@ -66,6 +68,8 @@ export default function IntegrationModule() {
     setTimeout(() => setExportMsg(""), 3000)
   }
 
+  const importTacheometer = () => setImportedPoints(prev => prev + Math.floor(Math.random() * 50 + 20))
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <Tabs defaultValue="formats">
@@ -73,6 +77,8 @@ export default function IntegrationModule() {
           <TabsTrigger value="formats">Форматы обмена</TabsTrigger>
           <TabsTrigger value="apps">Приложения</TabsTrigger>
           <TabsTrigger value="workflow">Сценарии интеграции</TabsTrigger>
+          <TabsTrigger value="geodesy">Геодезия</TabsTrigger>
+          <TabsTrigger value="gis">ГИС-интеграция</TabsTrigger>
         </TabsList>
 
         {/* FORMATS */}
@@ -189,6 +195,123 @@ export default function IntegrationModule() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </TabsContent>
+
+        {/* GEODESY */}
+        <TabsContent value="geodesy" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Crosshair" size={16} className="text-indigo-600" fallback="Target" />Интеграция с геодезическими приборами
+            </h3>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-500">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Прибор</th>
+                    <th className="px-4 py-2 text-left">Тип</th>
+                    <th className="px-4 py-2 text-left">Форматы</th>
+                    <th className="px-4 py-2 text-center">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { name: "Leica TS16",      type: "Тахеометр",    fmts: ".GSI, .RAW",   ok: true  },
+                    { name: "Trimble S7",       type: "Тахеометр",    fmts: ".JOB, .CSV",   ok: true  },
+                    { name: "Topcon GT-1200",   type: "Тахеометр",    fmts: ".RAW, .XML",   ok: true  },
+                    { name: "Leica GS18",       type: "GNSS-приёмник", fmts: ".RINEX, .CSV", ok: true  },
+                    { name: "Trimble R12i",     type: "GNSS-приёмник", fmts: ".JOB, .T02",  ok: false },
+                  ].map((row, i) => (
+                    <tr key={row.name} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
+                      <td className="px-4 py-2 font-semibold text-gray-800">{row.name}</td>
+                      <td className="px-4 py-2 text-gray-500 text-xs">{row.type}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-indigo-600">{row.fmts}</td>
+                      <td className="px-4 py-2 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${row.ok ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {row.ok ? "Поддерживается" : "В разработке"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              <Button onClick={importTacheometer} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                <Icon name="Upload" size={15} />Импортировать данные тахеометра
+              </Button>
+              {importedPoints > 0 && (
+                <span className="text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-1.5">
+                  Загружено точек: {importedPoints}
+                </span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-700">Системы координат GNSS</div>
+              <div className="flex flex-wrap gap-2">
+                {["WGS-84", "СК-42", "СК-95", "МСК-50", "МСК-77", "ITRF2014", "PZ-90.11"].map(cs => (
+                  <span key={cs} className="text-xs font-mono font-bold px-3 py-1 rounded-lg border border-gray-200 bg-gray-50 text-indigo-700">
+                    {cs}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* GIS */}
+        <TabsContent value="gis" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Map" size={16} className="text-indigo-600" />ГИС-интеграция (ArcGIS / QGIS)
+            </h3>
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span className="text-sm font-semibold text-blue-800">ArcGIS Online — подключено</span>
+              <span className="ml-auto text-xs text-blue-600">portal.arcgis.com</span>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-700">Поддерживаемые ГИС-форматы</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { fmt: "Shapefile (.shp)", desc: "Полигоны, линии, точки ArcGIS/QGIS", dir: "both"  },
+                  { fmt: "GeoJSON",          desc: "Веб-ГИС, Leaflet, Mapbox",           dir: "both"  },
+                  { fmt: "KML / KMZ",        desc: "Google Earth, Яндекс Карты",          dir: "out"   },
+                  { fmt: "GeoTIFF",          desc: "Растровые подложки, ЦМР",            dir: "in"    },
+                  { fmt: "WMS / WFS",        desc: "Веб-сервисы картографии",             dir: "in"    },
+                ].map(f => (
+                  <div key={f.fmt} className="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:bg-gray-50">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{f.fmt}</div>
+                      <div className="text-xs text-gray-400">{f.desc}</div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ml-3 ${
+                      f.dir === "both" ? "bg-green-100 text-green-700" :
+                      f.dir === "out"  ? "bg-orange-100 text-orange-700" :
+                      "bg-blue-100 text-blue-700"
+                    }`}>
+                      {f.dir === "both" ? "↕ Оба" : f.dir === "out" ? "↑ Экспорт" : "↓ Импорт"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-700">Экспорт в ГИС-форматы</div>
+              <div className="flex gap-2 flex-wrap items-center">
+                <div className="flex gap-2 flex-wrap">
+                  {["Shapefile", "GeoJSON", "KML/KMZ", "GeoTIFF"].map(f => (
+                    <button key={f} onClick={() => setGisFormat(f)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${gisFormat === f ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <Button variant="outline" className="gap-2 ml-auto">
+                  <Icon name="Download" size={14} />Экспортировать как {gisFormat}
+                </Button>
+              </div>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

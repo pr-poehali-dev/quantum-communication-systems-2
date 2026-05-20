@@ -48,6 +48,17 @@ export default function AreasModule() {
   const [plotArea, setPlotArea] = useState(10000)
   const svgRef = useRef<SVGSVGElement>(null)
   const dragging = useRef<{ id: number; ox: number; oy: number } | null>(null)
+  const [tepItems] = useState([
+    { name: "Площадь участка",        unit: "га",  value: "2.45",  norm: "—",    ok: true },
+    { name: "Площадь застройки",      unit: "м²",  value: "3840",  norm: "≤30%", ok: true },
+    { name: "Площадь озеленения",     unit: "м²",  value: "7200",  norm: "≥15%", ok: true },
+    { name: "Твёрдые покрытия",       unit: "м²",  value: "8400",  norm: "—",    ok: true },
+    { name: "Коэффициент застройки",  unit: "%",   value: "15.7",  norm: "≤40%", ok: true },
+    { name: "Коэффициент озеленения", unit: "%",   value: "29.4",  norm: "≥15%", ok: true },
+    { name: "Машиномест",             unit: "шт",  value: "142",   norm: "≥0.8/кв", ok: true },
+    { name: "Этажность",              unit: "эт.", value: "4",     norm: "≤5",   ok: true },
+  ])
+  const [isoAngle, setIsoAngle] = useState(30)
 
   const addObject = () => {
     if (!form.name || !form.width || !form.length) return
@@ -103,6 +114,8 @@ export default function AreasModule() {
           <TabsTrigger value="plan">Генеральный план</TabsTrigger>
           <TabsTrigger value="objects">Объекты</TabsTrigger>
           <TabsTrigger value="teo">ТЭП участка</TabsTrigger>
+          <TabsTrigger value="tep">ТЭП по СП 42</TabsTrigger>
+          <TabsTrigger value="3d">3D-вид</TabsTrigger>
         </TabsList>
 
         <TabsContent value="plan">
@@ -255,6 +268,168 @@ export default function AreasModule() {
           <div className={`rounded-xl p-4 text-sm font-medium ${bai > 60 ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>
             <Icon name={bai > 60 ? "AlertTriangle" : "CheckCircle"} size={16} className="inline mr-2" />
             Коэффициент застройки {bai}% — {bai > 60 ? "превышает норму (СП 42.13330 — макс. 60%)" : "соответствует норме СП 42.13330"}
+          </div>
+        </TabsContent>
+
+        {/* TEP */}
+        <TabsContent value="tep" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="BarChart3" size={16} className="text-indigo-600" fallback="BarChart" />
+                Технико-экономические показатели (СП 42.13330)
+              </h3>
+              <div className="flex gap-2">
+                <Button variant="outline" className="gap-2 text-xs">
+                  <Icon name="Download" size={14} />Excel
+                </Button>
+                <Button variant="outline" className="gap-2 text-xs">
+                  <Icon name="FileText" size={14} />PDF
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs font-semibold text-gray-500">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Показатель</th>
+                    <th className="px-4 py-2 text-center">Ед.изм</th>
+                    <th className="px-4 py-2 text-right">Значение</th>
+                    <th className="px-4 py-2 text-center">Норма СП 42</th>
+                    <th className="px-4 py-2 text-center">Соответствие</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tepItems.map((row, i) => (
+                    <tr key={row.name} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
+                      <td className="px-4 py-2 font-medium text-gray-800">{row.name}</td>
+                      <td className="px-4 py-2 text-center text-gray-500">{row.unit}</td>
+                      <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">{row.value}</td>
+                      <td className="px-4 py-2 text-center text-xs text-gray-400">{row.norm}</td>
+                      <td className="px-4 py-2 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${row.ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          {row.ok ? "✓ Соответствует" : "✗ Нарушение"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className={`flex items-center gap-3 p-3 rounded-xl ${tepItems.every(r => r.ok) ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"}`}>
+              <Icon
+                name={tepItems.every(r => r.ok) ? "CheckCircle" : "AlertTriangle"}
+                size={18}
+                className={tepItems.every(r => r.ok) ? "text-green-600" : "text-amber-600"}
+              />
+              <span className="text-sm font-semibold text-gray-800">
+                {tepItems.filter(r => r.ok).length} из {tepItems.length} показателей соответствуют нормам СП 42.13330
+              </span>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* 3D VIEW */}
+        <TabsContent value="3d" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="Box" size={16} className="text-indigo-600" />Изометрический 3D-вид участка
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">Угол: {isoAngle}°</span>
+                <button onClick={() => setIsoAngle(a => Math.max(10, a - 10))}
+                  className="px-2.5 py-1 rounded-lg border border-gray-200 text-xs hover:bg-gray-50">
+                  ↺ Влево
+                </button>
+                <button onClick={() => setIsoAngle(a => Math.min(60, a + 10))}
+                  className="px-2.5 py-1 rounded-lg border border-gray-200 text-xs hover:bg-gray-50">
+                  Вправо ↻
+                </button>
+              </div>
+            </div>
+
+            {/* Isometric SVG */}
+            <svg viewBox="0 0 500 320" className="w-full rounded-xl bg-slate-50 border border-gray-200">
+              {/* Ground plane */}
+              <polygon
+                points="250,260 450,180 250,100 50,180"
+                fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1"
+              />
+              {/* Grid lines on ground */}
+              {[0.25, 0.5, 0.75].map(t => (
+                <g key={t}>
+                  <line
+                    x1={50 + t * 200} y1={180 - t * 80 + (1 - t) * 80}
+                    x2={50 + t * 200 + 200} y2={180 + t * 80 - (1 - t) * 80 + 80 - 80}
+                    stroke="#cbd5e1" strokeWidth="0.5"
+                  />
+                </g>
+              ))}
+
+              {/* Buildings (isometric boxes) */}
+              {objects.filter(o => o.type === "building").slice(0, 3).map((obj, i) => {
+                const bx = 120 + i * 90
+                const by = 200 - i * 20
+                const bw = 60
+                const bh = 30 + floors * 8
+                const bd = 30
+                const cos30 = Math.cos(isoAngle * Math.PI / 180)
+                const sin30 = Math.sin(isoAngle * Math.PI / 180)
+                return (
+                  <g key={obj.id}>
+                    {/* Front face */}
+                    <polygon
+                      points={`${bx},${by} ${bx + bw},${by} ${bx + bw},${by - bh} ${bx},${by - bh}`}
+                      fill={obj.color} fillOpacity={0.7} stroke={obj.color} strokeWidth="1"
+                    />
+                    {/* Top face */}
+                    <polygon
+                      points={`${bx},${by - bh} ${bx + bw},${by - bh} ${bx + bw + bd * cos30},${by - bh - bd * sin30} ${bx + bd * cos30},${by - bh - bd * sin30}`}
+                      fill={obj.color} fillOpacity={0.9} stroke={obj.color} strokeWidth="1"
+                    />
+                    {/* Side face */}
+                    <polygon
+                      points={`${bx + bw},${by} ${bx + bw + bd * cos30},${by - bd * sin30} ${bx + bw + bd * cos30},${by - bh - bd * sin30} ${bx + bw},${by - bh}`}
+                      fill={obj.color} fillOpacity={0.5} stroke={obj.color} strokeWidth="1"
+                    />
+                    <text x={bx + bw / 2} y={by + 12} textAnchor="middle" fontSize="8" fill="#374151">{obj.name}</text>
+                  </g>
+                )
+              })}
+
+              {/* Green areas (flat) */}
+              {objects.filter(o => o.type === "green").slice(0, 2).map((obj, i) => (
+                <ellipse key={obj.id}
+                  cx={80 + i * 160} cy={230 - i * 20}
+                  rx={obj.width * 0.4} ry={obj.width * 0.2}
+                  fill="#10b981" fillOpacity={0.5} stroke="#10b981" strokeWidth="1"
+                />
+              ))}
+
+              {/* Road */}
+              <polygon points="50,200 450,200 440,215 60,215" fill="#374151" fillOpacity={0.3} />
+              <line x1="250" y1="200" x2="250" y2="215" stroke="white" strokeWidth="1" strokeDasharray="4 4" />
+
+              {/* Labels */}
+              <text x="250" y="295" textAnchor="middle" fontSize="10" fill="#64748b">
+                Изометрический вид (угол {isoAngle}°) · {objects.length} объектов
+              </text>
+            </svg>
+
+            {/* Visibility toggles */}
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-gray-600">Видимость объектов</div>
+              <div className="flex flex-wrap gap-2">
+                {objects.map(obj => (
+                  <div key={obj.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700">
+                    <div className="w-2.5 h-2.5 rounded-sm" style={{ background: obj.color }} />
+                    {obj.name}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
