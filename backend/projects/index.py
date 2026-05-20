@@ -7,10 +7,10 @@ def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def handler(event: dict, context) -> dict:
-    """API для работы с проектами CivilPro: GET список, POST создать, PUT обновить, PATCH статус."""
+    """API для работы с проектами CivilPro: GET список/объекты, POST создать, PUT обновить объект, DELETE удалить объект, PATCH статус."""
     cors = {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
     }
 
@@ -94,6 +94,51 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             conn.close()
             return {"statusCode": 201, "headers": cors, "body": json.dumps(row, ensure_ascii=False)}
+
+        # DELETE — удалить объект по canvas_id или id
+        if method == "DELETE":
+            body = json.loads(event.get("body") or "{}")
+            canvas_id = body.get("canvas_id")
+            obj_id = body.get("id")
+            if canvas_id:
+                cur.execute("""
+                    DELETE FROM project_objects
+                    WHERE data->>'canvas_id' = %s
+                    RETURNING id
+                """, (canvas_id,))
+            elif obj_id:
+                cur.execute("DELETE FROM project_objects WHERE id = %s RETURNING id", (obj_id,))
+            else:
+                conn.close()
+                return {"statusCode": 400, "headers": cors, "body": json.dumps({"error": "id or canvas_id required"})}
+            deleted = cur.fetchone()
+            conn.commit()
+            conn.close()
+            return {"statusCode": 200, "headers": cors, "body": json.dumps({"deleted": bool(deleted)}, ensure_ascii=False)}
+
+        # PUT — обновить canvas-объект (pts, properties, color)
+        if method == "PUT" and qs.get("object_id"):
+            body = json.loads(event.get("body") or "{}")
+            canvas_id = body.get("canvas_id")
+            new_data = body.get("data", {})
+            if canvas_id:
+                cur.execute("""
+                    UPDATE project_objects SET data = %s
+                    WHERE data->>'canvas_id' = %s
+                    RETURNING id, name, data
+                """, (json.dumps(new_data), canvas_id))
+            else:
+                cur.execute("""
+                    UPDATE project_objects SET data = %s
+                    WHERE id = %s
+                    RETURNING id, name, data
+                """, (json.dumps(new_data), qs.get("object_id")))
+            row = cur.fetchone()
+            conn.commit()
+            conn.close()
+            if not row:
+                return {"statusCode": 404, "headers": cors, "body": json.dumps({"error": "not found"})}
+            return {"statusCode": 200, "headers": cors, "body": json.dumps(dict(row), ensure_ascii=False)}
 
         # PUT /projects — обновить проект
         if method == "PUT":

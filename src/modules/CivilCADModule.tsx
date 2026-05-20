@@ -2967,12 +2967,46 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
+  const API = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
+
   const saveObject = (type: string, name: string, data: Record<string, unknown> = {}) => {
     pushUndo(`Создан ${type}: ${name}`)
-    fetch("https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887", {
+    fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: 1, object_type: type, name, data }),
+    }).catch(() => {})
+  }
+
+  const saveCanvasObject = (obj: CanvasObject) => {
+    fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: 1,
+        object_type: obj.type,
+        name: obj.label,
+        data: { canvas_id: obj.id, pts: obj.pts, color: obj.color, lineWidth: obj.lineWidth, layer: obj.layer ?? "0", properties: obj.properties ?? {} }
+      }),
+    }).catch(() => {})
+  }
+
+  const deleteCanvasObject = (canvasId: string) => {
+    fetch(API, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ canvas_id: canvasId }),
+    }).catch(() => {})
+  }
+
+  const updateCanvasObject = (obj: CanvasObject) => {
+    fetch(`${API}?object_id=canvas`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        canvas_id: obj.id,
+        data: { canvas_id: obj.id, pts: obj.pts, color: obj.color, lineWidth: obj.lineWidth, layer: obj.layer ?? "0", properties: obj.properties ?? {} }
+      }),
     }).catch(() => {})
   }
 
@@ -3170,7 +3204,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedObjId && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
         const obj = canvasObjects.find(o => o.id === selectedObjId)
-        if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
+        if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); deleteCanvasObject(selectedObjId); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
       }
       if (e.key === "Escape") { setDrawingPts([]); setActiveTool("select"); setSelectedObjId(null) }
     }
@@ -3216,6 +3250,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         const obj = canvasObjects.find(o => o.id === hit)!
         pushUndo(`Удалено: ${obj.label}`)
         setCanvasObjects(prev => prev.filter(o => o.id !== hit))
+        deleteCanvasObject(hit)
         showToast(`Удалён: ${obj.label}`)
       }
       return
@@ -3225,7 +3260,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       pushUndo(`Добавлена точка ${newObj.label}`)
       setCanvasObjects(prev => [...prev, newObj])
       setSelectedObjId(newObj.id)
-      showToast(`Точка ${newObj.label} добавлена`)
+      saveCanvasObject(newObj)
+      showToast(`Точка ${newObj.label} сохранена`)
       return
     }
     if (activeTool === "line") {
@@ -3237,7 +3273,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         setCanvasObjects(prev => [...prev, newObj])
         setSelectedObjId(newObj.id)
         setDrawingPts([])
-        showToast("Линия добавлена")
+        saveCanvasObject(newObj)
+        showToast("Линия сохранена в проект")
       }
       return
     }
@@ -3248,7 +3285,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         setCanvasObjects(prev => [...prev, newObj])
         setSelectedObjId(newObj.id)
         setDrawingPts([])
-        showToast("Полилиния добавлена")
+        saveCanvasObject(newObj)
+        showToast("Полилиния сохранена в проект")
       } else {
         setDrawingPts(prev => [...prev, pt])
       }
@@ -3264,7 +3302,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         setCanvasObjects(prev => [...prev, newObj])
         setSelectedObjId(newObj.id)
         setDrawingPts([])
-        showToast("Прямоугольник добавлен")
+        saveCanvasObject(newObj)
+        showToast("Прямоугольник сохранён в проект")
       }
       return
     }
@@ -3294,7 +3333,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const onMouseUp = (e: React.MouseEvent) => {
     if (moveRef.current) {
       const obj = canvasObjects.find(o => o.id === moveRef.current!.objId)
-      if (obj) pushUndo(`Перемещён: ${obj.label}`)
+      if (obj) {
+        pushUndo(`Перемещён: ${obj.label}`)
+        updateCanvasObject(obj)
+        showToast(`Позиция «${obj.label}» сохранена`)
+      }
       moveRef.current = null
     }
     drag.current = null
@@ -4007,7 +4050,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                             value={editingProp.val}
                             onChange={e => setEditingProp(p => p ? {...p, val: e.target.value} : null)}
                             onBlur={() => {
-                              setCanvasObjects(prev => prev.map(o => o.id === selObj.id ? {...o, properties: {...(o.properties??{}), [key]: editingProp.val}} : o))
+                              const updated = {...selObj, properties: {...(selObj.properties??{}), [key]: editingProp!.val}}
+                              setCanvasObjects(prev => prev.map(o => o.id === selObj.id ? updated : o))
+                              updateCanvasObject(updated)
                               setEditingProp(null)
                             }}
                             onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingProp(null) }}
@@ -4026,7 +4071,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     <div className="text-[9px] text-gray-500 mb-1">Цвет объекта</div>
                     <div className="flex gap-1 flex-wrap">
                       {["#ef4444","#f97316","#f59e0b","#22c55e","#06b6d4","#a855f7","#6366f1","#ffffff","#0078d4"].map(c => (
-                        <button key={c} onClick={() => setCanvasObjects(prev => prev.map(o => o.id===selObj.id ? {...o, color:c} : o))}
+                        <button key={c} onClick={() => { const updated = {...selObj, color:c}; setCanvasObjects(prev => prev.map(o => o.id===selObj.id ? updated : o)); updateCanvasObject(updated) }}
                           className={`w-4 h-4 rounded border transition-all ${selObj.color===c?"border-white scale-110":"border-transparent hover:border-gray-400"}`}
                           style={{background:c}}/>
                       ))}
@@ -4034,6 +4079,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     <button onClick={() => {
                       pushUndo(`Удалено: ${selObj.label}`)
                       setCanvasObjects(prev => prev.filter(o => o.id !== selObj.id))
+                      deleteCanvasObject(selObj.id)
                       setSelectedObjId(null)
                       showToast(`Удалён: ${selObj.label}`)
                     }} className="w-full mt-1 text-[10px] text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 rounded py-0.5 transition-colors flex items-center justify-center gap-1">

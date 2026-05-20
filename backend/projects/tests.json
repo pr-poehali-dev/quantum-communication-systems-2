@@ -8,12 +8,19 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "POST create project",
+      "name": "POST save canvas object",
       "method": "POST",
       "path": "/",
-      "body": {"name": "Тестовый проект", "description": "Тест", "type": "road", "status": "active"},
+      "body": {"project_id": 1, "object_type": "line", "name": "Тест линия 2", "data": {"canvas_id": "ln_test2", "pts": [[0,0],[100,100]], "color": "#22d3ee", "layer": "0"}},
       "expectedStatus": 201,
-      "expectedBody": {"name": "Тестовый проект"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "DELETE canvas object",
+      "method": "DELETE",
+      "path": "/",
+      "body": {"canvas_id": "ln_test2"},
+      "expectedStatus": 200,
       "bodyMatcher": "partial"
     }
   ]
