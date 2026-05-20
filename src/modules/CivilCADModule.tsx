@@ -417,38 +417,6 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
           </div>
         </div>
 
-        {/* Диалог создания нового чертежа */}
-        {showNewDialog && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-80 p-5"
-              onClick={e=>e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-white text-[13px] font-bold flex items-center gap-2">
-                  <Icon name="FilePlus" size={14} className="text-[#0078d4]"/> Новый чертёж
-                </span>
-                <button onClick={()=>setShowNewDialog(false)} className="text-gray-400 hover:text-white">✕</button>
-              </div>
-              <label className="text-[11px] text-gray-400 mb-1.5 block">Имя файла</label>
-              <input value={newTabName} onChange={e=>setNewTabName(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter" && newTabName.trim()) { onOpen(newTabName.trim()); setShowNewDialog(false); setNewTabName("") }}}
-                placeholder="Новый чертёж"
-                className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-3 py-2 text-[12px] text-white outline-none focus:border-[#0078d4] mb-4"/>
-              <div className="flex gap-2">
-                <button
-                  onClick={()=>{ onOpen(newTabName.trim() || "Новый чертёж"); setShowNewDialog(false); setNewTabName("") }}
-                  className="flex-1 py-2 rounded text-[12px] text-white font-medium transition-colors"
-                  style={{background:"#0078d4"}}>
-                  Создать
-                </button>
-                <button onClick={()=>setShowNewDialog(false)}
-                  className="px-4 py-2 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Основная область */}
         <div className="flex-1 overflow-y-auto p-6">
           {tab === "recent" && (
@@ -548,6 +516,39 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
           )}
         </div>
       </div>
+
+      {/* Диалог создания нового чертежа */}
+      {showNewDialog && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={()=>setShowNewDialog(false)}>
+          <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-80 p-5"
+            onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-white text-[13px] font-bold flex items-center gap-2">
+                <Icon name="FilePlus" size={14} className="text-[#0078d4]"/> Новый чертёж
+              </span>
+              <button onClick={()=>setShowNewDialog(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <label className="text-[11px] text-gray-400 mb-1.5 block">Имя файла</label>
+            <input autoFocus value={newTabName} onChange={e=>setNewTabName(e.target.value)}
+              onKeyDown={e=>{ if(e.key==="Enter") { onOpen(newTabName.trim() || "Новый чертёж"); setShowNewDialog(false); setNewTabName("") }}}
+              placeholder="Новый чертёж"
+              className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-3 py-2 text-[12px] text-white outline-none focus:border-[#0078d4] mb-4"/>
+            <div className="flex gap-2">
+              <button
+                onClick={()=>{ onOpen(newTabName.trim() || "Новый чертёж"); setShowNewDialog(false); setNewTabName("") }}
+                className="flex-1 py-2 rounded text-[12px] text-white font-medium transition-colors"
+                style={{background:"#0078d4"}}>
+                Создать
+              </button>
+              <button onClick={()=>setShowNewDialog(false)}
+                className="px-4 py-2 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Диалог приветствия */}
       {showWelcomeDialog && (
