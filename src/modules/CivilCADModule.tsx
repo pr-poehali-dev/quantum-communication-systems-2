@@ -2506,6 +2506,303 @@ function DrawingSettingsDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ─── Draw2D Dialog ─────────────────────────────────────────────────────────
+interface Draw2DProps { onClose: ()=>void; onOK: (obj: {type:string;name:string;params:Record<string,string>})=>void }
+function Draw2DDialog({ onClose, onOK }: Draw2DProps) {
+  const [type, setType] = useState("Линия")
+  const [name, setName] = useState("")
+  const [layer, setLayer] = useState("0")
+  const [color, setColor] = useState("#ffffff")
+  const [params, setParams] = useState<Record<string,string>>({})
+  const types = ["Линия","Отрезок","Полилиния","Дуга","Круг","Эллипс","Прямоугольник","Сплайн","Текст","Многострочный текст","Штриховка","Точка"]
+  const LAYERS = ["0","Дороги","Сети","Точки","Аннотации","Границы","Рельеф","Конструкции"]
+  const paramFields: Record<string,{label:string;key:string;placeholder:string}[]> = {
+    "Линия": [{label:"X1",key:"x1",placeholder:"0"},{label:"Y1",key:"y1",placeholder:"0"},{label:"X2",key:"x2",placeholder:"100"},{label:"Y2",key:"y2",placeholder:"0"}],
+    "Отрезок": [{label:"X1",key:"x1",placeholder:"0"},{label:"Y1",key:"y1",placeholder:"0"},{label:"X2",key:"x2",placeholder:"100"},{label:"Y2",key:"y2",placeholder:"0"}],
+    "Полилиния": [{label:"Точки (X,Y через ;)",key:"pts",placeholder:"0,0;100,0;100,100;0,100"}],
+    "Дуга": [{label:"Центр X",key:"cx",placeholder:"0"},{label:"Центр Y",key:"cy",placeholder:"0"},{label:"Радиус",key:"r",placeholder:"50"},{label:"Угол нач.",key:"a1",placeholder:"0"},{label:"Угол кон.",key:"a2",placeholder:"180"}],
+    "Круг": [{label:"Центр X",key:"cx",placeholder:"0"},{label:"Центр Y",key:"cy",placeholder:"0"},{label:"Радиус",key:"r",placeholder:"50"}],
+    "Эллипс": [{label:"Центр X",key:"cx",placeholder:"0"},{label:"Центр Y",key:"cy",placeholder:"0"},{label:"Ось A",key:"ra",placeholder:"80"},{label:"Ось B",key:"rb",placeholder:"40"}],
+    "Прямоугольник": [{label:"X",key:"x",placeholder:"0"},{label:"Y",key:"y",placeholder:"0"},{label:"Ширина",key:"w",placeholder:"100"},{label:"Высота",key:"h",placeholder:"60"}],
+    "Сплайн": [{label:"Точки (X,Y через ;)",key:"pts",placeholder:"0,0;50,50;100,0"}],
+    "Текст": [{label:"X",key:"x",placeholder:"0"},{label:"Y",key:"y",placeholder:"0"},{label:"Высота",key:"h",placeholder:"5"},{label:"Текст",key:"text",placeholder:"Подпись"}],
+    "Многострочный текст": [{label:"X",key:"x",placeholder:"0"},{label:"Y",key:"y",placeholder:"0"},{label:"Ширина блока",key:"w",placeholder:"100"},{label:"Текст",key:"text",placeholder:"Многострочный текст"}],
+    "Штриховка": [{label:"Тип",key:"pattern",placeholder:"ANSI31"},{label:"Масштаб",key:"scale",placeholder:"1"},{label:"Угол",key:"angle",placeholder:"0"}],
+    "Точка": [{label:"X",key:"x",placeholder:"0"},{label:"Y",key:"y",placeholder:"0"},{label:"Z",key:"z",placeholder:"0"}],
+  }
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+      <motion.div initial={{scale:0.92}} animate={{scale:1}} exit={{scale:0.92}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-[500px]" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535] rounded-t-lg">
+          <span className="text-white text-[13px] font-bold">Черчение 2D-геометрии</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <label className="text-[10px] text-gray-400 block mb-1">Тип объекта</label>
+              <select value={type} onChange={e=>{setType(e.target.value);setParams({})}}
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500">
+                {types.map(t=><option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">Слой</label>
+              <select value={layer} onChange={e=>setLayer(e.target.value)}
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500">
+                {LAYERS.map(l=><option key={l}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">Цвет</label>
+              <div className="flex gap-2 items-center">
+                <input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-8 h-7 rounded border border-gray-600 bg-transparent cursor-pointer"/>
+                <span className="text-[10px] text-gray-400">{color}</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-gray-400 block mb-1">Имя объекта</label>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder={`${type}_001`}
+              className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500"/>
+          </div>
+          <div className="border border-gray-700 rounded p-3 bg-[#16162a]">
+            <div className="text-[10px] text-gray-400 mb-2 font-semibold">Параметры {type}</div>
+            <div className="grid grid-cols-2 gap-2">
+              {(paramFields[type]||[]).map(f=>(
+                <div key={f.key} className={f.key==="pts"||f.key==="text"?"col-span-2":""}>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">{f.label}</label>
+                  <input value={params[f.key]||""} onChange={e=>setParams(p=>({...p,[f.key]:e.target.value}))}
+                    placeholder={f.placeholder}
+                    className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-blue-400"/>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2.5 border-t border-gray-700">
+          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1.5">Отмена</button>
+          <button onClick={()=>onOK({type,name:name||`${type}_001`,params:{...params,layer,color}})}
+            className="text-[11px] bg-[#0078d4] hover:bg-[#005fa3] text-white px-4 py-1.5 rounded">Создать</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Annotation Dialog ──────────────────────────────────────────────────────
+interface AnnotationProps { onClose: ()=>void; onOK: (obj:{type:string;name:string})=>void }
+function AnnotationDialog({ onClose, onOK }: AnnotationProps) {
+  const [type, setType] = useState("Линейный размер")
+  const [text, setText] = useState("")
+  const [style, setStyle] = useState("Стандарт")
+  const [scale, setScale] = useState("1:500")
+  const types = ["Линейный размер","Угловой размер","Радиальный размер","Диаметральный размер","Выноска","Многовыноска","Текстовая аннотация","Таблица","Примечание","Штамп чертежа","Пикетажная метка","Метка уклона","Метка высоты","Метка объекта"]
+  const styles = ["Стандарт","ISO-25","GOST_1","GOST_2","Civil (метрика)","Минимальный"]
+  const scales = ["1:100","1:200","1:500","1:1000","1:2000","1:5000"]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+      <motion.div initial={{scale:0.92}} animate={{scale:1}} exit={{scale:0.92}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-[440px]" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535] rounded-t-lg">
+          <span className="text-white text-[13px] font-bold">Аннотации</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">Тип аннотации</label>
+              <select value={type} onChange={e=>setType(e.target.value)}
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500">
+                {types.map(t=><option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">Стиль</label>
+              <select value={style} onChange={e=>setStyle(e.target.value)}
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500">
+                {styles.map(s=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">Масштаб аннотации</label>
+              <select value={scale} onChange={e=>setScale(e.target.value)}
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500">
+                {scales.map(s=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">Текст / Содержание</label>
+              <input value={text} onChange={e=>setText(e.target.value)} placeholder="Текст аннотации"
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500"/>
+            </div>
+          </div>
+          <div className="bg-[#16162a] rounded border border-gray-700 p-3 text-[10px] text-gray-400 space-y-1">
+            <div className="text-gray-300 font-semibold mb-1">Параметры размещения</div>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-1"><input type="checkbox" defaultChecked className="accent-blue-500"/> Ассоциативная</label>
+              <label className="flex items-center gap-1"><input type="checkbox" className="accent-blue-500"/> Только для чтения</label>
+              <label className="flex items-center gap-1"><input type="checkbox" defaultChecked className="accent-blue-500"/> Видима</label>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2.5 border-t border-gray-700">
+          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1.5">Отмена</button>
+          <button onClick={()=>onOK({type,name:`${type} ${scale}`})}
+            className="text-[11px] bg-[#0078d4] hover:bg-[#005fa3] text-white px-4 py-1.5 rounded">Разместить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Hydrology Dialog ───────────────────────────────────────────────────────
+interface HydrologyProps { onClose: ()=>void; onOK: (obj:{name:string;area:string;method:string})=>void }
+function HydrologyDialog({ onClose, onOK }: HydrologyProps) {
+  const [name, setName] = useState("Водосбор_1")
+  const [method, setMethod] = useState("Рациональный метод")
+  const [area, setArea] = useState("")
+  const [runoff, setRunoff] = useState("0.35")
+  const [intensity, setIntensity] = useState("75")
+  const [tab, setTab] = useState("Водосбор")
+  const methods = ["Рациональный метод","SCS/CN метод","Кинематическая волна","Метод Мэннинга","EPA SWMM"]
+  const q = area && runoff && intensity ? (parseFloat(runoff)*parseFloat(intensity)*parseFloat(area)/360).toFixed(3) : "—"
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+      <motion.div initial={{scale:0.92}} animate={{scale:1}} exit={{scale:0.92}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-[480px]" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535] rounded-t-lg">
+          <span className="text-white text-[13px] font-bold">Гидрология и водосборы</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700">
+          {["Водосбор","Дренаж","Анализ","Пруды"].map(t=>(
+            <button key={t} onClick={()=>setTab(t)}
+              className={`text-[11px] px-4 py-2 border-b-2 transition-colors ${tab===t?"border-[#0078d4] text-white":"border-transparent text-gray-500 hover:text-gray-300"}`}>{t}</button>
+          ))}
+        </div>
+        <div className="p-4 space-y-3">
+          {tab==="Водосбор" && <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">Название водосбора</label>
+                <input value={name} onChange={e=>setName(e.target.value)}
+                  className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500"/>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">Метод расчёта</label>
+                <select value={method} onChange={e=>setMethod(e.target.value)}
+                  className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500">
+                  {methods.map(m=><option key={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">Площадь (га)</label>
+                <input value={area} onChange={e=>setArea(e.target.value)} placeholder="5.0"
+                  className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500"/>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">Коэф. стока (ψ)</label>
+                <input value={runoff} onChange={e=>setRunoff(e.target.value)}
+                  className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500"/>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">Интенсивность (мм/ч)</label>
+                <input value={intensity} onChange={e=>setIntensity(e.target.value)}
+                  className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-blue-500"/>
+              </div>
+            </div>
+            <div className="bg-[#16162a] rounded border border-gray-700 p-3 flex items-center justify-between">
+              <span className="text-[11px] text-gray-400">Расчётный расход Q = ψ·q·F / 360</span>
+              <span className="text-[16px] font-bold text-blue-400">{q} м³/с</span>
+            </div>
+          </>}
+          {tab==="Дренаж" && <div className="space-y-2 text-[11px] text-gray-300">
+            <div className="grid grid-cols-2 gap-3">
+              {[{l:"Тип дренажа",opts:["Закрытый трубчатый","Открытый лоток","Канава","Накопительный пруд"]},{l:"Уклон трубы (%)",opts:[]},{l:"Диаметр трубы (мм)",opts:[]},{l:"Материал",opts:["Ж/б","HDPE","ПВХ","Асбоцемент"]}].map((f,i)=>(
+                <div key={i}>
+                  <label className="text-[10px] text-gray-400 block mb-1">{f.l}</label>
+                  {f.opts.length ? <select className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none">{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                    : <input placeholder="—" className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none"/>}
+                </div>
+              ))}
+            </div>
+          </div>}
+          {tab==="Анализ" && <div className="text-[11px] text-gray-300 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              {["Пути стока","Водосборные бассейны","Зоны затопления","Уклоны рельефа","Накопленный сток","Время добегания"].map(a=>(
+                <label key={a} className="flex items-center gap-2 p-2 bg-[#16162a] rounded border border-gray-700 cursor-pointer hover:border-blue-500">
+                  <input type="checkbox" className="accent-blue-500"/>{a}
+                </label>
+              ))}
+            </div>
+          </div>}
+          {tab==="Пруды" && <div className="text-[11px] text-gray-300 space-y-2">
+            {[{l:"Тип сооружения",opts:["Накопительный пруд","Инфильтрационный бассейн","Биопруд","Задержи. бассейн"]},{l:"Объём (м³)",opts:[]},{l:"Площадь зеркала (м²)",opts:[]},{l:"Время опорожнения (ч)",opts:[]}].map((f,i)=>(
+              <div key={i}>
+                <label className="text-[10px] text-gray-400 block mb-1">{f.l}</label>
+                {f.opts.length ? <select className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none">{f.opts.map(o=><option key={o}>{o}</option>)}</select>
+                  : <input placeholder="0" className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[11px] px-2 py-1.5 rounded outline-none"/>}
+              </div>
+            ))}
+          </div>}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2.5 border-t border-gray-700">
+          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1.5">Отмена</button>
+          <button onClick={()=>onOK({name,area:area||"0",method})}
+            className="text-[11px] bg-[#0078d4] hover:bg-[#005fa3] text-white px-4 py-1.5 rounded">Создать</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── My Insights Panel ──────────────────────────────────────────────────────
+function InsightsPanel({ onClose }: { onClose: ()=>void }) {
+  const tips = [
+    { icon: "Lightbulb", color: "#f59e0b", title: "Горячая клавиша", text: "Используй Ctrl+Z для отмены и Ctrl+Y для повтора действий" },
+    { icon: "TrendingUp", color: "#4ade80", title: "Производительность", text: "Команда РЕФРЕШ ускорит перерисовку при большом числе объектов" },
+    { icon: "Star", color: "#60a5fa", title: "Рекомендация", text: "Группируй точки по описаниям для удобной фильтрации в дереве" },
+    { icon: "Zap", color: "#f97316", title: "Новая функция", text: "Водосборы теперь рассчитываются автоматически по рельефу поверхности" },
+    { icon: "BookOpen", color: "#a855f7", title: "Обучение", text: "Открой команду DYNAMO для автоматизации создания характерных линий" },
+  ]
+  return (
+    <motion.div initial={{x:320,opacity:0}} animate={{x:0,opacity:1}} exit={{x:320,opacity:0}}
+      className="absolute right-0 top-0 bottom-0 w-72 bg-[#1a1a2e] border-l border-gray-700 flex flex-col z-40">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-[#252535]">
+        <span className="text-white text-[12px] font-bold flex items-center gap-2">
+          <Icon name="Sparkles" size={13} className="text-yellow-400"/> My Insights
+        </span>
+        <button onClick={onClose} className="text-gray-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {tips.map((t,i)=>(
+          <div key={i} className="bg-[#16162a] border border-gray-700 rounded-lg p-3 hover:border-gray-500 transition-colors">
+            <div className="flex items-center gap-2 mb-1">
+              <Icon name={t.icon} size={12} style={{color:t.color}} fallback="Star"/>
+              <span className="text-[10px] font-semibold" style={{color:t.color}}>{t.title}</span>
+            </div>
+            <p className="text-[11px] text-gray-300 leading-relaxed">{t.text}</p>
+          </div>
+        ))}
+      </div>
+      <div className="p-3 border-t border-gray-700">
+        <button className="w-full text-[11px] bg-[#0078d4]/20 hover:bg-[#0078d4]/40 text-blue-300 border border-blue-500/30 px-3 py-2 rounded transition-colors">
+          Показать все подсказки
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Main CivilCAD Module ────────────────────────────────────────────────────
 
 const NAV_MODULES = [
@@ -2571,6 +2868,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDrawingSettings, setShowDrawingSettings] = useState(false)
   const [toast, setToast] = useState<string|null>(null)
   const showToast = (msg: string) => { setToast(msg); setTimeout(()=>setToast(null), 2500) }
+  const [showDraw2D, setShowDraw2D] = useState(false)
+  const [showAnnotation, setShowAnnotation] = useState(false)
+  const [showHydrology, setShowHydrology] = useState(false)
+  const [showInsights, setShowInsights] = useState(false)
+  const [draw2DObjects, setDraw2DObjects] = useState<{type:string;name:string;id:string}[]>([])
+  const [activeProjectObjects, setActiveProjectObjects] = useState<{object_type:string;name:string;data:Record<string,unknown>}[]>([])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -2605,6 +2908,36 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setShowOpenProject(false)
     setStatusMsg(`Открыт проект: ${project.name}`)
     showToast(`📂 Открыт: ${project.name}`)
+    fetch(`https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887/objects?project_id=${project.id}`)
+      .then(r => r.json())
+      .then(objs => {
+        setActiveProjectObjects(objs)
+        // Add objects to tree
+        setTreeData(prev => {
+          // Add loaded objects as children to appropriate tree nodes
+          let tree = [...prev]
+          objs.forEach((obj: {object_type:string;name:string}) => {
+            const nodeId = obj.object_type === 'corridor' ? 'corridors'
+              : obj.object_type === 'surface' ? 'surfaces'
+              : obj.object_type === 'alignment' ? 'alignments'
+              : obj.object_type === 'profile' ? 'profiles'
+              : obj.object_type === 'pipe_network' ? 'pipenet'
+              : obj.object_type === 'points' ? 'points'
+              : 'project'
+            const iconMap: Record<string,string> = {corridor:'Navigation',surface:'Triangle',alignment:'Minus',profile:'TrendingUp',pipe_network:'Network',points:'MapPin',assembly:'Layers',version:'GitBranch',feature_line:'Spline',intersection:'Plus'}
+            const colorMap: Record<string,string> = {corridor:'#f97316',surface:'#4ade80',alignment:'#f97316',pipe_network:'#6366f1',points:'#f59e0b'}
+            const addToNode = (nodes: TreeNode[]): TreeNode[] => nodes.map(n =>
+              n.id === nodeId
+                ? {...n, children: [...(n.children||[]), {id:`loaded_${Date.now()}_${Math.random()}`,label:obj.name,icon:iconMap[obj.object_type]||'File',color:colorMap[obj.object_type]||'#94a3b8'}]}
+                : {...n, children: n.children ? addToNode(n.children) : undefined}
+            )
+            tree = addToNode(tree)
+          })
+          return tree
+        })
+        showToast(`Загружено объектов: ${objs.length}`)
+      })
+      .catch(() => {})
   }
 
   const toggleNode = (id: string) => {
@@ -2661,6 +2994,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "ПАРАМ" || c === "DRAWING" || c === "DWGSETTINGS") setShowDrawingSettings(true)
     else if (c === "ZOOM E" || c === "ВПИСАТЬ" || c === "ZE") { setZoom(1.1); setPan({ x: 30, y: 20 }) }
     else if (c === "REGEN" || c === "РЕГЕН" || c === "RE") draw()
+    else if (c === "ЛИНИЯ" || c === "LINE" || c === "L" || c === "ПОЛИЛИНИЯ" || c === "PLINE" || c === "PL" || c === "КРУГ" || c === "CIRCLE" || c === "C" || c === "ДУГА" || c === "ARC" || c === "A" || c === "ТЕКСТ" || c === "TEXT" || c === "T" || c === "ШТРИХОВКА" || c === "HATCH" || c === "H" || c === "ЧЕРЧЕНИЕ" || c === "DRAW") setShowDraw2D(true)
+    else if (c === "АННОТАЦИИ" || c === "ANNOTATION" || c === "РАЗМЕР" || c === "DIM" || c === "D" || c === "ВЫНОСКА" || c === "LEADER") setShowAnnotation(true)
+    else if (c === "ВОДОСБОР" || c === "CATCHMENT" || c === "ГИДРОЛОГИЯ" || c === "HYDROLOGY" || c === "ДРЕНАЖ") setShowHydrology(true)
+    else if (c === "INSIGHTS" || c === "ПОДСКАЗКИ") setShowInsights(prev=>!prev)
     else { setStatusMsg(`Неизвестная команда: ${cmd}. Введите ? для справки`); setCommandLine(""); return }
     setStatusMsg(`Команда: ${cmd}`)
     setCommandLine("")
@@ -2719,6 +3056,13 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (["полилиния","отрезок","дуга","окружность","прямоугольник","текст","штриховка"].some(w=>k.includes(w))) {
       showToast(`Черчение: ${key} — укажите первую точку`)
     }
+    // 2D Геометрия
+    else if (k.includes("линия") && !k.includes("характерн") && !k.includes("харлиния") && !k.includes("хар.")) { setShowDraw2D(true) }
+    else if (k.includes("полилин") || k.includes("дуга") || k.includes("круг") || k.includes("черч") || k.includes("2d геометр")) { setShowDraw2D(true) }
+    // Аннотации
+    else if (k.includes("аннотац") || k.includes("размер") || k.includes("выноск") || k.includes("таблиц")) { setShowAnnotation(true) }
+    // Гидрология
+    else if (k.includes("водосбор") || k.includes("гидролог") || k.includes("дренаж") || k.includes("пруд")) { setShowHydrology(true) }
     // Всё остальное
     else { setStatusMsg(`Выполнено: ${key}`) }
   }
@@ -2946,6 +3290,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
                 <Icon name="FolderOpen" size={11} fallback="Square" />
               </button>
+              <button title="My Insights" onClick={()=>setShowInsights(p=>!p)}
+                className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${showInsights?"bg-yellow-500/20 text-yellow-400":"text-gray-400 hover:text-white hover:bg-[#0078d4]"}`}>
+                <Icon name="Sparkles" size={11} fallback="Star" />
+              </button>
             </div>
           </div>
           {/* Диспетчер / Параметры tabs */}
@@ -3170,6 +3518,33 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{setShowImport(false);setStatusMsg(`Импорт ${d.format}: ${d.file} завершён`)}}/>}
             {showExport && <ExportDialog mode={exportMode} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
             {showDrawingSettings && <DrawingSettingsDialog onClose={()=>setShowDrawingSettings(false)}/>}
+            {showDraw2D && (
+              <Draw2DDialog onClose={()=>setShowDraw2D(false)} onOK={obj=>{
+                setShowDraw2D(false)
+                setDraw2DObjects(prev=>[...prev,{...obj,id:`d2d_${Date.now()}`}])
+                setStatusMsg(`2D объект «${obj.name}» (${obj.type}) создан`)
+                showToast(`${obj.type} «${obj.name}» добавлен`)
+              }}/>
+            )}
+            {showAnnotation && (
+              <AnnotationDialog onClose={()=>setShowAnnotation(false)} onOK={obj=>{
+                setShowAnnotation(false)
+                setStatusMsg(`Аннотация «${obj.name}» размещена`)
+                showToast(`Аннотация «${obj.type}» добавлена`)
+              }}/>
+            )}
+            {showHydrology && (
+              <HydrologyDialog onClose={()=>setShowHydrology(false)} onOK={obj=>{
+                setShowHydrology(false)
+                setStatusMsg(`Водосбор «${obj.name}» создан, площадь ${obj.area} га, метод: ${obj.method}`)
+                saveObject("catchment", obj.name, {area:obj.area,method:obj.method})
+                showToast(`Водосбор «${obj.name}» создан и сохранён`)
+                setTreeData(prev=>{
+                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="catchments"?{...n,children:[...(n.children||[]),{id:`catch_${Date.now()}`,label:obj.name,icon:"Droplets",color:"#60a5fa"}]}:{...n,children:n.children?add(n.children):undefined})
+                  return add(prev)
+                })
+              }}/>
+            )}
 
             {/* Диалог открытия проекта */}
             {showOpenProject && (
@@ -3226,6 +3601,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
         {/* ── Right: Section views ── */}
         {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
+        {showInsights && <InsightsPanel onClose={()=>setShowInsights(false)}/>}
       </div>
 
       {/* ── Command line ── */}
