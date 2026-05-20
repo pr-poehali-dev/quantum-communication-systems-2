@@ -320,12 +320,12 @@ export default function Dashboard() {
   const FULLSCREEN_MODULES = ["civilcad", "viewer3d"]
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#1a1a2e", fontFamily: "Arial, sans-serif" }}>
+    <div className="flex flex-col" style={{ height: "100vh", background: "#1a1a2e", fontFamily: "Arial, sans-serif" }}>
 
       {/* ── Title bar (Civil 3D стиль) ── */}
       <div className="flex items-center justify-between px-2 py-0.5 flex-shrink-0" style={{ background: "#0f0f1e", minHeight: 26 }}>
         <div className="flex items-center gap-2">
-          <button onClick={() => setActiveModule(null)}
+          <button onClick={() => { setActiveModule(null); setHomeВкладка("последние") }}
             className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm hover:bg-[#005fa3] transition-colors">Л</button>
           <button title="Открыть проект" onClick={() => setShowОткрыть(true)} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">🗁</button>
           <button title="Сохранить" onClick={() => { if (activeModule) { /* toast */ } }} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">💾</button>
@@ -425,7 +425,8 @@ export default function Dashboard() {
       {/* ── Вкладки документа ── */}
       {!activeModule && (
         <div className="flex items-center gap-0 px-2 flex-shrink-0" style={{ background: "#1e1e2e", borderBottom: "1px solid #111" }}>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-white border-b-2 border-[#0078d4] bg-[#252535]">
+          <button onClick={() => { setActiveModule(null); setHomeВкладка("последние") }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-white border-b-2 border-[#0078d4] bg-[#252535]">
             <Icon name="Home" size={11} className="text-[#0078d4]" />
             Начало
           </button>
@@ -441,7 +442,7 @@ export default function Dashboard() {
       )}
 
       {/* ── Основная область ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* ── Левая боковая панель (Civil 3D стиль) ── */}
         {(!activeModule || !FULLSCREEN_MODULES.includes(activeModule)) && (
@@ -510,16 +511,16 @@ export default function Dashboard() {
         )}
 
         {/* ── Основной контент ── */}
-        <div className={`flex-1 overflow-hidden ${activeModule && FULLSCREEN_MODULES.includes(activeModule) ? "" : "flex flex-col"}`}>
+        <div className={`flex-1 overflow-hidden flex flex-col`}>
           <AnimatePresence mode="wait">
 
             {/* ── Стартовый экран (Civil 3D Home) ── */}
             {!activeModule && (
               <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-1 overflow-hidden" style={{ background: "#1a1a2e" }}>
+                className="flex flex-1 min-h-0" style={{ background: "#1a1a2e" }}>
 
                 {/* Центральная область */}
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
                   {/* Вкладки контента */}
                   {homeВкладка === "последние" && (
@@ -614,7 +615,7 @@ export default function Dashboard() {
                   )}
 
                   {homeВкладка === "модули" && (
-                    <div className="flex-1 overflow-y-auto p-6">
+                    <div className="flex-1 overflow-y-auto p-6" style={{ minHeight: 0 }}>
                       <h2 className="text-white text-xl font-bold mb-5">Все модули</h2>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         {MODULES.map((m, i) => (
@@ -715,7 +716,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* ── Правая панель (Подключить / профиль) ── */}
-                <div className="flex-shrink-0 flex flex-col border-l border-gray-800" style={{ width: 240, background: "#141420" }}>
+                <div className="flex-shrink-0 flex flex-col border-l border-gray-800 overflow-y-auto" style={{ width: 240, background: "#141420" }}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
                     <span className="text-white text-[13px] font-bold">Профиль</span>
                     <button onClick={() => navigate("/settings")} title="Настройки" className="text-gray-500 hover:text-white text-sm transition-colors">⚙</button>
@@ -786,7 +787,7 @@ export default function Dashboard() {
                 animate={FULLSCREEN_MODULES.includes(activeModule) ? {} : { opacity: 1, x: 0 }}
                 exit={FULLSCREEN_MODULES.includes(activeModule) ? {} : { opacity: 0, x: -20 }}
                 transition={{ duration: 0.25 }}
-                className={FULLSCREEN_MODULES.includes(activeModule) ? "h-full" : "flex-1 overflow-auto"}
+                className={FULLSCREEN_MODULES.includes(activeModule) ? "flex-1 min-h-0" : "flex-1 overflow-auto min-h-0"}
                 style={FULLSCREEN_MODULES.includes(activeModule) ? {} : { background: "#f8fafc", padding: "1.5rem" }}>
                 {current?.component ? (
                   <ErrorBoundary key={activeModule}>
