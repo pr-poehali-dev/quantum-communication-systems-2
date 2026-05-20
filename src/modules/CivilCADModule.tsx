@@ -414,7 +414,7 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     ]},
   ],
   "Совместная работа": [
-    { label: "Autodesk Docs", items: [
+    { label: "ЛАПА Облако", items: [
       { label: "Открыть из облака", icon: "CloudDownload", size: "lg" },
       { label: "Сохранить в облако", icon: "CloudUpload", size: "sm" },
       { label: "Поделиться", icon: "Share2", size: "sm" },
@@ -2509,7 +2509,7 @@ function DrawingSettingsDialog({ onClose }: { onClose: () => void }) {
 // ─── Main CivilCAD Module ────────────────────────────────────────────────────
 
 const NAV_MODULES = [
-  { id: "civilcad",   icon: "Monitor",        label: "CivilCAD — Редактор" },
+  { id: "civilcad",   icon: "Monitor",        label: "ЛАПА — Редактор" },
   { id: "viewer3d",   icon: "Box",            label: "3D-вьюер" },
   { id: "projects",   icon: "FolderKanban",   label: "Управление проектами" },
   { id: "geodesy",    icon: "Mountain",       label: "Геодезия и рельеф" },
@@ -2523,7 +2523,7 @@ const NAV_MODULES = [
   { id: "analysis",   icon: "BarChart3",      label: "Анализ и расчёты" },
   { id: "specs",      icon: "ClipboardList",  label: "Ведомости и спецификации" },
   { id: "surfaces",   icon: "Triangle",       label: "Поверхности TIN / Grid" },
-  { id: "integration",icon: "Puzzle",         label: "Интеграция Autodesk" },
+  { id: "integration",icon: "Puzzle",         label: "Интеграция ЛАПА" },
   { id: "standards",  icon: "BookCheck",      label: "Стандарты проектирования" },
   { id: "dynamic",    icon: "RefreshCw",      label: "Динамические модели" },
 ]
@@ -2733,10 +2733,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           ))}
         </div>
         <select className="bg-[#2d2d4e] border border-gray-600 text-[10px] text-gray-300 px-1 py-0.5 ml-1" style={{maxWidth:100}}>
-          <option>Civil 3D</option>
+          <option>ЛАПА 3D</option>
         </select>
         <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          Autodesk Civil 3D 2026 — Главная_парковка.dwg
+          ЛАПА 3D 2026 — Главная_парковка.dwg
         </div>
         <div className="flex items-center gap-1 ml-auto">
           <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
