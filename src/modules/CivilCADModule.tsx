@@ -82,49 +82,48 @@ interface AssemblyDef {
 
 const TREE: TreeNode[] = [
   {
-    id: "project", label: "Главная парковка_Финал", icon: "FolderOpen", expanded: true, children: [
+    id: "project", label: "Align-Superelevation-5", icon: "FolderOpen", expanded: true, children: [
       { id: "points", label: "Точки", icon: "MapPin", color: "#f59e0b" },
       { id: "ptgroups", label: "Группы точек", icon: "Users", color: "#f59e0b" },
-      {
-        id: "surfaces", label: "Поверхности", icon: "Mountain", color: "#4ade80", expanded: true, children: [
-          { id: "s1", label: "Существующая поверхность", icon: "Triangle", color: "#4ade80" },
-          { id: "s2", label: "Проектная поверхность", icon: "Triangle", color: "#60a5fa" },
-        ]
-      },
-      {
-        id: "alignments", label: "Трассы", icon: "Route", color: "#f97316", expanded: true, children: [
-          { id: "a1", label: "Трасса ШД-38", icon: "Minus", color: "#ef4444" },
-          { id: "a2", label: "Ул. Трумана", icon: "Minus", color: "#a855f7" },
-          { id: "a3", label: "Бордюр периметра", icon: "Minus", color: "#06b6d4" },
-        ]
-      },
+      { id: "surfaces", label: "Поверхности", icon: "Mountain", color: "#4ade80", expanded: true, children: [
+        { id: "s1", label: "Существующая поверхность", icon: "Triangle", color: "#4ade80" },
+        { id: "s2", label: "Проектная поверхность", icon: "Triangle", color: "#60a5fa" },
+      ]},
+      { id: "alignments", label: "Трассы", icon: "Route", color: "#f97316", expanded: true, children: [
+        { id: "a1", label: "Трасса ШД-38", icon: "Minus", color: "#ef4444" },
+        { id: "a2", label: "Ул. Трумана", icon: "Minus", color: "#a855f7" },
+        { id: "a3", label: "Бордюр периметра", icon: "Minus", color: "#06b6d4" },
+      ]},
       { id: "featurelines", label: "Характерные линии", icon: "Spline", color: "#ec4899" },
       { id: "sites", label: "Площадки", icon: "LayoutGrid", color: "#84cc16" },
-      { id: "catchments", label: "Водосборные бассейны", icon: "Droplets", color: "#60a5fa" },
+      { id: "catchments", label: "Водосборы", icon: "Droplets", color: "#60a5fa" },
+      { id: "channels", label: "Каналы", icon: "GitBranch", color: "#0ea5e9" },
+      { id: "stormobj", label: "Объекты ливневой канализации", icon: "CloudRain", color: "#6366f1" },
       { id: "pipenet", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
-      { id: "pressnet", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
+      { id: "pressnet", label: "Напорные трубопроводные сети", icon: "Gauge", color: "#8b5cf6" },
       { id: "bridges", label: "Мосты", icon: "Milestone", color: "#f59e0b" },
-      { id: "turnouts", label: "Разъезды и пересечения", icon: "ArrowLeftRight", color: "#94a3b8" },
-      {
-        id: "corridors", label: "Коридоры", icon: "Navigation", color: "#f97316", expanded: true, children: [
-          { id: "c1", label: "Дорога и парковочная зона", icon: "Minus", color: "#f97316" },
-        ]
-      },
+      { id: "ramps", label: "Стрелки и съезды", icon: "CornerDownRight", color: "#f59e0b" },
+      { id: "corridors", label: "Коридоры", icon: "Navigation", color: "#f97316", expanded: true, children: [
+        { id: "c1", label: "Дорога и парковочная зона", icon: "Minus", color: "#f97316" },
+      ]},
+      { id: "structures", label: "Конструкции", icon: "Building2", color: "#94a3b8" },
+      { id: "structelems", label: "Элементы конструкций", icon: "Layers2", color: "#94a3b8" },
+      { id: "intersections", label: "Перекрёстки", icon: "Plus", color: "#f43f5e" },
+      { id: "survey", label: "Съёмка", icon: "Compass", color: "#10b981" },
       { id: "assemblies", label: "Типовые сечения", icon: "Layers", color: "#94a3b8" },
       { id: "subassemblies", label: "Подсечения", icon: "Layers2", color: "#94a3b8" },
-      { id: "intersections", label: "Пересечения", icon: "Plus", color: "#f43f5e" },
-      { id: "survey", label: "Геодезия", icon: "Compass", color: "#10b981" },
-      { id: "vfg", label: "Группы видовых рамок", icon: "RectangleHorizontal", color: "#64748b" },
+      { id: "vfg", label: "Группы рамок вида", icon: "RectangleHorizontal", color: "#64748b" },
     ]
   },
   {
-    id: "datasrc", label: "Ярлыки данных []", icon: "Database", expanded: false, children: [
+    id: "datasrc", label: "Быстрые ссылки на данные []", icon: "Database", expanded: true, children: [
       { id: "ds1", label: "Поверхности", icon: "Mountain", color: "#4ade80" },
       { id: "ds2", label: "Трассы", icon: "Route", color: "#f97316" },
+      { id: "ds_wtr", label: "Водоёмы", icon: "Waves", color: "#0ea5e9" },
       { id: "ds3", label: "Трубопроводные сети", icon: "Network", color: "#6366f1" },
-      { id: "ds4", label: "Напорные сети", icon: "Gauge", color: "#8b5cf6" },
+      { id: "ds4", label: "Напорные трубопроводные сети", icon: "Gauge", color: "#8b5cf6" },
       { id: "ds5", label: "Коридоры", icon: "Navigation", color: "#f97316" },
-      { id: "ds6", label: "Группы видовых рамок", icon: "RectangleHorizontal", color: "#64748b" },
+      { id: "ds6", label: "Группы рамок вида", icon: "RectangleHorizontal", color: "#64748b" },
     ]
   },
 ]
@@ -170,7 +169,7 @@ const FEATURE_LINES: FeatureLine[] = [
   { name: "Бордюр пр.ч. Пр. 2", assembly: "Бордюр проезжей ч. Пр." },
 ]
 
-const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Геодезия","Ж/д путь","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Инструменты Express","Отслеживание транспорта","Избранные приложения","Геолокация"]
+const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Съёмка","Железная дорога","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Отслеживание транспорта","Избранные приложения","Геолокация"]
 
 // size: "lg" = большая кнопка с иконкой сверху, "sm" = маленькая кнопка строчкой
 interface RibbonItem { label: string; icon: string; size: "lg" | "sm"; drop?: string }
@@ -204,6 +203,7 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "Вид профиля", icon: "BarChart2", size: "lg", drop: "Вид профиля ▾" },
       { label: "Виды попереч.", icon: "AlignJustify", size: "sm", drop: "Виды поперечников ▾" },
       { label: "Линии образцов", icon: "Minus", size: "sm" },
+      { label: "Поперечный уклон", icon: "TrendingDown", size: "sm" },
     ]},
     { label: "Черчение", items: [
       { label: "Черчение", icon: "Pen", size: "lg", drop: "Черчение ▾" },
@@ -229,23 +229,47 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     ]},
   ],
   "Вставка": [
-    { label: "Блоки", items: [
-      { label: "Вставить", icon: "Package", size: "lg", drop: "Вставить ▾" },
-      { label: "Создать блок", icon: "PackagePlus", size: "sm" },
-      { label: "Редактировать блок", icon: "PackageOpen", size: "sm" },
-    ]},
-    { label: "Ссылки", items: [
-      { label: "Присоединить", icon: "Paperclip", size: "lg", drop: "Присоединить ▾" },
-      { label: "Обрезать", icon: "Scissors", size: "sm" },
-    ]},
     { label: "Импорт", items: [
-      { label: "Импорт", icon: "Download", size: "lg", drop: "Импорт ▾" },
+      { label: "Land Desktop", icon: "Monitor", size: "lg" },
       { label: "LandXML", icon: "FileCode", size: "sm" },
-      { label: "Облако точек", icon: "Cloud", size: "sm" },
+      { label: "Импорт данных съёмки", icon: "ScanLine", size: "sm" },
+      { label: "Точки из файла", icon: "MapPin", size: "sm", drop: "Точки из файла ▾" },
     ]},
-    { label: "Система координат", items: [
-      { label: "Назначить СК", icon: "Globe", size: "lg", drop: "Назначить ▾" },
-      { label: "Преобразовать", icon: "RefreshCw", size: "sm" },
+    { label: "База данных", items: [
+      { label: "Открыть данные", icon: "Database", size: "lg" },
+      { label: "Экспорт данных", icon: "Upload", size: "sm" },
+      { label: "Редактировать", icon: "Edit", size: "sm" },
+    ]},
+    { label: "Теодолитный ход", items: [
+      { label: "Редактировать", icon: "GitBranch", size: "lg" },
+      { label: "Отчёт о невязке", icon: "FileText", size: "sm" },
+      { label: "Уравнивание", icon: "Scale", size: "sm" },
+    ]},
+    { label: "InfraWorks", items: [
+      { label: "Открытие модели InfraWorks", icon: "Boxes", size: "lg", drop: "InfraWorks ▾" },
+      { label: "Autodesk Connector for ArcGIS", icon: "Globe", size: "sm" },
+      { label: "Диспетчер источников данных", icon: "Database", size: "sm" },
+    ]},
+    { label: "Блок", items: [
+      { label: "Вставить", icon: "Package", size: "lg", drop: "Вставить ▾" },
+      { label: "Присоединить", icon: "Paperclip", size: "sm" },
+      { label: "Подрезать", icon: "Scissors", size: "sm" },
+      { label: "Регулировать", icon: "SlidersHorizontal", size: "sm" },
+    ]},
+    { label: "Облако точек", items: [
+      { label: "Облако точек", icon: "Cloud", size: "lg" },
+    ]},
+    { label: "Данные", items: [
+      { label: "Поле", icon: "Tag", size: "lg" },
+      { label: "Связь с данными", icon: "Link", size: "sm" },
+      { label: "Связывание и извлечение", icon: "FileSearch", size: "sm" },
+    ]},
+    { label: "Местоположение", items: [
+      { label: "Установить местоположение", icon: "MapPin", size: "lg", drop: "Местоположение ▾" },
+    ]},
+    { label: "Точка соединения", items: [
+      { label: "Вставить", icon: "PackagePlus", size: "lg" },
+      { label: "Правка", icon: "Edit2", size: "sm" },
     ]},
   ],
   "Аннотации": [
@@ -380,7 +404,7 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "Revit", icon: "Home", size: "sm" },
     ]},
   ],
-  "Геодезия": [
+  "Съёмка": [
     { label: "Точки", items: [
       { label: "Создать точки", icon: "MapPin", size: "lg", drop: "Создать точки ▾" },
       { label: "Группы точек", icon: "Group", size: "sm", drop: "Группы точек ▾" },
@@ -402,7 +426,7 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "Grid-поверхность", icon: "Grid", size: "sm", drop: "Grid-поверхность ▾" },
     ]},
   ],
-  "Ж/д путь": [
+  "Железная дорога": [
     { label: "Трасса", items: [
       { label: "Трасса ж/д", icon: "Train", size: "lg", drop: "Трасса ж/д ▾" },
       { label: "Кант", icon: "ArrowUpDown", size: "sm", drop: "Кант ▾" },
@@ -473,7 +497,7 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "Менеджер приложений", icon: "AppWindow", size: "sm" },
     ]},
   ],
-  "Инструменты Express": [
+  "Express Tools": [
     { label: "Блоки", items: [
       { label: "Супер штриховка", icon: "PaintBucket", size: "lg" },
       { label: "Конверт. текст", icon: "Type", size: "sm" },
@@ -2835,6 +2859,76 @@ function InsightsPanel({ onClose }: { onClose: ()=>void }) {
   )
 }
 
+// ─── Superelevation Dialog ───────────────────────────────────────────────────
+function SuperelevationDialog({ onClose }: { onClose: () => void }) {
+  const stations = [
+    { sta: "0+700.00", left: -4.00, right: 4.00, status: "OK" },
+    { sta: "0+712.19", left: -4.00, right: 2.00, status: "OK" },
+    { sta: "0+712.19", left: -4.00, right: -4.00, status: "OK" },
+    { sta: "0+724.19", left: -4.00, right: -6.00, status: "Нарушение" },
+    { sta: "0+724.19", left: -6.00, right: -6.00, status: "OK" },
+    { sta: "0+735.19", left: -6.00, right: -6.00, status: "OK" },
+    { sta: "0+748.19", left: -6.00, right: -6.00, status: "Нарушение" },
+    { sta: "0+748.19", left: -4.00, right: -6.00, status: "OK" },
+    { sta: "0+766.19", left: -4.00, right: -4.00, status: "OK" },
+    { sta: "0+766.19", left: -4.00, right: 2.00, status: "OK" },
+    { sta: "0+800.00", left: -2.00, right: 4.00, status: "OK" },
+  ]
+  const [alignment, setAlignment] = useState("Трасса ШД-38")
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col" style={{ fontFamily: "Arial, sans-serif", fontSize: 12, width: 560, maxHeight: "85vh" }}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
+          <span className="text-white font-bold text-sm">Поперечный уклон трассы</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center text-xs">✕</button>
+        </div>
+        <div className="p-3 space-y-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <label className="w-28 text-xs text-gray-700 shrink-0">Трасса:</label>
+            <select value={alignment} onChange={e => setAlignment(e.target.value)} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+              <option>Трасса ШД-38</option>
+              <option>Ул. Трумана</option>
+              <option>Бордюр периметра</option>
+            </select>
+          </div>
+          <div className="text-xs text-gray-600">Трасса: <span className="font-bold text-blue-700">{alignment}</span> | Диапазон пикетов: 0+700.00 — 0+800.00 м</div>
+        </div>
+        <div className="flex-1 overflow-y-auto border-t border-gray-300">
+          <table className="w-full text-xs">
+            <thead className="bg-[#d0d0d0] sticky top-0">
+              <tr>
+                <th className="px-2 py-1 text-left border-r border-gray-300 w-24">Пикет</th>
+                <th className="px-2 py-1 text-right border-r border-gray-300 w-24">Уклон лев. (%)</th>
+                <th className="px-2 py-1 text-right border-r border-gray-300 w-24">Уклон пр. (%)</th>
+                <th className="px-2 py-1 text-center w-28">Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stations.map((row, i) => (
+                <tr key={i} className={`border-b border-gray-200 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} ${row.status === "Нарушение" ? "bg-red-50" : ""}`}>
+                  <td className="px-2 py-0.5 border-r border-gray-200 font-mono text-blue-700">{row.sta}</td>
+                  <td className="px-2 py-0.5 border-r border-gray-200 text-right font-mono">{row.left.toFixed(2)}</td>
+                  <td className="px-2 py-0.5 border-r border-gray-200 text-right font-mono">{row.right.toFixed(2)}</td>
+                  <td className="px-2 py-0.5 text-center">
+                    {row.status === "Нарушение"
+                      ? <span className="text-red-600 font-bold flex items-center justify-center gap-1"><span>⚠</span> Нарушение</span>
+                      : <span className="text-green-700 font-bold">OK</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="p-2 border-t border-gray-300 flex justify-end gap-2 flex-shrink-0 bg-[#e8e8e8]">
+          <button onClick={onClose} className="px-4 py-1 bg-[#0078d4] text-white text-xs hover:bg-[#0066b3]">Применить</button>
+          <button onClick={onClose} className="px-4 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-gray-300">Закрыть</button>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Main CivilCAD Module ────────────────────────────────────────────────────
 
 const NAV_MODULES = [
@@ -2870,8 +2964,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
   const [activeMenuTab, setActiveMenuTab] = useState("Главная")
   const [activeLayout, setActiveLayout] = useState("Model")
-  const [drawingTabs, setDrawingTabs] = useState(["Главная_парковка.dwg"])
-  const [activeDrawingTab, setActiveDrawingTab] = useState("Главная_парковка.dwg")
+  const [drawingTabs, setDrawingTabs] = useState(["Align-Superelevation-5.dwg"])
+  const [activeDrawingTab, setActiveDrawingTab] = useState("Align-Superelevation-5.dwg")
   const [showOpenProject, setShowOpenProject] = useState(false)
   const [dbProjects, setDbProjects] = useState<{id:number;name:string;type:string;status:string;updated_at:string}[]>([])
   const [loadingProjects, setLoadingProjects] = useState(false)
@@ -2924,6 +3018,23 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [viewDimension, setViewDimension] = useState<"3D"|"2D">("3D")
   const [undoStack, setUndoStack] = useState<string[]>(["Начальное состояние"])
   const [redoStack, setRedoStack] = useState<string[]>([])
+
+  // ── Split viewport state ─────────────────────────────────────────────────
+  const [splitView, setSplitView] = useState(true)
+  const [splitRatio, setSplitRatio] = useState(0.38)
+  const splitDragRef = useRef<boolean>(false)
+  const splitStartY = useRef<number>(0)
+  const splitStartRatio = useRef<number>(0)
+  const viewportContainerRef = useRef<HTMLDivElement>(null)
+
+  // ── Superelevation dialog state ──────────────────────────────────────────
+  const [showSuperelevation, setShowSuperelevation] = useState(false)
+
+  // ── Side tab state ───────────────────────────────────────────────────────
+  const [activeSideTab, setActiveSideTab] = useState<string|null>(null)
+
+  // ── Cursor screen position ───────────────────────────────────────────────
+  const [cursorScreen, setCursorScreen] = useState({ x: 0, y: 0 })
 
   // ── Edit state ───────────────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<EditTool>("select")
@@ -3317,6 +3428,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const snp = findSnap(wx, wy)
     setSnapPos(snp)
     setCursorCanvasPos([wx, wy])
+    const containerRect = viewportContainerRef.current?.getBoundingClientRect()
+    if (containerRect) {
+      setCursorScreen({ x: e.clientX - containerRect.left, y: e.clientY - containerRect.top })
+    }
 
     if (moveRef.current) {
       const { objId, startMouse, startPts } = moveRef.current
@@ -3440,6 +3555,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("полилин") || k.includes("дуга") || k.includes("круг") || k.includes("черч") || k.includes("2d геометр")) { setShowDraw2D(true) }
     // Аннотации
     else if (k.includes("аннотац") || k.includes("размер") || k.includes("выноск") || k.includes("таблиц")) { setShowAnnotation(true) }
+    // Поперечный уклон
+    else if (k.includes("поперечный уклон") || k.includes("superelevation") || k.includes("отгон")) { setShowSuperelevation(true) }
     // Гидрология
     else if (k.includes("водосбор") || k.includes("гидролог") || k.includes("дренаж") || k.includes("пруд")) { setShowHydrology(true) }
     // Всё остальное
@@ -3719,7 +3836,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
           {/* Active Drawing View */}
           <div className="bg-[#252535] px-2 py-1 flex items-center gap-1 border-b border-gray-600 cursor-pointer hover:bg-[#2e2e45]"
-            onClick={() => setStatusMsg("Активный чертёж: Главная парковка_Финал")}>
+            onClick={() => setStatusMsg("Активный чертёж: Align-Superelevation-5")}>
             <span className="text-[11px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
             <Icon name="ChevronDown" size={10} className="text-gray-500 flex-shrink-0" />
           </div>
@@ -3732,46 +3849,28 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
         </div>
 
-        {/* ── Side tabs ── */}
-        <div className="bg-[#1e1e2e] border-r border-gray-700 w-4 flex flex-col items-center py-4 gap-4">
-          {["Диспетчер","Параметры","Геодезия","Инструменты"].map(t => (
-            <div key={t} onClick={() => setStatusMsg(`Панель: ${t}`)}
-              className="text-[8px] text-gray-600 hover:text-gray-300 cursor-pointer active:text-blue-400 transition-colors"
-              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t}</div>
+        {/* ── Side tabs (Навигатор / Параметры / Съёмка / Панель инструментов) ── */}
+        <div className="bg-[#1e1e2e] border-r border-gray-700 w-4 flex flex-col items-center py-2 gap-3">
+          {[
+            { label: "Навигатор", id: "nav" },
+            { label: "Параметры", id: "params" },
+            { label: "Съёмка", id: "survey" },
+            { label: "Панель инструментов", id: "tools" },
+          ].map(t => (
+            <button key={t.label}
+              onClick={() => setActiveSideTab(prev => prev === t.id ? null : t.id)}
+              className={`text-[8px] cursor-pointer transition-colors px-0.5 py-1 rounded ${activeSideTab === t.id ? "text-[#0078d4] bg-[#0078d4]/10" : "text-gray-600 hover:text-gray-300"}`}
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{t.label}</button>
           ))}
         </div>
 
         {/* ── Centre: Viewport ── */}
-        <div className="flex-1 relative overflow-hidden bg-[#1a1a2e]">
-          {/* viewport toolbar — Civil 3D style */}
-          <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800">
-            <button onClick={() => setStatusMsg("Меню видового экрана")}
-              className="text-[10px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
-            <button onClick={() => setStatusMsg("Вид сверху")}
-              className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5 border-r border-gray-700">[Сверху]</button>
-            <button onClick={() => setViewMode(m => m === "wireframe" ? "shaded" : "wireframe")}
-              className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5">
-              [{viewMode === "wireframe" ? "2D Каркас" : "Тонирование"}]
-            </button>
-          </div>
-          {/* Viewport compass (top-right) */}
-          <div className="absolute top-1 right-2 z-10 select-none pointer-events-none">
-            <svg width="52" height="52" viewBox="0 0 52 52">
-              <circle cx="26" cy="26" r="24" fill="rgba(0,0,0,0.35)" stroke="#555" strokeWidth="1"/>
-              <text x="26" y="10" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">N</text>
-              <text x="26" y="47" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">S</text>
-              <text x="6" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">W</text>
-              <text x="46" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">E</text>
-              <rect x="16" y="16" width="20" height="20" rx="3" fill="#0078d4" opacity="0.85"/>
-              <text x="26" y="30" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">ПЛАН</text>
-              <line x1="26" y1="12" x2="26" y2="17" stroke="#888" strokeWidth="1"/>
-              <line x1="26" y1="35" x2="26" y2="40" stroke="#888" strokeWidth="1"/>
-              <line x1="10" y1="26" x2="15" y2="26" stroke="#888" strokeWidth="1"/>
-              <line x1="37" y1="26" x2="42" y2="26" stroke="#888" strokeWidth="1"/>
-            </svg>
-          </div>
-          {/* Scale / zoom controls top-right corner */}
-          <div className="absolute top-1 right-14 z-10 flex items-center gap-1">
+        <div ref={viewportContainerRef} className="flex-1 flex flex-col relative overflow-hidden bg-[#1a1a2e]">
+          {/* Viewport top controls bar */}
+          <div className="absolute top-0 left-0 z-20 flex items-center gap-1 bg-black/40 border-b border-gray-800 px-1">
+            <button onClick={() => setSplitView(s => !s)}
+              className={`text-[9px] px-1.5 py-0.5 border border-gray-700 rounded transition-colors ${splitView ? "text-[#0078d4] bg-[#0078d4]/20 border-[#0078d4]/50" : "text-gray-400 hover:text-white"}`}
+              title="Разделить видовой экран">⊟</button>
             <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">Вписать</button>
             <button onClick={() => setZoom(z => z * 1.25)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">+</button>
             <button onClick={() => setZoom(z => z * 0.8)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">−</button>
@@ -3780,30 +3879,177 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             </button>
           </div>
 
-          {/* Active tool hint */}
-          {activeTool !== "select" && activeTool !== "pan" && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 bg-black/70 text-[10px] text-cyan-300 px-3 py-1 rounded pointer-events-none border border-cyan-800">
-              {activeTool === "line" && (drawingPts.length === 0 ? "Укажите первую точку линии" : "Укажите конечную точку")}
-              {activeTool === "polyline" && (drawingPts.length === 0 ? "Укажите первую точку полилинии" : `Точек: ${drawingPts.length} — двойной клик для завершения`)}
-              {activeTool === "rect" && (drawingPts.length === 0 ? "Укажите первый угол прямоугольника" : "Укажите противоположный угол")}
-              {activeTool === "point" && "Укажите положение точки"}
-              {activeTool === "delete" && "Кликните объект для удаления"}
-              {activeTool === "move" && "Кликните объект и перетащите"}
-              {activeTool === "measure" && "Кликните для измерения расстояния"}
-              &nbsp;· Esc — отмена
+          {/* ── Profile panel (top, only in split mode) ── */}
+          {splitView && (
+            <div className="flex-shrink-0 relative overflow-hidden" style={{ height: `${splitRatio * 100}%` }}>
+              {/* Profile viewport header */}
+              <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/60 border-b border-gray-800">
+                <button className="text-[10px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[+]</button>
+                <button className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5 border-r border-gray-700">[Сверху]</button>
+                <button className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5">[2D-каркас]</button>
+              </div>
+              {/* Profile SVG */}
+              <svg width="100%" height="100%" style={{ background: "#111827", display: "block", paddingTop: 18 }}>
+                {/* Grid lines */}
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <line key={`vg${i}`} x1={`${(i / 11) * 100}%`} y1="0" x2={`${(i / 11) * 100}%`} y2="100%" stroke="rgba(59,130,246,0.12)" strokeWidth="0.5" />
+                ))}
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <line key={`hg${i}`} x1="0" y1={`${(i / 5) * 100}%`} x2="100%" y2={`${(i / 5) * 100}%`} stroke="rgba(59,130,246,0.12)" strokeWidth="0.5" />
+                ))}
+                {/* Station axis labels */}
+                {["0+700.00м","0+712.19м","0+724.19м","0+735.19м","0+748.19м","0+766.19м","0+800.00м"].map((lbl, i) => {
+                  const x = 4 + (i / 6) * 92
+                  return (
+                    <g key={lbl}>
+                      <line x1={`${x}%`} y1="88%" x2={`${x}%`} y2="92%" stroke="#4b5563" strokeWidth="1" />
+                      <text x={`${x}%`} y="97%" textAnchor="middle" fill="#6b7280" fontSize="6" fontFamily="monospace">{lbl}</text>
+                    </g>
+                  )
+                })}
+                {/* Warning triangles at problem stations */}
+                {[1, 3, 4, 6, 7].map(idx => {
+                  const x = 4 + (idx / 6) * 92
+                  return (
+                    <text key={`warn${idx}`} x={`${x}%`} y="22%" textAnchor="middle" fill="#f59e0b" fontSize="10">⚠</text>
+                  )
+                })}
+                {/* Red horizontal line — обочина */}
+                <line x1="4%" y1="55%" x2="96%" y2="55%" stroke="#ef4444" strokeWidth="1.5" />
+                {/* Blue diagonal lines — design profile with varying slope */}
+                <polyline points="4%,75% 18%,68% 38%,55% 52%,52% 65%,52% 78%,58% 96%,65%"
+                  fill="none" stroke="#3b82f6" strokeWidth="2" />
+                {/* Green lines — lane edges */}
+                <line x1="4%" y1="38%" x2="96%" y2="38%" stroke="#4ade80" strokeWidth="1.5" />
+                <line x1="4%" y1="82%" x2="96%" y2="82%" stroke="#4ade80" strokeWidth="1.5" />
+                {/* Slope percentage labels */}
+                <text x="11%" y="48%" textAnchor="middle" fill="#e5e7eb" fontSize="7" fontFamily="monospace">-4.00%</text>
+                <text x="30%" y="44%" textAnchor="middle" fill="#e5e7eb" fontSize="7" fontFamily="monospace">-6.00%</text>
+                <text x="58%" y="47%" textAnchor="middle" fill="#e5e7eb" fontSize="7" fontFamily="monospace">-4.00%</text>
+                <text x="84%" y="50%" textAnchor="middle" fill="#e5e7eb" fontSize="7" fontFamily="monospace">-2.00%</text>
+                {/* Green labels */}
+                <text x="5%" y="35%" fill="#4ade80" fontSize="7" fontFamily="Arial">Кривая Curve.3</text>
+                <text x="40%" y="31%" fill="#4ade80" fontSize="7" fontFamily="Arial">Начало/конец отгона</text>
+                <text x="18%" y="60%" fill="#4ade80" fontSize="7" fontFamily="Arial">Обочина</text>
+                <text x="62%" y="26%" fill="#4ade80" fontSize="7" fontFamily="Arial">Продолжение отгона</text>
+                {/* Corridor hatch pattern */}
+                <rect x="4%" y="75%" width="92%" height="7%" fill="none" stroke="#f97316" strokeWidth="0.5" strokeDasharray="4 3" opacity="0.5" />
+              </svg>
             </div>
           )}
-          <canvas ref={canvasRef} className="w-full h-full block"
-            style={{ cursor:
-              activeTool === "pan" || (drag.current && activeTool === "select") ? "grabbing" :
-              activeTool === "move" ? "move" :
-              activeTool === "delete" ? "not-allowed" :
-              activeTool === "select" ? "default" : "crosshair"
-            }}
-            onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-            onContextMenu={e => { e.preventDefault(); if (drawingPts.length > 0) { setDrawingPts([]); setStatusMsg("Черчение отменено") } }}
-          />
+
+          {/* ── Splitter bar ── */}
+          {splitView && (
+            <div
+              className="flex-shrink-0 bg-[#1a1a2e] border-y border-[#0078d4] cursor-row-resize hover:bg-[#0078d4]/30 transition-colors z-20"
+              style={{ height: 5 }}
+              onMouseDown={e => {
+                splitDragRef.current = true
+                splitStartY.current = e.clientY
+                splitStartRatio.current = splitRatio
+                const onMove = (ev: MouseEvent) => {
+                  if (!splitDragRef.current) return
+                  const container = viewportContainerRef.current
+                  if (!container) return
+                  const h = container.getBoundingClientRect().height
+                  const delta = ev.clientY - splitStartY.current
+                  const newRatio = Math.max(0.15, Math.min(0.75, splitStartRatio.current + delta / h))
+                  setSplitRatio(newRatio)
+                }
+                const onUp = () => { splitDragRef.current = false; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+                window.addEventListener("mousemove", onMove)
+                window.addEventListener("mouseup", onUp)
+              }}
+            />
+          )}
+
+          {/* ── Plan view (bottom or full if no split) ── */}
+          <div className="flex-1 relative overflow-hidden">
+            {/* Plan viewport header */}
+            <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800" style={{ marginTop: splitView ? 0 : 18 }}>
+              <button onClick={() => setStatusMsg("Меню видового экрана")}
+                className="text-[10px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
+              <button onClick={() => setStatusMsg("Вид сверху")}
+                className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5 border-r border-gray-700">[Сверху]</button>
+              <button onClick={() => setViewMode(m => m === "wireframe" ? "shaded" : "wireframe")}
+                className="text-[10px] text-gray-300 hover:bg-gray-700 px-2 py-0.5">
+                [{viewMode === "wireframe" ? "2D Каркас" : "Тонирование"}]
+              </button>
+            </div>
+            {/* Viewport compass (top-right) */}
+            <div className="absolute top-1 right-2 z-10 select-none pointer-events-none">
+              <svg width="52" height="52" viewBox="0 0 52 52">
+                <circle cx="26" cy="26" r="24" fill="rgba(0,0,0,0.35)" stroke="#555" strokeWidth="1"/>
+                <text x="26" y="10" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">N</text>
+                <text x="26" y="47" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">S</text>
+                <text x="6" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">W</text>
+                <text x="46" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">E</text>
+                <rect x="16" y="16" width="20" height="20" rx="3" fill="#0078d4" opacity="0.85"/>
+                <text x="26" y="30" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">ПЛАН</text>
+                <line x1="26" y1="12" x2="26" y2="17" stroke="#888" strokeWidth="1"/>
+                <line x1="26" y1="35" x2="26" y2="40" stroke="#888" strokeWidth="1"/>
+                <line x1="10" y1="26" x2="15" y2="26" stroke="#888" strokeWidth="1"/>
+                <line x1="37" y1="26" x2="42" y2="26" stroke="#888" strokeWidth="1"/>
+              </svg>
+            </div>
+
+            {/* Active tool hint */}
+            {activeTool !== "select" && activeTool !== "pan" && (
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 bg-black/70 text-[10px] text-cyan-300 px-3 py-1 rounded pointer-events-none border border-cyan-800">
+                {activeTool === "line" && (drawingPts.length === 0 ? "Укажите первую точку линии" : "Укажите конечную точку")}
+                {activeTool === "polyline" && (drawingPts.length === 0 ? "Укажите первую точку полилинии" : `Точек: ${drawingPts.length} — двойной клик для завершения`)}
+                {activeTool === "rect" && (drawingPts.length === 0 ? "Укажите первый угол прямоугольника" : "Укажите противоположный угол")}
+                {activeTool === "point" && "Укажите положение точки"}
+                {activeTool === "delete" && "Кликните объект для удаления"}
+                {activeTool === "move" && "Кликните объект и перетащите"}
+                {activeTool === "measure" && "Кликните для измерения расстояния"}
+                &nbsp;· Esc — отмена
+              </div>
+            )}
+
+            {/* Dynamic coordinate input near cursor (TASK 5) */}
+            {(activeTool === "line" || activeTool === "polyline" || activeTool === "rect" || activeTool === "point") && cursorCanvasPos && (
+              <div
+                className="absolute z-30 pointer-events-none"
+                style={{
+                  left: Math.min(cursorScreen.x + 20, (viewportContainerRef.current?.getBoundingClientRect().width ?? 600) - 200),
+                  top: cursorScreen.y + 15,
+                }}>
+                <div className="bg-[#1a1a2e] border border-[#0078d4] text-[10px] font-mono flex items-center gap-0 shadow-lg">
+                  <span className="bg-[#0078d4]/20 text-[#60a5fa] px-1.5 py-1 border-r border-[#0078d4]">⊡</span>
+                  <span className="text-white px-1.5 py-1 border-r border-gray-700 min-w-[70px]">
+                    {drawingPts.length > 0
+                      ? `Δ ${Math.abs(cursorCanvasPos[0] - drawingPts[drawingPts.length-1][0]).toFixed(3)}`
+                      : cursorCanvasPos[0].toFixed(3)}
+                  </span>
+                  <span className="text-white px-1.5 py-1 min-w-[70px]">
+                    {drawingPts.length > 0
+                      ? `Δ ${Math.abs(cursorCanvasPos[1] - drawingPts[drawingPts.length-1][1]).toFixed(3)}`
+                      : cursorCanvasPos[1].toFixed(3)}
+                  </span>
+                </div>
+                <div className="bg-[#0d1117] border border-gray-700 text-[9px] text-gray-400 px-2 py-0.5 mt-0.5">
+                  {activeTool === "line" && drawingPts.length === 0 && "Линия  РН-угол  СМн-угол"}
+                  {activeTool === "line" && drawingPts.length > 0 && `Длина: ${Math.hypot(cursorCanvasPos[0]-drawingPts[drawingPts.length-1][0], cursorCanvasPos[1]-drawingPts[drawingPts.length-1][1]).toFixed(2)} м`}
+                  {activeTool === "polyline" && "Полилиния  РН-угол  СМн-угол"}
+                  {activeTool === "rect" && (drawingPts.length === 0 ? "Задайте первый угол" : "Задайте противоположный угол")}
+                  {activeTool === "point" && "Задайте положение точки"}
+                </div>
+              </div>
+            )}
+
+            <canvas ref={canvasRef} className="w-full h-full block"
+              style={{ cursor:
+                activeTool === "pan" || (drag.current && activeTool === "select") ? "grabbing" :
+                activeTool === "move" ? "move" :
+                activeTool === "delete" ? "not-allowed" :
+                activeTool === "select" ? "default" : "crosshair"
+              }}
+              onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+              onContextMenu={e => { e.preventDefault(); if (drawingPts.length > 0) { setDrawingPts([]); setStatusMsg("Черчение отменено") } }}
+            />
+          </div>
 
           {/* Dialogs */}
           <AnimatePresence>
@@ -3954,6 +4200,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 setStatusMsg(`Аннотация «${obj.name}» размещена`)
                 showToast(`Аннотация «${obj.type}» добавлена`)
               }}/>
+            )}
+            {showSuperelevation && (
+              <SuperelevationDialog onClose={() => setShowSuperelevation(false)} />
             )}
             {showHydrology && (
               <HydrologyDialog onClose={()=>setShowHydrology(false)} onOK={obj=>{
@@ -4176,7 +4425,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       <div className="bg-[#1a1a2a] border-t border-gray-800 flex items-center px-1 gap-0 flex-shrink-0" style={{minHeight:22}}>
         {/* Layout tabs */}
         <div className="flex items-center gap-0 border-r border-gray-700 pr-1 mr-1">
-          <button onClick={() => setStatusMsg("Главная парковка_Финал")}
+          <button onClick={() => setStatusMsg("Align-Superelevation-5")}
             className="text-[9px] text-gray-400 hover:text-white px-0.5 py-0.5">☰</button>
           {[{key:"Model",label:"Модель"},{key:"Layout1",label:"Лист 1"},{key:"Layout2",label:"Лист 2"}].map(t => (
             <button key={t.key} onClick={() => { setActiveLayout(t.key); setStatusMsg(`Макет: ${t.label}`) }}
