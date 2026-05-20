@@ -99,7 +99,7 @@ export default function Settings() {
         <button onClick={() => navigate("/dashboard")} className="text-gray-400 hover:text-gray-700">
           <Icon name="ChevronLeft" size={20} />
         </button>
-        <div className="text-xl font-extrabold font-heading text-gray-900 cursor-pointer" onClick={() => navigate("/dashboard")}>CivilPro</div>
+        <div className="text-xl font-extrabold font-heading text-gray-900 cursor-pointer" onClick={() => navigate("/dashboard")}>ЛАПА</div>
         <span className="text-gray-300">/</span>
         <span className="text-sm font-semibold text-indigo-600">Настройки</span>
       </header>

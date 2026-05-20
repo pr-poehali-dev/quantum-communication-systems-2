@@ -93,7 +93,7 @@ export default function Onboarding() {
             <motion.div key="step0" initial={{ opacity: 0, x: 32 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -32 }}
               className="rounded-3xl bg-white shadow-xl p-8 space-y-6 border border-gray-100">
               <div className="text-center space-y-2">
-                <div className="text-4xl font-extrabold text-gray-900 font-heading">Добро пожаловать в CivilPro</div>
+                <div className="text-4xl font-extrabold text-gray-900 font-heading">Добро пожаловать в ЛАПА</div>
                 <p className="text-muted-foreground text-lg">Настроим рабочее пространство за пару шагов</p>
               </div>
               <div className="space-y-2 max-w-sm mx-auto">

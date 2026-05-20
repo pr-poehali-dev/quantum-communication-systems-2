@@ -42,7 +42,7 @@ import CivilCADModule from "@/modules/CivilCADModule"
 
 
 const MODULES = [
-  { id: "civilcad", icon: "Monitor", label: "CivilCAD — Редактор", desc: "Полный аналог интерфейса Autodesk Civil 3D", component: CivilCADModule },
+  { id: "civilcad", icon: "Monitor", label: "ЛАПА — Редактор", desc: "Полноценный редактор инфраструктурных проектов", component: CivilCADModule },
   { id: "viewer3d", icon: "Box", label: "3D-вьюер", desc: "Рельеф, дорога, сети, здания в 3D", component: Viewer3DModule },
   { id: "projects", icon: "FolderKanban", label: "Управление проектами", desc: "Проекты, версии, команда, отчёты", component: ProjectsModule },
   { id: "geodesy", icon: "Mountain", label: "Геодезия и рельеф", desc: "Точки, DTM, профиль, объёмы", component: GeodesyModule },
@@ -90,7 +90,7 @@ export default function Dashboard() {
             className="text-xl font-extrabold font-heading text-gray-900 cursor-pointer"
             onClick={() => setActiveModule(null)}
           >
-            CivilPro
+            ЛАПА
           </div>
           {current && (
             <>

@@ -57,7 +57,7 @@ export function Features() {
             Всё для профессионального проектирования
           </h2>
           <p className="text-muted-foreground lg:text-lg max-w-2xl mx-auto">
-            Возможности уровня Autodesk Civil 3D — в одном продукте без дорогостоящей подписки
+            Все возможности в одном продукте без дорогостоящей подписки
           </p>
         </motion.div>
 

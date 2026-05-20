@@ -8,7 +8,7 @@ export function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         {/* Logo */}
         <div className="flex items-center cursor-pointer" onClick={() => navigate("/")}>
-          <div className="text-2xl font-bold font-heading text-gray-900">CivilPro</div>
+          <div className="text-2xl font-bold font-heading text-gray-900">ЛАПА</div>
         </div>
 
         {/* CTA Button */}

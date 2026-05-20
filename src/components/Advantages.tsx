@@ -59,7 +59,7 @@ export function Advantages() {
             Преимущества
           </span>
           <h2 className="text-3xl font-extrabold font-heading text-gray-900 lg:text-5xl mb-4">
-            Всё что есть в Civil 3D — и даже больше
+            Всё для проектирования — и даже больше
           </h2>
           <p className="text-muted-foreground lg:text-lg max-w-2xl mx-auto">
             Мы взяли лучшее из Autodesk Civil 3D и сделали это доступным без дорогой подписки

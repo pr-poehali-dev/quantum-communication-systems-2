@@ -39,7 +39,7 @@ export default function Login() {
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
         <div className="mb-8 text-center">
-          <div className="text-3xl font-extrabold font-heading text-gray-900 mb-2">CivilPro</div>
+          <div className="text-3xl font-extrabold font-heading text-gray-900 mb-2">ЛАПА</div>
           <p className="text-muted-foreground">Войдите в свой аккаунт</p>
         </div>
 

@@ -64,7 +64,7 @@ export function DetailedFeatures() {
           transition={{ duration: 0.7, ease: "easeOut" }}
         >
           <span className="inline-block rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-semibold text-indigo-600 mb-4">
-            Полный функционал Civil 3D
+            Полный функционал ЛАПА
           </span>
           <h2 className="text-3xl font-extrabold font-heading text-gray-900 lg:text-5xl mb-4">
             Все возможности в одном продукте
