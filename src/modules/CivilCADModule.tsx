@@ -5074,6 +5074,66 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
         )}
 
+        {/* ── Right: Vertical nav toolbar (Civil 3D right strip) ── */}
+        <div className="bg-[#1e1e2e] border-l border-gray-800 flex flex-col items-center py-1 gap-0.5 flex-shrink-0 overflow-y-auto" style={{width:22}}>
+          {([
+            { icon: "ZoomIn",        title: "Увеличить",              action: () => setZoom(z => Math.min(6, z * 1.25)) },
+            { icon: "ZoomOut",       title: "Уменьшить",              action: () => setZoom(z => Math.max(0.3, z * 0.8)) },
+            { icon: "Maximize2",     title: "Вписать всё  ZE",        action: () => { setZoom(1.1); setPan({ x: 30, y: 20 }) } },
+            { icon: "Hand",          title: "Панорама",               action: () => { setActiveTool("pan"); setStatusMsg("Инструмент: Панорама") } },
+            { icon: "RotateCcw",     title: "Орбита",                 action: () => setStatusMsg("Инструмент: Орбита") },
+            { icon: "Eye",           title: "Свободная орбита",       action: () => setStatusMsg("Инструмент: Свободная орбита") },
+            null,
+            { icon: "MousePointer2", title: "Выбор  S",               action: () => setActiveTool("select") },
+            { icon: "Move",          title: "Перенести  M",           action: () => setActiveTool("move") },
+            { icon: "Ruler",         title: "Измерить расстояние",    action: () => { setActiveTool("measure"); setStatusMsg("Инструмент: Измерение") } },
+            null,
+            { icon: "Minus",         title: "Линия  L",               action: () => { setActiveTool("line"); setDrawingPts([]) } },
+            { icon: "Spline",        title: "Полилиния  PL",          action: () => { setActiveTool("polyline"); setDrawingPts([]) } },
+            { icon: "MapPin",        title: "Точка  O",               action: () => setActiveTool("point") },
+            { icon: "Square",        title: "Прямоугольник  R",       action: () => { setActiveTool("rect"); setDrawingPts([]) } },
+            { icon: "Trash2",        title: "Удалить  Del",           action: () => setActiveTool("delete") },
+            null,
+            { icon: "Layers",        title: "Слои",                   action: () => setShowLayers(true) },
+            { icon: "ListFilter",    title: "Свойства объекта  PR",   action: () => setShowProperties(p => !p) },
+            { icon: "BarChart3",     title: "Земляные работы",        action: () => setShowEarthworks(true) },
+            { icon: "Mountain",      title: "Создать поверхность",    action: () => setShowSurface(true) },
+            { icon: "Route",         title: "Создать трассу",         action: () => setShowAlignment(true) },
+            { icon: "Navigation",    title: "Создать коридор",        action: () => setShowCorridor(true) },
+            { icon: "Network",       title: "Создать трубопровод",    action: () => setShowPipeNet(true) },
+            null,
+            { icon: "FileBarChart2", title: "Диспетчер отчётов",      action: () => setShowProjectManager(true) },
+            { icon: "GitBranch",     title: "Отчёт о невязке",        action: () => setShowSurveyTraverse(true) },
+            { icon: "Bot",           title: "ЛАПА-Ассистент",         action: () => setShowAssistant(p => !p) },
+            null,
+            { icon: "SplitSquareVertical", title: "Разделить экран", action: () => setSplitView(p => !p), fallback: "Columns" },
+            { icon: "Sun",           title: "Тонирование",            action: () => { setViewMode("shaded"); setStatusMsg("Визуальный стиль: Тонирование") } },
+            { icon: "Grid3X3",       title: "Каркас",                 action: () => { setViewMode("wireframe"); setStatusMsg("Визуальный стиль: 2D Каркас") } },
+          ] as ({icon:string;title:string;action:()=>void;fallback?:string}|null)[]).map((item, i) =>
+            item === null ? (
+              <div key={`sep-${i}`} className="w-3 border-t border-gray-700 my-0.5"/>
+            ) : (
+              <button key={item.icon + i} title={item.title} onClick={item.action}
+                className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${
+                  (item.icon === "MousePointer2" && activeTool === "select") ||
+                  (item.icon === "Move" && activeTool === "move") ||
+                  (item.icon === "Minus" && activeTool === "line") ||
+                  (item.icon === "Spline" && activeTool === "polyline") ||
+                  (item.icon === "MapPin" && activeTool === "point") ||
+                  (item.icon === "Square" && activeTool === "rect") ||
+                  (item.icon === "Trash2" && activeTool === "delete") ||
+                  (item.icon === "Hand" && activeTool === "pan") ||
+                  (item.icon === "Bot" && showAssistant) ||
+                  (item.icon === "ListFilter" && showProperties)
+                    ? "bg-[#0078d4] text-white"
+                    : "text-gray-500 hover:text-white hover:bg-[#0078d4]/30"
+                }`}>
+                <Icon name={item.icon} size={11} fallback={item.fallback ?? "Square"}/>
+              </button>
+            )
+          )}
+        </div>
+
         {/* ── Right: Section views ── */}
         {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
         {showInsights && <InsightsPanel onClose={()=>setShowInsights(false)}/>}
