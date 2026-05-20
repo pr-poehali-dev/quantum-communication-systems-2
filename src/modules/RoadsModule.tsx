@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { экспортLandXML, экспортDXF, экспортIFC, экспортТекст, экспортCSV } from "@/utils/exportImport"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,6 +72,106 @@ export default function RoadsModule() {
     const diff = st.design - st.elev
     return diff > 0 ? s + diff * 20 * cat.width : s
   }, 0)
+
+  const doExportLandXML = () => {
+    экспортLandXML({
+      имя: `Автодорога кат. ${category.toUpperCase()} L=${length}м`,
+      трассы: [{
+        name: `Трасса кат.${category.toUpperCase()}`,
+        length,
+        elements: [
+          { radius: 0 },
+          { radius, delta: 45 },
+          { radius: 0 },
+        ]
+      }],
+      поверхности: [{ name: "Существующая поверхность", type: "TIN" }],
+      коридоры: [{
+        name: `Коридор ${cat.label}`,
+        length,
+        stations: profile.map(s => ({
+          pk: s.pk,
+          cut: Math.max(0, s.elev - s.design) * cat.width,
+          fill: Math.max(0, s.design - s.elev) * cat.width,
+        }))
+      }]
+    }, `road_cat${category}.xml`)
+  }
+
+  const doExportDWG = () => {
+    const линии = profile.flatMap((s, i) => {
+      if (i === 0) return []
+      const prev = profile[i - 1]
+      return [
+        { тип: "LINE" as const, данные: [prev.pk / 10, prev.elev, 0, s.pk / 10, s.elev, 0], слой: "GROUND" },
+        { тип: "LINE" as const, данные: [prev.pk / 10, prev.design, 0, s.pk / 10, s.design, 0], слой: "DESIGN" },
+      ]
+    })
+    линии.push(
+      { тип: "LINE" as const, данные: [0, 0, 0, length / 10, 0, 0], слой: "ROAD_EDGE" },
+      { тип: "LINE" as const, данные: [0, cat.width, 0, length / 10, cat.width, 0], слой: "ROAD_EDGE" },
+      { тип: "TEXT" as const, данные: [length / 20, cat.width + 2], текст: `Категория ${category.toUpperCase()}, L=${length}м, V=${cat.speed}км/ч`, слой: "TEXT" },
+    )
+    экспортDXF(линии, `road_cat${category}.dxf`)
+  }
+
+  const doExportIFC = () => {
+    экспортIFC([
+      { тип: "IfcRoad", имя: `Автодорога кат. ${category.toUpperCase()}`, guid: `road-${category}-${length}`, описание: `L=${length}м, V=${cat.speed}км/ч, B=${cat.width}м` },
+      { тип: "IfcAlignment", имя: "Трасса дороги", guid: `align-${length}`, описание: `R=${radius}м` },
+      { тип: "IfcRoadPart", имя: "Проезжая часть", guid: `roadpart-001`, описание: `Ширина ${cat.width}м, ${cat.lanes} полосы` },
+    ], `road_cat${category}.ifc`)
+  }
+
+  const doExportPDF = () => {
+    const строки = [
+      "ПОЯСНИТЕЛЬНАЯ ЗАПИСКА",
+      "АВТОМОБИЛЬНАЯ ДОРОГА",
+      "=".repeat(50),
+      `Категория: ${cat.label}`,
+      `Расчётная скорость: ${cat.speed} км/ч`,
+      `Ширина проезжей части: ${cat.width} м`,
+      `Количество полос: ${cat.lanes}`,
+      `Длина трассы: ${length} м`,
+      `Радиус кривой: ${radius} м (норма ≥ ${minRadius} м) ${radiusOk ? "✓" : "✗ НАРУШЕНИЕ"}`,
+      `Продольный уклон 1: ${slope1}% (норма ≤ ${maxSlope}%) ${slopeOk1 ? "✓" : "✗ НАРУШЕНИЕ"}`,
+      `Продольный уклон 2: ${slope2}% (норма ≤ ${maxSlope}%) ${slopeOk2 ? "✓" : "✗ НАРУШЕНИЕ"}`,
+      "",
+      "КОНСТРУКЦИЯ ДОРОЖНОЙ ОДЕЖДЫ:",
+      "  Верхний слой АБ: 5 см — Асфальтобетон тип А, марка II",
+      "  Нижний слой АБ: 8 см — Асфальтобетон тип Б, марка II",
+      "  Основание щебень: 25 см — Щебень фр. 20-40 мм, М600",
+      "  Песчаный подстил.: 15 см — Песок средней крупности",
+      "",
+      computed ? [
+        "ОБЪЁМЫ ЗЕМЛЯНЫХ РАБОТ:",
+        `  Выемка:  ${cutVol.toFixed(0)} м³`,
+        `  Насыпь:  ${fillVol.toFixed(0)} м³`,
+        `  Баланс:  ${(cutVol - fillVol).toFixed(0)} м³`,
+      ].join("\n") : "(Профиль не рассчитан — нажмите «Рассчитать трассу»)",
+      "",
+      "НОРМАТИВНАЯ БАЗА:",
+      "  СП 34.13330.2021 «Автомобильные дороги»",
+      "  ГОСТ Р 52399-2005",
+      "",
+      `Дата: ${new Date().toLocaleDateString("ru")}`,
+    ]
+    экспортТекст(строки, `road_report_${category}.txt`)
+  }
+
+  const doExportCSV = () => {
+    if (!computed) { alert("Сначала рассчитайте трассу"); return }
+    экспортCSV(
+      ["Пикет","Отм.земли м","Отм.проект м","Выемка м","Насыпь м"],
+      profile.map(s => [
+        `ПК${Math.floor(s.pk / 100)}+${String(s.pk % 100).padStart(2, "0")}`,
+        s.elev.toFixed(2),
+        s.design.toFixed(2),
+        Math.max(0, s.elev - s.design).toFixed(2),
+        Math.max(0, s.design - s.elev).toFixed(2),
+      ])
+    , `road_profile_${category}.csv`)
+  }
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -347,13 +448,15 @@ export default function RoadsModule() {
                   desc: "Трасса, профиль, коридор для Civil 3D / InfraWorks",
                   color: "bg-blue-50 border-blue-200",
                   btn: "bg-blue-600 hover:bg-blue-700",
+                  fn: doExportLandXML,
                 },
                 {
-                  fmt: "DWG",
+                  fmt: "DWG / DXF",
                   icon: "PenTool",
-                  desc: "Чертёж плана и профиля для AutoCAD",
+                  desc: "Чертёж плана и профиля для AutoCAD (DXF-формат)",
                   color: "bg-orange-50 border-orange-200",
                   btn: "bg-orange-600 hover:bg-orange-700",
+                  fn: doExportDWG,
                 },
                 {
                   fmt: "IFC",
@@ -361,6 +464,7 @@ export default function RoadsModule() {
                   desc: "BIM-модель дороги (IfcRoad) для Revit / Navisworks",
                   color: "bg-indigo-50 border-indigo-200",
                   btn: "bg-indigo-600 hover:bg-indigo-700",
+                  fn: doExportIFC,
                 },
                 {
                   fmt: "PDF отчёт",
@@ -368,6 +472,7 @@ export default function RoadsModule() {
                   desc: "Пояснительная записка с профилем и ведомостью",
                   color: "bg-green-50 border-green-200",
                   btn: "bg-green-600 hover:bg-green-700",
+                  fn: doExportPDF,
                 },
               ].map(f => (
                 <div key={f.fmt} className={`rounded-xl border p-4 ${f.color} space-y-2`}>
@@ -376,11 +481,22 @@ export default function RoadsModule() {
                     <div className="font-bold text-gray-900">{f.fmt}</div>
                   </div>
                   <div className="text-xs text-gray-500">{f.desc}</div>
-                  <Button className={`w-full text-white text-xs gap-2 ${f.btn}`}>
+                  <Button onClick={f.fn} className={`w-full text-white text-xs gap-2 ${f.btn}`}>
                     <Icon name="Download" size={13} />Скачать {f.fmt}
                   </Button>
                 </div>
               ))}
+            </div>
+
+            {/* CSV профиль */}
+            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-gray-800 text-sm">CSV — профиль пикетов</div>
+                <div className="text-xs text-gray-400">Пикет, отм.земли, отм.проект, выемка, насыпь</div>
+              </div>
+              <Button onClick={doExportCSV} variant="outline" className="gap-2 text-sm">
+                <Icon name="FileSpreadsheet" size={14} />Скачать CSV
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -392,9 +508,14 @@ export default function RoadsModule() {
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Icon name="FileText" size={16} className="text-indigo-600" />Отчёт по проекту дороги
               </h3>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-                <Icon name="Download" size={16} />Экспорт PDF
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={doExportPDF} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                  <Icon name="Download" size={16} />Экспорт TXT
+                </Button>
+                <Button onClick={doExportCSV} variant="outline" className="gap-2">
+                  <Icon name="FileSpreadsheet" size={14} />CSV
+                </Button>
+              </div>
             </div>
 
             {/* Design parameters table */}
