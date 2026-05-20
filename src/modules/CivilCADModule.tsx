@@ -126,6 +126,34 @@ const TREE: TreeNode[] = [
       { id: "ds6", label: "Группы рамок вида", icon: "RectangleHorizontal", color: "#64748b" },
     ]
   },
+  {
+    id: "reports", label: "Диспетчер отчётов", icon: "FileBarChart2", expanded: false, children: [
+      { id: "rep_align",  label: "Трасса",             icon: "Route",          color: "#f97316" },
+      { id: "rep_struct", label: "Структурная линия",  icon: "Spline",         color: "#ec4899" },
+      { id: "rep_corr",   label: "Коридор",            icon: "Navigation",     color: "#f97316" },
+      { id: "rep_site",   label: "Участок",            icon: "LayoutGrid",     color: "#84cc16" },
+      { id: "rep_site2",  label: "Участок_ПРЧС",       icon: "LayoutGrid",     color: "#84cc16" },
+      { id: "rep_pipe",   label: "Трубы",              icon: "Network",        color: "#6366f1" },
+      { id: "rep_pts",    label: "Точки",              icon: "MapPin",         color: "#f59e0b" },
+      { id: "rep_prof",   label: "Профиль",            icon: "TrendingUp",     color: "#60a5fa" },
+      { id: "rep_proj",   label: "Проект",             icon: "FolderOpen",     color: "#94a3b8" },
+      { id: "rep_surf",   label: "Поверхность",        icon: "Mountain",       color: "#4ade80" },
+      { id: "rep_surv",   label: "Съёмка",             icon: "Compass",        color: "#10b981" },
+      { id: "rep_sub",    label: "Subscription Extension Manager", icon: "Package", color: "#6366f1" },
+    ]
+  },
+  {
+    id: "utilities", label: "Различные утилиты", icon: "Wrench", expanded: false, children: [
+      { id: "util_caice",  label: "CAiCE™ Translator",        icon: "ArrowLeftRight", color: "#0078d4" },
+      { id: "util_cogo",   label: "Координатная геометрия",   icon: "Compass",        color: "#10b981" },
+      { id: "util_kml",    label: "Экспорт KML",              icon: "Globe",          color: "#f59e0b" },
+      { id: "util_sites",  label: "Участки",                  icon: "LayoutGrid",     color: "#84cc16" },
+      { id: "util_base",   label: "Общая опорная точка",      icon: "MapPin",         color: "#f59e0b" },
+      { id: "util_surf2",  label: "Поверхности",              icon: "Mountain",       color: "#4ade80" },
+      { id: "util_surv2",  label: "Съёмка",                   icon: "Compass",        color: "#10b981" },
+      { id: "util_ramp",   label: "Инструменты «Стрелка»",    icon: "CornerDownRight",color: "#f59e0b" },
+    ]
+  },
 ]
 
 const ALIGNMENTS: Alignment[] = [
@@ -169,7 +197,7 @@ const FEATURE_LINES: FeatureLine[] = [
   { name: "Бордюр пр.ч. Пр. 2", assembly: "Бордюр проезжей ч. Пр." },
 ]
 
-const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Съёмка","Железная дорога","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Отслеживание транспорта","Избранные приложения","Геолокация"]
+const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Съёмка","Железная дорога","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Отслеживание транспорта","Избранные приложения","Геопозиционирование","Геолокация"]
 
 // size: "lg" = большая кнопка с иконкой сверху, "sm" = маленькая кнопка строчкой
 interface RibbonItem { label: string; icon: string; size: "lg" | "sm"; drop?: string }
@@ -291,6 +319,36 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     ]},
   ],
   "Редактирование": [
+    { label: "Данные рельефа", items: [
+      { label: "Точки", icon: "MapPin", size: "lg", drop: "Точки ▾" },
+      { label: "Поверхность", icon: "Mountain", size: "sm", drop: "Поверхность ▾" },
+      { label: "Запрос съёмки", icon: "Search", size: "sm" },
+      { label: "Данные рельефа", icon: "ScanLine", size: "sm" },
+    ]},
+    { label: "Проектные данные", items: [
+      { label: "Трасса", icon: "Route", size: "lg", drop: "Трасса ▾" },
+      { label: "Характерная линия", icon: "Spline", size: "sm", drop: "Хар. линия ▾" },
+      { label: "Профиль", icon: "TrendingUp", size: "sm", drop: "Профиль ▾" },
+      { label: "Перекрёсток", icon: "Plus", size: "sm", drop: "Перекрёсток ▾" },
+      { label: "Конструкция", icon: "Building2", size: "sm", drop: "Конструкция ▾" },
+      { label: "Объект профилирования", icon: "Layers2", size: "sm", drop: "Объект профил. ▾" },
+      { label: "Коридор", icon: "Navigation", size: "sm", drop: "Коридор ▾" },
+      { label: "Трубопроводная сеть", icon: "Network", size: "sm", drop: "Труб. сеть ▾" },
+    ]},
+    { label: "Виды профилей и сечений", items: [
+      { label: "Вид профиля", icon: "TrendingUp", size: "lg", drop: "Вид профиля ▾" },
+      { label: "Ось сечения", icon: "Minus", size: "sm" },
+      { label: "Вид сечения", icon: "BarChart2", size: "sm", drop: "Вид сечения ▾" },
+    ]},
+    { label: "Редактировать геометрию", items: [
+      { label: "Вставить ТП", icon: "MapPin", size: "sm" },
+      { label: "Удалить ТП", icon: "X", size: "sm" },
+    ]},
+    { label: "Редактировать отметки", items: [
+      { label: "Редактор отметок", icon: "Edit2", size: "lg" },
+      { label: "Вставить т. с отметкой", icon: "PlusSquare", size: "sm" },
+      { label: "Удалить т. с отметкой", icon: "MinusSquare", size: "sm" },
+    ]},
     { label: "Изменить", items: [
       { label: "Перенести", icon: "Move", size: "lg" },
       { label: "Копировать", icon: "Copy", size: "sm", drop: "Копировать ▾" },
@@ -554,6 +612,43 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "Переопубликовать", icon: "Upload", size: "sm", drop: "Переопубликовать ▾" },
       { label: "Обновить координаты", icon: "RefreshCw", size: "sm" },
       { label: "Экспорт KML", icon: "FileDown", size: "sm" },
+    ]},
+  ],
+  "Геопозиционирование": [
+    { label: "Координаты", items: [
+      { label: "Пространство модели", icon: "Box", size: "lg" },
+      { label: "Сетка", icon: "Grid3X3", size: "sm" },
+      { label: "Режим привязки", icon: "Magnet", size: "sm" },
+    ]},
+    { label: "Привязки", items: [
+      { label: "Подразум. зависимости", icon: "GitMerge", size: "sm" },
+      { label: "Динамический ввод", icon: "Type", size: "sm" },
+      { label: "Режим «Орто»", icon: "Minus", size: "sm" },
+      { label: "Полярное отслеж.", icon: "Crosshair", size: "sm" },
+      { label: "Изометр. проектиров.", icon: "Box", size: "sm" },
+      { label: "Отслеж. привязки", icon: "Target", size: "sm" },
+      { label: "Объектная привязка 2D", icon: "Circle", size: "sm" },
+    ]},
+    { label: "Режимы", items: [
+      { label: "Толщина линий", icon: "Minus", size: "sm" },
+      { label: "Прозрачность", icon: "Eye", size: "sm" },
+      { label: "Циклический выбор", icon: "RefreshCw", size: "sm" },
+      { label: "Объектная привязка 3D", icon: "Layers", size: "sm" },
+      { label: "Динамическая ПСК", icon: "Compass", size: "sm" },
+      { label: "Фильтрация выбора", icon: "Filter", size: "sm" },
+    ]},
+    { label: "Аннотации", items: [
+      { label: "Видимость аннотаций", icon: "Eye", size: "sm" },
+      { label: "Автомасштаб", icon: "ZoomIn", size: "sm" },
+      { label: "Масштаб аннотаций", icon: "ZoomIn", size: "sm" },
+    ]},
+    { label: "Рабочее простр.", items: [
+      { label: "Переключение РП", icon: "Layout", size: "sm" },
+      { label: "Монитор аннотаций", icon: "Monitor", size: "sm" },
+      { label: "Единицы", icon: "Ruler", size: "sm" },
+      { label: "Быстрые свойства", icon: "Info", size: "sm" },
+      { label: "Блокировка интерфейса", icon: "Lock", size: "sm" },
+      { label: "Изолировать объекты", icon: "EyeOff", size: "sm" },
     ]},
   ],
 }
@@ -3341,6 +3436,56 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   // ── Cursor screen position ───────────────────────────────────────────────
   const [cursorScreen, setCursorScreen] = useState({ x: 0, y: 0 })
 
+  // ── New Civil 3D 2027 features state ─────────────────────────────────────
+  const [showGeoMenu, setShowGeoMenu] = useState(false)
+  const [geoSettings, setGeoSettings] = useState<Record<string,boolean>>({
+    "Пространство модели": true, "Сетка": true, "Режим привязки": true,
+    "Подразумеваемые зависимости": false, "Динамический ввод": true,
+    "Режим «Орто»": true, "Полярное отслеживание": true,
+    "Изометрическое проектирование": false, "Отслеживание привязки к объектам": true,
+    "Объектная привязка 2D": true, "Толщина линий": false, "Прозрачность": false,
+    "Циклический выбор": false, "Объектная привязка 3D": false, "Динамическая ПСК": false,
+    "Фильтрация выбора": false, "Видимость аннотаций": true, "Автомасштаб": true,
+    "Масштаб аннотаций": true, "Переключение рабочего пространства": true,
+    "Монитор аннотаций": true, "Единицы": false, "Быстрые свойства": false,
+    "Блокировка элементов интерфейса": false, "Изолировать объекты": true,
+    "Производительность графики": false, "Значок секущей плоскости": true,
+    "Текст секущей плоскости": true, "Группа адаптивных меток": true,
+    "Включить/отключить метку": false,
+  })
+  const [contextMenu, setContextMenu] = useState<{x:number;y:number;wx:number;wy:number}|null>(null)
+  const [showAssistant, setShowAssistant] = useState(false)
+  const [assistantMessages, setAssistantMessages] = useState<{role:"user"|"bot";text:string}[]>([
+    {role:"bot", text:"Привет! Я ЛАПА-Ассистент. Спросите о Civil 3D 2027 — создании трасс, коридоров, поверхностей, HRA, характерных линиях выхода на рельеф. Готов помочь!"}
+  ])
+  const [assistantInput, setAssistantInput] = useState("")
+
+  const sendAssistantMessage = (text: string) => {
+    if (!text.trim()) return
+    const userMsg = { role: "user" as const, text: text.trim() }
+    setAssistantMessages(prev => [...prev, userMsg])
+    setAssistantInput("")
+    const t = text.toLowerCase()
+    let reply = "Команда принята. Уточните параметры объекта."
+    if (t.includes("трасс")) reply = "Для создания трассы: лента «Главная» → «Трасса» или команда ТРАССА. Укажите имя, тип, стиль и элементы геометрии (прямые, кривые, клотоиды)."
+    else if (t.includes("коридор")) reply = "Коридор создаётся на основе трассы + профиля + типового сечения. Лента «Главная» → «Коридор» или команда КОРИДОР."
+    else if (t.includes("поверхност") || t.includes("tin")) reply = "TIN-поверхность строится из точек, горизонталей или DEM. Лента «Главная» → «Поверхности» или команда ПОВЕРХНОСТЬ."
+    else if (t.includes("точк")) reply = "Точки импортируются из CSV/TXT или вводятся вручную. Лента «Съёмка» → «Создать точки» или команда ТОЧКИ."
+    else if (t.includes("профил")) reply = "Профиль строится по трассе и поверхности. Лента «Главная» → «Профиль» или команда ПРОФИЛЬ."
+    else if (t.includes("экспорт") || t.includes("dwg") || t.includes("pdf")) reply = "Экспорт: лента «Вывод» → «Экспорт» (DWG, LandXML, IFC, PDF, CSV). Команда ЭКСПОРТ."
+    else if (t.includes("земляных") || t.includes("объём")) reply = "Объёмы земляных работ: лента «Анализ» → «Объёмы» или команда ЗЕМЛЯ. Поддерживается метод по сечениям и призматоида."
+    else if (t.includes("привязк")) reply = "Объектные привязки настраиваются через «Геопозиционирование» в ленте — там панель с галочками всех режимов привязки."
+    else if (t.includes("dynamo")) reply = "Dynamo for Civil 3D 2027 (Core 4.0.2): откройте «Надстройки» → «Редактор скриптов» → вкладка Dynamo. PythonNet3 — механизм по умолчанию."
+    else if (t.includes("невязк") || t.includes("теодолит")) reply = "Отчёт о невязке: лента «Съёмка» → «Отчёт о невязке» или команда НЕВЯЗКА."
+    else if (t.includes("горизонтальн") || t.includes("регресс") || t.includes("hra")) reply = "Анализ горизонтальной регрессии (HRA, 2026.1+): вписывает проектную трассу в съёмку. Лента «Анализ» → «Трасса» → «Горизонтальная регрессия»."
+    else if (t.includes("характерн") || t.includes("выход на рельеф")) reply = "Характерная линия выхода на рельеф (Civil 3D 2027): автоматизирует профилирование склонов. Лента «Главная» → «Хар. линия» → «Выход на рельеф»."
+    else if (t.includes("дренаж") || t.includes("infodrainage")) reply = "Инструменты дренажа Autodesk 2027: интеграция с InfoDrainage. Лента «Анализ» → «Гидравлика» → «Дренаж InfoDrainage»."
+    else if (t.includes("мост")) reply = "Мосты: дерево объектов → «Мосты» → ПКМ → «Создать мост». Требуется трасса и профиль."
+    else if (t.includes("каталог труб") || t.includes("forma")) reply = "Каталог труб/напорных труб теперь интегрирован с Forma Data Management. Лента «Вставка» → «Диспетчер источников данных»."
+    else if (t.includes(".net") || t.includes("net 10")) reply = "Civil 3D 2027 поддерживает .NET 10. Старые плагины .NET Framework нужно перекомпилировать под .NET 10."
+    setTimeout(() => setAssistantMessages(prev => [...prev, { role: "bot", text: reply }]), 450)
+  }
+
   // ── Edit state ───────────────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<EditTool>("select")
   const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(INITIAL_CANVAS_OBJECTS)
@@ -3476,6 +3621,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       nodes.map(n => n.id === id ? { ...n, expanded: !n.expanded } : { ...n, children: n.children ? toggle(n.children) : undefined })
     setTreeData(toggle)
   }
+
+  // ── Close context menu on outside click ──────────────────────────────────
+  useEffect(() => {
+    const close = () => setContextMenu(null)
+    if (contextMenu) { document.addEventListener("click", close); return () => document.removeEventListener("click", close) }
+  }, [contextMenu])
 
   // ── Canvas → World coordinates ────────────────────────────────────────────
   const toWorld = useCallback((cx: number, cy: number, rect: DOMRect): [number,number] => {
@@ -3927,6 +4078,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
         <div className="flex items-center gap-1 ml-auto">
           <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
+          <button onClick={()=>setShowAssistant(p=>!p)} title="ЛАПА-Ассистент AI"
+            className={`ml-1 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors ${showAssistant?"bg-[#0078d4] text-white":"text-gray-400 hover:text-white hover:bg-[#0078d4]/40"}`}>
+            <Icon name="Bot" size={11} fallback="HelpCircle"/>
+            <span>Ассистент</span>
+          </button>
           <span className="text-[10px] text-gray-500 ml-1">пользователь</span>
         </div>
       </div>
@@ -3934,8 +4090,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       {/* ── Menu bar (ribbon tabs) ── */}
       <div className="bg-[#2d2d3d] border-b border-gray-700 flex items-center gap-0 overflow-x-auto flex-shrink-0">
         {MENU_ITEMS.map(m => (
-          <button key={m} onClick={() => { setActiveMenuTab(m); setStatusMsg(`Лента: ${m}`) }}
-            className={`px-3 py-1.5 text-xs whitespace-nowrap transition-colors border-b-2 ${activeMenuTab === m ? "border-[#0078d4] bg-[#252535] text-white" : "border-transparent text-gray-400 hover:bg-gray-700 hover:text-white"}`}>
+          <button key={m}
+            onClick={() => {
+              if (m === "Геопозиционирование") { setShowGeoMenu(p=>!p); return }
+              setActiveMenuTab(m); setStatusMsg(`Лента: ${m}`)
+            }}
+            className={`px-3 py-1.5 text-xs whitespace-nowrap transition-colors border-b-2 ${
+              m === "Геопозиционирование"
+                ? showGeoMenu ? "border-[#0078d4] bg-[#252535] text-white" : "border-transparent text-gray-400 hover:bg-gray-700 hover:text-white"
+                : activeMenuTab === m ? "border-[#0078d4] bg-[#252535] text-white" : "border-transparent text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}>
             {m}
           </button>
         ))}
@@ -4208,6 +4372,27 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
         </div>
 
+        {/* ── Миниатюра чертежа (превью) ── */}
+        <div className="bg-[#0a0a18] border-t border-r border-gray-800 flex-shrink-0 overflow-hidden" style={{width:160,position:"absolute",bottom:0,left:0,height:88,zIndex:5}}>
+          <div className="px-2 py-0.5 bg-[#111122] border-b border-gray-800 flex items-center justify-between">
+            <span className="text-[8px] text-gray-600 uppercase tracking-wide">Просмотр</span>
+            <span className="text-[8px] text-gray-700">{scale}</span>
+          </div>
+          <svg width="160" height="68" viewBox="-20 -10 1000 440" style={{background:"#080814"}}>
+            {[0,1,2,3,4].map(i=>(
+              <path key={i} d={`M-20,${60+i*60} Q250,${50+i*55} 500,${65+i*50} Q750,${75+i*45} 980,${55+i*60}`}
+                stroke={`rgba(60,130,60,${0.15+i*0.04})`} strokeWidth="4" fill="none"/>
+            ))}
+            <polyline points="80,60 160,90 260,110 370,95 460,80 540,70 630,85 720,100 810,88 880,72" stroke="#ef4444" strokeWidth="5" fill="none"/>
+            <polyline points="100,180 200,190 310,185 420,195 530,188 640,200 740,195 840,188" stroke="#a855f7" strokeWidth="5" fill="none"/>
+            <polyline points="180,120 220,130 270,160 290,210 280,260 250,300 210,320 170,310 140,280 130,240 140,190 160,155 180,120" stroke="#06b6d4" strokeWidth="4" fill="none"/>
+            <polyline points="120,280 180,275 240,268 300,260 360,255 420,258 480,265" stroke="#6366f1" strokeWidth="3" fill="none"/>
+            {[[95,55],[305,108],[485,78],[680,92],[870,68]].map(([x,y],i)=>(
+              <circle key={i} cx={x} cy={y} r="7" fill="#f59e0b"/>
+            ))}
+          </svg>
+        </div>
+
         {/* ── Side tabs (Навигатор / Параметры / Съёмка / Панель инструментов) ── */}
         <div className="bg-[#1e1e2e] border-r border-gray-700 w-4 flex flex-col items-center py-2 gap-3">
           {[
@@ -4335,21 +4520,40 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 [{viewMode === "wireframe" ? "2D Каркас" : "Тонирование"}]
               </button>
             </div>
-            {/* Viewport compass (top-right) */}
-            <div className="absolute top-1 right-2 z-10 select-none pointer-events-none">
-              <svg width="52" height="52" viewBox="0 0 52 52">
-                <circle cx="26" cy="26" r="24" fill="rgba(0,0,0,0.35)" stroke="#555" strokeWidth="1"/>
-                <text x="26" y="10" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">N</text>
-                <text x="26" y="47" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">S</text>
-                <text x="6" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">W</text>
-                <text x="46" y="29" textAnchor="middle" fill="#aaa" fontSize="7" fontWeight="bold">E</text>
-                <rect x="16" y="16" width="20" height="20" rx="3" fill="#0078d4" opacity="0.85"/>
-                <text x="26" y="30" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">ПЛАН</text>
-                <line x1="26" y1="12" x2="26" y2="17" stroke="#888" strokeWidth="1"/>
-                <line x1="26" y1="35" x2="26" y2="40" stroke="#888" strokeWidth="1"/>
-                <line x1="10" y1="26" x2="15" y2="26" stroke="#888" strokeWidth="1"/>
-                <line x1="37" y1="26" x2="42" y2="26" stroke="#888" strokeWidth="1"/>
+            {/* ── 3D NavCube ── */}
+            <div className="absolute top-2 right-2 z-10 select-none" style={{width:90,height:90}}>
+              <svg width="90" height="90" viewBox="0 0 90 90" style={{cursor:"pointer"}}
+                onClick={() => setStatusMsg("3D Навигатор: вращение вида")}>
+                {/* Outer ring */}
+                <circle cx="45" cy="45" r="43" fill="rgba(0,0,0,0.45)" stroke="#333" strokeWidth="1"/>
+                {/* Cardinal ticks */}
+                <line x1="45" y1="4" x2="45" y2="10" stroke="#555" strokeWidth="1"/>
+                <line x1="45" y1="80" x2="45" y2="86" stroke="#555" strokeWidth="1"/>
+                <line x1="4" y1="45" x2="10" y2="45" stroke="#555" strokeWidth="1"/>
+                <line x1="80" y1="45" x2="86" y2="45" stroke="#555" strokeWidth="1"/>
+                {/* Cardinal labels */}
+                <text x="45" y="18" textAnchor="middle" fill="#bbb" fontSize="8" fontWeight="bold">С</text>
+                <text x="45" y="76" textAnchor="middle" fill="#bbb" fontSize="8" fontWeight="bold">Ю</text>
+                <text x="12" y="48" textAnchor="middle" fill="#bbb" fontSize="8" fontWeight="bold">З</text>
+                <text x="78" y="48" textAnchor="middle" fill="#bbb" fontSize="8" fontWeight="bold">В</text>
+                {/* Isometric cube — right face */}
+                <polygon points="45,22 67,34 67,58 45,46" fill="#1a3a5c" stroke="#0078d4" strokeWidth="1.5"/>
+                {/* Isometric cube — left face */}
+                <polygon points="45,22 23,34 23,58 45,46" fill="#0d2540" stroke="#0078d4" strokeWidth="1.5"/>
+                {/* Isometric cube — top face */}
+                <polygon points="45,12 67,24 45,36 23,24" fill="#1e4a78" stroke="#0078d4" strokeWidth="1.5"/>
+                {/* Top face label */}
+                <text x="45" y="28" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="bold">Сверху</text>
+                {/* Right face label */}
+                <text x="57" y="44" textAnchor="middle" fill="#7ab3d8" fontSize="6">В</text>
+                {/* Left face label */}
+                <text x="33" y="44" textAnchor="middle" fill="#7ab3d8" fontSize="6">З</text>
               </svg>
+              {/* МСК button */}
+              <button onClick={()=>setStatusMsg("МСК — Мировая система координат")}
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-[#0078d4] text-white text-[8px] font-bold px-2 py-0.5 rounded hover:bg-[#005fa3] transition-colors">
+                МСК
+              </button>
             </div>
 
             {/* Active tool hint */}
@@ -4406,8 +4610,58 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               }}
               onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove}
               onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
-              onContextMenu={e => { e.preventDefault(); if (drawingPts.length > 0) { setDrawingPts([]); setStatusMsg("Черчение отменено") } }}
+              onContextMenu={e => {
+                e.preventDefault()
+                if (drawingPts.length > 0) { setDrawingPts([]); setStatusMsg("Черчение отменено"); return }
+                const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect()
+                const wx = (e.clientX - rect.left - pan.x) / zoom
+                const wy = (e.clientY - rect.top - pan.y) / zoom
+                setContextMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, wx, wy })
+              }}
             />
+
+            {/* ── Context menu (right click) ── */}
+            {contextMenu && (
+              <div className="absolute z-50 bg-[#2d2d3d] border border-gray-600 shadow-2xl rounded text-[11px] min-w-[210px]"
+                style={{left: Math.min(contextMenu.x, 580), top: Math.min(contextMenu.y, 420)}}
+                onClick={e=>e.stopPropagation()}>
+                {([
+                  { label: selectedObjId ? "Свойства объекта" : "Свойства", icon: "Info", action: ()=>setShowProperties(true) },
+                  { label: "Вписать всё  ZE", icon: "Maximize2", action: ()=>{setZoom(1.1);setPan({x:30,y:20})} },
+                  { label: "Зум +", icon: "ZoomIn", action: ()=>setZoom(z=>z*1.25) },
+                  { label: "Зум −", icon: "ZoomOut", action: ()=>setZoom(z=>z*0.8) },
+                  null,
+                  { label: "Выбор  S", icon: "MousePointer2", action: ()=>setActiveTool("select") },
+                  { label: "Перенести  M", icon: "Move", action: ()=>setActiveTool("move") },
+                  { label: "Копировать", icon: "Copy", action: ()=>showToast("Инструмент: Копировать") },
+                  { label: "Удалить  Del", icon: "Trash2", action: ()=>{
+                    if(selectedObjId){const o=canvasObjects.find(x=>x.id===selectedObjId);if(o){pushUndo(`Удалено: ${o.label}`);setCanvasObjects(p=>p.filter(x=>x.id!==selectedObjId));deleteCanvasObject(selectedObjId);setSelectedObjId(null);showToast(`Удалён: ${o.label}`)}}
+                  }},
+                  null,
+                  { label: "Линия  L", icon: "Minus", action: ()=>{setActiveTool("line");setDrawingPts([])} },
+                  { label: "Полилиния  PL", icon: "Spline", action: ()=>{setActiveTool("polyline");setDrawingPts([])} },
+                  { label: "Точка  O", icon: "MapPin", action: ()=>setActiveTool("point") },
+                  { label: "Прямоугольник  R", icon: "Square", action: ()=>{setActiveTool("rect");setDrawingPts([])} },
+                  null,
+                  { label: "Слои…", icon: "Layers", action: ()=>setShowLayers(true) },
+                  { label: "Создать трассу…", icon: "Route", action: ()=>setShowAlignment(true) },
+                  { label: "Создать коридор…", icon: "Navigation", action: ()=>setShowCorridor(true) },
+                  { label: "Создать поверхность…", icon: "Mountain", action: ()=>setShowSurface(true) },
+                  null,
+                  { label: "Диспетчер проекта…", icon: "FolderKanban", action: ()=>setShowProjectManager(true) },
+                  { label: "Земляные работы…", icon: "BarChart3", action: ()=>setShowEarthworks(true) },
+                  { label: "Свойства чертежа…", icon: "Settings", action: ()=>setShowDrawingSettings(true) },
+                ] as ({label:string;icon:string;action:()=>void}|null)[]).map((item, i) => item === null ? (
+                  <div key={i} className="border-t border-gray-700 my-0.5"/>
+                ) : (
+                  <button key={i} onClick={()=>{item.action();setContextMenu(null)}}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#0078d4] hover:text-white text-gray-300 transition-colors text-left">
+                    <Icon name={item.icon} size={12} fallback="Square"/>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Dialogs */}
@@ -4748,6 +5002,77 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             </div>
           )
         })()}
+
+        {/* ── Right: Геопозиционирование панель ── */}
+        {showGeoMenu && (
+          <div className="bg-[#2d2d3d] border-l border-gray-600 flex flex-col flex-shrink-0 overflow-y-auto z-30" style={{width:224}}>
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-600 bg-[#252535] sticky top-0">
+              <span className="text-white text-[11px] font-bold">Координаты и режимы</span>
+              <button onClick={()=>setShowGeoMenu(false)} className="text-gray-400 hover:text-white text-xs">✕</button>
+            </div>
+            {(Object.entries(geoSettings) as [string,boolean][]).reduce<(string|null)[]>((acc, [k], i, arr) => {
+              const separators = [3, 10, 16, 19, 24]
+              if (separators.includes(i)) acc.push(null)
+              acc.push(k)
+              return acc
+            }, []).map((item, i) => item === null ? (
+              <div key={`sep-${i}`} className="border-t border-gray-700 my-0.5 mx-2"/>
+            ) : (
+              <button key={item} onClick={() => setGeoSettings(p=>({...p,[item]:!p[item]}))}
+                className="flex items-center gap-2 px-3 py-1 text-[11px] hover:bg-[#0078d4]/20 hover:text-white text-left w-full transition-colors">
+                <span className={`w-3 font-bold flex-shrink-0 ${geoSettings[item]?"text-[#0078d4]":"text-transparent"}`}>✓</span>
+                <span className={geoSettings[item]?"text-gray-200":"text-gray-500"}>{item}</span>
+              </button>
+            ))}
+            <div className="p-2 border-t border-gray-700 mt-auto">
+              <button onClick={()=>{setGeoSettings(p=>Object.fromEntries(Object.keys(p).map(k=>[k,true])));showToast("Все режимы включены")}}
+                className="w-full text-[10px] text-gray-300 hover:text-white border border-gray-600 rounded py-1 hover:border-[#0078d4] transition-colors">
+                Включить все
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Right: AI Ассистент ── */}
+        {showAssistant && (
+          <div className="bg-[#141420] border-l border-gray-700 flex flex-col flex-shrink-0" style={{width:260}}>
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-[#252535]">
+              <span className="text-white text-[12px] font-bold flex items-center gap-1.5">
+                <Icon name="Bot" size={13} className="text-[#0078d4]" fallback="HelpCircle"/> ЛАПА-Ассистент
+              </span>
+              <button onClick={()=>setShowAssistant(false)} className="text-gray-400 hover:text-white text-sm">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2" style={{minHeight:0}}>
+              {assistantMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role==="user"?"justify-end":"justify-start"}`}>
+                  <div className={`max-w-[210px] px-2.5 py-1.5 rounded-lg text-[11px] leading-relaxed ${msg.role==="user"?"bg-[#0078d4] text-white rounded-br-sm":"bg-[#252535] text-gray-200 rounded-bl-sm"}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-2 border-t border-gray-700">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {["Создать трассу","HRA анализ","Характерная линия","Dynamo 4.0","Дренаж"].map(q=>(
+                  <button key={q} onClick={()=>sendAssistantMessage(q)}
+                    className="text-[9px] px-1.5 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] hover:bg-[#0078d4]/40 rounded border border-[#0078d4]/30 transition-colors">
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <input value={assistantInput} onChange={e=>setAssistantInput(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&sendAssistantMessage(assistantInput)}
+                  placeholder="Задайте вопрос о Civil 3D…"
+                  className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-[#0078d4] placeholder-gray-600"/>
+                <button onClick={()=>sendAssistantMessage(assistantInput)}
+                  className="px-2 py-1 rounded text-white transition-colors flex-shrink-0" style={{background:"#0078d4"}}>
+                  <Icon name="Send" size={11} fallback="ArrowRight"/>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Right: Section views ── */}
         {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
