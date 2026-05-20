@@ -2,6 +2,296 @@ import { useRef, useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 
+// ─── Recent files data ────────────────────────────────────────────────────────
+
+const RECENT_FILES = [
+  { name: "Intro-1", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#a855f7", preview: "intro" },
+  { name: "Quantities-7", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#4ade80", preview: "quantities" },
+  { name: "Align-Superelevat...", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#ef4444", preview: "align" },
+  { name: "Parcel-3A", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#06b6d4", preview: "parcel" },
+  { name: "Главная_парковка_Финал", ext: "dwg", date: "20 мая 2026 г. 14:32", color: "#4f46e5", preview: "corridor" },
+  { name: "ЦМР_Съёмка_2024", ext: "tin", date: "19 мая 2026 г. 18:10", color: "#059669", preview: "tin" },
+]
+
+// ─── AdaptationDialog ─────────────────────────────────────────────────────────
+
+function AdaptationDialog({ onClose }: { onClose: () => void }) {
+  const [selectedPalette, setSelectedPalette] = useState("Текущий проект")
+  const palettes = ["Текущий проект","Аннотация","Архитектурные","Оборудование","Электрическая сеть","Коммуникации","Несущие элементы","Штриховка и заливка","Таблицы","Примеры инструментов работы с","Выноски","Визуальные стили","Источники света общего назначен.","Флуоресцентная"]
+  const groups: Record<string,string[]> = {
+    "Текущий проект": ["Штриховка и заливка","Примеры инструментов р..."],
+    "Архитектурные": ["3D-построения","Моделирование","Чертить","Редактировать","Библиотека материалов","Источники света общего назн...","Камеры","Визуальные стили"],
+    "Аннотация": ["Тексты","Размеры","Выноски","Таблицы"],
+    "Оборудование": ["Оборудование инженерных сетей","Кабельные лотки","Воздуховоды"],
+    "Электрическая сеть": ["Электрические компоненты","Щиты","Розетки"],
+  }
+  const currentGroups = groups[selectedPalette] || groups["Архитектурные"]
+  const currentGroupLabel = "Элементы конструкций Civil в метрической системе единиц"
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/50 flex items-start justify-start z-50 p-16">
+      <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.95,opacity:0}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded shadow-2xl flex flex-col"
+        style={{width:500,height:400}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#252535]">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white text-[10px] rounded-sm font-bold">C</div>
+            <span className="text-white text-[13px] font-bold">Адаптация</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+        </div>
+        <div className="px-4 py-2 border-b border-gray-700 text-[11px] text-gray-400 bg-[#1a1a2a]">
+          Палитры инструментов - все палитры
+        </div>
+        <div className="flex flex-1 overflow-hidden">
+          <div className="border-r border-gray-700 flex flex-col" style={{width:200}}>
+            <div className="px-3 py-1.5 text-[10px] text-gray-500 font-semibold border-b border-gray-800">Палитры:</div>
+            <div className="flex-1 overflow-y-auto">
+              {palettes.map(p=>(
+                <button key={p} onClick={()=>setSelectedPalette(p)}
+                  className={`w-full text-left px-3 py-1.5 text-[11px] flex items-center gap-2 transition-colors ${selectedPalette===p?"bg-[#0078d4] text-white":"text-gray-300 hover:bg-[#252535]"}`}>
+                  <div className={`w-3 h-3 rounded-sm flex-shrink-0 border ${selectedPalette===p?"border-white bg-white/20":"border-gray-500 bg-gray-700"}`}/>
+                  {p}
+                  {p==="Текущий проект" && <span className="ml-auto w-2 h-2 rounded-full bg-orange-400 flex-shrink-0"/>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col flex-1">
+            <div className="px-3 py-1.5 text-[10px] text-gray-500 font-semibold border-b border-gray-800">Группы палитр:</div>
+            <div className="flex-1 overflow-y-auto">
+              {currentGroups.map((g,i)=>(
+                <div key={i}>
+                  <button className="w-full text-left px-3 py-1.5 text-[11px] text-gray-300 hover:bg-[#252535] flex items-center gap-1.5">
+                    <Icon name="ChevronRight" size={10} className="text-gray-500"/>
+                    {g}
+                  </button>
+                  {i===0 && (
+                    <div className="pl-6">
+                      <button className="w-full text-left px-3 py-1 text-[10px] text-gray-400 hover:bg-[#252535] flex items-center gap-1.5">
+                        <Icon name="Minus" size={9} className="text-gray-600"/>
+                        Sample
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-gray-700 px-4 py-1.5 bg-[#1a1a2a]">
+          <span className="text-[10px] text-gray-500">Текущая группа палитр: </span>
+          <span className="text-[10px] text-gray-300">{currentGroupLabel}</span>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-gray-700">
+          <button onClick={onClose} className="text-[11px] text-white px-4 py-1.5 rounded border border-gray-500 hover:bg-[#252535] transition-colors">Закрыть</button>
+          <button className="text-[11px] text-[#0078d4] px-3 py-1.5">Справка</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── StartScreen ──────────────────────────────────────────────────────────────
+
+function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGraphicsBanner, setShowGraphicsBanner }: {
+  onOpen: (name?: string) => void
+  showWelcomeDialog: boolean
+  setShowWelcomeDialog: (v: boolean) => void
+  showGraphicsBanner: boolean
+  setShowGraphicsBanner: (v: boolean) => void
+}) {
+  const [tab, setTab] = useState<"recent"|"autodesk"|"learning">("recent")
+  const [search, setSearch] = useState("")
+
+  return (
+    <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden relative" style={{fontFamily:"Arial,sans-serif",fontSize:12}}>
+      {/* Верхняя полоса */}
+      <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
+        <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">C</div>
+        <span className="text-[11px] text-gray-400 font-semibold ml-2">Autodesk Civil 3D 2027</span>
+        <div className="flex-1"/>
+        <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none"/>
+      </div>
+      {/* Информационный баннер */}
+      {showGraphicsBanner && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-blue-800/40 flex-shrink-0" style={{background:"#1a2a3a"}}>
+          <Icon name="Info" size={14} className="text-[#0078d4] flex-shrink-0"/>
+          <span className="text-[11px] text-gray-300 flex-1">Настройте параметры графики компьютера для повышения производительности.</span>
+          <button className="text-[11px] text-white px-3 py-0.5 rounded transition-colors flex-shrink-0" style={{background:"#0078d4"}}>Настроить</button>
+          <button onClick={()=>setShowGraphicsBanner(false)} className="text-gray-400 hover:text-white ml-1 text-sm flex-shrink-0">✕</button>
+        </div>
+      )}
+      {/* Основной контент */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Левая панель */}
+        <div className="bg-[#252535] border-r border-gray-700 flex flex-col flex-shrink-0" style={{width:220}}>
+          <div className="px-6 py-6 border-b border-gray-700">
+            <div className="text-white text-[22px] font-bold mb-4">Civil 3D 2027</div>
+            <button onClick={()=>onOpen()} className="w-full flex items-center gap-2 px-3 py-2 rounded border border-gray-600 text-[12px] text-white hover:border-[#0078d4] hover:bg-[#0078d4]/10 transition-all mb-2">
+              <Icon name="FolderOpen" size={14}/>
+              <span>Открыть...</span>
+              <Icon name="ChevronDown" size={11} className="ml-auto text-gray-400"/>
+            </button>
+            <button onClick={()=>onOpen("new")} className="w-full flex items-center gap-2 px-3 py-2 rounded border border-gray-600 text-[12px] text-white hover:border-[#0078d4] hover:bg-[#0078d4]/10 transition-all">
+              <Icon name="Plus" size={14}/>
+              <span>Создать</span>
+              <Icon name="ChevronDown" size={11} className="ml-auto text-gray-400"/>
+            </button>
+          </div>
+          <nav className="flex-1 py-3">
+            {([["recent","Последние"],["autodesk","Проекты Autodesk"],["learning","Обучение и аналитика"]] as const).map(([id,label])=>(
+              <button key={id} onClick={()=>setTab(id)}
+                className={`w-full text-left px-6 py-2 text-[12px] transition-colors ${tab===id?"bg-[#0078d4]/20 text-white border-l-2 border-[#0078d4]":"text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}>
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="px-4 py-4 border-t border-gray-700 space-y-1.5">
+            {[["Новые возможности","ExternalLink"],["Онлайн-справка","HelpCircle"],["Форум сообщества","Users"],["Служба поддержки клиентов","Headphones"]].map(([label,icon])=>(
+              <button key={label} className="flex items-center gap-2 text-[11px] text-[#0078d4] hover:underline w-full text-left">
+                <Icon name={icon} size={11} fallback="Link"/>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Основная область */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {tab === "recent" && (
+            <>
+              <h2 className="text-white text-[20px] font-semibold mb-4">Последние</h2>
+              <div className="flex items-center gap-3 mb-5">
+                <button className="p-1.5 rounded border border-gray-600 text-gray-400 hover:text-white"><Icon name="List" size={14}/></button>
+                <button className="p-1.5 rounded border border-[#0078d4] bg-[#0078d4]/20 text-[#0078d4]"><Icon name="LayoutGrid" size={14}/></button>
+                <div className="flex items-center gap-1 border border-gray-600 rounded px-2 py-1 text-[11px] text-gray-400">
+                  <span>Сортировать по</span>
+                  <span className="text-white ml-1">Последнее открытие</span>
+                  <Icon name="ChevronDown" size={11} className="ml-1"/>
+                </div>
+                <div className="flex items-center gap-1 border border-gray-600 rounded px-2 py-1 ml-auto" style={{minWidth:220}}>
+                  <Icon name="Search" size={12} className="text-gray-500"/>
+                  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск последних файлов" className="bg-transparent text-[11px] text-white outline-none flex-1 placeholder-gray-600 ml-1"/>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4" style={{gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))"}}>
+                {RECENT_FILES.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())).map((f,i)=>(
+                  <div key={i} role="button" tabIndex={0} onClick={()=>onOpen(f.name)}
+                    onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")onOpen(f.name)}}
+                    className="text-left rounded-lg border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e1e30] transition-all overflow-hidden group cursor-pointer">
+                    <div className="h-32 flex items-center justify-center relative" style={{background:"#111827"}}>
+                      <svg width="100%" height="100%" viewBox="0 0 200 120" style={{background:"#111827"}}>
+                        {f.preview==="intro" && <>
+                          <path d="M20,60 Q60,30 100,50 Q140,70 180,40" stroke="#a855f7" strokeWidth="2" fill="none"/>
+                          <path d="M20,80 Q80,60 140,75 Q170,82 190,70" stroke="#4ade80" strokeWidth="1.5" fill="none"/>
+                          {[40,80,120,160].map(x=><rect key={x} x={x-12} y={45} width={24} height={16} fill="#ec4899" opacity="0.6"/>)}
+                        </>}
+                        {f.preview==="quantities" && <>
+                          <path d="M10,90 Q50,30 100,50 Q150,70 190,30" stroke="#4ade80" strokeWidth="2" fill="none"/>
+                          <path d="M10,70 Q60,40 100,60 Q150,80 190,50" stroke="#60a5fa" strokeWidth="1.5" fill="none"/>
+                          <rect x="20" y="20" width="160" height="70" fill="none" stroke="#60a5fa" strokeWidth="1" opacity="0.3"/>
+                        </>}
+                        {f.preview==="align" && <>
+                          <path d="M10,70 L50,65 L90,45 L130,50 L170,38 L190,42" stroke="#ef4444" strokeWidth="2.5" fill="none"/>
+                          <path d="M10,75 L50,70 L90,50 L130,55 L170,43 L190,47" stroke="#f97316" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                          {[40,80,120,160].map(x=><polygon key={x} points={`${x},${55-x*0.05} ${x-6},${65-x*0.05} ${x+6},${65-x*0.05}`} fill="#facc15"/>)}
+                        </>}
+                        {f.preview==="parcel" && <>
+                          <polygon points="30,20 170,25 175,95 25,90" fill="none" stroke="#06b6d4" strokeWidth="2"/>
+                          <polygon points="70,40 120,42 118,75 68,73" fill="none" stroke="#ec4899" strokeWidth="1.5"/>
+                          <path d="M30,55 L170,58" stroke="#4ade80" strokeWidth="1.5"/>
+                        </>}
+                        {f.preview==="corridor" && <>
+                          <path d="M10,60 Q50,45 100,55 Q150,65 190,50" stroke={f.color} strokeWidth="2.5" fill="none"/>
+                          <path d="M10,65 Q50,50 100,60 Q150,70 190,55" stroke={f.color} strokeWidth="1" fill="none" opacity="0.4"/>
+                        </>}
+                        {f.preview==="tin" && <>
+                          {[0,1,2,3,4].map(i=><path key={i} d={`M0,${20+i*20} Q100,${15+i*18} 200,${22+i*19}`} stroke="#4ade80" strokeWidth="0.8" fill="none" opacity="0.5"/>)}
+                        </>}
+                        <rect x="2" y="2" width="18" height="18" rx="2" fill={f.color} opacity="0.9"/>
+                        <text x="11" y="14" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">C</text>
+                        <circle cx="183" cy="10" r="7" fill="rgba(0,0,0,0.5)"/>
+                        <text x="183" y="14" textAnchor="middle" fill="#aaa" fontSize="9">📌</text>
+                      </svg>
+                    </div>
+                    <div className="px-3 py-2">
+                      <div className="text-white text-[12px] font-semibold truncate">{f.name}</div>
+                      <div className="text-gray-500 text-[10px] mt-0.5">{f.date}</div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Icon name="Monitor" size={10} className="text-gray-600"/>
+                        <span className="text-[9px] text-gray-600">Этот компьютер</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {tab === "autodesk" && (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <Icon name="Cloud" size={40} className="text-gray-600 mb-3"/>
+              <div className="text-white text-[16px] font-semibold mb-2">Проекты Autodesk</div>
+              <div className="text-gray-400 text-[12px] mb-4">Подключитесь к Autodesk Construction Cloud для доступа к облачным проектам</div>
+              <button className="text-[12px] text-white px-4 py-2 rounded" style={{background:"#0078d4"}}>Подключить</button>
+            </div>
+          )}
+          {tab === "learning" && (
+            <div>
+              <h2 className="text-white text-[20px] font-semibold mb-4">Обучение и аналитика</h2>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  {icon:"Play",title:"Быстрый старт Civil 3D 2027",tag:"Видео · 15 мин",color:"#0078d4"},
+                  {icon:"BookOpen",title:"Работа с ЦМР и поверхностями",tag:"Урок · 30 мин",color:"#059669"},
+                  {icon:"Route",title:"Трассирование и коридоры",tag:"Урок · 45 мин",color:"#d97706"},
+                  {icon:"TrendingUp",title:"Анализ горизонтальной регрессии",tag:"Новое · 20 мин",color:"#7c3aed"},
+                  {icon:"Spline",title:"Характерные линии выхода на рельеф",tag:"Новое · 25 мин",color:"#ec4899"},
+                  {icon:"Gauge",title:"Напорные трубопроводные сети",tag:"Урок · 35 мин",color:"#0284c7"},
+                ].map((c,i)=>(
+                  <div key={i} className="p-4 rounded-lg border border-gray-700 hover:border-gray-500 cursor-pointer transition-colors" style={{background:"#252535"}}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{background:c.color+"20"}}>
+                      <Icon name={c.icon} size={16} style={{color:c.color}} fallback="Play"/>
+                    </div>
+                    <div className="text-[11px] text-white font-semibold mb-1">{c.title}</div>
+                    <div className="text-[10px] px-2 py-0.5 rounded-full inline-block" style={{background:c.color+"20",color:c.color}}>{c.tag}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Диалог приветствия */}
+      {showWelcomeDialog && (
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden" style={{width:340,maxHeight:"80vh"}}>
+            <div className="flex justify-end p-2">
+              <button onClick={()=>setShowWelcomeDialog(false)} className="text-gray-400 hover:text-gray-700 text-lg">✕</button>
+            </div>
+            <div className="px-6 pb-6 text-center flex flex-col items-center">
+              <div className="mb-4">
+                <svg width="80" height="60" viewBox="0 0 80 60">
+                  <rect x="10" y="30" width="60" height="5" rx="2" fill="#ddd"/>
+                  <rect x="15" y="20" width="20" height="12" rx="2" fill="#bbb"/>
+                  <circle cx="25" cy="26" r="4" fill="#999"/>
+                  <rect x="45" y="15" width="25" height="8" rx="1" fill="#ccc" transform="rotate(-15 45 15)"/>
+                </svg>
+              </div>
+              <h3 className="text-gray-800 text-[16px] font-bold mb-2">Приветствие</h3>
+              <p className="text-gray-600 text-[12px] mb-2">Не могли бы вы рассказать немного о себе?</p>
+              <p className="text-gray-500 text-[11px] mb-5">Ответьте на два простых вопроса, чтобы мы могли лучше понять, как вы используете Civil 3D.</p>
+              <button onClick={()=>setShowWelcomeDialog(false)} className="w-full py-2 rounded text-white text-[12px] font-medium mb-3" style={{background:"#0078d4"}}>Начать</button>
+              <button onClick={()=>setShowWelcomeDialog(false)} className="text-[11px] text-[#0078d4] hover:underline mb-1">Больше не показывать это сообщение</button>
+              <button onClick={()=>setShowWelcomeDialog(false)} className="text-[11px] text-[#0078d4] hover:underline">Что происходит при создании профиля пользователя?</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface TreeNode {
@@ -374,22 +664,38 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     ]},
   ],
   "Анализ": [
+    { label: "Данные рельефа", items: [
+      { label: "Съёмка", icon: "Compass", size: "lg" },
+      { label: "Быстрый профиль", icon: "TrendingUp", size: "sm" },
+      { label: "Данные рельефа", icon: "ScanLine", size: "sm" },
+    ]},
+    { label: "Проектные данные", items: [
+      { label: "Проверка видимости", icon: "Eye", size: "lg" },
+      { label: "Проезд", icon: "Car", size: "sm", fallback: "Route" },
+      { label: "Проверка взаимодействий", icon: "GitMerge", size: "sm" },
+      { label: "Анализ дренажной системы", icon: "Droplets", size: "sm" },
+    ]},
+    { label: "Объёмы и материалы", items: [
+      { label: "Пульт управления объёмами", icon: "BarChart3", size: "lg" },
+      { label: "Инструменты профилирования по объёмам", icon: "BarChart2", size: "sm" },
+    ]},
+    { label: "Объём работ", items: [
+      { label: "Диспетчер объёмов работ", icon: "ClipboardList", size: "lg" },
+      { label: "Объём работ", icon: "FileSpreadsheet", size: "sm" },
+      { label: "Запрос", icon: "Search", size: "lg" },
+    ]},
+    { label: "Grading", items: [
+      { label: "Grading...", icon: "Layers2", size: "lg" },
+    ]},
     { label: "Поверхности", items: [
-      { label: "Анализ уклонов", icon: "TrendingUp", size: "lg", drop: "Анализ уклонов ▾" },
-      { label: "Анализ высот", icon: "BarChart2", size: "sm", drop: "Анализ высот ▾" },
-      { label: "Водосборы", icon: "Droplets", size: "sm", drop: "Водосборы ▾" },
-      { label: "Разрезы", icon: "ScanLine", size: "sm", drop: "Разрезы ▾" },
-    ]},
-    { label: "Коридоры", items: [
-      { label: "Объёмы", icon: "Database", size: "lg", drop: "Объёмы ▾" },
-      { label: "Ведомость", icon: "FileSpreadsheet", size: "sm", drop: "Ведомость объёмов ▾" },
-    ]},
-    { label: "Сети", items: [
-      { label: "Гидравлика", icon: "Gauge", size: "lg", drop: "Гидравлика ▾" },
-      { label: "Инспекция", icon: "Search", size: "sm", drop: "Инспекция ▾" },
+      { label: "Анализ уклонов", icon: "TrendingUp", size: "sm", drop: "Анализ уклонов ▾" },
+      { label: "Анализ высот", icon: "BarChart2", size: "sm" },
+      { label: "Водосборы", icon: "Droplets", size: "sm" },
     ]},
     { label: "Отчёты", items: [
-      { label: "Отчёт", icon: "FileText", size: "lg", drop: "Генерировать отчёт ▾" },
+      { label: "Объёмы", icon: "Database", size: "sm", drop: "Объёмы ▾" },
+      { label: "Ведомость", icon: "FileSpreadsheet", size: "sm" },
+      { label: "Гидравлика", icon: "Gauge", size: "sm" },
     ]},
   ],
   "Вид": [
@@ -420,24 +726,38 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     ]},
   ],
   "Управление": [
-    { label: "Параметры", items: [
-      { label: "Параметры чертежа", icon: "Settings", size: "lg" },
-      { label: "Единицы и зона", icon: "Globe", size: "sm" },
-      { label: "Общие параметры", icon: "SlidersHorizontal", size: "sm" },
+    { label: "Быстрые ссылки", items: [
+      { label: "Создать быстрые ссылки", icon: "BookMarked", size: "lg" },
+      { label: "Изменить", icon: "Edit2", size: "sm" },
+      { label: "Удалить", icon: "Trash2", size: "sm" },
     ]},
-    { label: "Стили", items: [
-      { label: "Параметры объекта", icon: "Palette", size: "lg" },
-      { label: "Диспетчер стилей", icon: "Paintbrush", size: "sm", drop: "Диспетчер стилей марок ▾" },
-    ]},
-    { label: "Запись действий", items: [
-      { label: "Запись", icon: "Circle", size: "sm" },
+    { label: "Рекордер операций", items: [
+      { label: "Запись", icon: "Circle", size: "lg" },
       { label: "Воспроизведение", icon: "Play", size: "sm" },
       { label: "Редактировать", icon: "Edit", size: "sm" },
     ]},
-    { label: "Стандарты САПР", items: [
-      { label: "Настройка", icon: "Wrench", size: "sm" },
-      { label: "Проверка", icon: "CheckCircle", size: "sm" },
-      { label: "Преобразователь", icon: "ArrowLeftRight", size: "sm" },
+    { label: "Адаптация", items: [
+      { label: "Пользовательский интерфейс", icon: "Layout", size: "lg" },
+      { label: "Инструментальные палитры", icon: "PanelLeft", size: "lg" },
+      { label: "CUI", icon: "Code", size: "sm" },
+    ]},
+    { label: "Приложения", items: [
+      { label: "Прилож.", icon: "AppWindow", size: "lg", drop: "Приложения ▾", fallback: "Monitor" },
+      { label: "Станд.", icon: "BookCheck", size: "lg", drop: "Стандарты ▾", fallback: "BookOpen" },
+      { label: "Стили", icon: "Palette", size: "lg", drop: "Стили ▾" },
+      { label: "Данные.", icon: "Database", size: "lg", drop: "Данные ▾" },
+    ]},
+    { label: "Очистка", items: [
+      { label: "Очистка", icon: "Trash", size: "lg", drop: "Очистка ▾", fallback: "Trash2" },
+    ]},
+    { label: "Производительность", items: [
+      { label: "Произв.", icon: "Zap", size: "lg", drop: "Производительность ▾", fallback: "Gauge" },
+      { label: "Визуал.", icon: "Eye", size: "lg", drop: "Визуальные стили ▾" },
+    ]},
+    { label: "Параметры", items: [
+      { label: "Параметры чертежа", icon: "Settings", size: "sm" },
+      { label: "Единицы и зона", icon: "Globe", size: "sm" },
+      { label: "Диспетчер стилей", icon: "Paintbrush", size: "sm" },
     ]},
   ],
   "Вывод": [
@@ -3311,7 +3631,7 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ─── Main CivilCAD Module ────────────────────────────────────────────────────
+// ─── Navigation modules list ──────────────────────────────────────────────────
 
 const NAV_MODULES = [
   { id: "civilcad",   icon: "Monitor",        label: "ЛАПА — Редактор" },
@@ -3332,6 +3652,8 @@ const NAV_MODULES = [
   { id: "standards",  icon: "BookCheck",      label: "Стандарты проектирования" },
   { id: "dynamic",    icon: "RefreshCw",      label: "Динамические модели" },
 ]
+
+// ─── Main export ─────────────────────────────────────────────────────────────
 
 export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -3417,6 +3739,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showProjectManager, setShowProjectManager] = useState(false)
   const [showSurveyTraverse, setShowSurveyTraverse] = useState(false)
   const [toolspaceTab, setToolspaceTab] = useState<"dispatcher"|"params">("dispatcher")
+
+  // ── Start screen state ───────────────────────────────────────────────────
+  const [showStartScreen, setShowStartScreen] = useState(true)
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(true)
+  const [showGraphicsBanner, setShowGraphicsBanner] = useState(true)
+
+  // ── Adaptation dialog state ──────────────────────────────────────────────
+  const [showAdaptation, setShowAdaptation] = useState(false)
 
   // ── Side tab state ───────────────────────────────────────────────────────
   const [activeSideTab, setActiveSideTab] = useState<string|null>(null)
@@ -4024,6 +4354,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("диспетчер проект") || k.includes("project manager")) { setShowProjectManager(true) }
     // Невязка теодолитного хода
     else if (k.includes("невязк") || k.includes("теодолитн") || k.includes("traverse")) { setShowSurveyTraverse(true) }
+    // Адаптация / палитры инструментов
+    else if (k.includes("адаптац") || k.includes("палитр") || k.includes("инструментальные") || k.includes("cui") || k.includes("пользовательский интерфейс")) { setShowAdaptation(true) }
     // Всё остальное
     else { setStatusMsg(`Выполнено: ${key}`) }
   }
@@ -4047,6 +4379,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"] || []
+
+  if (showStartScreen) {
+    return (
+      <StartScreen
+        onOpen={(name) => {
+          setShowStartScreen(false)
+          if (name && name !== "new" && !drawingTabs.includes(name + ".dwg")) {
+            setDrawingTabs(prev => [...prev, name + ".dwg"])
+            setActiveDrawingTab(name + ".dwg")
+          }
+        }}
+        showWelcomeDialog={showWelcomeDialog}
+        setShowWelcomeDialog={setShowWelcomeDialog}
+        showGraphicsBanner={showGraphicsBanner}
+        setShowGraphicsBanner={setShowGraphicsBanner}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
@@ -4199,6 +4549,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       <div className="bg-[#252535] border-b border-gray-700 flex items-center gap-0 px-1 py-0" style={{minHeight:22}}>
         <span className="text-[9px] text-gray-500 px-2">[-]</span>
         <div className="flex items-center gap-0">
+          <button onClick={()=>setShowStartScreen(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] border-r border-gray-700 transition-colors whitespace-nowrap ${showStartScreen?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:text-white hover:bg-[#252535]"}`}>
+            <Icon name="Home" size={11}/>
+            Начало
+          </button>
           {drawingTabs.map(tab => (
             <button
               key={tab}
@@ -4626,38 +4981,43 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 style={{left: Math.min(contextMenu.x, 580), top: Math.min(contextMenu.y, 420)}}
                 onClick={e=>e.stopPropagation()}>
                 {([
-                  { label: selectedObjId ? "Свойства объекта" : "Свойства", icon: "Info", action: ()=>setShowProperties(true) },
-                  { label: "Вписать всё  ZE", icon: "Maximize2", action: ()=>{setZoom(1.1);setPan({x:30,y:20})} },
-                  { label: "Зум +", icon: "ZoomIn", action: ()=>setZoom(z=>z*1.25) },
-                  { label: "Зум −", icon: "ZoomOut", action: ()=>setZoom(z=>z*0.8) },
+                  { label: "Повторить HELP", icon: "RotateCcw", action: ()=>showToast("Повторить последнее действие") },
                   null,
-                  { label: "Выбор  S", icon: "MousePointer2", action: ()=>setActiveTool("select") },
-                  { label: "Перенести  M", icon: "Move", action: ()=>setActiveTool("move") },
-                  { label: "Копировать", icon: "Copy", action: ()=>showToast("Инструмент: Копировать") },
-                  { label: "Удалить  Del", icon: "Trash2", action: ()=>{
-                    if(selectedObjId){const o=canvasObjects.find(x=>x.id===selectedObjId);if(o){pushUndo(`Удалено: ${o.label}`);setCanvasObjects(p=>p.filter(x=>x.id!==selectedObjId));deleteCanvasObject(selectedObjId);setSelectedObjId(null);showToast(`Удалён: ${o.label}`)}}
-                  }},
+                  { label: "Разделить объекты ▶", icon: "Split", action: ()=>showToast("Разделить: укажите объект"), hasSubmenu: true },
+                  { label: "Буфер обмена ▶", icon: "Clipboard", action: ()=>showToast("Буфер обмена"), hasSubmenu: true },
                   null,
-                  { label: "Линия  L", icon: "Minus", action: ()=>{setActiveTool("line");setDrawingPts([])} },
-                  { label: "Полилиния  PL", icon: "Spline", action: ()=>{setActiveTool("polyline");setDrawingPts([])} },
-                  { label: "Точка  O", icon: "MapPin", action: ()=>setActiveTool("point") },
-                  { label: "Прямоугольник  R", icon: "Square", action: ()=>{setActiveTool("rect");setDrawingPts([])} },
+                  { label: "Основные преобразования ▶", icon: "Move", action: ()=>showToast("Основные преобразования"), hasSubmenu: true, highlight: true },
+                  { label: "Порядок отображения ▶", icon: "Layers", action: ()=>showToast("Порядок отображения"), hasSubmenu: true },
+                  { label: "Средства редактирования AD ▶", icon: "Edit2", action: ()=>showToast("Средства редактирования AD"), hasSubmenu: true },
                   null,
-                  { label: "Слои…", icon: "Layers", action: ()=>setShowLayers(true) },
-                  { label: "Создать трассу…", icon: "Route", action: ()=>setShowAlignment(true) },
-                  { label: "Создать коридор…", icon: "Navigation", action: ()=>setShowCorridor(true) },
-                  { label: "Создать поверхность…", icon: "Mountain", action: ()=>setShowSurface(true) },
+                  { label: "Панорама", icon: "Hand", action: ()=>{setActiveTool("pan");setStatusMsg("Инструмент: Панорама")} },
+                  { label: "Зумирование", icon: "ZoomIn", action: ()=>setZoom(z=>z*1.25) },
+                  { label: "Свободная орбита", icon: "RotateCcw", action: ()=>setStatusMsg("Свободная орбита") },
                   null,
-                  { label: "Диспетчер проекта…", icon: "FolderKanban", action: ()=>setShowProjectManager(true) },
-                  { label: "Земляные работы…", icon: "BarChart3", action: ()=>setShowEarthworks(true) },
-                  { label: "Свойства чертежа…", icon: "Settings", action: ()=>setShowDrawingSettings(true) },
-                ] as ({label:string;icon:string;action:()=>void}|null)[]).map((item, i) => item === null ? (
-                  <div key={i} className="border-t border-gray-700 my-0.5"/>
+                  { label: "Быстрый выбор...", icon: "MousePointer2", action: ()=>setStatusMsg("Быстрый выбор") },
+                  { label: "Найти...", icon: "Search", action: ()=>setStatusMsg("Найти и заменить") },
+                  { label: "Настройка...", icon: "Settings", action: ()=>setShowDrawingSettings(true) },
+                ] as ({label:string;icon:string;action:()=>void;hasSubmenu?:boolean;highlight?:boolean}|null)[]).map((item, i) => item === null ? (
+                  <div key={`sep-${i}`} className="border-t border-gray-700 my-0.5"/>
                 ) : (
                   <button key={i} onClick={()=>{item.action();setContextMenu(null)}}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#0078d4] hover:text-white text-gray-300 transition-colors text-left">
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#0078d4] hover:text-white transition-colors text-left group ${item.highlight?"text-white bg-[#0078d4]/10":"text-gray-300"}`}>
                     <Icon name={item.icon} size={12} fallback="Square"/>
-                    <span>{item.label}</span>
+                    <span className="flex-1">{item.label.replace(" ▶","")}</span>
+                    {item.hasSubmenu && (
+                      <div className="ml-auto flex items-center gap-2 opacity-60 group-hover:opacity-100">
+                        {item.highlight && item.label.includes("преобразов") && (
+                          <div className="flex gap-1 text-[9px] text-gray-400 group-hover:text-white">
+                            <span className="border border-current px-1 rounded">Перенести</span>
+                            <span className="border border-current px-1 rounded">Копировать</span>
+                            <span className="border border-current px-1 rounded">Поворот</span>
+                            <span className="border border-current px-1 rounded">Стереть</span>
+                            <span className="border border-current px-1 rounded">Масштаб</span>
+                          </div>
+                        )}
+                        <Icon name="ChevronRight" size={10} fallback="ArrowRight"/>
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -4832,6 +5192,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             )}
             {showSurveyTraverse && (
               <SurveyTraverseDialog onClose={()=>setShowSurveyTraverse(false)}/>
+            )}
+            {showAdaptation && (
+              <AdaptationDialog onClose={()=>setShowAdaptation(false)}/>
             )}
             {showHydrology && (
               <HydrologyDialog onClose={()=>setShowHydrology(false)} onOK={obj=>{
