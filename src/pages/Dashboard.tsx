@@ -171,6 +171,120 @@ function ПревьюФайла({ тип, цвет }: { тип: string; цвет
 
 // ─── Главный компонент ─────────────────────────────────────────────────────────
 
+// ─── Диалог обратной связи ────────────────────────────────────────────────────
+function FeedbackDialog({ тип, onClose }: { тип: "отзыв"|"ошибка"|"документация"; onClose: ()=>void }) {
+  const [текст, setТекст] = useState("")
+  const [отправлено, setОтправлено] = useState(false)
+  const отправить = () => { if (текст.trim() || тип==="документация") { setОтправлено(true); setTimeout(onClose,1800) } }
+  const DOCS = [
+    { title:"Быстрый старт", desc:"Создание первого проекта", icon:"Play" },
+    { title:"Работа с ЦМР", desc:"LiDAR, GNSS, TIN-поверхности", icon:"Mountain" },
+    { title:"Трассы и коридоры", desc:"СП 34, поперечники, объёмы", icon:"Route" },
+    { title:"Инженерные сети", desc:"Гидравлика, коллизии", icon:"Network" },
+    { title:"BIM-интеграция", desc:"IFC, Revit, Construction Cloud", icon:"Layers" },
+    { title:"Горячие клавиши", desc:"Все команды редактора", icon:"Keyboard" },
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.93}} animate={{scale:1}} exit={{scale:0.93}}
+        className="rounded-xl shadow-2xl w-full max-w-md"
+        style={{background:"#1e1e2e",border:"1px solid #374151"}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+          <span className="text-white font-bold text-[14px]">
+            {тип==="отзыв"?"Отправить отзыв":тип==="ошибка"?"Сообщить об ошибке":"Документация"}
+          </span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
+        </div>
+        {отправлено ? (
+          <div className="px-5 py-8 text-center">
+            <Icon name="CheckCircle" size={40} className="text-green-500 mx-auto mb-3"/>
+            <div className="text-white font-semibold">Отправлено!</div>
+            <div className="text-gray-400 text-sm mt-1">Спасибо за обратную связь</div>
+          </div>
+        ) : тип==="документация" ? (
+          <div className="p-4 space-y-2">
+            {DOCS.map(d=>(
+              <div key={d.title} className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] cursor-pointer border border-gray-800 hover:border-gray-600 transition-colors">
+                <Icon name={d.icon} size={16} className="text-[#0078d4] flex-shrink-0" fallback="BookOpen"/>
+                <div>
+                  <div className="text-white text-[13px] font-semibold">{d.title}</div>
+                  <div className="text-gray-500 text-[11px]">{d.desc}</div>
+                </div>
+                <Icon name="ChevronRight" size={14} className="text-gray-600 ml-auto"/>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            {тип==="ошибка" && (
+              <div className="space-y-2">
+                <label className="text-[11px] text-gray-400 block">Модуль</label>
+                <select className="w-full bg-[#2a2a3e] border border-gray-600 text-gray-300 text-[12px] px-3 py-2 rounded outline-none">
+                  {MODULES.map(m=><option key={m.id}>{m.label}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-[11px] text-gray-400 block">
+                {тип==="отзыв"?"Ваш отзыв":"Описание проблемы"}
+              </label>
+              <textarea value={текст} onChange={e=>setТекст(e.target.value)} rows={5}
+                placeholder={тип==="отзыв"?"Расскажите что вам нравится или что можно улучшить...":"Опишите шаги для воспроизведения ошибки..."}
+                className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] resize-none placeholder-gray-600"/>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={onClose} className="px-4 py-2 text-[12px] text-gray-400 hover:text-white border border-gray-700 rounded">Отмена</button>
+              <button onClick={отправить} disabled={!текст.trim()}
+                className="px-4 py-2 text-[12px] text-white rounded disabled:opacity-40 transition-opacity" style={{background:"#0078d4"}}>
+                {тип==="отзыв"?"Отправить":"Сообщить"}
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Диалог «Открыть файл» ────────────────────────────────────────────────────
+function OpenDialog({ onClose, onOpen }: { onClose:()=>void; onOpen:(id:string)=>void }) {
+  const [search, setSearch] = useState("")
+  const filtered = ПОСЛЕДНИЕ_ФАЙЛЫ.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.93}} animate={{scale:1}} exit={{scale:0.93}}
+        className="rounded-xl shadow-2xl w-full max-w-lg"
+        style={{background:"#1e1e2e",border:"1px solid #374151"}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+          <span className="text-white font-bold text-[14px] flex items-center gap-2">
+            <Icon name="FolderOpen" size={16} className="text-[#0078d4]"/>Открыть проект
+          </span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск проектов..."
+            className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] placeholder-gray-600"/>
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {filtered.map(f=>(
+              <button key={f.id} onClick={()=>{onOpen(f.id);onClose()}}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] text-left border border-gray-800 hover:border-gray-600 transition-colors">
+                <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0"><ПревьюФайла тип={f.preview} цвет={f.color}/></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-[12px] font-semibold truncate">{f.name}.{f.ext}</div>
+                  <div className="text-gray-500 text-[10px]">{f.date} · {f.size}</div>
+                </div>
+                <Icon name="ChevronRight" size={14} className="text-gray-600 flex-shrink-0"/>
+              </button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [activeModule, setActiveModule] = useState<string | null>(null)
@@ -178,8 +292,12 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState("Последнее открытие")
   const [viewGrid, setViewGrid] = useState(true)
   const [поиск, setПоиск] = useState("")
-  const [showСоздать, setShowСоздать] = useState(false)
   const [showНовыйПроект, setShowНовыйПроект] = useState(false)
+  const [showОткрыть, setShowОткрыть] = useState(false)
+  const [showОтзыв, setShowОтзыв] = useState<"отзыв"|"ошибка"|"документация"|null>(null)
+  const [activeRibbonTab, setActiveRibbonTab] = useState("Главная")
+  const [поискГлоб, setПоискГлоб] = useState("")
+  const [showПоискРез, setShowПоискРез] = useState(false)
   const [новыйПроект, setНовыйПроект] = useState({ name: "", template: "Автодорога (СП 34)" })
 
   useEffect(() => {
@@ -207,17 +325,39 @@ export default function Dashboard() {
       {/* ── Title bar (Civil 3D стиль) ── */}
       <div className="flex items-center justify-between px-2 py-0.5 flex-shrink-0" style={{ background: "#0f0f1e", minHeight: 26 }}>
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">Л</div>
-          {["🗁","💾","↩","↪"].map((ic, i) => (
-            <button key={i} className="text-gray-500 hover:text-white text-xs px-0.5">{ic}</button>
-          ))}
+          <button onClick={() => setActiveModule(null)}
+            className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm hover:bg-[#005fa3] transition-colors">Л</button>
+          <button title="Открыть проект" onClick={() => setShowОткрыть(true)} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">🗁</button>
+          <button title="Сохранить" onClick={() => { if (activeModule) { /* toast */ } }} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">💾</button>
+          <button title="Отменить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↩</button>
+          <button title="Повторить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↪</button>
         </div>
-        <div className="text-[11px] text-gray-400 font-semibold tracking-wide">
+        <div className="text-[11px] text-gray-400 font-semibold tracking-wide select-none">
           {activeModule && current ? `${current.label} — ЛАПА 3D 2026` : "ЛАПА 3D 2026 — Начало"}
         </div>
         <div className="flex items-center gap-2">
-          <input placeholder="Ключевое слово или фраза" className="bg-[#2a2a3e] border border-gray-700 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
-          <button className="text-gray-500 hover:text-white text-xs px-2 py-0.5">?</button>
+          <div className="relative">
+            <input value={поискГлоб} onChange={e=>{setПоискГлоб(e.target.value);setShowПоискРез(e.target.value.length>0)}}
+              onBlur={()=>setTimeout(()=>setShowПоискРез(false),200)}
+              placeholder="Ключевое слово или фраза"
+              className="bg-[#2a2a3e] border border-gray-700 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
+            {showПоискРез && поискГлоб && (
+              <div className="absolute top-full right-0 mt-1 w-64 bg-[#1e1e2e] border border-gray-700 rounded shadow-xl z-50">
+                {MODULES.filter(m=>m.label.toLowerCase().includes(поискГлоб.toLowerCase())||m.desc.toLowerCase().includes(поискГлоб.toLowerCase())).slice(0,6).map(m=>(
+                  <button key={m.id} onClick={()=>{setActiveModule(m.id);setПоискГлоб("");setShowПоискРез(false)}}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-gray-300 hover:bg-[#252535] text-left">
+                    <Icon name={m.icon} size={12} className="text-[#0078d4]" fallback="Square"/>
+                    <span className="truncate">{m.label}</span>
+                  </button>
+                ))}
+                {MODULES.filter(m=>m.label.toLowerCase().includes(поискГлоб.toLowerCase())).length===0 && (
+                  <div className="px-3 py-2 text-[11px] text-gray-500">Ничего не найдено</div>
+                )}
+              </div>
+            )}
+          </div>
+          <button onClick={()=>setShowОтзыв("документация")} title="Справка"
+            className="text-gray-500 hover:text-white text-xs px-2 py-0.5 transition-colors">?</button>
         </div>
       </div>
 
@@ -226,27 +366,52 @@ export default function Dashboard() {
         <div className="flex-shrink-0" style={{ background: "#252535", borderBottom: "1px solid #1a1a2e" }}>
           {/* Вкладки ленты */}
           <div className="flex items-center gap-0 px-1" style={{ borderBottom: "1px solid #1a1a2e" }}>
-            {["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Съёмка","Железная дорога","InfraWorks","Совместная работа","Справка"].map((t,i) => (
-              <button key={t} className={`px-3 py-1.5 text-[11px] whitespace-nowrap border-b-2 transition-colors ${i === 0 ? "border-[#0078d4] text-white bg-[#1e1e2e]" : "border-transparent text-gray-400 hover:text-white hover:bg-[#1e1e30]"}`}>{t}</button>
+            {["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Съёмка","Железная дорога","InfraWorks","Совместная работа","Справка"].map(t => (
+              <button key={t} onClick={()=>setActiveRibbonTab(t)}
+                className={`px-3 py-1.5 text-[11px] whitespace-nowrap border-b-2 transition-colors ${activeRibbonTab===t ? "border-[#0078d4] text-white bg-[#1e1e2e]" : "border-transparent text-gray-400 hover:text-white hover:bg-[#1e1e30]"}`}>{t}</button>
             ))}
           </div>
-          {/* Панели инструментов */}
-          <div className="flex items-center gap-4 px-3 py-1 overflow-x-auto">
-            {[
-              { group: "Палитры", items: ["Область инструментов","Project Explorer"] },
-              { group: "Создать данные рельефа", items: ["Точки ▾","Поверхности ▾","Теодолитный ход ▾"] },
-              { group: "Создать проектные данные", items: ["Участок ▾","Характерная линия ▾","Объект профилирования ▾","Трасса ▾","Профиль ▾","Конструкция ▾","Пересечения ▾","Коридор ▾"] },
-              { group: "Рисование", items: ["Отрезок","Полилиния","Круг","Дуга","Текст"] },
-              { group: "Редактирование", items: ["Переместить","Копировать","Повернуть","Масштаб","Обрезать"] },
-              { group: "Слои", items: ["Диспетчер слоёв","Текущий слой"] },
-            ].map(g => (
-              <div key={g.group} className="flex flex-col items-center gap-0 border-r border-gray-700 pr-3 flex-shrink-0">
-                <div className="flex items-center gap-1 mb-0.5">
-                  {g.items.slice(0,3).map(item => (
-                    <button key={item} onClick={() => { if (g.group === "Создать проектные данные" || g.group === "Создать данные рельефа") setActiveModule("civilcad") }}
-                      className="flex flex-col items-center gap-0.5 px-2 py-1 rounded hover:bg-[#1e1e30] transition-colors">
-                      <Icon name="Square" size={16} className="text-[#0078d4]" fallback="Square" />
-                      <span className="text-[8px] text-gray-400 whitespace-nowrap">{item.replace(" ▾","")}</span>
+          {/* Панели инструментов — динамические по вкладке */}
+          <div className="flex items-center gap-2 px-2 py-1 overflow-x-auto">
+            {(activeRibbonTab === "Главная" ? [
+              { group:"Создать данные рельефа", items:[{l:"Точки",icon:"MapPin",mod:"geodesy"},{l:"Поверхности",icon:"Triangle",mod:"surfaces"},{l:"ЦМР / LiDAR",icon:"ScanLine",mod:"dtm"}] },
+              { group:"Создать проектные данные", items:[{l:"Трасса",icon:"Spline",mod:"alignment"},{l:"Профиль",icon:"TrendingUp",mod:"alignment"},{l:"Коридор",icon:"Navigation",mod:"corridor"},{l:"Сечение",icon:"Minus",mod:"corridor"}] },
+              { group:"Инженерные сети", items:[{l:"Трубопровод",icon:"Network",mod:"networks"},{l:"Ливневая",icon:"Droplets",mod:"networks"},{l:"Электросеть",icon:"Zap",mod:"networks"}] },
+              { group:"Анализ", items:[{l:"Объёмы",icon:"BarChart3",mod:"analysis"},{l:"Уклоны",icon:"TrendingUp",mod:"analysis"},{l:"Водосборы",icon:"Waves",mod:"dynamic"}] },
+              { group:"Редактор", items:[{l:"ЛАПА — Редактор",icon:"Monitor",mod:"civilcad"},{l:"3D-вьюер",icon:"Box",mod:"viewer3d"},{l:"ЦМР",icon:"Mountain",mod:"dtm"}] },
+            ] : activeRibbonTab === "Съёмка" ? [
+              { group:"Геодезия", items:[{l:"Точки COGO",icon:"MapPin",mod:"geodesy"},{l:"ЦМР",icon:"ScanLine",mod:"dtm"},{l:"Тахеометр",icon:"Crosshair",mod:"geodesy"}] },
+              { group:"Анализ рельефа", items:[{l:"Поверхности",icon:"Triangle",mod:"surfaces"},{l:"Горизонтали",icon:"Layers",mod:"surfaces"},{l:"Объёмы",icon:"BarChart3",mod:"analysis"}] },
+            ] : activeRibbonTab === "Железная дорога" ? [
+              { group:"Ж/д путь", items:[{l:"Трасса пути",icon:"Train",mod:"railway"},{l:"CANT-кривые",icon:"TrendingUp",mod:"railway"},{l:"Профиль",icon:"Spline",mod:"railway"}] },
+            ] : activeRibbonTab === "Анализ" ? [
+              { group:"Расчёты", items:[{l:"Объёмы",icon:"BarChart3",mod:"analysis"},{l:"Откосы",icon:"TrendingDown",mod:"analysis"},{l:"Гидрология",icon:"Droplets",mod:"dynamic"}] },
+              { group:"Нормы", items:[{l:"СП 34",icon:"BookCheck",mod:"standards"},{l:"ГОСТ",icon:"BookCheck",mod:"standards"}] },
+            ] : activeRibbonTab === "Вид" ? [
+              { group:"Вид", items:[{l:"3D-вьюер",icon:"Box",mod:"viewer3d"},{l:"Редактор",icon:"Monitor",mod:"civilcad"}] },
+            ] : activeRibbonTab === "Управление" ? [
+              { group:"Проект", items:[{l:"Проекты",icon:"FolderKanban",mod:"projects"},{l:"BIM",icon:"Layers",mod:"bim"},{l:"Интеграция",icon:"Puzzle",mod:"integration"}] },
+            ] : activeRibbonTab === "Вывод" ? [
+              { group:"Экспорт", items:[{l:"Ведомости",icon:"ClipboardList",mod:"specs"},{l:"Печать",icon:"Printer",mod:"specs"}] },
+            ] : activeRibbonTab === "Справка" ? [
+              { group:"Помощь", items:[{l:"Документация",icon:"BookOpen",mod:""},{l:"Отзыв",icon:"MessageSquare",mod:""},{l:"Об ошибке",icon:"AlertTriangle",mod:""}] },
+            ] : [
+              { group:"Все модули", items:[{l:"Открыть...",icon:"FolderOpen",mod:""},{l:"Создать",icon:"Plus",mod:""}] },
+            ]).map(g => (
+              <div key={g.group} className="flex flex-col gap-0 border-r border-gray-700 pr-2 flex-shrink-0">
+                <div className="flex items-center gap-0.5 mb-0.5">
+                  {g.items.map(item => (
+                    <button key={item.l} onClick={() => {
+                      if (item.mod) { setActiveModule(item.mod) }
+                      else if (item.l === "Документация") { setShowОтзыв("документация") }
+                      else if (item.l === "Отзыв") { setShowОтзыв("отзыв") }
+                      else if (item.l === "Об ошибке") { setShowОтзыв("ошибка") }
+                      else if (item.l === "Открыть...") { setShowОткрыть(true) }
+                      else if (item.l === "Создать") { setShowНовыйПроект(true) }
+                    }}
+                      className="flex flex-col items-center gap-0.5 px-2 py-1 rounded hover:bg-[#1e1e30] transition-colors min-w-[40px]">
+                      <Icon name={item.icon} size={16} className="text-[#0078d4]" fallback="Square"/>
+                      <span className="text-[8px] text-gray-400 whitespace-nowrap">{item.l}</span>
                     </button>
                   ))}
                 </div>
@@ -289,15 +454,15 @@ export default function Dashboard() {
 
             {/* Кнопки Открыть / Создать */}
             <div className="px-3 py-3 space-y-2 border-b border-gray-800">
-              <button onClick={() => setShowСоздать(false)}
+              <button onClick={() => setShowОткрыть(true)}
                 className="w-full flex items-center justify-between px-3 py-2 rounded text-[12px] text-gray-300 hover:bg-[#1e1e30] hover:text-white transition-colors border border-gray-700">
                 <span className="flex items-center gap-2"><Icon name="FolderOpen" size={14} className="text-[#0078d4]" />Открыть…</span>
-                <Icon name="ChevronDown" size={12} className="text-gray-500" />
+                <Icon name="ChevronRight" size={12} className="text-gray-500" />
               </button>
               <button onClick={() => setShowНовыйПроект(true)}
                 className="w-full flex items-center justify-between px-3 py-2 rounded text-[12px] text-gray-300 hover:bg-[#1e1e30] hover:text-white transition-colors border border-gray-700">
                 <span className="flex items-center gap-2"><Icon name="Plus" size={14} className="text-[#0078d4]" />Создать…</span>
-                <Icon name="ChevronDown" size={12} className="text-gray-500" />
+                <Icon name="ChevronRight" size={12} className="text-gray-500" />
               </button>
             </div>
 
@@ -331,8 +496,14 @@ export default function Dashboard() {
 
             {/* Ссылки снизу */}
             <div className="border-t border-gray-800 p-3 space-y-1">
-              {["Новые возможности","Онлайн-справка","Форум сообщества","Служба поддержки"].map(l => (
-                <button key={l} className="w-full text-left text-[11px] text-[#60a5fa] hover:underline px-1 py-0.5">{l}</button>
+              {[
+                { l:"Новые возможности", fn: ()=>setHomeВкладка("обучение") },
+                { l:"Онлайн-справка", fn: ()=>setShowОтзыв("документация") },
+                { l:"Форум сообщества", fn: ()=>setShowОтзыв("отзыв") },
+                { l:"Служба поддержки", fn: ()=>setShowОтзыв("ошибка") },
+              ].map(item => (
+                <button key={item.l} onClick={()=>{item.fn();setActiveModule(null)}}
+                  className="w-full text-left text-[11px] text-[#60a5fa] hover:underline px-1 py-0.5 transition-all">{item.l}</button>
               ))}
             </div>
           </aside>
@@ -547,7 +718,7 @@ export default function Dashboard() {
                 <div className="flex-shrink-0 flex flex-col border-l border-gray-800" style={{ width: 240, background: "#141420" }}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
                     <span className="text-white text-[13px] font-bold">Профиль</span>
-                    <button className="text-gray-500 hover:text-white text-sm">✕</button>
+                    <button onClick={() => navigate("/settings")} title="Настройки" className="text-gray-500 hover:text-white text-sm transition-colors">⚙</button>
                   </div>
 
                   {/* Аватар / профиль */}
@@ -593,12 +764,12 @@ export default function Dashboard() {
                   <div className="px-4 py-4 space-y-2">
                     <div className="text-[12px] text-gray-300 font-semibold mb-2">Помощь</div>
                     {[
-                      { label: "Отправить отзыв", icon: "MessageSquare" },
-                      { label: "Сообщить об ошибке", icon: "AlertTriangle" },
-                      { label: "Документация", icon: "BookOpen" },
+                      { label: "Отправить отзыв", icon: "MessageSquare", action: () => setShowОтзыв("отзыв") },
+                      { label: "Сообщить об ошибке", icon: "AlertTriangle", action: () => setShowОтзыв("ошибка") },
+                      { label: "Документация", icon: "BookOpen", action: () => setShowОтзыв("документация") },
                     ].map(h => (
-                      <button key={h.label}
-                        className="w-full flex items-center gap-2 px-3 py-2 border border-gray-700 rounded text-[11px] text-gray-300 hover:text-white hover:border-gray-500 transition-colors">
+                      <button key={h.label} onClick={h.action}
+                        className="w-full flex items-center gap-2 px-3 py-2 border border-gray-700 rounded text-[11px] text-gray-300 hover:text-white hover:border-[#0078d4] transition-colors">
                         <Icon name={h.icon} size={12} className="text-[#0078d4]" fallback="Circle" />
                         {h.label}
                       </button>
@@ -683,6 +854,20 @@ export default function Dashboard() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Диалог «Открыть» */}
+      <AnimatePresence>
+        {showОткрыть && (
+          <OpenDialog onClose={() => setShowОткрыть(false)} onOpen={id => { setActiveModule(id); setShowОткрыть(false) }} />
+        )}
+      </AnimatePresence>
+
+      {/* Диалог обратной связи / документация */}
+      <AnimatePresence>
+        {showОтзыв && (
+          <FeedbackDialog тип={showОтзыв} onClose={() => setShowОтзыв(null)} />
         )}
       </AnimatePresence>
     </div>
