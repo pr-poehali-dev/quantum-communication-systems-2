@@ -120,7 +120,7 @@ interface Project {
   objects_count: number
 }
 
-function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string) => void }) {
+function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string, projectId?: number) => void }) {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -158,7 +158,7 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string) => void }) {
         setNewDesc("")
         setNewType("road")
         setSaving(false)
-        onOpen(p.name)
+        onOpen(p.name, p.id)
       })
       .catch(() => setSaving(false))
   }
@@ -264,7 +264,7 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string) => void }) {
       {!loading && !error && filtered.length > 0 && (
         <div className="grid gap-3" style={{gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))"}}>
           {filtered.map(p => (
-            <div key={p.id} onClick={()=>onOpen(p.name)}
+            <div key={p.id} onClick={()=>onOpen(p.name, p.id)}
               className="p-4 rounded-lg border border-gray-700 hover:border-[#0078d4] transition-all cursor-pointer group relative"
               style={{background:"#252535"}}>
               {/* Шапка */}
@@ -313,8 +313,10 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string) => void }) {
   )
 }
 
-function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGraphicsBanner, setShowGraphicsBanner }: {
-  onOpen: (name?: string) => void
+function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, setShowWelcomeDialog, showGraphicsBanner, setShowGraphicsBanner }: {
+  onOpen: (name?: string, projectId?: number) => void
+  onSave?: () => void
+  currentProjectName?: string
   showWelcomeDialog: boolean
   setShowWelcomeDialog: (v: boolean) => void
   showGraphicsBanner: boolean
@@ -322,6 +324,8 @@ function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGrap
 }) {
   const [tab, setTab] = useState<"recent"|"autodesk"|"learning">("recent")
   const [search, setSearch] = useState("")
+  const [showNewDialog, setShowNewDialog] = useState(false)
+  const [newTabName, setNewTabName] = useState("")
 
   return (
     <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden relative" style={{fontFamily:"Arial,sans-serif",fontSize:12}}>
@@ -347,17 +351,47 @@ function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGrap
         <div className="bg-[#252535] border-r border-gray-700 flex flex-col flex-shrink-0" style={{width:220}}>
           <div className="px-6 py-6 border-b border-gray-700">
             <div className="text-white text-[22px] font-bold mb-4">Civil 3D 2027</div>
-            <button onClick={()=>onOpen()} className="w-full flex items-center gap-2 px-3 py-2 rounded border border-gray-600 text-[12px] text-white hover:border-[#0078d4] hover:bg-[#0078d4]/10 transition-all mb-2">
-              <Icon name="FolderOpen" size={14}/>
-              <span>Открыть...</span>
-              <Icon name="ChevronDown" size={11} className="ml-auto text-gray-400"/>
-            </button>
-            <button onClick={()=>onOpen("new")} className="w-full flex items-center gap-2 px-3 py-2 rounded border border-gray-600 text-[12px] text-white hover:border-[#0078d4] hover:bg-[#0078d4]/10 transition-all">
-              <Icon name="Plus" size={14}/>
-              <span>Создать</span>
-              <Icon name="ChevronDown" size={11} className="ml-auto text-gray-400"/>
-            </button>
+
+            {/* Открыть с выпадающим дропдауном */}
+            <div className="relative mb-2 group">
+              <div className="flex rounded border border-gray-600 overflow-hidden hover:border-[#0078d4] transition-all">
+                <button onClick={()=>setTab("autodesk")}
+                  className="flex-1 flex items-center gap-2 px-3 py-2 text-[12px] text-white hover:bg-[#0078d4]/10 transition-colors">
+                  <Icon name="FolderOpen" size={14}/>
+                  <span>Открыть...</span>
+                </button>
+                <button onClick={()=>setTab("autodesk")}
+                  className="px-2 border-l border-gray-600 text-gray-400 hover:text-white hover:bg-[#0078d4]/10 transition-colors">
+                  <Icon name="ChevronDown" size={11}/>
+                </button>
+              </div>
+            </div>
+
+            {/* Создать */}
+            <div className="flex rounded border border-gray-600 overflow-hidden hover:border-[#0078d4] transition-all">
+              <button onClick={()=>setShowNewDialog(true)}
+                className="flex-1 flex items-center gap-2 px-3 py-2 text-[12px] text-white hover:bg-[#0078d4]/10 transition-colors">
+                <Icon name="Plus" size={14}/>
+                <span>Создать</span>
+              </button>
+              <button onClick={()=>setShowNewDialog(true)}
+                className="px-2 border-l border-gray-600 text-gray-400 hover:text-white hover:bg-[#0078d4]/10 transition-colors">
+                <Icon name="ChevronDown" size={11}/>
+              </button>
+            </div>
+
+            {/* Текущий проект */}
+            {currentProjectName && (
+              <div className="mt-3 flex items-center gap-2 px-2 py-1.5 rounded border border-green-800/40 bg-green-900/10">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"/>
+                <span className="text-[10px] text-green-300 truncate">{currentProjectName}</span>
+                {onSave && (
+                  <button onClick={onSave} className="ml-auto text-[9px] text-[#0078d4] hover:underline flex-shrink-0">Сохранить</button>
+                )}
+              </div>
+            )}
           </div>
+
           <nav className="flex-1 py-3">
             {([["recent","Последние"],["autodesk","Проекты Autodesk"],["learning","Обучение и аналитика"]] as const).map(([id,label])=>(
               <button key={id} onClick={()=>setTab(id)}
@@ -366,15 +400,54 @@ function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGrap
               </button>
             ))}
           </nav>
+
           <div className="px-4 py-4 border-t border-gray-700 space-y-1.5">
-            {[["Новые возможности","ExternalLink"],["Онлайн-справка","HelpCircle"],["Форум сообщества","Users"],["Служба поддержки клиентов","Headphones"]].map(([label,icon])=>(
-              <button key={label} className="flex items-center gap-2 text-[11px] text-[#0078d4] hover:underline w-full text-left">
+            {([
+              ["Новые возможности","ExternalLink","https://help.autodesk.com/view/CIV3D/2027/"],
+              ["Онлайн-справка","HelpCircle","https://help.autodesk.com/view/CIV3D/2027/RUS/"],
+              ["Форум сообщества","Users","https://forums.autodesk.com/t5/civil-3d/ct-p/civil3d"],
+              ["Служба поддержки клиентов","Headphones","https://www.autodesk.com/support/contact-support"],
+            ] as const).map(([label,icon,url])=>(
+              <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[11px] text-[#0078d4] hover:underline w-full text-left">
                 <Icon name={icon} size={11} fallback="Link"/>
                 {label}
-              </button>
+              </a>
             ))}
           </div>
         </div>
+
+        {/* Диалог создания нового чертежа */}
+        {showNewDialog && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-80 p-5"
+              onClick={e=>e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-white text-[13px] font-bold flex items-center gap-2">
+                  <Icon name="FilePlus" size={14} className="text-[#0078d4]"/> Новый чертёж
+                </span>
+                <button onClick={()=>setShowNewDialog(false)} className="text-gray-400 hover:text-white">✕</button>
+              </div>
+              <label className="text-[11px] text-gray-400 mb-1.5 block">Имя файла</label>
+              <input value={newTabName} onChange={e=>setNewTabName(e.target.value)}
+                onKeyDown={e=>{ if(e.key==="Enter" && newTabName.trim()) { onOpen(newTabName.trim()); setShowNewDialog(false); setNewTabName("") }}}
+                placeholder="Новый чертёж"
+                className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-3 py-2 text-[12px] text-white outline-none focus:border-[#0078d4] mb-4"/>
+              <div className="flex gap-2">
+                <button
+                  onClick={()=>{ onOpen(newTabName.trim() || "Новый чертёж"); setShowNewDialog(false); setNewTabName("") }}
+                  className="flex-1 py-2 rounded text-[12px] text-white font-medium transition-colors"
+                  style={{background:"#0078d4"}}>
+                  Создать
+                </button>
+                <button onClick={()=>setShowNewDialog(false)}
+                  className="px-4 py-2 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Основная область */}
         <div className="flex-1 overflow-y-auto p-6">
@@ -3958,6 +4031,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showStartScreen, setShowStartScreen] = useState(true)
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(true)
   const [showGraphicsBanner, setShowGraphicsBanner] = useState(true)
+  const [currentProjectId, setCurrentProjectId] = useState<number|null>(null)
+  const [currentProjectName, setCurrentProjectName] = useState<string>("")
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [saveToProjectId, setSaveToProjectId] = useState<number|null>(null)
+  const [saveProjects, setSaveProjects] = useState<{id:number;name:string;type:string}[]>([])
+  const [savingToDb, setSavingToDb] = useState(false)
 
   // ── Adaptation dialog state ──────────────────────────────────────────────
   const [showAdaptation, setShowAdaptation] = useState(false)
@@ -4597,13 +4676,30 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   if (showStartScreen) {
     return (
       <StartScreen
-        onOpen={(name) => {
+        onOpen={(name, projectId) => {
           setShowStartScreen(false)
-          if (name && name !== "new" && !drawingTabs.includes(name + ".dwg")) {
-            setDrawingTabs(prev => [...prev, name + ".dwg"])
-            setActiveDrawingTab(name + ".dwg")
+          const tabName = name && name !== "new"
+            ? (name.endsWith(".dwg") ? name : name + ".dwg")
+            : "Новый чертёж.dwg"
+          if (!drawingTabs.includes(tabName)) {
+            setDrawingTabs(prev => [...prev, tabName])
+          }
+          setActiveDrawingTab(tabName)
+          if (projectId) {
+            setCurrentProjectId(projectId)
+            setCurrentProjectName(name || "")
           }
         }}
+        onSave={() => {
+          fetch(PROJECTS_URL)
+            .then(r => r.json())
+            .then((data: {id:number;name:string;type:string}[]) => {
+              setSaveProjects(data)
+              setSaveToProjectId(currentProjectId)
+              setShowSaveDialog(true)
+            })
+        }}
+        currentProjectName={currentProjectName}
         showWelcomeDialog={showWelcomeDialog}
         setShowWelcomeDialog={setShowWelcomeDialog}
         showGraphicsBanner={showGraphicsBanner}
@@ -4623,7 +4719,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         <div className="flex items-center gap-0.5 ml-1">
           <button title="Открыть проект" onClick={openProjectDialog}
             className="text-gray-400 hover:text-white hover:bg-[#0078d4] rounded px-1 py-0.5 transition-colors text-xs">🗁</button>
-          <button title="Сохранить" onClick={() => { pushUndo("Сохранение"); showToast("💾 Проект сохранён") }}
+          <button title={currentProjectName ? `Сохранить в «${currentProjectName}»` : "Сохранить в проект"}
+            onClick={() => {
+              fetch(PROJECTS_URL)
+                .then(r => r.json())
+                .then((data: {id:number;name:string;type:string}[]) => {
+                  setSaveProjects(data)
+                  setSaveToProjectId(currentProjectId)
+                  setShowSaveDialog(true)
+                })
+            }}
             className="text-gray-400 hover:text-white hover:bg-[#0078d4] rounded px-1 py-0.5 transition-colors text-xs">💾</button>
           <button title={`Отменить${undoStack.length > 1 ? ": " + undoStack[undoStack.length-1] : ""}`}
             onClick={doUndo} disabled={undoStack.length <= 1}
@@ -5421,6 +5526,78 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   return add(prev)
                 })
               }}/>
+            )}
+
+            {/* Диалог сохранения в проект */}
+            {showSaveDialog && (
+              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                className="absolute inset-0 bg-black/60 flex items-center justify-center z-50"
+                onClick={()=>setShowSaveDialog(false)}>
+                <motion.div initial={{scale:0.92,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.92,opacity:0}}
+                  className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-[460px] flex flex-col"
+                  onClick={e=>e.stopPropagation()}>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+                    <span className="text-white text-[13px] font-bold flex items-center gap-2">
+                      <Icon name="Save" size={14} className="text-[#0078d4]"/> Сохранить чертёж в проект
+                    </span>
+                    <button onClick={()=>setShowSaveDialog(false)} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+                  </div>
+                  <div className="p-4">
+                    <div className="text-[11px] text-gray-400 mb-3">
+                      Текущий чертёж: <span className="text-white font-medium">{activeDrawingTab}</span>
+                    </div>
+                    <label className="text-[11px] text-gray-400 mb-2 block">Выберите проект:</label>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto mb-4">
+                      {saveProjects.length === 0 ? (
+                        <div className="text-center text-gray-500 text-[11px] py-6">Нет доступных проектов</div>
+                      ) : saveProjects.map(p => (
+                        <button key={p.id} onClick={()=>setSaveToProjectId(p.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded border transition-all flex items-center gap-3 ${saveToProjectId===p.id?"border-[#0078d4] bg-[#0078d4]/15":"border-gray-700 hover:border-gray-500 bg-[#252535]"}`}>
+                          <div className={`w-2.5 h-2.5 rounded-full border-2 flex-shrink-0 ${saveToProjectId===p.id?"border-[#0078d4] bg-[#0078d4]":"border-gray-500"}`}/>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white text-[12px] truncate">{p.name}</div>
+                            <div className="text-gray-500 text-[10px]">{TYPE_LABELS[p.type] || p.type}</div>
+                          </div>
+                          {saveToProjectId===p.id && <Icon name="Check" size={13} className="text-[#0078d4]"/>}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={!saveToProjectId || savingToDb}
+                        onClick={() => {
+                          if (!saveToProjectId) return
+                          setSavingToDb(true)
+                          const proj = saveProjects.find(p=>p.id===saveToProjectId)
+                          fetch(PROJECTS_URL, {
+                            method: "POST",
+                            headers: {"Content-Type":"application/json"},
+                            body: JSON.stringify({
+                              project_id: saveToProjectId,
+                              object_type: "drawing",
+                              name: activeDrawingTab,
+                              data: { tab: activeDrawingTab, savedAt: new Date().toISOString() }
+                            })
+                          }).then(() => {
+                            setCurrentProjectId(saveToProjectId)
+                            setCurrentProjectName(proj?.name || "")
+                            setSavingToDb(false)
+                            setShowSaveDialog(false)
+                            showToast(`💾 Сохранено в «${proj?.name}»`)
+                          }).catch(() => setSavingToDb(false))
+                        }}
+                        className="flex-1 py-2 rounded text-[12px] text-white disabled:opacity-40 transition-colors font-medium"
+                        style={{background:"#0078d4"}}>
+                        {savingToDb ? "Сохранение..." : "Сохранить"}
+                      </button>
+                      <button onClick={()=>setShowSaveDialog(false)}
+                        className="px-4 py-2 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
             )}
 
             {/* Диалог открытия проекта */}
