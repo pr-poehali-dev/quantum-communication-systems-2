@@ -173,16 +173,17 @@ function ПревьюФайла({ тип, цвет }: { тип: string; цвет
 
 // ─── Диалог обратной связи ────────────────────────────────────────────────────
 function FeedbackDialog({ тип, onClose }: { тип: "отзыв"|"ошибка"|"документация"; onClose: ()=>void }) {
+  const navigate = useNavigate()
   const [текст, setТекст] = useState("")
   const [отправлено, setОтправлено] = useState(false)
   const отправить = () => { if (текст.trim() || тип==="документация") { setОтправлено(true); setTimeout(onClose,1800) } }
   const DOCS = [
-    { title:"Быстрый старт", desc:"Создание первого проекта", icon:"Play" },
-    { title:"Работа с ЦМР", desc:"LiDAR, GNSS, TIN-поверхности", icon:"Mountain" },
-    { title:"Трассы и коридоры", desc:"СП 34, поперечники, объёмы", icon:"Route" },
-    { title:"Инженерные сети", desc:"Гидравлика, коллизии", icon:"Network" },
-    { title:"BIM-интеграция", desc:"IFC, Revit, Construction Cloud", icon:"Layers" },
-    { title:"Горячие клавиши", desc:"Все команды редактора", icon:"Keyboard" },
+    { title:"Быстрый старт", desc:"Создание первого проекта", icon:"Play", id:"quickstart" },
+    { title:"Работа с ЦМР", desc:"LiDAR, GNSS, TIN-поверхности", icon:"Mountain", id:"dtm" },
+    { title:"Трассы и коридоры", desc:"СП 34, поперечники, объёмы", icon:"Route", id:"roads" },
+    { title:"Инженерные сети", desc:"Гидравлика, коллизии", icon:"Network", id:"networks" },
+    { title:"BIM-интеграция", desc:"IFC, Revit, Construction Cloud", icon:"Layers", id:"bim" },
+    { title:"Горячие клавиши", desc:"Все команды редактора", icon:"Keyboard", id:"hotkeys" },
   ]
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
@@ -204,15 +205,24 @@ function FeedbackDialog({ тип, onClose }: { тип: "отзыв"|"ошибк�
           </div>
         ) : тип==="документация" ? (
           <div className="p-4 space-y-2">
+            <button onClick={() => { onClose(); navigate("/docs") }}
+              className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/30 hover:bg-[#0078d4]/20 transition-colors mb-3">
+              <Icon name="BookOpen" size={16} className="text-[#0078d4]"/>
+              <div className="flex-1 text-left">
+                <div className="text-white text-[13px] font-bold">Открыть полную документацию →</div>
+                <div className="text-[#60a5fa] text-[11px]">Все разделы, поиск, примеры кода</div>
+              </div>
+            </button>
             {DOCS.map(d=>(
-              <div key={d.title} className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] cursor-pointer border border-gray-800 hover:border-gray-600 transition-colors">
+              <button key={d.title} onClick={() => { onClose(); navigate("/docs") }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] cursor-pointer border border-gray-800 hover:border-gray-600 transition-colors">
                 <Icon name={d.icon} size={16} className="text-[#0078d4] flex-shrink-0" fallback="BookOpen"/>
-                <div>
+                <div className="flex-1 text-left">
                   <div className="text-white text-[13px] font-semibold">{d.title}</div>
                   <div className="text-gray-500 text-[11px]">{d.desc}</div>
                 </div>
                 <Icon name="ChevronRight" size={14} className="text-gray-600 ml-auto"/>
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -499,7 +509,7 @@ export default function Dashboard() {
             <div className="border-t border-gray-800 p-3 space-y-1">
               {[
                 { l:"Новые возможности", fn: ()=>setHomeВкладка("обучение") },
-                { l:"Онлайн-справка", fn: ()=>setShowОтзыв("документация") },
+                { l:"Онлайн-справка", fn: ()=>navigate("/docs") },
                 { l:"Форум сообщества", fn: ()=>setShowОтзыв("отзыв") },
                 { l:"Служба поддержки", fn: ()=>setShowОтзыв("ошибка") },
               ].map(item => (
@@ -767,7 +777,7 @@ export default function Dashboard() {
                     {[
                       { label: "Отправить отзыв", icon: "MessageSquare", action: () => setShowОтзыв("отзыв") },
                       { label: "Сообщить об ошибке", icon: "AlertTriangle", action: () => setShowОтзыв("ошибка") },
-                      { label: "Документация", icon: "BookOpen", action: () => setShowОтзыв("документация") },
+                      { label: "Документация", icon: "BookOpen", action: () => navigate("/docs") },
                     ].map(h => (
                       <button key={h.label} onClick={h.action}
                         className="w-full flex items-center gap-2 px-3 py-2 border border-gray-700 rounded text-[11px] text-gray-300 hover:text-white hover:border-[#0078d4] transition-colors">
