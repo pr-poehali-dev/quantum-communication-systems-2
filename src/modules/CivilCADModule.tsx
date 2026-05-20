@@ -2543,6 +2543,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [activeLayout, setActiveLayout] = useState("Model")
   const [drawingTabs, setDrawingTabs] = useState(["Главная_парковка.dwg"])
   const [activeDrawingTab, setActiveDrawingTab] = useState("Главная_парковка.dwg")
+  const [showOpenProject, setShowOpenProject] = useState(false)
+  const [dbProjects, setDbProjects] = useState<{id:number;name:string;type:string;status:string;updated_at:string}[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
   const [cursorCoords, setCursorCoords] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState("1:500")
   const [showRightPanel, setShowRightPanel] = useState(true)
@@ -2583,6 +2586,25 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: 1, object_type: type, name, data }),
     }).catch(() => {})
+  }
+
+  const openProjectDialog = () => {
+    setShowOpenProject(true)
+    setLoadingProjects(true)
+    fetch("https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887")
+      .then(r => r.json())
+      .then(data => setDbProjects(data))
+      .catch(() => {})
+      .finally(() => setLoadingProjects(false))
+  }
+
+  const openProject = (project: {id:number;name:string}) => {
+    const tabName = `${project.name}.dwg`
+    if (!drawingTabs.includes(tabName)) setDrawingTabs(prev => [...prev, tabName])
+    setActiveDrawingTab(tabName)
+    setShowOpenProject(false)
+    setStatusMsg(`Открыт проект: ${project.name}`)
+    showToast(`📂 Открыт: ${project.name}`)
   }
 
   const toggleNode = (id: string) => {
@@ -2873,11 +2895,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           ))}
           <button
             className="text-gray-500 hover:text-white px-2 py-0.5 text-[10px]"
-            onClick={() => {
-              const name = `Новый_${drawingTabs.length}.dwg`
-              setDrawingTabs(prev => [...prev, name])
-              setActiveDrawingTab(name)
-            }}
+            onClick={openProjectDialog}
+            title="Открыть проект"
           >+</button>
         </div>
       </div>
@@ -2914,7 +2933,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <div className="flex gap-0.5">
               {[
                 { icon: "ClipboardList", title: "Проспект" },
-                { icon: "FolderOpen",    title: "Открыть" },
                 { icon: "Search",        title: "Поиск" },
                 { icon: "HelpCircle",    title: "Справка" },
               ].map(({ icon, title }) => (
@@ -2924,6 +2942,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   <Icon name={icon} size={11} fallback="Square" />
                 </button>
               ))}
+              <button title="Открыть проект" onClick={openProjectDialog}
+                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
+                <Icon name="FolderOpen" size={11} fallback="Square" />
+              </button>
             </div>
           </div>
           {/* Диспетчер / Параметры tabs */}
@@ -3148,6 +3170,47 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{setShowImport(false);setStatusMsg(`Импорт ${d.format}: ${d.file} завершён`)}}/>}
             {showExport && <ExportDialog mode={exportMode} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
             {showDrawingSettings && <DrawingSettingsDialog onClose={()=>setShowDrawingSettings(false)}/>}
+
+            {/* Диалог открытия проекта */}
+            {showOpenProject && (
+              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                className="absolute inset-0 bg-black/60 flex items-center justify-center z-50"
+                onClick={()=>setShowOpenProject(false)}>
+                <motion.div initial={{scale:0.92,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.92,opacity:0}}
+                  className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl w-[480px] max-h-[420px] flex flex-col"
+                  onClick={e=>e.stopPropagation()}>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+                    <span className="text-white text-[13px] font-bold flex items-center gap-2">
+                      <Icon name="FolderOpen" size={14}/> Открыть проект
+                    </span>
+                    <button onClick={()=>setShowOpenProject(false)} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                    {loadingProjects ? (
+                      <div className="flex items-center justify-center py-10 gap-2 text-gray-400 text-[12px]">
+                        <Icon name="Loader" size={14} className="animate-spin"/> Загрузка…
+                      </div>
+                    ) : dbProjects.length === 0 ? (
+                      <div className="text-center text-gray-500 text-[12px] py-10">Нет сохранённых проектов</div>
+                    ) : dbProjects.map(p => (
+                      <button key={p.id} onClick={()=>openProject(p)}
+                        className="w-full text-left px-3 py-2.5 rounded hover:bg-[#0078d4]/20 border border-transparent hover:border-[#0078d4]/40 transition-all flex items-center gap-3 group">
+                        <Icon name="FileText" size={14} className="text-blue-400 flex-shrink-0"/>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white text-[12px] font-medium truncate">{p.name}</div>
+                          <div className="text-gray-500 text-[10px]">{p.type} · {p.status}</div>
+                        </div>
+                        <Icon name="ChevronRight" size={12} className="text-gray-600 group-hover:text-white"/>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-700 px-4 py-2 flex justify-end">
+                    <button onClick={()=>setShowOpenProject(false)}
+                      className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Отмена</button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {/* Toast notification */}
