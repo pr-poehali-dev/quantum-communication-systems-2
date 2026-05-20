@@ -2849,7 +2849,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         <span className="text-[9px] text-gray-500 px-2">[-]</span>
         <div className="flex items-center gap-0">
           <button className="bg-[#1e1e2e] border-t border-l border-r border-gray-600 px-3 py-0.5 text-[10px] text-blue-300 flex items-center gap-1 border-b-0">
-            <Icon name="FileText" size={9} /> Intro-1
+            <Icon name="FileText" size={9} /> Главная_парковка.dwg
             <span className="ml-1 text-gray-500 hover:text-white text-[9px]">✕</span>
           </button>
           <button className="text-gray-500 hover:text-white px-2 py-0.5 text-[10px]">+</button>
