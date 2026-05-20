@@ -496,20 +496,24 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
               <h2 className="text-white text-[20px] font-semibold mb-4">Обучение и аналитика</h2>
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  {icon:"Play",title:"Быстрый старт Civil 3D 2027",tag:"Видео · 15 мин",color:"#0078d4"},
-                  {icon:"BookOpen",title:"Работа с ЦМР и поверхностями",tag:"Урок · 30 мин",color:"#059669"},
-                  {icon:"Route",title:"Трассирование и коридоры",tag:"Урок · 45 мин",color:"#d97706"},
-                  {icon:"TrendingUp",title:"Анализ горизонтальной регрессии",tag:"Новое · 20 мин",color:"#7c3aed"},
-                  {icon:"Spline",title:"Характерные линии выхода на рельеф",tag:"Новое · 25 мин",color:"#ec4899"},
-                  {icon:"Gauge",title:"Напорные трубопроводные сети",tag:"Урок · 35 мин",color:"#0284c7"},
+                  {icon:"Play",title:"Быстрый старт Civil 3D 2027",tag:"Видео · 15 мин",color:"#0078d4",url:"https://www.autodesk.com/products/civil-3d/get-started"},
+                  {icon:"BookOpen",title:"Работа с ЦМР и поверхностями",tag:"Урок · 30 мин",color:"#059669",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-surface"},
+                  {icon:"Route",title:"Трассирование и коридоры",tag:"Урок · 45 мин",color:"#d97706",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-alignment"},
+                  {icon:"TrendingUp",title:"Анализ горизонтальной регрессии",tag:"Новое · 20 мин",color:"#7c3aed",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-hra"},
+                  {icon:"Spline",title:"Характерные линии выхода на рельеф",tag:"Новое · 25 мин",color:"#ec4899",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-featureline"},
+                  {icon:"Gauge",title:"Напорные трубопроводные сети",tag:"Урок · 35 мин",color:"#0284c7",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-pipenetwork"},
                 ].map((c,i)=>(
-                  <div key={i} className="p-4 rounded-lg border border-gray-700 hover:border-gray-500 cursor-pointer transition-colors" style={{background:"#252535"}}>
+                  <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
+                    className="p-4 rounded-lg border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e2a3a] cursor-pointer transition-all block group">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{background:c.color+"20"}}>
                       <Icon name={c.icon} size={16} style={{color:c.color}} fallback="Play"/>
                     </div>
-                    <div className="text-[11px] text-white font-semibold mb-1">{c.title}</div>
-                    <div className="text-[10px] px-2 py-0.5 rounded-full inline-block" style={{background:c.color+"20",color:c.color}}>{c.tag}</div>
-                  </div>
+                    <div className="text-[11px] text-white font-semibold mb-2 group-hover:text-[#60b0ff] transition-colors">{c.title}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] px-2 py-0.5 rounded-full" style={{background:c.color+"20",color:c.color}}>{c.tag}</span>
+                      <Icon name="ExternalLink" size={10} className="text-gray-600 group-hover:text-[#0078d4] transition-colors"/>
+                    </div>
+                  </a>
                 ))}
               </div>
             </div>
