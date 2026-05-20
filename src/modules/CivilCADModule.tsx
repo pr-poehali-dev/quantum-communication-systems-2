@@ -94,6 +94,225 @@ function AdaptationDialog({ onClose }: { onClose: () => void }) {
 
 // ─── StartScreen ──────────────────────────────────────────────────────────────
 
+const PROJECTS_URL = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
+
+const TYPE_ICONS: Record<string,string> = {
+  road: "Route", network: "Network", railway: "Train", area: "LayoutDashboard", bim: "Layers"
+}
+const TYPE_LABELS: Record<string,string> = {
+  road: "Дорога / трасса", network: "Инж. сети", railway: "Ж/д путь", area: "Площадной объект", bim: "BIM"
+}
+const STATUS_COLORS: Record<string,string> = {
+  active: "#22c55e", draft: "#f59e0b", archived: "#6b7280", completed: "#0078d4"
+}
+const STATUS_LABELS: Record<string,string> = {
+  active: "Активен", draft: "Черновик", archived: "Архив", completed: "Завершён"
+}
+
+interface Project {
+  id: number
+  name: string
+  description: string
+  type: string
+  status: string
+  created_at: string
+  updated_at: string
+  objects_count: number
+}
+
+function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string) => void }) {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [search, setSearch] = useState("")
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newDesc, setNewDesc] = useState("")
+  const [newType, setNewType] = useState("road")
+  const [saving, setSaving] = useState(false)
+
+  const load = () => {
+    setLoading(true)
+    setError("")
+    fetch(PROJECTS_URL)
+      .then(r => r.json())
+      .then(data => { setProjects(data); setLoading(false) })
+      .catch(() => { setError("Ошибка загрузки проектов"); setLoading(false) })
+  }
+
+  useEffect(() => { load() }, [])
+
+  const createProject = () => {
+    if (!newName.trim()) return
+    setSaving(true)
+    fetch(PROJECTS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), description: newDesc.trim(), type: newType })
+    })
+      .then(r => r.json())
+      .then(p => {
+        setProjects(prev => [p, ...prev])
+        setCreating(false)
+        setNewName("")
+        setNewDesc("")
+        setNewType("road")
+        setSaving(false)
+        onOpen(p.name)
+      })
+      .catch(() => setSaving(false))
+  }
+
+  const deleteProject = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm("Удалить проект?")) return
+    fetch(PROJECTS_URL, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    }).then(() => setProjects(prev => prev.filter(p => p.id !== id)))
+  }
+
+  const filtered = projects.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.description || "").toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white text-[20px] font-semibold">Проекты</h2>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 border border-gray-600 rounded px-2 py-1" style={{minWidth:200}}>
+            <Icon name="Search" size={12} className="text-gray-500"/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск проектов..."
+              className="bg-transparent text-[11px] text-white outline-none flex-1 placeholder-gray-600 ml-1"/>
+          </div>
+          <button onClick={()=>setCreating(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] text-white transition-colors"
+            style={{background:"#0078d4"}}>
+            <Icon name="Plus" size={12}/>
+            Новый проект
+          </button>
+          <button onClick={load} className="p-1.5 rounded border border-gray-600 text-gray-400 hover:text-white transition-colors">
+            <Icon name="RefreshCw" size={13}/>
+          </button>
+        </div>
+      </div>
+
+      {/* Форма создания */}
+      {creating && (
+        <div className="mb-5 p-4 rounded-lg border border-[#0078d4]/50 bg-[#0078d4]/5">
+          <div className="text-[12px] text-white font-semibold mb-3">Новый проект</div>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-[10px] text-gray-400 mb-1 block">Название *</label>
+              <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Название проекта"
+                className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-[#0078d4]"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-400 mb-1 block">Тип</label>
+              <select value={newType} onChange={e=>setNewType(e.target.value)}
+                className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-[#0078d4]">
+                {Object.entries(TYPE_LABELS).map(([k,v])=>(
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="text-[10px] text-gray-400 mb-1 block">Описание</label>
+            <input value={newDesc} onChange={e=>setNewDesc(e.target.value)} placeholder="Краткое описание"
+              className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-[#0078d4]"/>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={createProject} disabled={saving || !newName.trim()}
+              className="px-4 py-1.5 rounded text-[11px] text-white disabled:opacity-50 transition-colors"
+              style={{background:"#0078d4"}}>
+              {saving ? "Создание..." : "Создать и открыть"}
+            </button>
+            <button onClick={()=>setCreating(false)} className="px-4 py-1.5 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Icon name="Loader2" size={24} className="text-[#0078d4] animate-spin"/>
+          <span className="text-gray-400 text-[12px] ml-3">Загрузка проектов...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded border border-red-800/50 bg-red-900/10 mb-4">
+          <Icon name="AlertCircle" size={14} className="text-red-400"/>
+          <span className="text-[11px] text-red-300">{error}</span>
+          <button onClick={load} className="ml-auto text-[11px] text-[#0078d4] hover:underline">Повторить</button>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 && (
+        <div className="text-center py-16 text-gray-500">
+          <Icon name="FolderOpen" size={36} className="mx-auto mb-3 text-gray-700"/>
+          <div className="text-[13px]">{search ? "Проекты не найдены" : "Нет проектов"}</div>
+          {!search && <div className="text-[11px] mt-1">Нажмите «Новый проект» чтобы начать</div>}
+        </div>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <div className="grid gap-3" style={{gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))"}}>
+          {filtered.map(p => (
+            <div key={p.id} onClick={()=>onOpen(p.name)}
+              className="p-4 rounded-lg border border-gray-700 hover:border-[#0078d4] transition-all cursor-pointer group relative"
+              style={{background:"#252535"}}>
+              {/* Шапка */}
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{background: (STATUS_COLORS[p.status] || "#6b7280") + "20"}}>
+                  <Icon name={TYPE_ICONS[p.type] || "FolderOpen"} size={16}
+                    style={{color: STATUS_COLORS[p.status] || "#6b7280"}} fallback="Folder"/>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-[12px] font-semibold truncate">{p.name}</div>
+                  <div className="text-gray-400 text-[10px] truncate mt-0.5">{p.description || "—"}</div>
+                </div>
+                <button onClick={e=>deleteProject(p.id, e)}
+                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all p-0.5 flex-shrink-0">
+                  <Icon name="Trash2" size={13}/>
+                </button>
+              </div>
+              {/* Теги */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full border" style={{
+                  borderColor:(STATUS_COLORS[p.status]||"#6b7280")+"60",
+                  color: STATUS_COLORS[p.status] || "#6b7280",
+                  background: (STATUS_COLORS[p.status]||"#6b7280")+"15"
+                }}>{STATUS_LABELS[p.status] || p.status}</span>
+                <span className="text-[9px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded-full">
+                  {TYPE_LABELS[p.type] || p.type}
+                </span>
+                {p.objects_count > 0 && (
+                  <span className="text-[9px] text-gray-500 flex items-center gap-1 ml-auto">
+                    <Icon name="Layers" size={9}/>
+                    {p.objects_count} объ.
+                  </span>
+                )}
+              </div>
+              {/* Дата */}
+              <div className="text-[9px] text-gray-600 mt-2 flex items-center gap-1">
+                <Icon name="Clock" size={9}/>
+                {new Date(p.updated_at).toLocaleDateString("ru-RU", {day:"numeric",month:"long",year:"numeric"})}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGraphicsBanner, setShowGraphicsBanner }: {
   onOpen: (name?: string) => void
   showWelcomeDialog: boolean
@@ -229,12 +448,7 @@ function StartScreen({ onOpen, showWelcomeDialog, setShowWelcomeDialog, showGrap
             </>
           )}
           {tab === "autodesk" && (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
-              <Icon name="Cloud" size={40} className="text-gray-600 mb-3"/>
-              <div className="text-white text-[16px] font-semibold mb-2">Проекты Autodesk</div>
-              <div className="text-gray-400 text-[12px] mb-4">Подключитесь к Autodesk Construction Cloud для доступа к облачным проектам</div>
-              <button className="text-[12px] text-white px-4 py-2 rounded" style={{background:"#0078d4"}}>Подключить</button>
-            </div>
+            <AutodeskProjectsTab onOpen={onOpen}/>
           )}
           {tab === "learning" && (
             <div>
