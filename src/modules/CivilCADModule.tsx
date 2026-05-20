@@ -2541,6 +2541,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
   const [activeMenuTab, setActiveMenuTab] = useState("Главная")
   const [activeLayout, setActiveLayout] = useState("Model")
+  const [drawingTabs, setDrawingTabs] = useState(["Главная_парковка.dwg"])
+  const [activeDrawingTab, setActiveDrawingTab] = useState("Главная_парковка.dwg")
   const [cursorCoords, setCursorCoords] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState("1:500")
   const [showRightPanel, setShowRightPanel] = useState(true)
@@ -2848,11 +2850,35 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       <div className="bg-[#252535] border-b border-gray-700 flex items-center gap-0 px-1 py-0" style={{minHeight:22}}>
         <span className="text-[9px] text-gray-500 px-2">[-]</span>
         <div className="flex items-center gap-0">
-          <button className="bg-[#1e1e2e] border-t border-l border-r border-gray-600 px-3 py-0.5 text-[10px] text-blue-300 flex items-center gap-1 border-b-0">
-            <Icon name="FileText" size={9} /> Главная_парковка.dwg
-            <span className="ml-1 text-gray-500 hover:text-white text-[9px]">✕</span>
-          </button>
-          <button className="text-gray-500 hover:text-white px-2 py-0.5 text-[10px]">+</button>
+          {drawingTabs.map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveDrawingTab(tab)}
+              className={`border-t border-l border-r border-gray-600 px-3 py-0.5 text-[10px] flex items-center gap-1 border-b-0 transition-colors ${activeDrawingTab === tab ? "bg-[#1e1e2e] text-blue-300" : "bg-[#2a2a3e] text-gray-500 hover:text-gray-300"}`}
+            >
+              <Icon name="FileText" size={9} />
+              {tab}
+              {drawingTabs.length > 1 && (
+                <span
+                  className="ml-1 text-gray-500 hover:text-white text-[9px]"
+                  onClick={e => {
+                    e.stopPropagation()
+                    const next = drawingTabs.filter(t => t !== tab)
+                    setDrawingTabs(next)
+                    if (activeDrawingTab === tab) setActiveDrawingTab(next[0])
+                  }}
+                >✕</span>
+              )}
+            </button>
+          ))}
+          <button
+            className="text-gray-500 hover:text-white px-2 py-0.5 text-[10px]"
+            onClick={() => {
+              const name = `Новый_${drawingTabs.length}.dwg`
+              setDrawingTabs(prev => [...prev, name])
+              setActiveDrawingTab(name)
+            }}
+          >+</button>
         </div>
       </div>
 
