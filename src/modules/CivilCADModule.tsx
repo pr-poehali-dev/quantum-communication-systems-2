@@ -4135,7 +4135,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [redoStack, setRedoStack] = useState<string[]>([])
 
   // ── Split viewport state ─────────────────────────────────────────────────
-  const [splitView, setSplitView] = useState(true)
+  const [splitView, setSplitView] = useState(false)
   const [splitRatio, setSplitRatio] = useState(0.38)
   const splitDragRef = useRef<boolean>(false)
   const splitStartY = useRef<number>(0)
