@@ -290,7 +290,7 @@ export default function BIMModule() {
             {[
               { fmt: "IFC 2x3", icon: "FileCode", desc: "Универсальный формат BIM. Совместим с Revit, ArchiCAD, Navisworks", ext: ".ifc" },
               { fmt: "IFC 4.0", icon: "FileCode", desc: "Последняя версия стандарта ISO 16739. Расширенные возможности", ext: ".ifc" },
-              { fmt: "DWG / DXF", icon: "PenTool", desc: "Экспорт для AutoCAD Civil 3D, КОМПАС, nanoCAD", ext: ".dwg" },
+              { fmt: "DWG / DXF", icon: "PenTool", desc: "Экспорт в формате DWG/DXF — КОМПАС, nanoCAD, BricsCAD", ext: ".dwg" },
               { fmt: "CityGML", icon: "Globe", desc: "Геопространственная модель города (GIS-системы, ГИС РФ)", ext: ".gml" },
               { fmt: "LandXML", icon: "Mountain", desc: "Обмен данными о поверхностях, трассах, профилях", ext: ".xml" },
               { fmt: "CSV / Excel", icon: "Table", desc: "Таблица элементов со всеми атрибутами и свойствами", ext: ".xlsx" },
@@ -396,11 +396,11 @@ export default function BIMModule() {
         <TabsContent value="cloud" className="space-y-4">
           <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <Icon name="Cloud" size={16} className="text-indigo-600" />BIM 360 / Autodesk Construction Cloud
+              <Icon name="Cloud" size={16} className="text-indigo-600" />Облачное хранилище проектов
             </h3>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
               <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-              <span className="text-sm font-semibold text-green-800">Подключено — acc.autodesk.com</span>
+              <span className="text-sm font-semibold text-green-800">Подключено — облако ЛАПА 3D</span>
               <span className="ml-auto text-xs text-green-600">Аккаунт: engineer@civilpro.ru</span>
             </div>
             <div className="space-y-2">

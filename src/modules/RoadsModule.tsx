@@ -453,7 +453,7 @@ export default function RoadsModule() {
                 {
                   fmt: "DWG / DXF",
                   icon: "PenTool",
-                  desc: "Чертёж плана и профиля для AutoCAD (DXF-формат)",
+                  desc: "Чертёж плана и профиля в формате DXF/DWG",
                   color: "bg-orange-50 border-orange-200",
                   btn: "bg-orange-600 hover:bg-orange-700",
                   fn: doExportDWG,

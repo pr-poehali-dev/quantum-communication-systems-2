@@ -36,7 +36,7 @@ const capabilities = [
     icon: "Puzzle",
     title: "Интеграция с экосистемой",
     description:
-      "Совместимость с AutoCAD, Revit, InfraWorks, ReCap Pro. Единая среда для управления проектными данными между разными дисциплинами.",
+      "Совместимость с DWG, IFC, LandXML, Shapefile. Единая среда для управления проектными данными между разными дисциплинами.",
   },
   {
     icon: "BookCheck",

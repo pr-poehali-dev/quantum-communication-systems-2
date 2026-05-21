@@ -17,10 +17,10 @@ const advantages = [
     accent: "bg-violet-50 text-violet-600",
     border: "hover:border-violet-300",
     tag: "Экосистема",
-    title: "Интеграция с экосистемой Autodesk",
+    title: "Интеграция с профессиональными CAD/BIM-системами",
     description:
-      "Связка с AutoCAD, Autodesk Revit, Autodesk InfraWorks, ReCap Pro. Единая среда для создания и управления проектными данными между разными дисциплинами.",
-    pills: ["AutoCAD", "Revit", "InfraWorks", "ReCap Pro"],
+      "Полная поддержка форматов DWG, IFC, LandXML, Shapefile, DXF. Единая среда для создания и управления проектными данными между разными дисциплинами.",
+    pills: ["DWG", "IFC", "LandXML", "DXF"],
   },
   {
     icon: "BookCheck",
@@ -62,7 +62,7 @@ export function Advantages() {
             Всё для проектирования — и даже больше
           </h2>
           <p className="text-muted-foreground lg:text-lg max-w-2xl mx-auto">
-            Мы взяли лучшее из Autodesk Civil 3D и сделали это доступным без дорогой подписки
+            Профессиональные инструменты проектирования — доступные без дорогой зарубежной подписки
           </p>
         </motion.div>
 

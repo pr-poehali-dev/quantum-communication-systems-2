@@ -12,23 +12,23 @@ interface FormatItem {
 }
 
 const FORMATS: FormatItem[] = [
-  { ext: "DWG", name: "Чертёж AutoCAD", app: "AutoCAD", icon: "PenTool", desc: "Полная совместимость с AutoCAD 2000–2025. Сохранение всех слоёв, блоков, аннотаций.", direction: "both", supported: true },
-  { ext: "DXF", name: "Формат обмена чертежами", app: "AutoCAD", icon: "FileCode", desc: "Универсальный обмен с любыми CAD-системами — КОМПАС, nanoCAD, BricsCAD.", direction: "both", supported: true },
-  { ext: "LandXML", name: "Земельный XML", app: "Civil 3D / InfraWorks", icon: "Mountain", desc: "Обмен поверхностями, трассами, профилями, коридорами. Стандарт инфраструктурных данных.", direction: "both", supported: true },
-  { ext: "IFC", name: "Открытые классы зданий", app: "Revit / ArchiCAD", icon: "Box", desc: "BIM-обмен с Autodesk Revit, Bentley, ArchiCAD. IFC 2x3 и IFC 4.0.", direction: "both", supported: true },
-  { ext: "RVT", name: "Проект Revit", app: "Autodesk Revit", icon: "Building2", desc: "Прямой экспорт мостов, зданий и инженерных объектов в среду Revit.", direction: "out", supported: true },
-  { ext: "IMX", name: "Обмен моделью InfraWorks", app: "Autodesk InfraWorks", icon: "Globe", desc: "Передача 3D-модели территории и инфраструктуры в InfraWorks для презентаций.", direction: "out", supported: true },
-  { ext: "RCP/RCS", name: "Захват реальности", app: "Autodesk ReCap Pro", icon: "Scan", desc: "Импорт облаков точек LiDAR для создания поверхностей DTM.", direction: "in", supported: true },
+  { ext: "DWG", name: "Чертёж (DWG)", app: "nanoCAD / КОМПАС", icon: "PenTool", desc: "Полная совместимость с DWG-форматом. Сохранение всех слоёв, блоков, аннотаций.", direction: "both", supported: true },
+  { ext: "DXF", name: "Формат обмена чертежами", app: "Универсальный CAD", icon: "FileCode", desc: "Универсальный обмен с любыми CAD-системами — КОМПАС, nanoCAD, BricsCAD.", direction: "both", supported: true },
+  { ext: "LandXML", name: "Земельный XML", app: "CAD / ГИС системы", icon: "Mountain", desc: "Обмен поверхностями, трассами, профилями, коридорами. Стандарт инфраструктурных данных.", direction: "both", supported: true },
+  { ext: "IFC", name: "Открытые классы зданий", app: "Revit / ArchiCAD", icon: "Box", desc: "BIM-обмен с Revit, Bentley, ArchiCAD. IFC 2x3 и IFC 4.0.", direction: "both", supported: true },
+  { ext: "RVT", name: "Проект Revit", app: "Revit", icon: "Building2", desc: "Прямой экспорт мостов, зданий и инженерных объектов в среду Revit.", direction: "out", supported: true },
+  { ext: "IMX", name: "Обмен 3D-моделью", app: "3D Просмотр", icon: "Globe", desc: "Передача 3D-модели территории и инфраструктуры для визуализации и презентаций.", direction: "out", supported: true },
+  { ext: "RCP/RCS", name: "Облако точек", app: "LiDAR / ReCap", icon: "Scan", desc: "Импорт облаков точек LiDAR для создания поверхностей DTM.", direction: "in", supported: true },
   { ext: "SHP", name: "Шейп-файл", app: "ArcGIS / QGIS", icon: "Map", desc: "Импорт/экспорт геоданных для работы с ГИС-системами.", direction: "both", supported: true },
   { ext: "GeoTIFF", name: "Растровый рельеф", app: "QGIS / MapInfo", icon: "Image", desc: "Импорт растровых подложек и цифровых моделей рельефа.", direction: "in", supported: true },
   { ext: "KMZ/KML", name: "Google Планета Земля", app: "Google Earth Pro", icon: "Globe2", desc: "Экспорт трасс и объектов для отображения в Google Earth.", direction: "out", supported: true },
 ]
 
 const APPS = [
-  { name: "AutoCAD", logo: "PenTool", color: "bg-red-50 border-red-200 text-red-700", status: "Полная поддержка", formats: ["DWG", "DXF"] },
-  { name: "Autodesk Revit", logo: "Building2", color: "bg-blue-50 border-blue-200 text-blue-700", status: "IFC + прямой экспорт", formats: ["IFC", "RVT"] },
-  { name: "Autodesk InfraWorks", logo: "Globe", color: "bg-green-50 border-green-200 text-green-700", status: "LandXML + IMX", formats: ["LandXML", "IMX"] },
-  { name: "Autodesk ReCap Pro", logo: "Scan", color: "bg-purple-50 border-purple-200 text-purple-700", status: "Облака точек LiDAR", formats: ["RCP", "RCS"] },
+  { name: "nanoCAD", logo: "PenTool", color: "bg-red-50 border-red-200 text-red-700", status: "Полная поддержка", formats: ["DWG", "DXF"] },
+  { name: "Revit", logo: "Building2", color: "bg-blue-50 border-blue-200 text-blue-700", status: "IFC + прямой экспорт", formats: ["IFC", "RVT"] },
+  { name: "ЛАПА 3D Карты", logo: "Globe", color: "bg-green-50 border-green-200 text-green-700", status: "LandXML + IMX", formats: ["LandXML", "IMX"] },
+  { name: "LiDAR / Облака точек", logo: "Scan", color: "bg-purple-50 border-purple-200 text-purple-700", status: "Облака точек LiDAR", formats: ["RCP", "RCS"] },
   { name: "КОМПАС-3D", logo: "Cpu", color: "bg-orange-50 border-orange-200 text-orange-700", status: "Через DXF", formats: ["DXF"] },
   { name: "QGIS / ArcGIS", logo: "Map", color: "bg-teal-50 border-teal-200 text-teal-700", status: "GIS-форматы", formats: ["SHP", "GeoTIFF"] },
 ]

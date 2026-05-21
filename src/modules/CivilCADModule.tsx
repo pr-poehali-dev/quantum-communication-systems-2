@@ -496,12 +496,12 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
               <h2 className="text-white text-[20px] font-semibold mb-4">Обучение и аналитика</h2>
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  {icon:"Play",title:"Быстрый старт Civil 3D 2027",tag:"Видео · 15 мин",color:"#0078d4",url:"https://www.autodesk.com/products/civil-3d/get-started"},
-                  {icon:"BookOpen",title:"Работа с ЦМР и поверхностями",tag:"Урок · 30 мин",color:"#059669",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-surface"},
-                  {icon:"Route",title:"Трассирование и коридоры",tag:"Урок · 45 мин",color:"#d97706",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-alignment"},
-                  {icon:"TrendingUp",title:"Анализ горизонтальной регрессии",tag:"Новое · 20 мин",color:"#7c3aed",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-hra"},
-                  {icon:"Spline",title:"Характерные линии выхода на рельеф",tag:"Новое · 25 мин",color:"#ec4899",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-featureline"},
-                  {icon:"Gauge",title:"Напорные трубопроводные сети",tag:"Урок · 35 мин",color:"#0284c7",url:"https://help.autodesk.com/view/CIV3D/2027/RUS/?guid=GUID-pipenetwork"},
+                  {icon:"Play",title:"Быстрый старт — проектирование дорог",tag:"Видео · 15 мин",color:"#0078d4",url:"#"},
+                  {icon:"BookOpen",title:"Работа с ЦМР и поверхностями",tag:"Урок · 30 мин",color:"#059669",url:"#"},
+                  {icon:"Route",title:"Трассирование и коридоры",tag:"Урок · 45 мин",color:"#d97706",url:"#"},
+                  {icon:"TrendingUp",title:"Анализ горизонтальной регрессии",tag:"Новое · 20 мин",color:"#7c3aed",url:"#"},
+                  {icon:"Spline",title:"Характерные линии выхода на рельеф",tag:"Новое · 25 мин",color:"#ec4899",url:"#"},
+                  {icon:"Gauge",title:"Напорные трубопроводные сети",tag:"Урок · 35 мин",color:"#0284c7",url:"#"},
                 ].map((c,i)=>(
                   <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
                     className="p-4 rounded-lg border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e2a3a] cursor-pointer transition-all block group">
@@ -1065,7 +1065,7 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "IFC", icon: "FileJson", size: "sm" },
     ]},
     { label: "Публикация", items: [
-      { label: "Autodesk Docs", icon: "Cloud", size: "lg" },
+      { label: "Облачное хранилище", icon: "Cloud", size: "lg" },
       { label: "Комплекты листов", icon: "BookOpen", size: "sm", drop: "Комплекты листов ▾" },
     ]},
     { label: "Отправить в", items: [
