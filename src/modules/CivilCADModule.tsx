@@ -4149,8 +4149,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   // ── Start screen state ───────────────────────────────────────────────────
   const [showStartScreen, setShowStartScreen] = useState(true)
-  const [showWelcomeDialog, setShowWelcomeDialog] = useState(true)
-  const [showGraphicsBanner, setShowGraphicsBanner] = useState(true)
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false)
+  const [showGraphicsBanner, setShowGraphicsBanner] = useState(false)
   const [currentProjectId, setCurrentProjectId] = useState<number|null>(null)
   const [currentProjectName, setCurrentProjectName] = useState<string>("")
   const [showSaveDialog, setShowSaveDialog] = useState(false)
