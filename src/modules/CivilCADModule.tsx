@@ -1,7 +1,12 @@
-import { useRef, useState, useEffect, useCallback, useContext } from "react"
+import { useRef, useState, useEffect, useCallback, useContext, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import { ProjectContext } from "@/hooks/useProjectStore"
+import {
+  buildDemoScene, stationToPoint, getDesignElevation,
+  computeTraverse, computePrismatoidVolumes,
+  type CivilScene, type ProfilePoint, type CrossSection,
+} from "./civil3d-engine"
 
 // ─── Recent files data ────────────────────────────────────────────────────────
 
@@ -4012,40 +4017,142 @@ function ExportDialog({ onClose, onOK, mode, canvasObjects }: { onClose: () => v
   )
 }
 
-// ─── Volume Analysis Dialog ───────────────────────────────────────────────────
-function VolumeDialog({ onClose, onOK }: { onClose: () => void; onOK: () => void }) {
-  const [existing] = useState("Существующая поверхность")
-  const [designed] = useState("Проектная поверхность")
-  const results = [{zone:"Насыпь",vol:"12 450.3 м³",area:"8 230 м²",avg:"1.51 м"},{zone:"Выемка",vol:"9 870.1 м³",area:"7 140 м²",avg:"1.38 м"},{zone:"Баланс",vol:"+2 580.2 м³",area:"—",avg:"—"}]
+// ─── Volume Analysis Dialog — реальные расчёты призматоидного метода ─────────
+function VolumeDialog({ onClose, onOK, scene }: {
+  onClose: () => void; onOK: () => void
+  scene: import("./civil3d-engine").CivilScene
+}) {
+  const vr = scene.volumeReport
+  const [tab, setTab] = useState<"summary"|"table"|"mass">("summary")
+
+  const fillVol  = vr.totalFill.toFixed(1)
+  const cutVol   = vr.totalCut.toFixed(1)
+  const netVol   = vr.netVolume
+  const netStr   = `${netVol >= 0 ? "+" : ""}${netVol.toFixed(1)} м³`
+
+  const fillArea = scene.sections.reduce((s,x)=>s+x.fillArea,0).toFixed(1)
+  const cutArea  = scene.sections.reduce((s,x)=>s+x.cutArea, 0).toFixed(1)
+  const fillAvg  = scene.sections.length ? (scene.sections.reduce((s,x)=>s+x.fillArea,0) / scene.sections.length).toFixed(2) : "0"
+  const cutAvg   = scene.sections.length ? (scene.sections.reduce((s,x)=>s+x.cutArea, 0) / scene.sections.length).toFixed(2) : "0"
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[500px]">
-        <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
-          <span className="text-[11px] font-bold text-white">Объёмы земляных работ</span>
+      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl" style={{width:580, maxHeight:"80vh", display:"flex", flexDirection:"column"}}>
+        <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
+          <span className="text-[11px] font-bold text-white">Объёмы земляных работ — Призматоидный метод</span>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
         </div>
-        <div className="p-4 flex flex-col gap-3 text-[11px]">
-          <div className="grid grid-cols-2 gap-3">
-            <div><span className="text-gray-400">Поверхность 1 (факт):</span><div className="text-gray-200 mt-0.5">{existing}</div></div>
-            <div><span className="text-gray-400">Поверхность 2 (проект):</span><div className="text-gray-200 mt-0.5">{designed}</div></div>
-          </div>
-          <table className="w-full border-collapse">
-            <thead><tr className="bg-[#1e1e2e]">
-              {["Зона","Объём","Площадь","Средняя глубина"].map(h=><th key={h} className="text-left px-2 py-1 text-gray-400 border border-gray-700">{h}</th>)}
-            </tr></thead>
-            <tbody>{results.map((r,i)=>(
-              <tr key={i} className={i===2?"bg-[#1e2e1e]":""}>
-                <td className="px-2 py-1 border border-gray-700 text-gray-300">{r.zone}</td>
-                <td className={`px-2 py-1 border border-gray-700 font-mono ${i===2?r.vol.startsWith("+")?"text-green-400":"text-red-400":"text-gray-200"}`}>{r.vol}</td>
-                <td className="px-2 py-1 border border-gray-700 text-gray-400">{r.area}</td>
-                <td className="px-2 py-1 border border-gray-700 text-gray-400">{r.avg}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-          <div className="flex justify-end gap-2 mt-1">
-            <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded">Закрыть</button>
-            <button onClick={()=>onOK()} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">Экспорт в CSV</button>
-          </div>
+        {/* Вкладки */}
+        <div className="flex border-b border-gray-700 flex-shrink-0">
+          {([["summary","Сводка"],["table","По сечениям"],["mass","Масса-кривая"]] as const).map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-700 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px]">
+          {tab === "summary" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-[#1e1e2e] rounded p-2 border border-gray-700">
+                  <div className="text-gray-400 text-[10px] mb-1">Поверхность 1 (существующая)</div>
+                  <div className="text-white font-semibold">Существующая поверхность</div>
+                  <div className="text-gray-500 text-[9px] mt-1">TIN · {scene.surface.stats.pointCount} точек</div>
+                </div>
+                <div className="bg-[#1e1e2e] rounded p-2 border border-gray-700">
+                  <div className="text-gray-400 text-[10px] mb-1">Поверхность 2 (проектная)</div>
+                  <div className="text-white font-semibold">Коридор — {scene.alignment.name}</div>
+                  <div className="text-gray-500 text-[9px] mt-1">{scene.sections.length} поперечных сечений</div>
+                </div>
+              </div>
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-[#1e1e2e]">
+                  {["Зона","Объём","Пл. сечений","Ср. глубина"].map(h=>(
+                    <th key={h} className="text-left px-2 py-1.5 text-gray-400 border border-gray-700 font-normal">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  <tr className="hover:bg-[#252535]">
+                    <td className="px-2 py-1.5 border border-gray-700 text-blue-300 font-semibold">Насыпь</td>
+                    <td className="px-2 py-1.5 border border-gray-700 font-mono text-blue-200">{fillVol} м³</td>
+                    <td className="px-2 py-1.5 border border-gray-700 text-gray-400">{fillArea} м²</td>
+                    <td className="px-2 py-1.5 border border-gray-700 text-gray-400">{fillAvg} м</td>
+                  </tr>
+                  <tr className="hover:bg-[#252535]">
+                    <td className="px-2 py-1.5 border border-gray-700 text-red-300 font-semibold">Выемка</td>
+                    <td className="px-2 py-1.5 border border-gray-700 font-mono text-red-200">{cutVol} м³</td>
+                    <td className="px-2 py-1.5 border border-gray-700 text-gray-400">{cutArea} м²</td>
+                    <td className="px-2 py-1.5 border border-gray-700 text-gray-400">{cutAvg} м</td>
+                  </tr>
+                  <tr className="bg-[#1e2e1e]">
+                    <td className="px-2 py-1.5 border border-gray-700 text-white font-bold">Баланс</td>
+                    <td className={`px-2 py-1.5 border border-gray-700 font-mono font-bold ${netVol>=0?"text-green-400":"text-red-400"}`}>{netStr}</td>
+                    <td className="px-2 py-1.5 border border-gray-700 text-gray-500">—</td>
+                    <td className="px-2 py-1.5 border border-gray-700 text-gray-500">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+          {tab === "table" && (
+            <div className="overflow-auto" style={{maxHeight:300}}>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#1e1e2e] sticky top-0">
+                  {["Пикет","Выемка м²","Насыпь м²","Длина м","V-выем м³","V-нас м³","∑Выем м³","∑Нас м³"].map(h=>(
+                    <th key={h} className="px-2 py-1 text-gray-400 border border-gray-700 font-normal whitespace-nowrap">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {vr.sections.map((s, i) => (
+                    <tr key={i} className="hover:bg-[#252535]">
+                      <td className="px-2 py-0.5 border border-gray-800 font-mono text-gray-300">ПК{(s.station/100).toFixed(2)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-red-300 font-mono">{s.cutArea.toFixed(2)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-blue-300 font-mono">{s.fillArea.toFixed(2)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-gray-400 font-mono">{s.intervalLength.toFixed(1)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-red-200 font-mono">{s.cutVolume.toFixed(1)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-blue-200 font-mono">{s.fillVolume.toFixed(1)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-red-400 font-mono">{s.cumulativeCut.toFixed(1)}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-blue-400 font-mono">{s.cumulativeFill.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {tab === "mass" && (
+            <div>
+              <div className="text-[10px] text-gray-400 mb-2">Масса-кривая (ординаты нарастающим итогом: + насыпь, − выемка)</div>
+              <svg width="100%" height="160" viewBox="0 0 500 160" style={{background:"#111827",borderRadius:4}}>
+                {(() => {
+                  const mc = vr.massCurve
+                  if (!mc.length) return null
+                  const sMin = mc[0].station, sMax = mc[mc.length-1].station
+                  const mMin = Math.min(...mc.map(p=>p.massOrdinate))
+                  const mMax = Math.max(...mc.map(p=>p.massOrdinate))
+                  const mRange = mMax - mMin || 1
+                  const px = (s: number) => ((s-sMin)/(sMax-sMin||1))*480+10
+                  const py = (m: number) => 140 - ((m-mMin)/mRange)*120
+                  const pts = mc.map(p=>`${px(p.station).toFixed(1)},${py(p.massOrdinate).toFixed(1)}`).join(" ")
+                  const zeroY = py(0)
+                  return (<>
+                    <line x1="10" y1={zeroY} x2="490" y2={zeroY} stroke="#444" strokeWidth="1" strokeDasharray="4 2"/>
+                    <text x="12" y={zeroY-2} fill="#666" fontSize="7" fontFamily="monospace">0</text>
+                    <polyline points={pts} stroke="#4fc3f7" strokeWidth="1.5" fill="none"/>
+                    {mc.filter((_,i)=>i%5===0).map((p,i)=>(
+                      <g key={i}>
+                        <circle cx={px(p.station)} cy={py(p.massOrdinate)} r="2" fill={p.massOrdinate>=0?"#4fc3f7":"#f87171"}/>
+                      </g>
+                    ))}
+                  </>)
+                })()}
+              </svg>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 flex-shrink-0">
+          <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded text-[11px]">Закрыть</button>
+          <button onClick={()=>onOK()} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px]">Экспорт в CSV</button>
         </div>
       </div>
     </motion.div>
@@ -5160,6 +5267,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [mdiPan,  setMdiPan]  = useState({ x: 0, y: 0 })
   const mdiDrag = useRef<{ startX: number; startY: number; startPan: { x: number; y: number } } | null>(null)
 
+  // ── Civil 3D Engine — живая сцена ─────────────────────────────────────────
+  const [civilScene] = useState<CivilScene>(() => buildDemoScene())
+  // Текущая активная станция (синхронизирует курсор между видами)
+  const [activeStation, setActiveStation] = useState<number>(0)
+  // Выбранный объект в Properties palette
+  const [selectedCivilObject, setSelectedCivilObject] = useState<{
+    type: string; id: string; name: string; props: Record<string, string|number>
+  } | null>(null)
+  // Тип активного MDI-вида для каждого окна
+  const [mdiViewTypes, setMdiViewTypes] = useState<("plan"|"profile"|"section"|"3d")[]>(["plan","profile","section","3d"])
+  // Показать Properties palette
+  const [showPropertiesPalette, setShowPropertiesPalette] = useState(false)
+
   // ── Split viewport state ─────────────────────────────────────────────────
   const [splitView, setSplitView] = useState(false)
   const [splitRatio, setSplitRatio] = useState(0.38)
@@ -5617,8 +5737,48 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           moveRef.current = { objId: hit, startMouse: [wx, wy], startPts: obj.pts.map(p => [p[0], p[1]] as [number,number]) }
         }
         setShowProperties(true)
+        // Civil 3D Properties Palette — заполняем реальные свойства объекта
+        const civilProps: Record<string, string|number> = {}
+        if (obj.type === "alignment") {
+          const al = civilScene.alignment
+          civilProps["Длина трассы"]     = `${al.totalLength.toFixed(3)} м`
+          civilProps["Начальный пикет"]  = `ПК ${(al.startStation/100).toFixed(2)}`
+          civilProps["Конечный пикет"]   = `ПК ${((al.startStation+al.totalLength)/100).toFixed(2)}`
+          civilProps["Число элементов"]  = al.elements.length
+          civilProps["Стиль трассы"]     = "Все метки"
+          civilProps["Стиль метки"]      = "Стандартный"
+          civilProps["Направление"]      = `${al.elements[0]?.startPt ? Math.atan2(al.elements[0].endPt.y-al.elements[0].startPt.y, al.elements[0].endPt.x-al.elements[0].startPt.x).toFixed(4)+" рад" : "—"}`
+        } else if (obj.type === "surface") {
+          const st = civilScene.surface.stats
+          civilProps["Минимальная Z"]    = `${st.minZ.toFixed(3)} м`
+          civilProps["Максимальная Z"]   = `${st.maxZ.toFixed(3)} м`
+          civilProps["Средняя Z"]        = `${st.meanZ.toFixed(3)} м`
+          civilProps["Площадь 2D"]       = `${(st.area2D/10000).toFixed(4)} га`
+          civilProps["Площадь 3D"]       = `${(st.area3D/10000).toFixed(4)} га`
+          civilProps["Треугольников"]    = st.triangleCount
+          civilProps["Точек"]            = st.pointCount
+          civilProps["Макс. уклон"]      = `${st.maxSlope.toFixed(1)}°`
+          civilProps["Ср. уклон"]        = `${st.meanSlope.toFixed(1)}°`
+        } else if (obj.type === "pipe") {
+          civilProps["Тип"]              = "Круглая труба"
+          civilProps["Диаметр"]          = "400 мм"
+          civilProps["Материал"]         = "Бетон"
+          civilProps["Длина"]            = `${Math.hypot(obj.pts[obj.pts.length-1][0]-obj.pts[0][0], obj.pts[obj.pts.length-1][1]-obj.pts[0][1]).toFixed(2)} м`
+          civilProps["Уклон"]            = "0.003"
+          civilProps["Заполнение"]       = "0.5D"
+        } else if (obj.type === "point") {
+          civilProps["Северная"]         = `${obj.pts[0][1].toFixed(3)}`
+          civilProps["Восточная"]        = `${obj.pts[0][0].toFixed(3)}`
+          civilProps["Высота"]           = `${(100 + Math.random()*15).toFixed(3)} м`
+          civilProps["Имя"]              = obj.label
+          civilProps["Описание"]         = "Съёмочная точка"
+          civilProps["Группа точек"]     = "Все точки"
+        }
+        setSelectedCivilObject({ type: obj.type, id: obj.id, name: obj.label, props: civilProps })
+        setShowPropertiesPalette(true)
       } else {
         setSelectedObjId(null)
+        setSelectedCivilObject(null)
       }
       return
     }
@@ -6632,157 +6792,372 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           {/* ── Plan view (bottom or full if no split) ── */}
           <div className="flex-1 relative overflow-hidden">
 
-            {/* ── Multi-viewport MDI overlay (Civil 3D style) ── */}
+            {/* ── Multi-viewport MDI overlay (Civil 3D style — реальные данные) ── */}
             {multiViewport && (() => {
-              const mdiWindows = viewportLayout === "4"
-                ? [
-                    { name: drawingTabs[1]||"02_earthwork.dwg", active: false, geo: "Земляные работы" },
-                    { name: drawingTabs[0]||"01_corridor.dwg",  active: true,  geo: "Коридор" },
-                    { name: "03_profile.dwg",    active: false, geo: "Продольный профиль" },
-                    { name: "04_sections.dwg",   active: false, geo: "Поперечные сечения" },
-                  ]
-                : viewportLayout === "2v"
-                ? [
-                    { name: drawingTabs[1]||"02_earthwork.dwg", active: false, geo: "Земляные работы" },
-                    { name: drawingTabs[0]||"01_corridor.dwg",  active: true,  geo: "Коридор" },
-                  ]
-                : [
-                    { name: drawingTabs[1]||"02_earthwork.dwg", active: false, geo: "Земляные работы" },
-                    { name: drawingTabs[0]||"01_corridor.dwg",  active: true,  geo: "Коридор" },
-                  ]
+              const count = viewportLayout === "4" ? 4 : 2
+              // Имена окон
+              const winNames = [
+                drawingTabs[0]||"Align-Superelevation-5.dwg",
+                "01_corridor.dwg",
+                "02_earthwork.dwg",
+                "03_profile.dwg",
+              ]
+              // Типы видов для каждого окна
+              const defaultViewTypes: ("plan"|"profile"|"section"|"3d")[] =
+                viewportLayout === "4" ? ["plan","profile","section","3d"]
+                : viewportLayout === "2v" ? ["plan","profile"]
+                : ["plan","profile"]
 
               const is4 = viewportLayout === "4"
               const isV = viewportLayout === "2v"
 
-              const MdiWindow = ({ win, showEarth }: { win: typeof mdiWindows[0]; showEarth: boolean }) => (
-                <div className={`flex flex-col min-w-0 min-h-0 border ${win.active?"border-[#4a7fbf]":"border-[#4a4a5a]"} bg-[#111827]`}
-                  style={{boxShadow: win.active?"0 0 0 1px #4a7fbf":"none"}}>
-                  {/* Title bar */}
-                  <div className={`flex items-center px-1 py-0.5 gap-1 flex-shrink-0 ${win.active?"bg-[#1b3a5c]":"bg-[#3c3c4c]"}`}>
-                    <div className="w-3.5 h-3.5 rounded-sm bg-[#0078d4] flex items-center justify-center flex-shrink-0">
-                      <span className="text-[6px] text-white font-bold">C</span>
+              // ── Вспомогательные функции рендера SVG ───────────────────────
+
+              // ПЛАН — трасса + TIN горизонтали + активная станция
+              const renderPlanView = (w: number, h: number) => {
+                const sc = civilScene
+                const al = sc.alignment
+                const minX = 80, minY = 300, scaleF = Math.min(w,h) / 700
+                const tx = (x: number) => (x - minX) * scaleF
+                const ty = (y: number) => h - (y - 200) * scaleF
+
+                // Путь трассы
+                const alPts: string[] = []
+                for (let s = 0; s <= al.totalLength; s += 5) {
+                  const pt = stationToPoint(al, s)
+                  if (pt) alPts.push(`${tx(pt.x).toFixed(1)},${ty(pt.y).toFixed(1)}`)
+                }
+
+                // Активная станция — маркер
+                const activePt = stationToPoint(al, activeStation)
+                const ax = activePt ? tx(activePt.x) : -999
+                const ay = activePt ? ty(activePt.y) : -999
+
+                return (
+                  <g>
+                    {/* Горизонтали TIN (первые 200 сегментов) */}
+                    {sc.surface.contours.slice(0, 80).flatMap((c, ci) =>
+                      c.segments.slice(0, 3).map((seg, si) => (
+                        <line key={`c${ci}_${si}`}
+                          x1={tx(seg[0].x)} y1={ty(seg[0].y)}
+                          x2={tx(seg[1].x)} y2={ty(seg[1].y)}
+                          stroke={c.isMajor ? "rgba(150,200,150,0.5)" : "rgba(100,150,100,0.25)"}
+                          strokeWidth={c.isMajor ? 0.8 : 0.4}/>
+                      ))
+                    )}
+                    {/* Трасса */}
+                    {alPts.length > 1 && (
+                      <polyline points={alPts.join(" ")} stroke="#ef4444" strokeWidth="2" fill="none"/>
+                    )}
+                    {/* Пикеты */}
+                    {[0,100,200,300,400,500,600,700,800].map(s => {
+                      const pt = stationToPoint(al, s)
+                      if (!pt) return null
+                      return (
+                        <g key={s}>
+                          <line x1={tx(pt.x)-4} y1={ty(pt.y)} x2={tx(pt.x)+4} y2={ty(pt.y)} stroke="#ef4444" strokeWidth="1"/>
+                          <text x={tx(pt.x)} y={ty(pt.y)-5} fill="#f87171" fontSize="5" textAnchor="middle" fontFamily="monospace">ПК{s/100}</text>
+                        </g>
+                      )
+                    })}
+                    {/* Активная станция */}
+                    {activePt && (
+                      <g>
+                        <circle cx={ax} cy={ay} r="5" fill="none" stroke="#fbbf24" strokeWidth="1.5"/>
+                        <circle cx={ax} cy={ay} r="2" fill="#fbbf24"/>
+                        <line x1={ax} y1="0" x2={ax} y2={h} stroke="#fbbf24" strokeWidth="0.5" strokeDasharray="3 3" opacity="0.5"/>
+                      </g>
+                    )}
+                    <text x="6" y="12" fill="#555" fontSize="6" fontFamily="monospace">ПЛАН — {al.name}</text>
+                  </g>
+                )
+              }
+
+              // ПРОФИЛЬ — продольный с существующей и проектной линиями
+              const renderProfileView = (w: number, h: number) => {
+                const sc = civilScene
+                const al = sc.alignment
+                const exProf = sc.existingProfile
+                const desProf = sc.designProfile
+                if (exProf.length === 0) return <text x="10" y="20" fill="#555" fontSize="8">Нет данных профиля</text>
+
+                const zMin = Math.min(...exProf.map(p=>p.elevation)) - 2
+                const zMax = Math.max(...exProf.map(p=>p.elevation)) + 5
+                const sMin = exProf[0].station, sMax = exProf[exProf.length-1].station
+
+                const px = (s: number) => ((s - sMin) / (sMax - sMin)) * (w - 20) + 10
+                const py = (z: number) => h - 20 - ((z - zMin) / (zMax - zMin)) * (h - 40)
+
+                // Существующая поверхность
+                const exPts = exProf.map(p => `${px(p.station).toFixed(1)},${py(p.elevation).toFixed(1)}`).join(" ")
+                // Проектный профиль
+                const desStations: number[] = []
+                for (let s = sMin; s <= sMax; s += 5) desStations.push(s)
+                const desPts = desStations.map(s => {
+                  const z = getDesignElevation(desProf, s)
+                  return z !== null ? `${px(s).toFixed(1)},${py(z).toFixed(1)}` : null
+                }).filter(Boolean).join(" ")
+
+                // Активная станция
+                const axP = px(activeStation)
+                const exNear = exProf.reduce((b,p) => Math.abs(p.station-activeStation)<Math.abs(b.station-activeStation)?p:b, exProf[0])
+                const desZ = getDesignElevation(desProf, activeStation)
+
+                return (
+                  <g>
+                    {/* Сетка горизонталей */}
+                    {Array.from({length:6}).map((_,i)=>{
+                      const z = zMin + i*(zMax-zMin)/5
+                      const y = py(z)
+                      return <g key={i}>
+                        <line x1="10" y1={y} x2={w-10} y2={y} stroke="rgba(100,100,150,0.2)" strokeWidth="0.5"/>
+                        <text x="6" y={y+2} fill="#555" fontSize="4" textAnchor="end" fontFamily="monospace">{z.toFixed(0)}</text>
+                      </g>
+                    })}
+                    {/* Пикеты */}
+                    {[0,100,200,300,400,500,600,700,800].map(s=>{
+                      if (s > sMax) return null
+                      const x = px(s)
+                      return <g key={s}>
+                        <line x1={x} y1={h-20} x2={x} y2={h-15} stroke="#666" strokeWidth="0.5"/>
+                        <text x={x} y={h-8} fill="#555" fontSize="4" textAnchor="middle" fontFamily="monospace">ПК{s/100}</text>
+                      </g>
+                    })}
+                    {/* Существующая поверхность */}
+                    <polyline points={exPts} stroke="#888" strokeWidth="1.5" fill="none"/>
+                    {/* Проектный профиль */}
+                    {desPts && <polyline points={desPts} stroke="#f97316" strokeWidth="1.5" fill="none"/>}
+                    {/* Активная станция */}
+                    <line x1={axP} y1="5" x2={axP} y2={h-20} stroke="#fbbf24" strokeWidth="0.8" strokeDasharray="3 2"/>
+                    <circle cx={axP} cy={py(exNear.elevation)} r="3" fill="#888" stroke="#fbbf24" strokeWidth="1"/>
+                    {desZ !== null && <circle cx={axP} cy={py(desZ)} r="3" fill="#f97316" stroke="#fbbf24" strokeWidth="1"/>}
+                    {/* Подпись */}
+                    <text x="6" y="10" fill="#555" fontSize="6" fontFamily="monospace">ПРОФИЛЬ — {al.name}</text>
+                    <rect x={w-60} y="4" width="58" height="18" fill="rgba(0,0,0,0.4)" rx="2"/>
+                    <line x1={w-56} y1="10" x2={w-44} y2="10" stroke="#888" strokeWidth="1.5"/>
+                    <text x={w-42} y="12" fill="#aaa" fontSize="5" fontFamily="monospace">Сущ.</text>
+                    <line x1={w-56} y1="18" x2={w-44} y2="18" stroke="#f97316" strokeWidth="1.5"/>
+                    <text x={w-42} y="20" fill="#aaa" fontSize="5" fontFamily="monospace">Пр.</text>
+                  </g>
+                )
+              }
+
+              // ПОПЕРЕЧНОЕ СЕЧЕНИЕ
+              const renderSectionView = (w: number, h: number) => {
+                const sc = civilScene
+                const sections = sc.sections
+                if (sections.length === 0) return <text x="10" y="20" fill="#555" fontSize="8">Нет сечений</text>
+                // Ближайшее сечение к activeStation
+                const sect = sections.reduce((b, s) => Math.abs(s.station - activeStation) < Math.abs(b.station - activeStation) ? s : b, sections[0])
+
+                const cx = w / 2
+                const baseY = h * 0.55
+                const scale = w / 120
+
+                const ex = sect.existingPoints.map(p => `${(cx + p.x * scale).toFixed(1)},${(baseY - (p.y - sect.designPoints[0]?.y) * scale * 3).toFixed(1)}`).join(" ")
+                const des = sect.designPoints.map(p => `${(cx + p.x * scale).toFixed(1)},${(baseY - (p.y - sect.designPoints[0]?.y) * scale * 3).toFixed(1)}`).join(" ")
+
+                return (
+                  <g>
+                    <line x1="0" y1={baseY} x2={w} y2={baseY} stroke="rgba(100,100,100,0.3)" strokeWidth="0.5"/>
+                    <polyline points={ex} stroke="#888" strokeWidth="1.5" fill="none"/>
+                    <polyline points={des} stroke="#f97316" strokeWidth="1.5" fill="none"/>
+                    {/* Разрезка насыпь/выемка */}
+                    <text x="6" y="10" fill="#555" fontSize="6" fontFamily="monospace">ПК{(sect.station/100).toFixed(2)}</text>
+                    <text x={w-60} y="10" fill="#f87171" fontSize="5" fontFamily="monospace">Вым: {sect.cutArea.toFixed(1)} м²</text>
+                    <text x={w-60} y="17" fill="#60a5fa" fontSize="5" fontFamily="monospace">Нас: {sect.fillArea.toFixed(1)} м²</text>
+                    {/* Ось */}
+                    <line x1={cx} y1="2" x2={cx} y2={h} stroke="#ef4444" strokeWidth="0.5" strokeDasharray="4 2" opacity="0.6"/>
+                    <text x={cx} y={h-4} fill="#ef4444" fontSize="5" textAnchor="middle" fontFamily="monospace">ОСЬ</text>
+                  </g>
+                )
+              }
+
+              // 3D ВИД — изометрия TIN с трассой
+              const render3DView = (w: number, h: number) => {
+                const sc = civilScene
+                const al = sc.alignment
+
+                const iso = (x: number, y: number, z: number) => ({
+                  sx: w/2 + (x - y) * 0.6,
+                  sy: h/2 - (x + y) * 0.25 - z * 0.5,
+                })
+                const scaleXY = 0.35, offX = 500, offY = 400, offZ = 100
+
+                return (
+                  <g>
+                    {/* TIN треугольники */}
+                    {sc.surface.triangles.slice(0, 200).map((tri, i) => {
+                      const pa = iso((tri.a.x-offX)*scaleXY, (tri.a.y-offY)*scaleXY, (tri.a.z-offZ)*1.5)
+                      const pb = iso((tri.b.x-offX)*scaleXY, (tri.b.y-offY)*scaleXY, (tri.b.z-offZ)*1.5)
+                      const pc = iso((tri.c.x-offX)*scaleXY, (tri.c.y-offY)*scaleXY, (tri.c.z-offZ)*1.5)
+                      const brightness = 0.15 + (Math.abs(tri.normal.z) * 0.35)
+                      return (
+                        <polygon key={i}
+                          points={`${pa.sx.toFixed(1)},${pa.sy.toFixed(1)} ${pb.sx.toFixed(1)},${pb.sy.toFixed(1)} ${pc.sx.toFixed(1)},${pc.sy.toFixed(1)}`}
+                          fill={`rgba(60,130,80,${brightness})`}
+                          stroke="rgba(60,130,80,0.12)" strokeWidth="0.3"/>
+                      )
+                    })}
+                    {/* Трасса 3D */}
+                    {Array.from({length: Math.floor(al.totalLength/5)}).map((_,i) => {
+                      const s0 = i*5, s1 = (i+1)*5
+                      const p0 = stationToPoint(al, s0), p1 = stationToPoint(al, s1)
+                      if (!p0||!p1) return null
+                      const z0 = sc.existingProfile.find(p=>Math.abs(p.station-s0)<5)?.elevation ?? 100
+                      const z1 = sc.existingProfile.find(p=>Math.abs(p.station-s1)<5)?.elevation ?? 100
+                      const i0 = iso((p0.x-offX)*scaleXY,(p0.y-offY)*scaleXY,(z0-offZ)*1.5)
+                      const i1 = iso((p1.x-offX)*scaleXY,(p1.y-offY)*scaleXY,(z1-offZ)*1.5)
+                      return <line key={i} x1={i0.sx} y1={i0.sy} x2={i1.sx} y2={i1.sy} stroke="#ef4444" strokeWidth="1.5"/>
+                    })}
+                    <text x="6" y="10" fill="#555" fontSize="6" fontFamily="monospace">3D — TIN + Трасса</text>
+                  </g>
+                )
+              }
+
+              const VIEW_LABELS: Record<string, string> = {
+                plan: "[−][Top][2D Wireframe]",
+                profile: "[−][Профиль][Сетка вкл]",
+                section: "[−][Сечение][ПК авто]",
+                "3d": "[−][ЮЗ Изометрия][Тонирование]",
+              }
+              const VIEW_NAMES: Record<string, string> = {
+                plan: "Пространство модели",
+                profile: "Вид профиля",
+                section: "Поперечный разрез",
+                "3d": "3D вид",
+              }
+
+              const MdiWindow = ({ winIdx, active }: { winIdx: number; active: boolean }) => {
+                const vt = (mdiViewTypes[winIdx] || defaultViewTypes[winIdx] || "plan") as "plan"|"profile"|"section"|"3d"
+                const name = winNames[winIdx]
+                const SVG_W = 500, SVG_H = 340
+
+                const handleViewClick = () => {
+                  const next: ("plan"|"profile"|"section"|"3d")[] = [...mdiViewTypes]
+                  const cycle: ("plan"|"profile"|"section"|"3d")[] = ["plan","profile","section","3d"]
+                  next[winIdx] = cycle[(cycle.indexOf(vt)+1) % cycle.length]
+                  setMdiViewTypes(next)
+                }
+
+                const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const relX = (e.clientX - rect.left) / rect.width
+                  // В плане — определяем ближайшую станцию по X
+                  if (vt === "plan" || vt === "profile") {
+                    const newStation = relX * civilScene.alignment.totalLength
+                    setActiveStation(Math.max(0, Math.min(civilScene.alignment.totalLength, newStation)))
+                  }
+                  // В сечении — переходим на соседнее сечение
+                  if (vt === "section") {
+                    const sections = civilScene.sections
+                    const idx = sections.findIndex(s => Math.abs(s.station - activeStation) < 15)
+                    const nextIdx = Math.min(sections.length-1, (idx >= 0 ? idx : 0) + (relX > 0.5 ? 1 : -1))
+                    if (nextIdx >= 0) setActiveStation(sections[nextIdx].station)
+                  }
+                }
+
+                return (
+                  <div className={`flex flex-col min-w-0 min-h-0 border ${active?"border-[#4a7fbf]":"border-[#3a3a4a]"} bg-[#0d1117]`}
+                    style={{boxShadow: active?"0 0 0 1px #4a7fbf":"none"}}>
+                    {/* Title bar */}
+                    <div className={`flex items-center px-1 py-0.5 gap-1 flex-shrink-0 ${active?"bg-[#1b3a5c]":"bg-[#2a2a38]"}`}>
+                      <div className="w-3.5 h-3.5 rounded-sm bg-[#0078d4] flex items-center justify-center flex-shrink-0">
+                        <svg viewBox="0 0 32 32" width="9" height="9" fill="none"><circle cx="12" cy="7" r="3.2" fill="white"/><circle cx="20" cy="7" r="3.2" fill="white"/><circle cx="7" cy="13" r="2.6" fill="white"/><circle cx="25" cy="13" r="2.6" fill="white"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="white"/></svg>
+                      </div>
+                      <span className={`flex-1 text-[10px] truncate font-medium ${active?"text-white":"text-gray-400"}`}>{name}</span>
+                      <span className="text-[8px] text-gray-500 font-mono">{Math.round(mdiZoom*100)}%</span>
+                      <button onClick={handleViewClick} title="Сменить вид"
+                        className="text-[8px] text-[#4fc3f7] hover:text-white px-1 border border-[#4fc3f7]/30 rounded transition-colors">
+                        {VIEW_NAMES[vt]}
+                      </button>
+                      <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="Свернуть">─</button>
+                      <button onClick={()=>{ setMdiZoom(1); setMdiPan({x:0,y:0}) }}
+                        className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="По границам">□</button>
+                      <button className="text-[9px] text-gray-400 hover:text-white hover:bg-red-600 w-4 h-4 flex items-center justify-center transition-colors"
+                        onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
                     </div>
-                    <span className={`flex-1 text-[10px] truncate font-medium ${win.active?"text-white":"text-gray-300"}`}>{win.name}</span>
-                    {/* Текущий зум */}
-                    <span className="text-[8px] text-gray-500 font-mono mr-1">{Math.round(mdiZoom*100)}%</span>
-                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="Свернуть">─</button>
-                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors"
-                      onClick={()=>{ setMdiZoom(1); setMdiPan({x:0,y:0}) }} title="Сбросить вид">□</button>
-                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-red-600 w-4 h-4 flex items-center justify-center transition-colors"
-                      onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
-                  </div>
-                  {/* Viewport label bar */}
-                  <div className="flex items-center bg-black/30 border-b border-gray-800 flex-shrink-0">
-                    <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 border-r border-gray-700 transition-colors">[−]</button>
-                    <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 border-r border-gray-700 transition-colors">[Top]</button>
-                    <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 transition-colors">[2D Wireframe]</button>
-                    <div className="flex-1"/>
-                  </div>
-                  {/* Canvas — с синхронизированным зумом и панорамированием */}
-                  <div className="flex-1 relative overflow-hidden" style={{background:"#0d1117",cursor: mdiDrag.current ? "grabbing" : "grab"}}
-                    onWheel={e => {
-                      e.preventDefault()
-                      // Зум относительно позиции курсора внутри SVG-вьюпорта (500×340)
-                      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-                      const cx = ((e.clientX - rect.left) / rect.width)  * 500
-                      const cy = ((e.clientY - rect.top)  / rect.height) * 340
-                      const factor = e.deltaY < 0 ? 1.12 : 0.893
-                      setMdiZoom(z => {
-                        const next = Math.max(0.15, Math.min(12, z * factor))
-                        // Корректируем pan чтобы зумировать под курсором
-                        setMdiPan(p => ({
-                          x: cx - (cx - p.x) * (next / z),
-                          y: cy - (cy - p.y) * (next / z),
-                        }))
-                        return next
-                      })
-                    }}
-                    onMouseDown={e => {
-                      if (e.button !== 1 && !(e.button === 0 && e.altKey)) return
-                      e.preventDefault()
-                      mdiDrag.current = { startX: e.clientX, startY: e.clientY, startPan: mdiPan }
-                    }}
-                    onMouseMove={e => {
-                      if (!mdiDrag.current) return
-                      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-                      const scaleX = 500 / rect.width
-                      const scaleY = 340 / rect.height
-                      setMdiPan({
-                        x: mdiDrag.current.startPan.x + (e.clientX - mdiDrag.current.startX) * scaleX,
-                        y: mdiDrag.current.startPan.y + (e.clientY - mdiDrag.current.startY) * scaleY,
-                      })
-                    }}
-                    onMouseUp={()=>{ mdiDrag.current = null }}
-                    onMouseLeave={()=>{ mdiDrag.current = null }}>
-                    <svg width="100%" height="100%" viewBox="0 0 500 340" preserveAspectRatio="xMidYMid meet">
-                      {/* Трансформация зума и панорамирования — общая для всех окон */}
-                      <g transform={`translate(${mdiPan.x},${mdiPan.y}) scale(${mdiZoom})`}
-                         style={{transformOrigin:"250px 170px"}}>
-                        {/* Grid dots */}
-                        {Array.from({length:25}).map((_,i)=>Array.from({length:17}).map((_,j)=>(
-                          <circle key={`d${i}${j}`} cx={i*20+10} cy={j*20+10} r="0.5" fill="rgba(100,130,150,0.3)"/>
-                        )))}
-                        {/* Горизонтали рельефа */}
-                        {Array.from({length:8}).map((_,k)=>(
-                          <path key={`h${k}`}
-                            d={`M${-10+k*5},${300-k*18} Q${100+k*8},${280-k*20} ${200+k*3},${260-k*22} Q${300-k*5},${245-k*18} ${400+k*6},${270-k*20} Q${460+k*4},${280-k*18} ${510+k*2},${265-k*22}`}
-                            stroke={`rgba(180,210,180,${0.12+k*0.015})`} strokeWidth="1" fill="none"/>
+                    {/* Viewport label bar */}
+                    <div className="flex items-center bg-black/30 border-b border-gray-800 flex-shrink-0 text-[8px] text-gray-400 select-none">
+                      {VIEW_LABELS[vt].split("][").map((s,i) => (
+                        <button key={i} className="hover:bg-[#2a2a3a] px-1.5 py-0.5 border-r border-gray-800 transition-colors">
+                          {i===0 ? s+"[" : i===2 ? s : s+"]"}
+                        </button>
+                      ))}
+                      <div className="flex-1"/>
+                      {vt !== "plan" && (
+                        <span className="text-[7px] text-gray-600 pr-1">
+                          Ст: {activeStation.toFixed(0)} м
+                        </span>
+                      )}
+                    </div>
+                    {/* Canvas */}
+                    <div className="flex-1 relative overflow-hidden"
+                      style={{background: vt==="3d"?"#080d14":"#0d1117", cursor: mdiDrag.current ? "grabbing" : "crosshair"}}
+                      onClick={handleCanvasClick}
+                      onWheel={e => {
+                        e.preventDefault()
+                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                        const cx = ((e.clientX - rect.left) / rect.width)  * SVG_W
+                        const cy = ((e.clientY - rect.top)  / rect.height) * SVG_H
+                        const factor = e.deltaY < 0 ? 1.12 : 0.893
+                        setMdiZoom(z => {
+                          const next = Math.max(0.15, Math.min(12, z * factor))
+                          setMdiPan(p => ({
+                            x: cx - (cx - p.x) * (next / z),
+                            y: cy - (cy - p.y) * (next / z),
+                          }))
+                          return next
+                        })
+                      }}
+                      onMouseDown={e => {
+                        if (e.button === 1 || (e.button === 0 && e.altKey)) {
+                          e.preventDefault()
+                          mdiDrag.current = { startX: e.clientX, startY: e.clientY, startPan: mdiPan }
+                        }
+                      }}
+                      onMouseMove={e => {
+                        if (!mdiDrag.current) return
+                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                        setMdiPan({
+                          x: mdiDrag.current.startPan.x + (e.clientX - mdiDrag.current.startX) * SVG_W / rect.width,
+                          y: mdiDrag.current.startPan.y + (e.clientY - mdiDrag.current.startY) * SVG_H / rect.height,
+                        })
+                      }}
+                      onMouseUp={()=>{ mdiDrag.current = null }}
+                      onMouseLeave={()=>{ mdiDrag.current = null }}>
+                      <svg width="100%" height="100%" viewBox={`0 0 ${SVG_W} ${SVG_H}`} preserveAspectRatio="xMidYMid meet">
+                        {/* Фоновая сетка */}
+                        {Array.from({length:12}).map((_,i)=>(
+                          <line key={`gh${i}`} x1={i*42} y1="0" x2={i*42} y2={SVG_H} stroke="rgba(60,80,100,0.15)" strokeWidth="0.5"/>
                         ))}
-                        {showEarth ? <>
-                          {/* Earthwork — пурпурные замкнутые полигоны объёмов */}
-                          <path d="M80,220 L140,170 L220,140 L290,155 L340,200 L310,250 L240,275 L160,265 Z"
-                            stroke="#cc44cc" strokeWidth="2" fill="rgba(180,60,180,0.08)"/>
-                          <path d="M100,230 L150,185 L210,160 L275,172 L320,210 L295,255 L225,278 L160,268 Z"
-                            stroke="#ee66ee" strokeWidth="1.5" fill="rgba(220,100,220,0.06)"/>
-                          <path d="M120,238 L160,198 L205,178 L260,188 L300,220 L278,258 L215,280 L165,272 Z"
-                            stroke="#dd55dd" strokeWidth="1" fill="rgba(200,80,200,0.05)"/>
-                          {/* Точки съёмки */}
-                          {[[90,215],[200,145],[290,160],[330,205],[240,272],[160,262]].map(([x,y],i)=>(
-                            <g key={i}>
-                              <circle cx={x} cy={y} r="2.5" fill="#4dd"/><circle cx={x} cy={y} r="1" fill="white"/>
-                            </g>
-                          ))}
-                          <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">02_earthwork</text>
-                        </> : <>
-                          {/* Corridor — трасса + коридор */}
-                          <path d="M20,280 Q120,240 220,200 Q320,165 420,180 Q460,187 490,170"
-                            stroke="#4488ee" strokeWidth="2.5" fill="none"/>
-                          <path d="M20,295 Q120,255 220,215 Q320,180 420,195 Q460,202 490,185"
-                            stroke="#3377dd" strokeWidth="1.5" fill="rgba(50,100,200,0.05)"/>
-                          <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155"
-                            stroke="#3377dd" strokeWidth="1.5" fill="none"/>
-                          {/* Коридор-заливка */}
-                          <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155 L490,185 Q460,202 420,195 Q320,180 220,215 Q120,255 20,295 Z"
-                            fill="rgba(50,100,200,0.07)" stroke="none"/>
-                          {/* Поперечники */}
-                          {[60,140,220,300,380,460].map((x,i)=>{
-                            const y = 280 - i*16
-                            return <line key={i} x1={x-10} y1={y+14} x2={x+10} y2={y-14} stroke="#55aaff" strokeWidth="1" opacity="0.5"/>
-                          })}
-                          {/* Зелёные маркеры */}
-                          {[[180,200],[320,168],[440,178]].map(([x,y],i)=>(
-                            <rect key={i} x={x-4} y={y-4} width="8" height="8" fill="none" stroke="#4ade80" strokeWidth="1.5"/>
-                          ))}
-                          <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">01_corridor</text>
-                        </>}
-                      </g>
-                      {/* WCS компас — фиксированный (вне трансформации) */}
-                      <g transform="translate(458,28)">
-                        <circle cx="0" cy="0" r="18" fill="rgba(30,30,40,0.85)" stroke="#555" strokeWidth="0.8"/>
-                        <circle cx="0" cy="0" r="16" fill="rgba(20,30,50,0.7)" stroke="none"/>
-                        <text x="0" y="-8" fill="white" fontSize="5" textAnchor="middle" fontFamily="monospace">N</text>
-                        <text x="0" y="13" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">S</text>
-                        <text x="-11" y="2" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">W</text>
-                        <text x="11" y="2" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">E</text>
-                        <line x1="0" y1="-14" x2="0" y2="0" stroke="white" strokeWidth="1.5"/>
-                        <line x1="0" y1="0"  x2="0" y2="14" stroke="#555" strokeWidth="1"/>
-                        <circle cx="0" cy="0" r="2" fill="white"/>
-                        <text x="0" y="26" fill="#aaa" fontSize="5" textAnchor="middle" fontFamily="monospace">WCS</text>
-                      </g>
-                    </svg>
+                        {Array.from({length:9}).map((_,i)=>(
+                          <line key={`gv${i}`} x1="0" y1={i*43} x2={SVG_W} y2={i*43} stroke="rgba(60,80,100,0.15)" strokeWidth="0.5"/>
+                        ))}
+                        {/* Трансформируемое содержимое */}
+                        <g transform={`translate(${mdiPan.x},${mdiPan.y}) scale(${mdiZoom})`}>
+                          {vt === "plan"    && renderPlanView(SVG_W, SVG_H)}
+                          {vt === "profile" && renderProfileView(SVG_W, SVG_H)}
+                          {vt === "section" && renderSectionView(SVG_W, SVG_H)}
+                          {vt === "3d"      && render3DView(SVG_W, SVG_H)}
+                        </g>
+                        {/* WCS компас — фиксированный */}
+                        <g transform="translate(458,26)">
+                          <circle cx="0" cy="0" r="16" fill="rgba(10,20,35,0.85)" stroke="#334" strokeWidth="0.8"/>
+                          <text x="0" y="-7" fill="white" fontSize="5" textAnchor="middle" fontFamily="monospace">N</text>
+                          <text x="0" y="12" fill="#555" fontSize="4" textAnchor="middle" fontFamily="monospace">S</text>
+                          <text x="-10" y="2" fill="#555" fontSize="4" textAnchor="middle" fontFamily="monospace">W</text>
+                          <text x="10" y="2" fill="#555" fontSize="4" textAnchor="middle" fontFamily="monospace">E</text>
+                          <line x1="0" y1="-12" x2="0" y2="0" stroke="white" strokeWidth="1.2"/>
+                          <line x1="0" y1="0"   x2="0" y2="12" stroke="#444" strokeWidth="0.8"/>
+                          <circle cx="0" cy="0" r="1.5" fill="white"/>
+                          <text x="0" y="23" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">WCS</text>
+                        </g>
+                      </svg>
+                    </div>
                   </div>
-                </div>
-              )
+                )
+              }
 
               return (
                 <div className={`absolute inset-0 z-30 bg-[#1a1a28] flex flex-col`} style={{paddingTop:20}}>
@@ -6813,8 +7188,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   {/* MDI windows grid */}
                   <div className={`flex-1 overflow-hidden ${is4?"grid grid-cols-2 grid-rows-2":isV?"flex flex-col":"flex flex-row"} gap-px bg-[#0a0a14]`}
                     style={{padding: "2px"}}>
-                    {mdiWindows.map((win,i) => (
-                      <MdiWindow key={win.name+i} win={win} showEarth={i===0||i===2}/>
+                    {Array.from({length: count}).map((_,i) => (
+                      <MdiWindow key={i} winIdx={i} active={i===1}/>
                     ))}
                   </div>
                 </div>
@@ -7164,7 +7539,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               }}/>
             )}
             {showAnalysis && <AnalysisDialog type={analysisType} onClose={()=>setShowAnalysis(false)} onOK={d=>{setShowAnalysis(false);setStatusMsg(`${d.type}: выполнен для ${d.surface}`)}}/>}
-            {showVolume && <VolumeDialog onClose={()=>setShowVolume(false)} onOK={()=>{setShowVolume(false);showToast("Ведомость объёмов экспортирована в CSV")}}/>}
+            {showVolume && <VolumeDialog scene={civilScene} onClose={()=>setShowVolume(false)} onOK={()=>{setShowVolume(false);showToast("Ведомость объёмов экспортирована в CSV")}}/>}
             {showLayers && <LayersDialog onClose={()=>setShowLayers(false)}/>}
             {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{setShowImport(false);setStatusMsg(`Импорт ${d.format}: ${d.file} завершён`)}}/>}
             {showExport && <ExportDialog mode={exportMode} canvasObjects={canvasObjects} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
@@ -7327,6 +7702,86 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                       className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Отмена</button>
                   </div>
                 </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Properties Palette (Ctrl+1) — Civil 3D стиль ── */}
+          <AnimatePresence>
+            {showPropertiesPalette && selectedCivilObject && (
+              <motion.div initial={{x:320,opacity:0}} animate={{x:0,opacity:1}} exit={{x:320,opacity:0}}
+                className="absolute right-0 top-0 bottom-0 z-40 flex flex-col bg-[#1a1a2a] border-l border-gray-700 shadow-2xl"
+                style={{width:260}}>
+                <div className="flex items-center justify-between px-3 py-2 bg-[#252535] border-b border-gray-700 flex-shrink-0">
+                  <span className="text-[11px] text-white font-bold">Свойства</span>
+                  <div className="flex items-center gap-1">
+                    <button title="Закрепить" className="text-gray-500 hover:text-white text-xs px-1">📌</button>
+                    <button onClick={()=>setShowPropertiesPalette(false)} className="text-gray-400 hover:text-white text-sm">✕</button>
+                  </div>
+                </div>
+                {/* Тип объекта */}
+                <div className="px-3 py-1.5 bg-[#252535] border-b border-gray-700 flex-shrink-0">
+                  <div className="text-[10px] text-gray-400">Нет выделения</div>
+                  <div className="text-[11px] text-white font-semibold">{selectedCivilObject.name}</div>
+                  <div className="text-[9px] text-[#4fc3f7]">{selectedCivilObject.type}</div>
+                </div>
+                {/* Свойства */}
+                <div className="flex-1 overflow-y-auto">
+                  {/* Секция: Общие */}
+                  <div className="bg-[#1e1e2e] px-3 py-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-800">
+                    Общие
+                  </div>
+                  {[
+                    ["Цвет", "ПОСЛОЮ"],
+                    ["Слой", "C-ROAD-CNTR"],
+                    ["Тип линии", "ПОСЛОЮ"],
+                    ["Масштаб типа", "1.0000"],
+                    ["Стиль печати", "По цвету"],
+                    ["Толщина линии", "ПОСЛОЮ"],
+                    ["Прозрачность", "0"],
+                    ["Гиперссылка", ""],
+                    ["Толщина", "0.0000"],
+                  ].map(([k,v]) => (
+                    <div key={k} className="flex items-center border-b border-gray-800/50 hover:bg-[#252535] cursor-pointer">
+                      <div className="text-[10px] text-gray-400 px-3 py-1 w-[52%] truncate">{k}</div>
+                      <div className="text-[10px] text-white px-2 py-1 flex-1 font-mono truncate">{v}</div>
+                    </div>
+                  ))}
+                  {/* Секция: Civil 3D объект */}
+                  <div className="bg-[#1e1e2e] px-3 py-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-800 mt-1">
+                    {selectedCivilObject.type}
+                  </div>
+                  {Object.entries(selectedCivilObject.props).map(([k,v]) => (
+                    <div key={k} className="flex items-center border-b border-gray-800/50 hover:bg-[#252535] cursor-pointer">
+                      <div className="text-[10px] text-gray-400 px-3 py-1 w-[52%] truncate">{k}</div>
+                      <div className="text-[10px] text-[#4fc3f7] px-2 py-1 flex-1 font-mono truncate">{String(v)}</div>
+                    </div>
+                  ))}
+                  {/* Секция: Геометрия */}
+                  <div className="bg-[#1e1e2e] px-3 py-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider border-b border-gray-800 mt-1">
+                    Геометрия
+                  </div>
+                  {[
+                    ["Длина", `${civilScene.alignment.totalLength.toFixed(3)} м`],
+                    ["Начальный пикет", `${civilScene.alignment.startStation.toFixed(2)} м`],
+                    ["Конечный пикет", `${(civilScene.alignment.startStation + civilScene.alignment.totalLength).toFixed(2)} м`],
+                    ["Число элементов", `${civilScene.alignment.elements.length}`],
+                  ].map(([k,v]) => (
+                    <div key={k} className="flex items-center border-b border-gray-800/50 hover:bg-[#252535] cursor-pointer">
+                      <div className="text-[10px] text-gray-400 px-3 py-1 w-[52%] truncate">{k}</div>
+                      <div className="text-[10px] text-[#4fc3f7] px-2 py-1 flex-1 font-mono truncate">{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Быстрые свойства */}
+                <div className="flex-shrink-0 border-t border-gray-700 px-3 py-2 bg-[#252535]">
+                  <div className="text-[9px] text-gray-500 mb-1">Быстрые свойства</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {["Стиль","Метка","Слой","Данные"].map(btn=>(
+                      <button key={btn} className="text-[9px] px-2 py-0.5 border border-gray-600 rounded text-gray-400 hover:text-white hover:border-[#0078d4] transition-colors">{btn}</button>
+                    ))}
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
