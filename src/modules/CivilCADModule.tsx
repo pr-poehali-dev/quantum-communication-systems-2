@@ -5052,19 +5052,90 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showHydrology, setShowHydrology] = useState(false)
   const [showInsights, setShowInsights] = useState(false)
   const [showScriptEditor, setShowScriptEditor] = useState(false)
-  const [scriptType, setScriptType] = useState<"autolisp" | "dynamo">("autolisp")
-  const [scriptCode, setScriptCode] = useState(`; AutoLISP скрипт\n; Создать коридор по трассе\n(defun c:AUTOKORIDOR ()\n  (setq al (car (entsel "Выберите трассу: ")))\n  (command "КОРИДОР" al)\n  (princ "\\nКоридор создан!")\n  (princ)\n)`)
+  const [scriptType, setScriptType] = useState<"autolisp" | "dynamo" | "assistant">("autolisp")
   const [scriptOutput, setScriptOutput] = useState<string[]>([])
+  const [scriptRunning, setScriptRunning] = useState(false)
+  const [dynamoNodes, setDynamoNodes] = useState<{id:string;type:string;x:number;y:number;label:string;color:string;connected?:string}[]>([
+    {id:"n1",type:"input",x:20,y:30,label:"Surface.Points",color:"#0078d4"},
+    {id:"n2",type:"filter",x:120,y:20,label:"List.FilterByBool",color:"#7c3aed"},
+    {id:"n3",type:"output",x:220,y:30,label:"FeatureLine.ByPts",color:"#059669",connected:"n2"},
+    {id:"n4",type:"input",x:20,y:80,label:"Alignment.ByName",color:"#0078d4"},
+    {id:"n5",type:"math",x:120,y:75,label:"Math.RemapRange",color:"#d97706",connected:"n4"},
+  ])
+  const [selectedDynamoNode, setSelectedDynamoNode] = useState<string|null>(null)
+
+  const AUTOLISP_SCRIPTS = [
+    { name: "AUTOKORIDOR", label: "Авто-коридор", code: `; Создать коридор по выбранной трассе\n(defun c:AUTOKORIDOR ( / al name)\n  (setq al (car (entsel "\\nВыберите трассу: ")))\n  (if al\n    (progn\n      (setq name (strcat "КОР-" (itoa (fix (getvar "TDCREATE")))))\n      (command "._CORRIDOR" al name)\n      (princ (strcat "\\nКоридор создан: " name))\n    )\n    (princ "\\nОтмена.")\n  )\n  (princ)\n)` },
+    { name: "EXPORTPTS", label: "Экспорт точек", code: `; Экспорт всех точек в CSV\n(defun c:EXPORTPTS ( / f ss ent pt n)\n  (setq f (open "C:\\\\pts_export.csv" "w"))\n  (write-line "ID,X,Y,Z,Desc" f)\n  (setq ss (ssget "X" '((0 . "POINT"))))\n  (setq n 0)\n  (while (< n (sslength ss))\n    (setq ent (ssname ss n))\n    (setq pt (cdr (assoc 10 (entget ent))))\n    (write-line\n      (strcat (itoa n) ","\n        (rtos (car pt) 2 3) ","\n        (rtos (cadr pt) 2 3) ","\n        (rtos (caddr pt) 2 3) ",TOPO")\n      f)\n    (setq n (1+ n))\n  )\n  (close f)\n  (alert (strcat "Экспортировано точек: " (itoa n)))\n  (princ)\n)` },
+    { name: "RENAMEOBJS", label: "Переименование", code: `; Переименовать объекты Civil 3D по маске\n(defun c:RENAMEOBJS ( / prefix n ss ent)\n  (setq prefix (getstring T "\\nПрефикс имени: "))\n  (setq ss (ssget))\n  (setq n 1)\n  (if (and prefix ss)\n    (progn\n      (repeat (sslength ss)\n        (setq ent (ssname ss (1- n)))\n        (command "._RENAME" ent\n          (strcat prefix (itoa n)))\n        (setq n (1+ n))\n      )\n      (princ (strcat "\\nПереименовано: " (itoa (1- n)) " объектов"))\n    )\n  )\n  (princ)\n)` },
+    { name: "SURFSTATS", label: "Стат. поверхности", code: `; Статистика по поверхности\n(defun c:SURFSTATS ( / surf stats)\n  (setq surf (car (entsel "\\nВыберите поверхность: ")))\n  (if surf\n    (progn\n      (princ "\\n--- Статистика поверхности ---")\n      (princ "\\nМин. отметка: 118.40 м")\n      (princ "\\nМакс. отметка: 135.72 м")\n      (princ "\\nСредняя отметка: 124.81 м")\n      (princ "\\nПлощадь: 48230.5 м²")\n      (princ "\\nТочек: 1847")\n      (princ "\\nТреугольников: 3691")\n    )\n  )\n  (princ)\n)` },
+    { name: "BATCHPROFILE", label: "Пакет профилей", code: `; Создать профили по всем трассам\n(defun c:BATCHPROFILE ( / al-list n)\n  (setq al-list '("Трасса ШД-38" "Ул. Трумана" "Бордюр периметра"))\n  (setq n 0)\n  (foreach al al-list\n    (command "._PROFILECREATE" al\n      (strcat "Проект_" al) "" "")\n    (setq n (1+ n))\n    (princ (strcat "\\nПрофиль создан для: " al))\n  )\n  (princ (strcat "\\nГотово. Создано профилей: " (itoa n)))\n  (princ)\n)` },
+  ]
+
+  const DYNAMO_SCRIPTS = [
+    { name: "FeatureLines", label: "Хар. линии", nodes: [
+      {id:"n1",type:"input",x:15,y:25,label:"Surface.ByName",color:"#0078d4"},
+      {id:"n2",type:"process",x:105,y:25,label:"Surface.Points",color:"#7c3aed",connected:"n1"},
+      {id:"n3",type:"output",x:200,y:25,label:"FeatureLine.ByPts",color:"#059669",connected:"n2"},
+    ]},
+    { name: "Corridors", label: "Коридоры", nodes: [
+      {id:"n1",type:"input",x:15,y:20,label:"Alignment.All",color:"#0078d4"},
+      {id:"n2",type:"input",x:15,y:60,label:"Profile.ByAlign",color:"#0078d4"},
+      {id:"n3",type:"process",x:105,y:35,label:"Corridor.ByLines",color:"#7c3aed",connected:"n1"},
+      {id:"n4",type:"output",x:200,y:35,label:"Corridor.Rebuild",color:"#059669",connected:"n3"},
+    ]},
+    { name: "ExportCSV", label: "Экспорт CSV", nodes: [
+      {id:"n1",type:"input",x:15,y:30,label:"CivilObject.All",color:"#0078d4"},
+      {id:"n2",type:"filter",x:105,y:20,label:"List.FilterType",color:"#d97706",connected:"n1"},
+      {id:"n3",type:"math",x:105,y:55,label:"Object.GetProps",color:"#d97706",connected:"n1"},
+      {id:"n4",type:"output",x:200,y:35,label:"CSV.WriteToFile",color:"#059669",connected:"n2"},
+    ]},
+  ]
+
+  const [autoLispSnippet, setAutoLispSnippet] = useState(AUTOLISP_SCRIPTS[0].code)
+  const [dynamoScript, setDynamoScript] = useState(DYNAMO_SCRIPTS[0].name)
+
   const runScript = () => {
     const t = new Date().toLocaleTimeString("ru")
-    setScriptOutput([
-      `[${t}] Запуск скрипта...`,
-      `[${t}] Тип: ${scriptType === "autolisp" ? "AutoLISP" : "Dynamo"}`,
-      `[${t}] Компиляция: OK`,
-      `[${t}] Выполнение: успешно`,
-      `[${t}] Готово. Объектов создано: 1`,
-    ])
-    showToast(`Скрипт выполнен успешно`)
+    setScriptRunning(true)
+    const lines = [
+      `[${t}] ▶ Запуск: ${scriptType === "autolisp" ? "AutoLISP" : scriptType === "dynamo" ? "Dynamo for Civil 3D 4.0" : "ЛАПА AI"} ...`,
+    ]
+    if (scriptType === "autolisp") {
+      const match = autoLispSnippet.match(/\(defun c:(\w+)/)
+      const fnName = match ? match[1] : "SCRIPT"
+      lines.push(`[${t}] Парсинг: ${fnName} — OK`)
+      lines.push(`[${t}] Загрузка Civil 3D API...`)
+      lines.push(`[${t}] Выполнение c:${fnName}()...`)
+      if (autoLispSnippet.includes("ssget") || autoLispSnippet.includes("entsel")) {
+        lines.push(`[${t}] Выбрано объектов: ${canvasObjects.length}`)
+      }
+      if (autoLispSnippet.includes("CORRIDOR") || autoLispSnippet.includes("КОРИДОР")) {
+        lines.push(`[${t}] Коридор обработан: Дорога ШД-38`)
+        setCorridors(prev => prev.includes("КОР-AutoLISP") ? prev : [...prev, "КОР-AutoLISP"])
+      }
+      if (autoLispSnippet.includes("write-line") || autoLispSnippet.includes("open")) {
+        lines.push(`[${t}] Файл записан: pts_export.csv (${canvasObjects.filter(o=>o.type==="point").length} точек)`)
+      }
+      if (autoLispSnippet.includes("SURFSTATS") || autoLispSnippet.includes("Статистика")) {
+        lines.push(`[${t}] Мин: 118.40м  Макс: 135.72м  Ср: 124.81м`)
+      }
+      lines.push(`[${t}] ✓ Готово. Объектов затронуто: ${Math.max(1, canvasObjects.length)}`)
+    } else if (scriptType === "dynamo") {
+      lines.push(`[${t}] Dynamo Core 4.0.2 (PythonNet3) инициализирован`)
+      lines.push(`[${t}] Граф: ${dynamoScript}`)
+      const sc = DYNAMO_SCRIPTS.find(s => s.name === dynamoScript)
+      if (sc) {
+        lines.push(`[${t}] Узлов в графе: ${sc.nodes.length}`)
+        sc.nodes.forEach(n => lines.push(`[${t}]   ${n.label}: вычислен ✓`))
+      }
+      lines.push(`[${t}] ✓ Граф выполнен. Результатов: ${dynamoNodes.filter(n=>n.type==="output").length}`)
+    }
+    setTimeout(() => {
+      setScriptOutput(lines)
+      setScriptRunning(false)
+      showToast("✓ Скрипт выполнен успешно")
+    }, 600)
   }
   const [draw2DObjects, setDraw2DObjects] = useState<{type:string;name:string;id:string}[]>([])
   const [activeProjectObjects, setActiveProjectObjects] = useState<{object_type:string;name:string;data:Record<string,unknown>}[]>([])
@@ -7160,44 +7231,261 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         {showInsights && <InsightsPanel onClose={()=>setShowInsights(false)}/>}
         <AnimatePresence>
           {showScriptEditor && (
-            <motion.div initial={{x:320,opacity:0}} animate={{x:0,opacity:1}} exit={{x:320,opacity:0}}
-              className="absolute right-0 top-0 bottom-0 w-80 bg-[#1a1a2e] border-l border-gray-700 flex flex-col z-40">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-[#252535]">
+            <motion.div initial={{x:380,opacity:0}} animate={{x:0,opacity:1}} exit={{x:380,opacity:0}}
+              className="absolute right-0 top-0 bottom-0 bg-[#0d1117] border-l border-gray-700 flex flex-col z-40 overflow-hidden"
+              style={{width:360}}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-[#1a1a2e] flex-shrink-0">
                 <span className="text-white text-[12px] font-bold flex items-center gap-2">
-                  <Icon name="Code" size={13} className="text-purple-400"/> Редактор скриптов
+                  <Icon name="Code" size={13} className="text-purple-400"/>
+                  Инструменты автоматизации
                 </span>
                 <button onClick={()=>setShowScriptEditor(false)} className="text-gray-400 hover:text-white text-sm">✕</button>
               </div>
-              <div className="flex border-b border-gray-700">
-                {([["autolisp","AutoLISP"],["dynamo","Dynamo"]] as const).map(([id,label])=>(
-                  <button key={id} onClick={()=>{
-                    setScriptType(id)
-                    setScriptCode(id==="autolisp"
-                      ? `; AutoLISP скрипт\n(defun c:AUTOKORIDOR ()\n  (command "КОРИДОР")\n  (princ)\n)`
-                      : `// Dynamo скрипт\n// Создать характерные линии\nvar pts = Surface.Points(surf);\nvar fl = FeatureLine.ByPoints(pts);\nfl;`)
-                  }}
-                    className={`flex-1 text-[10px] py-1.5 transition-colors ${scriptType===id?"bg-[#1e1e2e] text-white border-b border-purple-400":"text-gray-500 hover:text-gray-300"}`}>
+
+              {/* Tabs: AutoLISP / Dynamo / Assistant */}
+              <div className="flex border-b border-gray-700 flex-shrink-0">
+                {([
+                  ["autolisp","AutoLISP","#a78bfa"],
+                  ["dynamo","Dynamo","#22d3ee"],
+                  ["assistant","AI Ассистент","#f97316"],
+                ] as const).map(([id, label, color]) => (
+                  <button key={id} onClick={() => setScriptType(id)}
+                    className={`flex-1 text-[10px] py-1.5 font-semibold transition-colors border-b-2 ${scriptType===id?`border-b-[${color}] text-white bg-[#1a1a2e]`:"border-transparent text-gray-500 hover:text-gray-300 bg-transparent"}`}
+                    style={scriptType===id?{borderBottomColor:color,color:"white",background:"#1a1a2e"}:{borderBottomColor:"transparent"}}>
                     {label}
                   </button>
                 ))}
               </div>
-              <textarea value={scriptCode} onChange={e=>setScriptCode(e.target.value)}
-                className="flex-1 bg-[#0d1117] text-green-400 font-mono text-[11px] p-3 outline-none resize-none border-b border-gray-700"
-                spellCheck={false}/>
-              <div className="p-2 space-y-2">
-                <button onClick={runScript}
-                  className="w-full flex items-center justify-center gap-2 py-1.5 rounded text-[11px] text-white transition-colors"
-                  style={{background:"#7c3aed"}}>
-                  <Icon name="Play" size={12}/> Запустить
-                </button>
-                {scriptOutput.length > 0 && (
-                  <div className="bg-[#0d1117] rounded border border-gray-700 p-2 max-h-24 overflow-y-auto">
-                    {scriptOutput.map((line,i)=>(
-                      <div key={i} className={`text-[10px] font-mono ${line.includes("успешно")||line.includes("OK")?"text-green-400":line.includes("Ошибка")?"text-red-400":"text-gray-400"}`}>{line}</div>
+
+              {/* ── AutoLISP ── */}
+              {scriptType === "autolisp" && (
+                <div className="flex flex-col flex-1 min-h-0">
+                  {/* Snippets library */}
+                  <div className="px-2 py-1.5 border-b border-gray-800 flex-shrink-0">
+                    <div className="text-[9px] text-gray-500 mb-1 uppercase tracking-wide">Библиотека скриптов</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {AUTOLISP_SCRIPTS.map(s => (
+                        <button key={s.name} onClick={() => setAutoLispSnippet(s.code)}
+                          className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors ${autoLispSnippet===s.code?"border-purple-500 bg-purple-500/20 text-purple-300":"border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"}`}>
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Code editor */}
+                  <div className="relative flex-1 min-h-0">
+                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                      <span className="text-[8px] text-purple-400 bg-[#1a1a2e] px-1.5 py-0.5 rounded border border-purple-500/30">AutoLISP</span>
+                    </div>
+                    <div className="flex h-full">
+                      {/* Line numbers */}
+                      <div className="bg-[#0a0a14] w-7 flex-shrink-0 pt-2 px-1 text-right border-r border-gray-800 overflow-hidden">
+                        {autoLispSnippet.split("\n").map((_, i) => (
+                          <div key={i} className="text-[9px] text-gray-700 font-mono leading-[18px]">{i+1}</div>
+                        ))}
+                      </div>
+                      <textarea value={autoLispSnippet} onChange={e => setAutoLispSnippet(e.target.value)}
+                        className="flex-1 bg-[#0d1117] text-green-300 font-mono text-[10.5px] p-2 pl-2 outline-none resize-none leading-[18px]"
+                        spellCheck={false}/>
+                    </div>
+                  </div>
+                  {/* Controls */}
+                  <div className="p-2 border-t border-gray-800 flex-shrink-0 space-y-1.5">
+                    <div className="flex gap-1.5">
+                      <button onClick={runScript} disabled={scriptRunning}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] text-white font-semibold disabled:opacity-50 transition-all"
+                        style={{background: scriptRunning?"#5b21b6":"#7c3aed"}}>
+                        <Icon name={scriptRunning?"Loader":"Play"} size={11} className={scriptRunning?"animate-spin":""}/>
+                        {scriptRunning ? "Выполнение…" : "▶ Запустить (F5)"}
+                      </button>
+                      <button onClick={() => setScriptOutput([])}
+                        className="px-2 py-1.5 rounded text-[11px] text-gray-400 border border-gray-700 hover:text-white hover:border-gray-500 transition-colors">
+                        <Icon name="Trash2" size={11}/>
+                      </button>
+                    </div>
+                    {/* Console */}
+                    <div className="bg-[#020409] rounded border border-gray-800 p-2 overflow-y-auto" style={{minHeight:60,maxHeight:80}}>
+                      {scriptOutput.length === 0
+                        ? <div className="text-[9px] text-gray-700 font-mono">; Консоль AutoLISP готова</div>
+                        : scriptOutput.map((line, i) => (
+                          <div key={i} className={`text-[9.5px] font-mono leading-[15px] ${line.includes("✓")||line.includes("OK")?"text-green-400":line.includes("Ошибка")||line.includes("ERR")?"text-red-400":line.startsWith("[")?"text-gray-400":"text-yellow-300"}`}>{line}</div>
+                        ))
+                      }
+                    </div>
+                    <div className="text-[9px] text-gray-600">F5 — запуск · Ctrl+C — отмена · (load "file.lsp") — загрузить файл</div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Dynamo ── */}
+              {scriptType === "dynamo" && (
+                <div className="flex flex-col flex-1 min-h-0">
+                  {/* Script selector */}
+                  <div className="px-2 py-1.5 border-b border-gray-800 flex-shrink-0">
+                    <div className="text-[9px] text-gray-500 mb-1 uppercase tracking-wide">Графики Dynamo 4.0</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {DYNAMO_SCRIPTS.map(s => (
+                        <button key={s.name} onClick={() => { setDynamoScript(s.name); setDynamoNodes(s.nodes); setSelectedDynamoNode(null); setScriptOutput([]) }}
+                          className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors ${dynamoScript===s.name?"border-cyan-500 bg-cyan-500/20 text-cyan-300":"border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"}`}>
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Node canvas */}
+                  <div className="relative flex-1 overflow-hidden border-b border-gray-800" style={{minHeight:0,background:"#060b14"}}>
+                    <div className="absolute inset-0 overflow-auto p-2">
+                      <svg width="320" height="140" style={{minWidth:320}}>
+                        {/* Grid */}
+                        {Array.from({length:17}).map((_,i)=><line key={`vg${i}`} x1={i*20} y1="0" x2={i*20} y2="140" stroke="rgba(30,50,80,0.5)" strokeWidth="0.5"/>)}
+                        {Array.from({length:8}).map((_,i)=><line key={`hg${i}`} x1="0" y1={i*20} x2="320" y2={i*20} stroke="rgba(30,50,80,0.5)" strokeWidth="0.5"/>)}
+
+                        {/* Connections */}
+                        {dynamoNodes.filter(n=>n.connected).map(n => {
+                          const src = dynamoNodes.find(s=>s.id===n.connected)
+                          if (!src) return null
+                          return <path key={`c${n.id}`}
+                            d={`M${src.x+80},${src.y+14} C${src.x+110},${src.y+14} ${n.x-10},${n.y+14} ${n.x},${n.y+14}`}
+                            fill="none" stroke="#22d3ee" strokeWidth="1.5" opacity="0.6"/>
+                        })}
+
+                        {/* Nodes */}
+                        {dynamoNodes.map(n => (
+                          <g key={n.id} onClick={() => setSelectedDynamoNode(n.id)} style={{cursor:"pointer"}}>
+                            <rect x={n.x} y={n.y} width="80" height="28" rx="3"
+                              fill={selectedDynamoNode===n.id?"#1a3a5c":"#0f1f33"}
+                              stroke={selectedDynamoNode===n.id?"#22d3ee":n.color} strokeWidth={selectedDynamoNode===n.id?1.5:1}/>
+                            <rect x={n.x} y={n.y} width="5" height="28" rx="3" fill={n.color}/>
+                            <text x={n.x+10} y={n.y+11} fill="#e2e8f0" fontSize="5.5" fontFamily="monospace">{n.type.toUpperCase()}</text>
+                            <text x={n.x+10} y={n.y+21} fill="white" fontSize="6.5" fontFamily="monospace" fontWeight="bold">{n.label}</text>
+                            {/* Input port */}
+                            <circle cx={n.x} cy={n.y+14} r="3" fill="#1e293b" stroke={n.color} strokeWidth="1"/>
+                            {/* Output port */}
+                            <circle cx={n.x+80} cy={n.y+14} r="3" fill={n.color}/>
+                          </g>
+                        ))}
+                      </svg>
+                    </div>
+                    <div className="absolute top-1 right-1 text-[8px] text-gray-600 bg-[#0d1117]/80 px-1 rounded">Dynamo Core 4.0.2</div>
+                  </div>
+
+                  {/* Node properties */}
+                  {selectedDynamoNode && (() => {
+                    const node = dynamoNodes.find(n=>n.id===selectedDynamoNode)
+                    if (!node) return null
+                    return (
+                      <div className="px-2 py-1.5 border-b border-gray-800 flex-shrink-0 bg-[#0a0e1a]">
+                        <div className="text-[9px] text-gray-500 mb-1">Узел: <span className="text-white font-semibold">{node.label}</span></div>
+                        <div className="flex gap-2 text-[9px]">
+                          <span className="text-gray-500">Тип:</span><span style={{color:node.color}} className="font-semibold">{node.type}</span>
+                          <span className="text-gray-500 ml-2">Статус:</span><span className="text-green-400">OK</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Run */}
+                  <div className="p-2 flex-shrink-0 space-y-1.5">
+                    <div className="flex gap-1.5">
+                      <button onClick={runScript} disabled={scriptRunning}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] text-white font-semibold disabled:opacity-50"
+                        style={{background:"#0e4f6e"}}>
+                        <Icon name={scriptRunning?"Loader":"Play"} size={11} className={scriptRunning?"animate-spin":""}/>
+                        {scriptRunning ? "Выполнение…" : "▶ Запустить граф"}
+                      </button>
+                      <button onClick={() => setScriptOutput([])} className="px-2 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white">
+                        <Icon name="Trash2" size={11}/>
+                      </button>
+                    </div>
+                    <div className="bg-[#020409] rounded border border-gray-800 p-1.5 overflow-y-auto" style={{maxHeight:60}}>
+                      {scriptOutput.length === 0
+                        ? <div className="text-[9px] text-gray-700 font-mono">// Граф не запущен</div>
+                        : scriptOutput.map((line, i) => (
+                          <div key={i} className={`text-[9.5px] font-mono leading-[15px] ${line.includes("✓")?"text-green-400":line.includes("Ошибка")?"text-red-400":"text-gray-400"}`}>{line}</div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── AI Ассистент (Tech Preview) ── */}
+              {scriptType === "assistant" && (
+                <div className="flex flex-col flex-1 min-h-0">
+                  {/* Tech Preview badge */}
+                  <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[9px] px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded font-bold border border-orange-500/40">TECH PREVIEW</span>
+                    <span className="text-[9.5px] text-orange-200">Autodesk Assistant for Civil 3D 2027</span>
+                  </div>
+
+                  {/* Context pills */}
+                  <div className="px-2 py-1.5 border-b border-gray-800 flex-shrink-0">
+                    <div className="text-[9px] text-gray-500 mb-1">Контекст модели:</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {[
+                        {label:`Объектов: ${canvasObjects.length}`, color:"#0078d4"},
+                        {label:`Коридоров: ${corridors.length}`, color:"#f97316"},
+                        {label:"TIN: активна", color:"#4ade80"},
+                      ].map(p => (
+                        <span key={p.label} className="text-[9px] px-1.5 py-0.5 rounded border font-mono"
+                          style={{borderColor:p.color+"60",color:p.color,background:p.color+"15"}}>
+                          {p.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
+                    {assistantMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role==="user"?"justify-end":"justify-start"}`}>
+                        {msg.role==="bot" && (
+                          <div className="w-5 h-5 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center mr-1.5 flex-shrink-0 mt-0.5">
+                            <span className="text-[8px] text-orange-300">AI</span>
+                          </div>
+                        )}
+                        <div className={`max-w-[220px] px-2.5 py-1.5 rounded-lg text-[11px] leading-relaxed ${msg.role==="user"?"bg-[#0078d4] text-white rounded-br-sm":"bg-[#1a1a2e] text-gray-200 rounded-bl-sm border border-gray-700"}`}>
+                          {msg.text}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
-              </div>
+
+                  {/* Quick actions */}
+                  <div className="px-2 pt-1.5 flex-shrink-0">
+                    <div className="text-[9px] text-gray-500 mb-1">Быстрые запросы:</div>
+                    <div className="flex gap-1 flex-wrap mb-1.5">
+                      {[
+                        "Создать трассу","Коридор по параметрам","Объёмы земляных работ",
+                        "Daylight Feature Line","HRA анализ","Dynamo 4.0","Дренаж InfoDrainage"
+                      ].map(q => (
+                        <button key={q} onClick={() => sendAssistantMessage(q)}
+                          className="text-[9px] px-1.5 py-0.5 bg-orange-500/10 text-orange-200 hover:bg-orange-500/25 rounded border border-orange-500/20 transition-colors">
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Input */}
+                  <div className="p-2 border-t border-gray-700 flex-shrink-0">
+                    <div className="flex gap-1">
+                      <input value={assistantInput} onChange={e=>setAssistantInput(e.target.value)}
+                        onKeyDown={e=>e.key==="Enter"&&sendAssistantMessage(assistantInput)}
+                        placeholder="Спросите о Civil 3D 2027, модели, объектах…"
+                        className="flex-1 bg-[#1a1a2e] border border-gray-700 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-orange-500/50 placeholder-gray-600"/>
+                      <button onClick={()=>sendAssistantMessage(assistantInput)}
+                        className="px-2.5 py-1.5 rounded text-white flex-shrink-0 transition-colors"
+                        style={{background:"#ea580c"}}>
+                        <Icon name="Send" size={11} fallback="ArrowRight"/>
+                      </button>
+                    </div>
+                    <div className="text-[9px] text-gray-600 mt-1">Autodesk Assistant · Tech Preview · Powered by ЛАПА AI</div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
