@@ -332,10 +332,10 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
     <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden relative" style={{fontFamily:"Arial,sans-serif",fontSize:12}}>
       {/* Верхняя полоса */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
-        <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">C</div>
-        <span className="text-[11px] text-gray-400 font-semibold ml-2">Autodesk Civil 3D 2027</span>
+        <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">Л</div>
+        <span className="text-[11px] text-gray-400 font-semibold ml-2">ЛАПА — Редактор — ЛАПА 3D 2027</span>
         <div className="flex-1"/>
-        <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none"/>
+        <input placeholder="Ключевое слово или фраза" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none"/>
       </div>
       {/* Информационный баннер */}
       {showGraphicsBanner && (
@@ -351,7 +351,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
         {/* Левая панель */}
         <div className="bg-[#252535] border-r border-gray-700 flex flex-col flex-shrink-0" style={{width:220}}>
           <div className="px-6 py-6 border-b border-gray-700">
-            <div className="text-white text-[22px] font-bold mb-4">Civil 3D 2027</div>
+            <div className="text-white text-[22px] font-bold mb-4">ЛАПА 3D 2027</div>
 
             {/* Открыть с выпадающим дропдауном */}
             <div className="relative mb-2 group">
@@ -394,7 +394,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
           </div>
 
           <nav className="flex-1 py-3">
-            {([["recent","Последние"],["autodesk","Проекты Autodesk"],["learning","Обучение и аналитика"]] as const).map(([id,label])=>(
+            {([["recent","Последние"],["autodesk","Проекты ЛАПА"],["learning","Обучение и аналитика"]] as const).map(([id,label])=>(
               <button key={id} onClick={()=>setTab(id)}
                 className={`w-full text-left px-6 py-2 text-[12px] transition-colors ${tab===id?"bg-[#0078d4]/20 text-white border-l-2 border-[#0078d4]":"text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}>
                 {label}
@@ -404,10 +404,10 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
 
           <div className="px-4 py-4 border-t border-gray-700 space-y-1.5">
             {([
-              ["Новые возможности","ExternalLink","https://help.autodesk.com/view/CIV3D/2027/"],
-              ["Онлайн-справка","HelpCircle","https://help.autodesk.com/view/CIV3D/2027/RUS/"],
-              ["Форум сообщества","Users","https://forums.autodesk.com/t5/civil-3d/ct-p/civil3d"],
-              ["Служба поддержки клиентов","Headphones","https://www.autodesk.com/support/contact-support"],
+              ["Новые возможности","ExternalLink","https://poehali.dev/help"],
+              ["Онлайн-справка","HelpCircle","https://poehali.dev/help"],
+              ["Сообщество ЛАПА","Users","https://t.me/+QgiLIa1gFRY4Y2Iy"],
+              ["Поддержка","Headphones","https://poehali.dev/help"],
             ] as const).map(([label,icon,url])=>(
               <a key={label} href={url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 text-[11px] text-[#0078d4] hover:underline w-full text-left">
@@ -571,12 +571,12 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
                   <rect x="45" y="15" width="25" height="8" rx="1" fill="#ccc" transform="rotate(-15 45 15)"/>
                 </svg>
               </div>
-              <h3 className="text-gray-800 text-[16px] font-bold mb-2">Приветствие</h3>
-              <p className="text-gray-600 text-[12px] mb-2">Не могли бы вы рассказать немного о себе?</p>
-              <p className="text-gray-500 text-[11px] mb-5">Ответьте на два простых вопроса, чтобы мы могли лучше понять, как вы используете Civil 3D.</p>
-              <button onClick={()=>setShowWelcomeDialog(false)} className="w-full py-2 rounded text-white text-[12px] font-medium mb-3" style={{background:"#0078d4"}}>Начать</button>
-              <button onClick={()=>setShowWelcomeDialog(false)} className="text-[11px] text-[#0078d4] hover:underline mb-1">Больше не показывать это сообщение</button>
-              <button onClick={()=>setShowWelcomeDialog(false)} className="text-[11px] text-[#0078d4] hover:underline">Что происходит при создании профиля пользователя?</button>
+              <h3 className="text-gray-800 text-[16px] font-bold mb-2">Добро пожаловать в ЛАПА!</h3>
+              <p className="text-gray-600 text-[12px] mb-2">Платформа для проектирования инфраструктуры нового поколения.</p>
+              <p className="text-gray-500 text-[11px] mb-5">Расскажите немного о себе — это поможет нам сделать ЛАПА ещё удобнее для вас.</p>
+              <button onClick={()=>setShowWelcomeDialog(false)} className="w-full py-2 rounded text-white text-[12px] font-medium mb-3" style={{background:"#0078d4"}}>Начать работу</button>
+              <button onClick={()=>setShowWelcomeDialog(false)} className="text-[11px] text-[#0078d4] hover:underline mb-1">Больше не показывать</button>
+              <button onClick={()=>setShowWelcomeDialog(false)} className="text-[11px] text-[#0078d4] hover:underline">Узнать больше о ЛАПА</button>
             </div>
           </div>
         </div>
