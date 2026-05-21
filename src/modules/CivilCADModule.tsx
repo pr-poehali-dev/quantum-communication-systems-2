@@ -612,7 +612,7 @@ interface CanvasObject {
   properties?: Record<string, string>
 }
 
-type EditTool = "select" | "move" | "line" | "polyline" | "point" | "text" | "rect" | "delete" | "pan" | "measure"
+type EditTool = "select" | "move" | "line" | "polyline" | "point" | "text" | "rect" | "circle" | "arc" | "delete" | "pan" | "measure"
 
 interface CorridorRow {
   alignment: string; profile: string; assembly: string
@@ -3066,44 +3066,89 @@ function AnalysisDialog({ onClose, onOK, type }: { onClose: () => void; onOK: (d
 
 // ─── Layers Dialog ────────────────────────────────────────────────────────────
 function LayersDialog({ onClose }: { onClose: () => void }) {
-  const [layers] = useState([
-    {name:"0",on:true,frozen:false,color:"#ffffff",ltype:"Сплошная",lw:"По умолч."},
-    {name:"C-ROAD-ALIGN",on:true,frozen:false,color:"#ef4444",ltype:"Сплошная",lw:"0.25"},
-    {name:"C-ДОРОГА-КОР",on:true,frozen:false,color:"#f97316",ltype:"Сплошная",lw:"0.35"},
-    {name:"C-TOPO-MAJOR",on:true,frozen:false,color:"#4ade80",ltype:"Сплошная",lw:"0.18"},
-    {name:"C-TOPO-MINOR",on:false,frozen:false,color:"#86efac",ltype:"Пунктир",lw:"0.13"},
-    {name:"C-СЕТЬ-ТРУБА",on:true,frozen:false,color:"#6366f1",ltype:"Штрих-пункт",lw:"0.25"},
-    {name:"C-ANNO-TEXT",on:true,frozen:false,color:"#e2e8f0",ltype:"Сплошная",lw:"По умолч."},
-    {name:"C-ANNO-DIMS",on:true,frozen:false,color:"#94a3b8",ltype:"Сплошная",lw:"0.13"},
+  const [layers, setLayers] = useState([
+    {name:"0",on:true,frozen:false,locked:false,color:"#ffffff",ltype:"Сплошная",lw:"По умолч."},
+    {name:"C-ROAD-ALIGN",on:true,frozen:false,locked:false,color:"#ef4444",ltype:"Сплошная",lw:"0.25"},
+    {name:"C-ДОРОГА-КОР",on:true,frozen:false,locked:false,color:"#f97316",ltype:"Сплошная",lw:"0.35"},
+    {name:"C-TOPO-MAJOR",on:true,frozen:false,locked:false,color:"#4ade80",ltype:"Сплошная",lw:"0.18"},
+    {name:"C-TOPO-MINOR",on:false,frozen:false,locked:false,color:"#86efac",ltype:"Пунктир",lw:"0.13"},
+    {name:"C-СЕТЬ-ТРУБА",on:true,frozen:false,locked:false,color:"#6366f1",ltype:"Штрих-пункт",lw:"0.25"},
+    {name:"C-ANNO-TEXT",on:true,frozen:false,locked:false,color:"#e2e8f0",ltype:"Сплошная",lw:"По умолч."},
+    {name:"C-ANNO-DIMS",on:true,frozen:false,locked:false,color:"#94a3b8",ltype:"Сплошная",lw:"0.13"},
+    {name:"C-TOPO-PNTS",on:true,frozen:false,locked:false,color:"#f59e0b",ltype:"Сплошная",lw:"По умолч."},
   ])
+  const [selected, setSelected] = useState<number|null>(null)
+  const [newName, setNewName] = useState("")
+  const toggle = (i: number, key: "on"|"frozen"|"locked") =>
+    setLayers(prev => prev.map((l,idx) => idx===i ? {...l,[key]:!l[key]} : l))
+  const addLayer = () => {
+    const name = newName.trim() || `Слой-${layers.length+1}`
+    setLayers(prev => [...prev, {name,on:true,frozen:false,locked:false,color:"#22d3ee",ltype:"Сплошная",lw:"По умолч."}])
+    setNewName("")
+  }
+  const deleteLayer = () => {
+    if (selected === null || layers[selected].name === "0") return
+    setLayers(prev => prev.filter((_,i)=>i!==selected))
+    setSelected(null)
+  }
+  const changeColor = (i: number, color: string) =>
+    setLayers(prev => prev.map((l,idx) => idx===i ? {...l,color} : l))
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[640px]">
+      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[700px]">
         <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
           <span className="text-[11px] font-bold text-white">Диспетчер слоёв</span>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
         </div>
-        <div className="p-2 overflow-auto" style={{maxHeight:360}}>
+        <div className="flex items-center gap-2 px-2 pt-2 pb-1">
+          <button onClick={addLayer} className="flex items-center gap-1 px-2 py-1 bg-[#0078d4] text-white rounded text-[10px] hover:bg-[#0066b3]">
+            <Icon name="Plus" size={10}/> Новый слой
+          </button>
+          <button onClick={deleteLayer} disabled={selected===null||layers[selected]?.name==="0"} className="flex items-center gap-1 px-2 py-1 bg-[#3a3a4e] text-gray-300 rounded text-[10px] hover:bg-[#ef4444] hover:text-white disabled:opacity-40">
+            <Icon name="Trash2" size={10}/> Удалить
+          </button>
+          <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addLayer()}
+            placeholder="Имя нового слоя..." className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 text-[10px] px-2 py-1 rounded outline-none focus:border-[#0078d4]"/>
+        </div>
+        <div className="px-2 pb-2 overflow-auto" style={{maxHeight:360}}>
           <table className="w-full text-[11px] border-collapse">
             <thead><tr className="bg-[#1e1e2e]">
-              {["","Имя слоя","Вкл","Цвет","Тип линии","Вес линии"].map(h=>(
-                <th key={h} className="text-left px-2 py-1 text-gray-400 border border-gray-700">{h}</th>
+              {["","Имя слоя","Вкл","Заморожен","Блок","Цвет","Тип линии","Вес линии"].map(h=>(
+                <th key={h} className="text-left px-2 py-1 text-gray-400 border border-gray-700 text-[10px]">{h}</th>
               ))}
             </tr></thead>
             <tbody>{layers.map((l,i)=>(
-              <tr key={i} className="hover:bg-[#3a3a4e] transition-colors">
-                <td className="px-2 py-1 border border-gray-700"><input type="checkbox" defaultChecked={l.on} className="accent-blue-500"/></td>
-                <td className="px-2 py-1 border border-gray-700 text-gray-200 font-mono">{l.name}</td>
-                <td className="px-2 py-1 border border-gray-700 text-center">{l.on?"🔆":"🌑"}</td>
-                <td className="px-2 py-1 border border-gray-700"><div className="w-4 h-4 rounded-sm border border-gray-600" style={{background:l.color}}/></td>
-                <td className="px-2 py-1 border border-gray-700 text-gray-400">{l.ltype}</td>
-                <td className="px-2 py-1 border border-gray-700 text-gray-400">{l.lw}</td>
+              <tr key={i} onClick={()=>setSelected(i)} className={`transition-colors cursor-pointer ${selected===i?"bg-[#0078d4]/20":"hover:bg-[#3a3a4e]"}`}>
+                <td className="px-2 py-1 border border-gray-700 text-[10px] text-gray-500">{i+1}</td>
+                <td className="px-2 py-1 border border-gray-700 font-medium text-white text-[10px]">{l.name}</td>
+                <td className="px-2 py-1 border border-gray-700 text-center">
+                  <button onClick={e=>{e.stopPropagation();toggle(i,"on")}} title={l.on?"Выключить":"Включить"}>
+                    <Icon name={l.on?"Eye":"EyeOff"} size={11} className={l.on?"text-yellow-400":"text-gray-600"}/>
+                  </button>
+                </td>
+                <td className="px-2 py-1 border border-gray-700 text-center">
+                  <button onClick={e=>{e.stopPropagation();toggle(i,"frozen")}} title={l.frozen?"Разморозить":"Заморозить"}>
+                    <Icon name={l.frozen?"Snowflake":"Sun"} size={11} className={l.frozen?"text-blue-400":"text-gray-500"}/>
+                  </button>
+                </td>
+                <td className="px-2 py-1 border border-gray-700 text-center">
+                  <button onClick={e=>{e.stopPropagation();toggle(i,"locked")}} title={l.locked?"Разблокировать":"Заблокировать"}>
+                    <Icon name={l.locked?"Lock":"Unlock"} size={11} className={l.locked?"text-orange-400":"text-gray-500"}/>
+                  </button>
+                </td>
+                <td className="px-2 py-1 border border-gray-700">
+                  <input type="color" value={l.color} onChange={e=>{e.stopPropagation();changeColor(i,e.target.value)}}
+                    className="w-6 h-4 rounded cursor-pointer border-0 bg-transparent" title="Цвет слоя"/>
+                </td>
+                <td className="px-2 py-1 border border-gray-700 text-gray-300 text-[10px]">{l.ltype}</td>
+                <td className="px-2 py-1 border border-gray-700 text-gray-300 text-[10px]">{l.lw}</td>
               </tr>
             ))}</tbody>
           </table>
         </div>
-        <div className="flex justify-end gap-2 p-3 border-t border-gray-700">
-          <button onClick={onClose} className="px-3 py-1 text-[11px] bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">Закрыть</button>
+        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-700 text-[10px] text-gray-400">
+          <span>Слоёв: {layers.length} | Показано: {layers.filter(l=>l.on).length}</span>
+          <button onClick={onClose} className="px-3 py-1 bg-[#0078d4] text-white rounded hover:bg-[#0066b3]">OK</button>
         </div>
       </div>
     </motion.div>
@@ -3149,10 +3194,75 @@ function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format
   )
 }
 
+// ─── DXF generator ────────────────────────────────────────────────────────────
+function generateDXF(objects: CanvasObject[]): string {
+  const lines: string[] = []
+  const h = (code: number, val: string|number) => lines.push(`${code}\n${val}`)
+  // Header
+  h(0,"SECTION"); h(2,"HEADER"); h(9,"$ACADVER"); h(1,"AC1015"); h(0,"ENDSEC")
+  // Tables - layers
+  h(0,"SECTION"); h(2,"TABLES")
+  h(0,"TABLE"); h(2,"LAYER"); h(70, objects.length+2)
+  h(0,"LAYER"); h(2,"0"); h(70,0); h(62,7); h(6,"Continuous")
+  const layersSet = new Set(objects.map(o=>o.layer||"0"))
+  layersSet.forEach(l => { if(l!=="0"){h(0,"LAYER");h(2,l);h(70,0);h(62,7);h(6,"Continuous")} })
+  h(0,"ENDTAB"); h(0,"ENDSEC")
+  // Entities
+  h(0,"SECTION"); h(2,"ENTITIES")
+  objects.forEach(obj => {
+    const layer = obj.layer || "0"
+    if (obj.type === "point") {
+      h(0,"POINT"); h(8,layer); h(10,obj.pts[0][0].toFixed(4)); h(20,obj.pts[0][1].toFixed(4)); h(30,"0.0")
+    } else if (obj.type === "line" && obj.pts.length >= 2) {
+      h(0,"LINE"); h(8,layer)
+      h(10,obj.pts[0][0].toFixed(4)); h(20,obj.pts[0][1].toFixed(4)); h(30,"0.0")
+      h(11,obj.pts[1][0].toFixed(4)); h(21,obj.pts[1][1].toFixed(4)); h(31,"0.0")
+    } else if ((obj.type === "polyline" || obj.type === "rect" || obj.type === "arc" || obj.type === "circle" || obj.type === "alignment") && obj.pts.length >= 2) {
+      h(0,"LWPOLYLINE"); h(8,layer); h(90,obj.pts.length)
+      h(70, obj.type === "rect" || obj.type === "circle" ? 1 : 0)
+      obj.pts.forEach(([x,y]) => { h(10,x.toFixed(4)); h(20,y.toFixed(4)) })
+    }
+  })
+  h(0,"ENDSEC"); h(0,"EOF")
+  return lines.join("\n")
+}
+
 // ─── Export/Print Dialog ──────────────────────────────────────────────────────
-function ExportDialog({ onClose, onOK, mode }: { onClose: () => void; onOK: (d:{format:string}) => void; mode: "export"|"print" }) {
-  const [format, setFormat] = useState(mode==="print"?"PDF":"LandXML")
+function ExportDialog({ onClose, onOK, mode, canvasObjects }: { onClose: () => void; onOK: (d:{format:string}) => void; mode: "export"|"print"; canvasObjects: CanvasObject[] }) {
+  const [format, setFormat] = useState(mode==="print"?"PDF":"DXF")
   const [scope, setScope] = useState("Активный лист")
+
+  const doExport = () => {
+    if (format === "DXF") {
+      const dxf = generateDXF(canvasObjects)
+      const blob = new Blob([dxf], { type: "application/dxf" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a"); a.href = url; a.download = "drawing.dxf"; a.click()
+      URL.revokeObjectURL(url)
+    } else if (format === "GeoJSON") {
+      const features = canvasObjects.map(obj => ({
+        type: "Feature",
+        geometry: obj.type === "point"
+          ? { type: "Point", coordinates: [obj.pts[0][0], obj.pts[0][1]] }
+          : { type: "LineString", coordinates: obj.pts.map(([x,y])=>[x,y]) },
+        properties: { id: obj.id, label: obj.label, layer: obj.layer, ...obj.properties }
+      }))
+      const gj = JSON.stringify({ type: "FeatureCollection", features }, null, 2)
+      const blob = new Blob([gj], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a"); a.href = url; a.download = "drawing.geojson"; a.click()
+      URL.revokeObjectURL(url)
+    } else if (format === "CSV точек") {
+      const pts = canvasObjects.filter(o=>o.type==="point")
+      const csv = ["ID,Имя,X,Y,Z", ...pts.map(p=>`${p.id},${p.label},${p.pts[0][0].toFixed(3)},${p.pts[0][1].toFixed(3)},0.000`)].join("\n")
+      const blob = new Blob([csv], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a"); a.href = url; a.download = "points.csv"; a.click()
+      URL.revokeObjectURL(url)
+    }
+    onOK({ format })
+  }
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[380px]">
@@ -3166,7 +3276,7 @@ function ExportDialog({ onClose, onOK, mode }: { onClose: () => void; onOK: (d:{
             <select value={format} onChange={e=>setFormat(e.target.value)} className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded">
               {mode==="print"
                 ? ["PDF","DWF","PNG (300 DPI)","SVG"].map(f=><option key={f}>{f}</option>)
-                : ["LandXML","IFC","DWG","DXF","Shapefile","GeoJSON","PDF"].map(f=><option key={f}>{f}</option>)}
+                : ["DXF","GeoJSON","CSV точек","LandXML","IFC","DWG","Shapefile","PDF"].map(f=><option key={f}>{f}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -3181,9 +3291,14 @@ function ExportDialog({ onClose, onOK, mode }: { onClose: () => void; onOK: (d:{
               {["1:500","1:1000","1:200","1:2000","По листу"].map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
+          {(format==="DXF"||format==="GeoJSON"||format==="CSV точек") && (
+            <div className="bg-[#1e3a1e] border border-green-700 rounded px-3 py-2 text-green-400 text-[10px]">
+              ✓ Реальный экспорт файла — скачается на ваш компьютер ({canvasObjects.length} объектов)
+            </div>
+          )}
           <div className="flex justify-end gap-2 mt-1">
             <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded">Отмена</button>
-            <button onClick={()=>onOK({format})} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">{mode==="print"?"Печать":"Экспорт"}</button>
+            <button onClick={doExport} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">{mode==="print"?"Печать":"Экспорт"}</button>
           </div>
         </div>
       </div>
@@ -4502,6 +4617,76 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       }
       return
     }
+    if (activeTool === "circle") {
+      if (drawingPts.length === 0) {
+        setDrawingPts([pt])
+        setStatusMsg("Окружность: укажите точку на окружности")
+      } else {
+        const [cx,cy] = drawingPts[0]
+        const r = Math.hypot(pt[0]-cx, pt[1]-cy)
+        const steps = 64
+        const circlePts: [number,number][] = Array.from({length: steps+1}, (_,i) => {
+          const a = (i / steps) * Math.PI * 2
+          return [cx + Math.cos(a)*r, cy + Math.sin(a)*r] as [number,number]
+        })
+        const newObj: CanvasObject = { id: `ci_${Date.now()}`, type: "circle", label: "Окружность", color: "#22d3ee", lineWidth: 1.5, pts: circlePts, layer: "0", properties: { "Тип": "Окружность", "Радиус": r.toFixed(1)+" м", "Длина": (2*Math.PI*r).toFixed(1)+" м", "Слой": "0" } }
+        pushUndo("Нарисована окружность")
+        setCanvasObjects(prev => [...prev, newObj])
+        setSelectedObjId(newObj.id)
+        setDrawingPts([])
+        saveCanvasObject(newObj)
+        showToast(`Окружность R=${r.toFixed(1)} сохранена`)
+        setStatusMsg("Окружность: укажите центр")
+      }
+      return
+    }
+    if (activeTool === "arc") {
+      if (drawingPts.length === 0) {
+        setDrawingPts([pt])
+        setStatusMsg("Дуга: укажите вторую точку")
+      } else if (drawingPts.length === 1) {
+        setDrawingPts(prev => [...prev, pt])
+        setStatusMsg("Дуга: укажите третью точку")
+      } else {
+        const [p1, p2] = drawingPts
+        const p3 = pt
+        // Circumcircle through 3 points
+        const ax = p1[0], ay = p1[1], bx = p2[0], by = p2[1], cx = p3[0], cy = p3[1]
+        const D = 2*(ax*(by-cy)+bx*(cy-ay)+cx*(ay-by))
+        if (Math.abs(D) < 0.001) {
+          // collinear - draw as polyline
+          const newObj: CanvasObject = { id: `ar_${Date.now()}`, type: "arc", label: "Дуга", color: "#22d3ee", lineWidth: 1.5, pts: [p1, p2, p3], layer: "0", properties: { "Тип": "Дуга", "Слой": "0" } }
+          setCanvasObjects(prev => [...prev, newObj]); setSelectedObjId(newObj.id); saveCanvasObject(newObj)
+        } else {
+          const ux = ((ax*ax+ay*ay)*(by-cy)+(bx*bx+by*by)*(cy-ay)+(cx*cx+cy*cy)*(ay-by))/D
+          const uy = ((ax*ax+ay*ay)*(cx-bx)+(bx*bx+by*by)*(ax-cx)+(cx*cx+cy*cy)*(bx-ax))/D
+          const r = Math.hypot(ax-ux, ay-uy)
+          const a1 = Math.atan2(ay-uy, ax-ux)
+          const a3 = Math.atan2(cy-uy, cx-ux)
+          const a2 = Math.atan2(by-uy, bx-ux)
+          // normalize so arc goes through p2
+          let da = a2 - a1; if (da < 0) da += 2*Math.PI
+          let da3 = a3 - a1; if (da3 < 0) da3 += 2*Math.PI
+          const ccw = da < da3
+          const steps = 48
+          const arcPts: [number,number][] = []
+          for (let i = 0; i <= steps; i++) {
+            let t: number
+            if (ccw) { t = a1 + (da3 / steps) * i } else { t = a1 - ((2*Math.PI - da3) / steps) * i }
+            arcPts.push([ux + Math.cos(t)*r, uy + Math.sin(t)*r])
+          }
+          const newObj: CanvasObject = { id: `ar_${Date.now()}`, type: "arc", label: "Дуга", color: "#22d3ee", lineWidth: 1.5, pts: arcPts, layer: "0", properties: { "Тип": "Дуга", "Радиус": r.toFixed(1)+" м", "Слой": "0" } }
+          pushUndo("Нарисована дуга")
+          setCanvasObjects(prev => [...prev, newObj])
+          setSelectedObjId(newObj.id)
+          saveCanvasObject(newObj)
+          showToast(`Дуга R=${r.toFixed(1)} сохранена`)
+        }
+        setDrawingPts([])
+        setStatusMsg("Дуга: укажите первую точку")
+      }
+      return
+    }
     drag.current = { x: e.clientX, y: e.clientY }
   }
 
@@ -4569,6 +4754,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "PL" || c === "PLINE" || c === "ПОЛИЛИНИЯ") { setActiveTool("polyline"); setDrawingPts([]); setStatusMsg("Инструмент: Полилиния — укажите первую точку"); setCommandLine(""); return }
     else if (c === "O" || c === "POINT" || c === "ТОЧКА") { setActiveTool("point"); setStatusMsg("Инструмент: Точка — кликните для добавления"); setCommandLine(""); return }
     else if (c === "R" || c === "RECT" || c === "ПРЯМОУГОЛЬНИК") { setActiveTool("rect"); setDrawingPts([]); setStatusMsg("Инструмент: Прямоугольник — укажите первый угол"); setCommandLine(""); return }
+    else if (c === "C" || c === "CIRCLE" || c === "ОКРУЖНОСТЬ" || c === "КРУГ") { setActiveTool("circle"); setDrawingPts([]); setStatusMsg("Окружность: укажите центр"); setCommandLine(""); return }
+    else if (c === "A" || c === "ARC" || c === "ДУГА") { setActiveTool("arc"); setDrawingPts([]); setStatusMsg("Дуга: укажите первую точку (из 3-х)"); setCommandLine(""); return }
     else if (c === "DEL" || c === "ERASE" || c === "УДАЛИТЬ" || c === "E") { setActiveTool("delete"); setStatusMsg("Инструмент: Удалить — кликните объект"); setCommandLine(""); return }
     else if (c === "ESC" || c === "ОТМЕНА") { setActiveTool("select"); setDrawingPts([]); setSelectedObjId(null); setCommandLine(""); return }
     else if (c === "PROPS" || c === "СВОЙСТВА" || c === "PR") { setShowProperties(p=>!p); setCommandLine(""); return }
@@ -4913,13 +5100,15 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         {/* ── Left: Toolbox strip ── */}
         <div className="bg-[#252535] border-r border-gray-700 w-7 flex flex-col items-center py-1 gap-0.5">
           {([
-            { icon: "MousePointer2", title: "Выбор (S)",        tool: "select" as EditTool },
-            { icon: "Move",          title: "Перенести (M)",    tool: "move" as EditTool },
-            { icon: "Minus",         title: "Линия (L)",        tool: "line" as EditTool },
-            { icon: "Spline",        title: "Полилиния (P)",    tool: "polyline" as EditTool },
-            { icon: "MapPin",        title: "Точка (O)",        tool: "point" as EditTool },
-            { icon: "Square",        title: "Прямоугольник (R)",tool: "rect" as EditTool },
-            { icon: "Trash2",        title: "Удалить (Del)",    tool: "delete" as EditTool },
+            { icon: "MousePointer2", title: "Выбор (S)",           tool: "select" as EditTool },
+            { icon: "Move",          title: "Перенести (M)",       tool: "move" as EditTool },
+            { icon: "Minus",         title: "Линия (L)",           tool: "line" as EditTool },
+            { icon: "Spline",        title: "Полилиния (P)",       tool: "polyline" as EditTool },
+            { icon: "MapPin",        title: "Точка (O)",           tool: "point" as EditTool },
+            { icon: "Square",        title: "Прямоугольник (R)",   tool: "rect" as EditTool },
+            { icon: "Circle",        title: "Окружность (C)",      tool: "circle" as EditTool },
+            { icon: "RefreshCw",     title: "Дуга (A) — 3 точки", tool: "arc" as EditTool },
+            { icon: "Trash2",        title: "Удалить (Del)",       tool: "delete" as EditTool },
           ] as {icon:string;title:string;tool:EditTool}[]).map(({ icon, title, tool }) => (
             <button key={tool} title={title}
               onClick={() => { setActiveTool(tool); setDrawingPts([]); setStatusMsg(`Инструмент: ${title}`) }}
@@ -5483,7 +5672,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showVolume && <VolumeDialog onClose={()=>setShowVolume(false)} onOK={()=>{setShowVolume(false);showToast("Ведомость объёмов экспортирована в CSV")}}/>}
             {showLayers && <LayersDialog onClose={()=>setShowLayers(false)}/>}
             {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{setShowImport(false);setStatusMsg(`Импорт ${d.format}: ${d.file} завершён`)}}/>}
-            {showExport && <ExportDialog mode={exportMode} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
+            {showExport && <ExportDialog mode={exportMode} canvasObjects={canvasObjects} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
             {showDrawingSettings && <DrawingSettingsDialog onClose={()=>setShowDrawingSettings(false)}/>}
             {showDraw2D && (
               <Draw2DDialog onClose={()=>setShowDraw2D(false)} onOK={obj=>{
