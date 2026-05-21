@@ -67,7 +67,7 @@ const PLOTTERS = [
   { id: "printer", name: "Системный принтер", icon: "Printer", color: "#7c3aed", desc: "Вывод на физический принтер или МФУ, подключённый к системе." },
 ]
 
-export default function PublishModule() {
+export default function PublishModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const [tab, setTab] = useState("sheets")
   const [sheets, setSheets] = useState(SHEETS)
   const [selectedPlotter, setSelectedPlotter] = useState("pdf")

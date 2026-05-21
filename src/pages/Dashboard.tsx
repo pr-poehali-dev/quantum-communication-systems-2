@@ -1,8 +1,9 @@
-import { useEffect, useState, lazy, Suspense, Component, ReactNode } from "react"
+import { useEffect, useState, lazy, Suspense, Component, ReactNode, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Icon from "@/components/ui/icon"
+import { ProjectContext } from "@/hooks/useProjectStore"
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean; msg: string }> {
   state = { error: false, msg: "" }
@@ -303,6 +304,9 @@ function OpenDialog({ onClose, onOpen }: { onClose:()=>void; onOpen:(id:string)=
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  // ── Глобальный store — синхронизация модулей ──────────────────────────────
+  const store = useContext(ProjectContext)
+
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [homeВкладка, setHomeВкладка] = useState<"последние" | "модули" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
@@ -319,6 +323,14 @@ export default function Dashboard() {
   useEffect(() => {
     if (!localStorage.getItem("civilpro_auth")) navigate("/login")
   }, [navigate])
+
+  // Синхронизация: если store запрашивает переход к модулю — выполняем
+  useEffect(() => {
+    if (store?.requestedModule) {
+      setActiveModule(store.requestedModule)
+      store.setRequestedModule(null)
+    }
+  }, [store?.requestedModule])
 
   const handleLogout = () => {
     localStorage.removeItem("civilpro_auth")
@@ -348,8 +360,15 @@ export default function Dashboard() {
           <button title="Отменить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↩</button>
           <button title="Повторить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↪</button>
         </div>
-        <div className="text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          {activeModule && current ? `${current.label} — ЛАПА 3D 2026` : "ЛАПА 3D 2026 — Начало"}
+        <div className="text-[11px] text-gray-400 font-semibold tracking-wide select-none flex items-center gap-2">
+          {activeModule && current ? `${current.label} — ЛАПА 3D 2027` : "ЛАПА 3D 2027 — Начало"}
+          {store?.activeProject && (
+            <span className="text-[#0078d4] flex items-center gap-1">
+              <span className="text-gray-600">·</span>
+              <Icon name="FolderOpen" size={10} fallback="Folder" />
+              {store.activeProject.name}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -885,6 +904,30 @@ export default function Dashboard() {
       <AnimatePresence>
         {showОтзыв && (
           <FeedbackDialog тип={showОтзыв} onClose={() => setShowОтзыв(null)} />
+        )}
+      </AnimatePresence>
+
+      {/* Глобальные уведомления из store (межмодульные) */}
+      <AnimatePresence>
+        {store?.notification && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-2xl text-[12px] font-semibold border"
+            style={{
+              background: store.notification.type === "success" ? "#052e16" : store.notification.type === "error" ? "#1f0a0a" : "#0f1729",
+              borderColor: store.notification.type === "success" ? "#16a34a" : store.notification.type === "error" ? "#ef4444" : "#0078d4",
+              color: store.notification.type === "success" ? "#4ade80" : store.notification.type === "error" ? "#f87171" : "#60a5fa",
+            }}
+          >
+            <Icon
+              name={store.notification.type === "success" ? "CheckCircle" : store.notification.type === "error" ? "AlertCircle" : "Info"}
+              size={14}
+              fallback="Info"
+            />
+            {store.notification.text}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

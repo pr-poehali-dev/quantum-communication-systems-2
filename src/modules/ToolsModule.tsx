@@ -245,7 +245,7 @@ const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }>
   ready: { label: "Готов", color: "#16a34a", bg: "#dcfce7" },
 }
 
-export default function ToolsModule() {
+export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const [tab, setTab] = useState("lsp")
   const [catFilter, setCatFilter] = useState("all")
   const [search, setSearch] = useState("")
@@ -274,6 +274,9 @@ export default function ToolsModule() {
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" className="text-xs gap-1.5">
             <Icon name="FolderOpen" size={13} />Загрузить LISP
+          </Button>
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onNavigate?.("civilcad")}>
+            <Icon name="Monitor" size={13} />Редактор
           </Button>
           <Button size="sm" className="text-xs gap-1.5 bg-violet-600 hover:bg-violet-700">
             <Icon name="Plus" size={13} />Установить плагин

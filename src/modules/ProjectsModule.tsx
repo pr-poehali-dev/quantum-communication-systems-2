@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import { ProjectContext } from "@/hooks/useProjectStore"
 
 interface Project {
   id: number
@@ -42,11 +43,14 @@ const STATUS_LABELS: Record<string, string> = { active: "В работе", revie
 
 const API = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
 
-export default function ProjectsModule() {
+export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  const store = useContext(ProjectContext)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeProject, setActiveProject] = useState<number | null>(null)
+  const [activeProject, setActiveProject] = useState<number | null>(
+    store?.activeProject?.id ?? null
+  )
   const [form, setForm] = useState({ name: "", type: PROJECT_TYPES[0], stage: STAGES[0], length: "" })
   const [versionComment, setVersionComment] = useState("")
   const [search, setSearch] = useState("")
@@ -244,6 +248,28 @@ export default function ProjectsModule() {
                 <div className="text-sm text-muted-foreground">{current.type} · {current.stage}</div>
               </div>
               <span className={`ml-auto text-xs px-3 py-1 rounded-full font-semibold ${STATUS_COLORS[current.status]}`}>{STATUS_LABELS[current.status]}</span>
+              {/* Открыть в редакторе — синхронизирует проект в store и переходит */}
+              <button
+                title="Открыть в ЛАПА — Редакторе"
+                onClick={() => {
+                  if (store) {
+                    store.setActiveProject({
+                      id: current.id,
+                      name: current.name,
+                      description: current.stage,
+                      type: "road",
+                      status: "active",
+                      created_at: current.created,
+                      updated_at: current.updated,
+                      objects_count: current.versions.length,
+                    })
+                    store.notify(`Проект «${current.name}» открыт в редакторе`, "success")
+                  }
+                  onNavigate?.("civilcad")
+                }}
+                className="flex items-center gap-1.5 text-xs text-white border border-[#0078d4] bg-[#0078d4] rounded-lg px-3 py-1.5 hover:bg-[#005fa3] transition-colors">
+                <Icon name="Monitor" size={13} /> Открыть в редакторе
+              </button>
               {current.status !== "archived" ? (
                 <button title="В архив" onClick={() => archiveProject(current.id)}
                   className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors">

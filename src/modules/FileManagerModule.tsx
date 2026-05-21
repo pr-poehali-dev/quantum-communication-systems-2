@@ -226,7 +226,7 @@ const CATEGORIES = [
   { id: "fonts", label: "Шрифты", icon: "Type" },
 ]
 
-export default function FileManagerModule() {
+export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const [tab, setTab] = useState("browser")
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
@@ -260,6 +260,9 @@ export default function FileManagerModule() {
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" className="text-xs gap-1.5">
             <Icon name="FolderPlus" size={13} />Новая папка
+          </Button>
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onNavigate?.("civilcad")}>
+            <Icon name="Monitor" size={13} />Редактор
           </Button>
           <Button size="sm" className="text-xs gap-1.5 bg-blue-600 hover:bg-blue-700">
             <Icon name="Upload" size={13} />Импортировать файл

@@ -1,6 +1,7 @@
-import { useRef, useState, useEffect, useCallback } from "react"
+import { useRef, useState, useEffect, useCallback, useContext } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
+import { ProjectContext } from "@/hooks/useProjectStore"
 
 // ─── Recent files data ────────────────────────────────────────────────────────
 
@@ -4063,6 +4064,9 @@ const NAV_MODULES = [
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  // ── Project store (синхронизация с другими модулями) ─────────────────────
+  const store = useContext(ProjectContext)
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [treeData, setTreeData] = useState<TreeNode[]>(TREE)
   const [selectedNode, setSelectedNode] = useState<string | null>("c1")
@@ -4880,6 +4884,28 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           if (projectId) {
             setCurrentProjectId(projectId)
             setCurrentProjectName(name || "")
+            // Синхронизируем с глобальным store
+            if (store) {
+              store.setActiveProject({
+                id: projectId,
+                name: name || "Новый проект",
+                description: "",
+                type: "road",
+                status: "active",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                objects_count: 0,
+              })
+              store.openTab({
+                id: `tab-${projectId}-${tabName}`,
+                name: tabName,
+                projectId,
+                saved: true,
+                objects: [],
+                viewState: { zoom: 1.1, panX: 30, panY: 20 },
+              })
+              store.notify(`Открыт проект: ${name}`, "success")
+            }
           }
         }}
         onSave={() => {
@@ -4935,16 +4961,27 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <option value="ЛАПА 2D">ЛАПА 2D</option>
         </select>
         <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          ЛАПА {viewDimension} 2026 — {activeDrawingTab}
+          ЛАПА {viewDimension} 2027 — {activeDrawingTab}
+          {currentProjectName && <span className="text-[#0078d4] ml-2">· {currentProjectName}</span>}
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500" />
+          {/* Кнопки навигации между модулями */}
+          <button onClick={() => onNavigate?.("viewer3d")} title="Открыть 3D-вьюер"
+            className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-[#0078d4]/50 border border-gray-700 hover:border-[#0078d4]">
+            <Icon name="Box" size={11} fallback="Square"/>
+            <span>3D-вид</span>
+          </button>
+          <button onClick={() => onNavigate?.("projects")} title="Управление проектами"
+            className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-[#0078d4]/50 border border-gray-700 hover:border-[#0078d4]">
+            <Icon name="FolderKanban" size={11} fallback="Folder"/>
+            <span>Проекты</span>
+          </button>
+          <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-36 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500 ml-1" />
           <button onClick={()=>setShowAssistant(p=>!p)} title="ЛАПА-Ассистент AI"
             className={`ml-1 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors ${showAssistant?"bg-[#0078d4] text-white":"text-gray-400 hover:text-white hover:bg-[#0078d4]/40"}`}>
             <Icon name="Bot" size={11} fallback="HelpCircle"/>
-            <span>Ассистент</span>
+            <span>AI</span>
           </button>
-          <span className="text-[10px] text-gray-500 ml-1">пользователь</span>
         </div>
       </div>
 

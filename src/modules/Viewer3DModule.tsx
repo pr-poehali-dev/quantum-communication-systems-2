@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect, useCallback } from "react"
+import { useRef, useState, useEffect, useCallback, useContext } from "react"
 import Icon from "@/components/ui/icon"
+import { ProjectContext } from "@/hooks/useProjectStore"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,9 @@ function цветРельефа(h: number, режим: string, uk: number): stri
 // ─── Главный компонент ───────────────────────────────────────────────────────
 
 export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  // ── Project store — синхронизация с редактором ────────────────────────────
+  const store = useContext(ProjectContext)
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drag = useRef<{ x: number; y: number; btn: number } | null>(null)
   const cam = useRef<Cam>({ yaw: 0.3, pitch: 0.52, dist: 48, tx: 0, tz: 0 })
@@ -726,14 +730,28 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
           </button>
         </div>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          {/* Активный проект из store */}
+          {store?.activeProject && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#0078d4]/20 border border-[#0078d4]/40 rounded text-[10px] text-[#60a5fa]">
+              <Icon name="FolderOpen" size={10} fallback="Folder" />
+              <span>{store.activeProject.name}</span>
+            </div>
+          )}
+          {/* Трассы из store */}
+          {store && store.alignments.length > 0 && (
+            <div className="text-[10px] text-green-400 flex items-center gap-1">
+              <Icon name="Route" size={10} fallback="Minus" />
+              <span>{store.alignments.length} трасс</span>
+            </div>
+          )}
           <button onClick={() => setShowПанель(s => !s)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-gray-400 hover:bg-[#2d2d4e] hover:text-white transition-colors">
             <Icon name={showПанель ? "PanelRightClose" : "PanelRight"} size={12} fallback="Layout" />
           </button>
           {onNavigate && (
             <button onClick={() => onNavigate("civilcad")}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-gray-400 hover:bg-[#2d2d4e] hover:text-white transition-colors">
+              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] border border-[#0078d4]/50 text-[#60a5fa] hover:bg-[#0078d4] hover:text-white transition-colors">
               <Icon name="Monitor" size={12} /> <span className="hidden sm:inline">Редактор</span>
             </button>
           )}
