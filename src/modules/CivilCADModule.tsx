@@ -329,6 +329,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
   setShowGraphicsBanner: (v: boolean) => void
 }) {
   const [tab, setTab] = useState<"recent"|"autodesk"|"learning">("recent")
+  const [showFeedback, setShowFeedback] = useState<"отзыв"|"ошибка"|"документация"|null>(null)
   const [search, setSearch] = useState("")
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [newTabName, setNewTabName] = useState("")
@@ -420,18 +421,18 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
             ))}
           </nav>
 
-          <div className="px-4 py-4 border-t border-gray-700 space-y-1.5">
+          <div className="px-4 py-4 border-t border-gray-700 space-y-1">
             {([
-              ["Новые возможности","ExternalLink","https://poehali.dev/help"],
-              ["Онлайн-справка","HelpCircle","https://poehali.dev/help"],
-              ["Сообщество ЛАПА","Users","https://t.me/+QgiLIa1gFRY4Y2Iy"],
-              ["Поддержка","Headphones","https://poehali.dev/help"],
-            ] as const).map(([label,icon,url])=>(
-              <a key={label} href={url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-[11px] text-[#0078d4] hover:underline w-full text-left">
+              ["Новые возможности", "ExternalLink", () => setTab("learning")],
+              ["Онлайн-справка",   "HelpCircle",   () => setShowFeedback("документация")],
+              ["Сообщество ЛАПА",  "Users",         () => setShowFeedback("отзыв")],
+              ["Поддержка",        "Headphones",    () => setShowFeedback("ошибка")],
+            ] as const).map(([label, icon, fn]) => (
+              <button key={label} onClick={fn}
+                className="flex items-center gap-2 text-[11px] text-[#60a5fa] hover:underline w-full text-left px-1 py-0.5 transition-colors hover:text-[#93c5fd]">
                 <Icon name={icon} size={11} fallback="Link"/>
                 {label}
-              </a>
+              </button>
             ))}
           </div>
         </div>
@@ -599,6 +600,114 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
           </div>
         </div>
       )}
+
+      {/* ── Feedback / Документация диалог (как в Dashboard) ── */}
+      <AnimatePresence>
+        {showFeedback && (() => {
+          const тип = showFeedback
+          const [текст, setТекст] = [
+            (typeof window !== "undefined" ? (window as unknown as Record<string,string>)["__fb_text__"] ?? "" : ""),
+            (v: string) => { if (typeof window !== "undefined") (window as unknown as Record<string,string>)["__fb_text__"] = v },
+          ]
+          const DOCS = [
+            { title:"Быстрый старт",        desc:"Создание первого проекта",          icon:"Play",        url:"https://docs.poehali.dev/getting-started/prompting" },
+            { title:"Работа с ЦМР",          desc:"LiDAR, GNSS, TIN-поверхности",      icon:"Mountain",    url:"https://poehali.dev/help" },
+            { title:"Проектирование трассы", desc:"СП 34, клотоиды, пикетаж",          icon:"Route",       url:"https://poehali.dev/help" },
+            { title:"Создание коридора",     desc:"Assembly, поперечники, объёмы",      icon:"RoadHorizon", url:"https://poehali.dev/help" },
+            { title:"Инженерные сети",       desc:"Гидравлика, коллизии",               icon:"Network",     url:"https://poehali.dev/help" },
+            { title:"Горячие клавиши",       desc:"Все команды редактора",              icon:"Keyboard",    url:"https://poehali.dev/help" },
+          ]
+          return (
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+              className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4"
+              onClick={()=>setShowFeedback(null)}>
+              <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
+                className="rounded-xl shadow-2xl w-full bg-[#1e1e2e] border border-gray-700"
+                style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+                  <span className="text-white font-bold text-[14px]">
+                    {тип==="отзыв" ? "Сообщество ЛАПА — Отзыв"
+                    : тип==="ошибка" ? "Служба поддержки"
+                    : "Онлайн-справка"}
+                  </span>
+                  <button onClick={()=>setShowFeedback(null)} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+                </div>
+
+                {тип === "документация" ? (
+                  <div className="p-4 space-y-2">
+                    <a href="https://docs.poehali.dev" target="_blank" rel="noopener noreferrer"
+                      className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/30 hover:bg-[#0078d4]/20 transition-colors mb-3 no-underline">
+                      <Icon name="BookOpen" size={16} className="text-[#0078d4] flex-shrink-0"/>
+                      <div className="flex-1 text-left">
+                        <div className="text-white text-[13px] font-bold">Открыть полную документацию →</div>
+                        <div className="text-[#60a5fa] text-[11px]">Все разделы, поиск, примеры кода</div>
+                      </div>
+                    </a>
+                    {DOCS.map(d => (
+                      <a key={d.title} href={d.url} target="_blank" rel="noopener noreferrer"
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] border border-gray-800 hover:border-gray-600 transition-colors no-underline">
+                        <Icon name={d.icon} size={16} className="text-[#0078d4] flex-shrink-0" fallback="BookOpen"/>
+                        <div className="flex-1 text-left">
+                          <div className="text-white text-[13px] font-semibold">{d.title}</div>
+                          <div className="text-gray-500 text-[11px]">{d.desc}</div>
+                        </div>
+                        <Icon name="ChevronRight" size={14} className="text-gray-600"/>
+                      </a>
+                    ))}
+                  </div>
+                ) : тип === "отзыв" ? (
+                  <div className="p-5 space-y-3">
+                    <div className="flex gap-3">
+                      <a href="https://t.me/+QgiLIa1gFRY4Y2Iy" target="_blank" rel="noopener noreferrer"
+                        className="flex-1 flex items-center gap-2 p-3 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/30 hover:bg-[#0078d4]/20 transition-colors no-underline">
+                        <Icon name="MessageCircle" size={18} className="text-[#0078d4]"/>
+                        <div>
+                          <div className="text-white text-[12px] font-bold">Telegram-сообщество</div>
+                          <div className="text-[#60a5fa] text-[10px]">Вопросы, советы, новости</div>
+                        </div>
+                      </a>
+                      <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
+                        className="flex-1 flex items-center gap-2 p-3 rounded-lg bg-[#1e2e1e] border border-green-800/40 hover:bg-green-900/20 transition-colors no-underline">
+                        <Icon name="Star" size={18} className="text-green-400"/>
+                        <div>
+                          <div className="text-white text-[12px] font-bold">Оставить отзыв</div>
+                          <div className="text-green-400 text-[10px]">На poehali.dev</div>
+                        </div>
+                      </a>
+                    </div>
+                    <textarea value={текст} onChange={e=>setТекст(e.target.value)} rows={4}
+                      placeholder="Расскажите что нравится или что можно улучшить в ЛАПА Civil 3D..."
+                      className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] resize-none placeholder-gray-600"/>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={()=>setShowFeedback(null)} className="px-4 py-2 text-[12px] text-gray-400 hover:text-white border border-gray-700 rounded">Отмена</button>
+                      <button onClick={()=>{ setShowFeedback(null) }}
+                        className="px-4 py-2 text-[12px] text-white rounded bg-[#0078d4] hover:bg-[#0066b3] transition-colors">
+                        Отправить
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-3">
+                    <div className="text-[11px] text-gray-400">
+                      Опишите проблему и мы поможем её решить.
+                    </div>
+                    <textarea rows={5}
+                      placeholder="Опишите шаги для воспроизведения ошибки..."
+                      className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] resize-none placeholder-gray-600"/>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={()=>setShowFeedback(null)} className="px-4 py-2 text-[12px] text-gray-400 hover:text-white border border-gray-700 rounded">Отмена</button>
+                      <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
+                        className="px-4 py-2 text-[12px] text-white rounded bg-[#0078d4] hover:bg-[#0066b3] transition-colors no-underline inline-block">
+                        Открыть тикет →
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )
+        })()}
+      </AnimatePresence>
     </div>
   )
 }
