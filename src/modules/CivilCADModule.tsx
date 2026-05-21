@@ -6234,59 +6234,60 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </button>
         </div>
 
-        {/* ── Left: Toolspace / Tree ── */}
-        <div className="bg-[#1e1e2e] border-r border-gray-600 flex flex-col overflow-hidden flex-shrink-0" style={{ width: 160 }}>
+        {/* ── Left: Toolspace — точная структура Civil 3D ── */}
+        {/* Вертикальные боковые вкладки (как на скрине справа от дерева) */}
+        <div className="bg-[#2d2d3d] border-r border-gray-700 flex flex-col flex-shrink-0 overflow-hidden" style={{width:14}}>
+          {([
+            {id:"prospector",label:"Prospector"},
+            {id:"settings",label:"Settings"},
+            {id:"survey",label:"Survey"},
+            {id:"toolbox",label:"Toolbox"},
+          ] as const).map((t,i) => (
+            <button key={t.id} onClick={() => setToolspaceTab(t.id)}
+              className={`text-[8px] font-semibold px-0 py-3 border-b border-gray-700 transition-colors select-none
+                ${toolspaceTab===t.id?"text-white bg-[#0078d4]":"text-gray-500 hover:text-gray-300 hover:bg-[#3a3a4e]"}`}
+              style={{writingMode:"vertical-rl",transform:"rotate(180deg)",letterSpacing:"0.05em"}}>
+              {t.label}
+            </button>
+          ))}
+          <div className="flex-1"/>
+        </div>
+
+        {/* Основная панель дерева */}
+        <div className="bg-[#1e1e2e] border-r border-gray-600 flex flex-col overflow-hidden flex-shrink-0" style={{ width: 175 }}>
           {/* TOOL SPACE header */}
-          <div className="bg-[#252535] px-2 py-1 flex items-center justify-between border-b border-gray-600">
-            <span className="text-[10px] text-gray-300 font-bold tracking-widest uppercase">TOOL SPACE</span>
+          <div className="bg-[#252535] px-2 py-1 flex items-center justify-between border-b border-gray-600 flex-shrink-0">
+            <span className="text-[10px] text-gray-300 font-bold tracking-widest uppercase">TOOLSPACE</span>
             <div className="flex gap-0.5">
               {[
-                { icon: "ClipboardList", title: "Проспект" },
-                { icon: "Search",        title: "Поиск" },
-                { icon: "HelpCircle",    title: "Справка" },
-              ].map(({ icon, title }) => (
-                <button key={icon} title={title}
-                  onClick={() => setStatusMsg(`Toolspace: ${title}`)}
+                { icon: "ClipboardList", title: "Обновить", action: () => setStatusMsg("Toolspace обновлён") },
+                { icon: "Search",        title: "Поиск",    action: () => setStatusMsg("Поиск объектов...") },
+                { icon: "HelpCircle",    title: "Справка",  action: () => setStatusMsg("Справка Civil 3D") },
+              ].map(({ icon, title, action }) => (
+                <button key={icon} title={title} onClick={action}
                   className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
-                  <Icon name={icon} size={11} fallback="Square" />
+                  <Icon name={icon} size={10} fallback="Square" />
                 </button>
               ))}
-              <button title="Открыть проект" onClick={openProjectDialog}
-                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
-                <Icon name="FolderOpen" size={11} fallback="Square" />
-              </button>
               <button title="My Insights" onClick={()=>setShowInsights(p=>!p)}
                 className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${showInsights?"bg-yellow-500/20 text-yellow-400":"text-gray-400 hover:text-white hover:bg-[#0078d4]"}`}>
-                <Icon name="Sparkles" size={11} fallback="Star" />
+                <Icon name="Sparkles" size={10} fallback="Star" />
               </button>
-              <button title="Редактор скриптов" onClick={()=>setShowScriptEditor(s=>!s)}
+              <button title="Инструменты автоматизации" onClick={()=>setShowScriptEditor(s=>!s)}
                 className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${showScriptEditor?"bg-purple-500/20 text-purple-400":"text-gray-400 hover:text-white hover:bg-[#0078d4]"}`}>
-                <Icon name="Code" size={11} fallback="FileCode"/>
+                <Icon name="Code" size={10} fallback="FileCode"/>
               </button>
             </div>
           </div>
-          {/* Civil 3D Toolspace tabs */}
-          <div className="flex border-b border-gray-600">
-            {([
-              { id: "prospector", label: "Проспект" },
-              { id: "navigator", label: "Навигатор" },
-              { id: "settings", label: "Параметры" },
-              { id: "survey", label: "Съёмка" },
-              { id: "toolbox", label: "Ящик" },
-            ] as const).map((tab) => (
-              <button key={tab.id}
-                className={`flex-1 text-[9px] py-1 border-r border-gray-600 last:border-0 transition-colors font-medium leading-tight
-                  ${toolspaceTab === tab.id ? "bg-[#1e1e2e] text-white border-b-2 border-b-[#0078d4]" : "bg-[#252535] text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}
-                onClick={() => setToolspaceTab(tab.id)}>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          {/* Active Drawing View */}
-          <div className="bg-[#252535] px-2 py-1 flex items-center gap-1 border-b border-gray-600 cursor-pointer hover:bg-[#2e2e45]"
-            onClick={() => setStatusMsg("Активный чертёж: Align-Superelevation-5")}>
-            <span className="text-[11px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
-            <Icon name="ChevronDown" size={10} className="text-gray-500 flex-shrink-0" />
+
+          {/* Active Drawing View selector */}
+          <div className="bg-[#1a1a2a] border-b border-gray-600 flex-shrink-0">
+            <select value={activeDrawingTab}
+              onChange={e => { setActiveDrawingTab(e.target.value); setShowStartScreen(false) }}
+              className="w-full bg-transparent text-[10px] text-gray-300 px-2 py-1 outline-none cursor-pointer hover:bg-[#252535]">
+              <option value="">— Вид активного чертёжа —</option>
+              {drawingTabs.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
           {/* Toolspace tab content */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#1e1e2e]">
@@ -6598,128 +6599,154 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           {/* ── Plan view (bottom or full if no split) ── */}
           <div className="flex-1 relative overflow-hidden">
 
-            {/* ── Multi-viewport MDI overlay ── */}
-            {multiViewport && (
-              <div className="absolute inset-0 z-30 bg-[#111827] flex" style={{ paddingTop: 22 }}>
-                {/* MDI workspace background */}
-                <div className={`flex-1 relative flex ${viewportLayout === "2v" ? "flex-col" : "flex-row"} gap-1 p-1`}>
-                  {/* Window 1 */}
-                  {(() => {
-                    const win1name = drawingTabs[1] || "02_earthwork.dwg"
-                    const win2name = drawingTabs[0] || "01_corridor.dwg"
-                    return (
-                      <>
-                        <div className="flex-1 flex flex-col border border-gray-600 bg-[#1a1a2e] min-w-0"
-                          style={{ boxShadow: "2px 2px 8px rgba(0,0,0,0.6)" }}>
-                          {/* MDI title bar */}
-                          <div className="flex items-center bg-[#252535] border-b border-gray-600 px-1 py-0.5 gap-1 flex-shrink-0">
-                            <button className="text-[9px] text-gray-400 hover:text-white px-1 border border-gray-600 rounded leading-none">+</button>
-                            <Icon name="FileText" size={9} fallback="File" className="text-gray-400" />
-                            <span className="flex-1 text-[10px] text-gray-200 truncate font-medium">{win1name}</span>
-                            <div className="flex items-center gap-0">
-                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Свернуть">─</button>
-                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Восстановить">□</button>
-                              <button className="text-[9px] text-gray-400 hover:text-red-400 hover:bg-red-900/30 px-1.5 py-0.5 transition-colors"
-                                onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
-                            </div>
-                          </div>
-                          {/* MDI viewport label */}
-                          <div className="flex items-center gap-0 bg-black/40 border-b border-gray-800 flex-shrink-0">
-                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
-                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[Сверху]</button>
-                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5">[2D Каркас]</button>
-                          </div>
-                          {/* MDI canvas area */}
-                          <div className="flex-1 relative overflow-hidden bg-[#0d1117]">
-                            <svg width="100%" height="100%" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
-                              {Array.from({length:12}).map((_,i)=>(
-                                <line key={`g1h${i}`} x1={i*50} y1="0" x2={i*50} y2="400" stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
-                              ))}
-                              {Array.from({length:9}).map((_,i)=>(
-                                <line key={`g1v${i}`} x1="0" y1={i*50} x2="600" y2={i*50} stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
-                              ))}
-                              <path d="M50,320 Q150,280 250,240 Q350,200 450,230 Q520,250 560,220" stroke="#ef4444" strokeWidth="2" fill="none"/>
-                              <path d="M50,330 Q150,295 250,260 Q350,225 450,255 Q520,272 560,242" stroke="#ef4444" strokeWidth="1.5" fill="none" strokeDasharray="4 2" opacity="0.5"/>
-                              {[50,150,250,350,450,550].map((x,i)=>(
-                                <circle key={i} cx={x} cy={300-i*12} r="3" fill="#f59e0b"/>
-                              ))}
-                              <text x="10" y="20" fill="#4b5563" fontSize="8" fontFamily="monospace">02 Земляные работы</text>
-                            </svg>
-                          </div>
-                        </div>
+            {/* ── Multi-viewport MDI overlay (Civil 3D style) ── */}
+            {multiViewport && (() => {
+              const mdiWindows = viewportLayout === "4"
+                ? [
+                    { name: drawingTabs[1]||"02_earthwork.dwg", active: false, geo: "Земляные работы" },
+                    { name: drawingTabs[0]||"01_corridor.dwg",  active: true,  geo: "Коридор" },
+                    { name: "03_profile.dwg",    active: false, geo: "Продольный профиль" },
+                    { name: "04_sections.dwg",   active: false, geo: "Поперечные сечения" },
+                  ]
+                : viewportLayout === "2v"
+                ? [
+                    { name: drawingTabs[1]||"02_earthwork.dwg", active: false, geo: "Земляные работы" },
+                    { name: drawingTabs[0]||"01_corridor.dwg",  active: true,  geo: "Коридор" },
+                  ]
+                : [
+                    { name: drawingTabs[1]||"02_earthwork.dwg", active: false, geo: "Земляные работы" },
+                    { name: drawingTabs[0]||"01_corridor.dwg",  active: true,  geo: "Коридор" },
+                  ]
 
-                        {/* Window 2 */}
-                        <div className="flex-1 flex flex-col border border-gray-600 bg-[#1a1a2e] min-w-0"
-                          style={{ boxShadow: "2px 2px 8px rgba(0,0,0,0.6)" }}>
-                          {/* MDI title bar */}
-                          <div className="flex items-center bg-[#1e3a5c] border-b border-[#0078d4]/50 px-1 py-0.5 gap-1 flex-shrink-0">
-                            <button className="text-[9px] text-gray-400 hover:text-white px-1 border border-gray-600 rounded leading-none">+</button>
-                            <Icon name="FileText" size={9} fallback="File" className="text-blue-300" />
-                            <span className="flex-1 text-[10px] text-white truncate font-medium">{win2name}</span>
-                            <div className="flex items-center gap-0">
-                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Свернуть">─</button>
-                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Восстановить">□</button>
-                              <button className="text-[9px] text-gray-400 hover:text-red-400 hover:bg-red-900/30 px-1.5 py-0.5 transition-colors"
-                                onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
-                            </div>
-                          </div>
-                          {/* MDI viewport label */}
-                          <div className="flex items-center gap-0 bg-black/40 border-b border-gray-800 flex-shrink-0">
-                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
-                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[Сверху]</button>
-                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5">[2D Каркас]</button>
-                          </div>
-                          {/* MDI canvas area */}
-                          <div className="flex-1 relative overflow-hidden bg-[#0a0f1a]">
-                            <svg width="100%" height="100%" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
-                              {Array.from({length:12}).map((_,i)=>(
-                                <line key={`g2h${i}`} x1={i*50} y1="0" x2={i*50} y2="400" stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
-                              ))}
-                              {Array.from({length:9}).map((_,i)=>(
-                                <line key={`g2v${i}`} x1="0" y1={i*50} x2="600" y2={i*50} stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
-                              ))}
-                              <path d="M30,350 Q100,300 180,260 Q260,220 340,240 Q420,260 500,210 Q560,180 590,160" stroke="#3b82f6" strokeWidth="2.5" fill="none"/>
-                              <path d="M80,200 Q160,190 240,195 Q320,200 400,185 Q480,175 560,190" stroke="#a855f7" strokeWidth="1.5" fill="none"/>
-                              {[80,200,320,440].map((x,i)=>(
-                                <rect key={i} x={x-8} y={180+i*8} width="16" height="16" fill="none" stroke="#06b6d4" strokeWidth="1.5"/>
-                              ))}
-                              <text x="10" y="20" fill="#4b5563" fontSize="8" fontFamily="monospace">01 Коридор</text>
-                            </svg>
-                          </div>
-                        </div>
-                      </>
-                    )
-                  })()}
+              const is4 = viewportLayout === "4"
+              const isV = viewportLayout === "2v"
 
-                  {/* 4-window layout: extra row */}
-                  {viewportLayout === "4" && (
-                    <div className="absolute inset-0 flex flex-col gap-1 p-0" style={{pointerEvents:"none"}}>
-                      <div className="flex-1"/>
-                      <div className="flex-1 flex gap-1">
-                        <div className="flex-1 border border-gray-700 bg-[#111827] flex flex-col" style={{pointerEvents:"auto"}}>
-                          <div className="flex items-center bg-[#252535] border-b border-gray-600 px-1 py-0.5 text-[9px] text-gray-400 gap-1">
-                            <Icon name="FileText" size={8} fallback="File"/>
-                            <span className="truncate">03_profile.dwg</span>
-                          </div>
-                          <div className="flex-1 bg-[#0d1117] flex items-center justify-center">
-                            <span className="text-[9px] text-gray-600">Продольный профиль</span>
-                          </div>
-                        </div>
-                        <div className="flex-1 border border-gray-700 bg-[#111827] flex flex-col" style={{pointerEvents:"auto"}}>
-                          <div className="flex items-center bg-[#252535] border-b border-gray-600 px-1 py-0.5 text-[9px] text-gray-400 gap-1">
-                            <Icon name="FileText" size={8} fallback="File"/>
-                            <span className="truncate">04_sections.dwg</span>
-                          </div>
-                          <div className="flex-1 bg-[#0d1117] flex items-center justify-center">
-                            <span className="text-[9px] text-gray-600">Поперечные сечения</span>
-                          </div>
-                        </div>
-                      </div>
+              const MdiWindow = ({ win, showEarth }: { win: typeof mdiWindows[0]; showEarth: boolean }) => (
+                <div className={`flex flex-col min-w-0 min-h-0 border ${win.active?"border-[#4a7fbf]":"border-[#4a4a5a]"} bg-[#111827]`}
+                  style={{boxShadow: win.active?"0 0 0 1px #4a7fbf":"none"}}>
+                  {/* Title bar */}
+                  <div className={`flex items-center px-1 py-0.5 gap-1 flex-shrink-0 ${win.active?"bg-[#1b3a5c]":"bg-[#3c3c4c]"}`}>
+                    <div className="w-3.5 h-3.5 rounded-sm bg-[#0078d4] flex items-center justify-center flex-shrink-0">
+                      <span className="text-[6px] text-white font-bold">C</span>
                     </div>
-                  )}
+                    <span className={`flex-1 text-[10px] truncate font-medium ${win.active?"text-white":"text-gray-300"}`}>{win.name}</span>
+                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="Свернуть">─</button>
+                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="Восстановить">□</button>
+                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-red-600 w-4 h-4 flex items-center justify-center transition-colors"
+                      onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
+                  </div>
+                  {/* Viewport label bar */}
+                  <div className="flex items-center bg-black/30 border-b border-gray-800 flex-shrink-0">
+                    <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 border-r border-gray-700 transition-colors">[−]</button>
+                    <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 border-r border-gray-700 transition-colors">[Top]</button>
+                    <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 transition-colors">[2D Wireframe]</button>
+                    <div className="flex-1"/>
+                  </div>
+                  {/* Canvas */}
+                  <div className="flex-1 relative overflow-hidden" style={{background:"#0d1117"}}>
+                    <svg width="100%" height="100%" viewBox="0 0 500 340" preserveAspectRatio="xMidYMid meet">
+                      {/* Grid dots */}
+                      {Array.from({length:25}).map((_,i)=>Array.from({length:17}).map((_,j)=>(
+                        <circle key={`d${i}${j}`} cx={i*20+10} cy={j*20+10} r="0.5" fill="rgba(100,130,150,0.3)"/>
+                      )))}
+                      {/* Горизонтали рельефа */}
+                      {Array.from({length:8}).map((_,k)=>(
+                        <path key={`h${k}`}
+                          d={`M${-10+k*5},${300-k*18} Q${100+k*8},${280-k*20} ${200+k*3},${260-k*22} Q${300-k*5},${245-k*18} ${400+k*6},${270-k*20} Q${460+k*4},${280-k*18} ${510+k*2},${265-k*22}`}
+                          stroke={`rgba(180,210,180,${0.12+k*0.015})`} strokeWidth="1" fill="none"/>
+                      ))}
+                      {showEarth ? <>
+                        {/* Earthwork — пурпурные замкнутые полигоны объёмов */}
+                        <path d="M80,220 L140,170 L220,140 L290,155 L340,200 L310,250 L240,275 L160,265 Z"
+                          stroke="#cc44cc" strokeWidth="2" fill="rgba(180,60,180,0.08)"/>
+                        <path d="M100,230 L150,185 L210,160 L275,172 L320,210 L295,255 L225,278 L160,268 Z"
+                          stroke="#ee66ee" strokeWidth="1.5" fill="rgba(220,100,220,0.06)"/>
+                        <path d="M120,238 L160,198 L205,178 L260,188 L300,220 L278,258 L215,280 L165,272 Z"
+                          stroke="#dd55dd" strokeWidth="1" fill="rgba(200,80,200,0.05)"/>
+                        {/* Точки съёмки */}
+                        {[[90,215],[200,145],[290,160],[330,205],[240,272],[160,262]].map(([x,y],i)=>(
+                          <g key={i}>
+                            <circle cx={x} cy={y} r="2.5" fill="#4dd"/><circle cx={x} cy={y} r="1" fill="white"/>
+                          </g>
+                        ))}
+                        <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">02_earthwork</text>
+                      </> : <>
+                        {/* Corridor — трасса + коридор */}
+                        <path d="M20,280 Q120,240 220,200 Q320,165 420,180 Q460,187 490,170"
+                          stroke="#4488ee" strokeWidth="2.5" fill="none"/>
+                        <path d="M20,295 Q120,255 220,215 Q320,180 420,195 Q460,202 490,185"
+                          stroke="#3377dd" strokeWidth="1.5" fill="rgba(50,100,200,0.05)" strokeDasharray="none"/>
+                        <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155"
+                          stroke="#3377dd" strokeWidth="1.5" fill="none"/>
+                        {/* Коридор-заливка */}
+                        <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155 L490,185 Q460,202 420,195 Q320,180 220,215 Q120,255 20,295 Z"
+                          fill="rgba(50,100,200,0.07)" stroke="none"/>
+                        {/* Поперечники */}
+                        {[60,140,220,300,380,460].map((x,i)=>{
+                          const y = 280 - i*16
+                          return <line key={i} x1={x-10} y1={y+14} x2={x+10} y2={y-14} stroke="#55aaff" strokeWidth="1" opacity="0.5"/>
+                        })}
+                        {/* Зелёные маркеры */}
+                        {[[180,200],[320,168],[440,178]].map(([x,y],i)=>(
+                          <rect key={i} x={x-4} y={y-4} width="8" height="8" fill="none" stroke="#4ade80" strokeWidth="1.5"/>
+                        ))}
+                        <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">01_corridor</text>
+                      </>}
+                      {/* WCS компас */}
+                      <g transform="translate(458,28)">
+                        <circle cx="0" cy="0" r="18" fill="rgba(30,30,40,0.85)" stroke="#555" strokeWidth="0.8"/>
+                        <circle cx="0" cy="0" r="16" fill="rgba(20,30,50,0.7)" stroke="none"/>
+                        <text x="0" y="-8" fill="white" fontSize="5" textAnchor="middle" fontFamily="monospace">N</text>
+                        <text x="0" y="13" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">S</text>
+                        <text x="-11" y="2" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">W</text>
+                        <text x="11" y="2" fill="#888" fontSize="4" textAnchor="middle" fontFamily="monospace">E</text>
+                        <line x1="0" y1="-14" x2="0" y2="0" stroke="white" strokeWidth="1.5"/>
+                        <line x1="0" y1="0"  x2="0" y2="14" stroke="#555" strokeWidth="1"/>
+                        <circle cx="0" cy="0" r="2" fill="white"/>
+                        <text x="0" y="26" fill="#aaa" fontSize="5" textAnchor="middle" fontFamily="monospace">WCS</text>
+                      </g>
+                      {/* Scroll bar */}
+                      <rect x="488" y="50" width="6" height="80" rx="3" fill="#333"/>
+                      <rect x="488" y="55" width="6" height="30" rx="3" fill="#666"/>
+                      {/* X close */}
+                      {!win.active && (
+                        <g transform="translate(485,320)">
+                          <line x1="0" y1="0" x2="8" y2="8" stroke="#666" strokeWidth="1.5"/>
+                          <line x1="8" y1="0" x2="0" y2="8" stroke="#666" strokeWidth="1.5"/>
+                        </g>
+                      )}
+                    </svg>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+
+              return (
+                <div className={`absolute inset-0 z-30 bg-[#1a1a28] flex flex-col`} style={{paddingTop:20}}>
+                  {/* MDI top bar with layout controls */}
+                  <div className="flex items-center gap-1 px-2 py-1 bg-[#252535] border-b border-gray-700 flex-shrink-0">
+                    <span className="text-[9px] text-gray-400 mr-1">Видовые экраны:</span>
+                    {([["2h","║ 2 горизонтально"],["2v","═ 2 вертикально"],["4","⊞ 4 окна"]] as const).map(([id,label])=>(
+                      <button key={id} onClick={()=>setViewportLayout(id)}
+                        className={`text-[9px] px-2 py-0.5 rounded border transition-colors ${viewportLayout===id?"border-[#0078d4] bg-[#0078d4]/20 text-[#0078d4]":"border-gray-600 text-gray-400 hover:text-white"}`}>
+                        {label}
+                      </button>
+                    ))}
+                    <div className="flex-1"/>
+                    <button onClick={()=>setMultiViewport(false)}
+                      className="text-[9px] px-2 py-0.5 rounded border border-gray-600 text-gray-400 hover:text-white hover:bg-[#0078d4]/20 transition-colors">
+                      ✕ Закрыть все
+                    </button>
+                  </div>
+                  {/* MDI windows grid */}
+                  <div className={`flex-1 overflow-hidden ${is4?"grid grid-cols-2 grid-rows-2":isV?"flex flex-col":"flex flex-row"} gap-px bg-[#0a0a14]`}
+                    style={{padding: "2px"}}>
+                    {mdiWindows.map((win,i) => (
+                      <MdiWindow key={win.name+i} win={win} showEarth={i===0||i===2}/>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Plan viewport header */}
             <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800" style={{ marginTop: splitView ? 0 : 18 }}>
