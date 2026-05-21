@@ -5156,6 +5156,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [undoStack, setUndoStack] = useState<string[]>(["Начальное состояние"])
   const [redoStack, setRedoStack] = useState<string[]>([])
   const [showAbout, setShowAbout] = useState(false)
+  const [mdiZoom, setMdiZoom] = useState(1)
+  const [mdiPan,  setMdiPan]  = useState({ x: 0, y: 0 })
+  const mdiDrag = useRef<{ startX: number; startY: number; startPan: { x: number; y: number } } | null>(null)
 
   // ── Split viewport state ─────────────────────────────────────────────────
   const [splitView, setSplitView] = useState(false)
@@ -6660,8 +6663,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                       <span className="text-[6px] text-white font-bold">C</span>
                     </div>
                     <span className={`flex-1 text-[10px] truncate font-medium ${win.active?"text-white":"text-gray-300"}`}>{win.name}</span>
+                    {/* Текущий зум */}
+                    <span className="text-[8px] text-gray-500 font-mono mr-1">{Math.round(mdiZoom*100)}%</span>
                     <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="Свернуть">─</button>
-                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors" title="Восстановить">□</button>
+                    <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#555] w-4 h-4 flex items-center justify-center transition-colors"
+                      onClick={()=>{ setMdiZoom(1); setMdiPan({x:0,y:0}) }} title="Сбросить вид">□</button>
                     <button className="text-[9px] text-gray-400 hover:text-white hover:bg-red-600 w-4 h-4 flex items-center justify-center transition-colors"
                       onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
                   </div>
@@ -6672,57 +6678,95 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     <button className="text-[9px] text-gray-300 hover:bg-[#2a2a3a] px-1.5 py-0.5 transition-colors">[2D Wireframe]</button>
                     <div className="flex-1"/>
                   </div>
-                  {/* Canvas */}
-                  <div className="flex-1 relative overflow-hidden" style={{background:"#0d1117"}}>
+                  {/* Canvas — с синхронизированным зумом и панорамированием */}
+                  <div className="flex-1 relative overflow-hidden" style={{background:"#0d1117",cursor: mdiDrag.current ? "grabbing" : "grab"}}
+                    onWheel={e => {
+                      e.preventDefault()
+                      // Зум относительно позиции курсора внутри SVG-вьюпорта (500×340)
+                      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                      const cx = ((e.clientX - rect.left) / rect.width)  * 500
+                      const cy = ((e.clientY - rect.top)  / rect.height) * 340
+                      const factor = e.deltaY < 0 ? 1.12 : 0.893
+                      setMdiZoom(z => {
+                        const next = Math.max(0.15, Math.min(12, z * factor))
+                        // Корректируем pan чтобы зумировать под курсором
+                        setMdiPan(p => ({
+                          x: cx - (cx - p.x) * (next / z),
+                          y: cy - (cy - p.y) * (next / z),
+                        }))
+                        return next
+                      })
+                    }}
+                    onMouseDown={e => {
+                      if (e.button !== 1 && !(e.button === 0 && e.altKey)) return
+                      e.preventDefault()
+                      mdiDrag.current = { startX: e.clientX, startY: e.clientY, startPan: mdiPan }
+                    }}
+                    onMouseMove={e => {
+                      if (!mdiDrag.current) return
+                      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                      const scaleX = 500 / rect.width
+                      const scaleY = 340 / rect.height
+                      setMdiPan({
+                        x: mdiDrag.current.startPan.x + (e.clientX - mdiDrag.current.startX) * scaleX,
+                        y: mdiDrag.current.startPan.y + (e.clientY - mdiDrag.current.startY) * scaleY,
+                      })
+                    }}
+                    onMouseUp={()=>{ mdiDrag.current = null }}
+                    onMouseLeave={()=>{ mdiDrag.current = null }}>
                     <svg width="100%" height="100%" viewBox="0 0 500 340" preserveAspectRatio="xMidYMid meet">
-                      {/* Grid dots */}
-                      {Array.from({length:25}).map((_,i)=>Array.from({length:17}).map((_,j)=>(
-                        <circle key={`d${i}${j}`} cx={i*20+10} cy={j*20+10} r="0.5" fill="rgba(100,130,150,0.3)"/>
-                      )))}
-                      {/* Горизонтали рельефа */}
-                      {Array.from({length:8}).map((_,k)=>(
-                        <path key={`h${k}`}
-                          d={`M${-10+k*5},${300-k*18} Q${100+k*8},${280-k*20} ${200+k*3},${260-k*22} Q${300-k*5},${245-k*18} ${400+k*6},${270-k*20} Q${460+k*4},${280-k*18} ${510+k*2},${265-k*22}`}
-                          stroke={`rgba(180,210,180,${0.12+k*0.015})`} strokeWidth="1" fill="none"/>
-                      ))}
-                      {showEarth ? <>
-                        {/* Earthwork — пурпурные замкнутые полигоны объёмов */}
-                        <path d="M80,220 L140,170 L220,140 L290,155 L340,200 L310,250 L240,275 L160,265 Z"
-                          stroke="#cc44cc" strokeWidth="2" fill="rgba(180,60,180,0.08)"/>
-                        <path d="M100,230 L150,185 L210,160 L275,172 L320,210 L295,255 L225,278 L160,268 Z"
-                          stroke="#ee66ee" strokeWidth="1.5" fill="rgba(220,100,220,0.06)"/>
-                        <path d="M120,238 L160,198 L205,178 L260,188 L300,220 L278,258 L215,280 L165,272 Z"
-                          stroke="#dd55dd" strokeWidth="1" fill="rgba(200,80,200,0.05)"/>
-                        {/* Точки съёмки */}
-                        {[[90,215],[200,145],[290,160],[330,205],[240,272],[160,262]].map(([x,y],i)=>(
-                          <g key={i}>
-                            <circle cx={x} cy={y} r="2.5" fill="#4dd"/><circle cx={x} cy={y} r="1" fill="white"/>
-                          </g>
+                      {/* Трансформация зума и панорамирования — общая для всех окон */}
+                      <g transform={`translate(${mdiPan.x},${mdiPan.y}) scale(${mdiZoom})`}
+                         style={{transformOrigin:"250px 170px"}}>
+                        {/* Grid dots */}
+                        {Array.from({length:25}).map((_,i)=>Array.from({length:17}).map((_,j)=>(
+                          <circle key={`d${i}${j}`} cx={i*20+10} cy={j*20+10} r="0.5" fill="rgba(100,130,150,0.3)"/>
+                        )))}
+                        {/* Горизонтали рельефа */}
+                        {Array.from({length:8}).map((_,k)=>(
+                          <path key={`h${k}`}
+                            d={`M${-10+k*5},${300-k*18} Q${100+k*8},${280-k*20} ${200+k*3},${260-k*22} Q${300-k*5},${245-k*18} ${400+k*6},${270-k*20} Q${460+k*4},${280-k*18} ${510+k*2},${265-k*22}`}
+                            stroke={`rgba(180,210,180,${0.12+k*0.015})`} strokeWidth="1" fill="none"/>
                         ))}
-                        <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">02_earthwork</text>
-                      </> : <>
-                        {/* Corridor — трасса + коридор */}
-                        <path d="M20,280 Q120,240 220,200 Q320,165 420,180 Q460,187 490,170"
-                          stroke="#4488ee" strokeWidth="2.5" fill="none"/>
-                        <path d="M20,295 Q120,255 220,215 Q320,180 420,195 Q460,202 490,185"
-                          stroke="#3377dd" strokeWidth="1.5" fill="rgba(50,100,200,0.05)" strokeDasharray="none"/>
-                        <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155"
-                          stroke="#3377dd" strokeWidth="1.5" fill="none"/>
-                        {/* Коридор-заливка */}
-                        <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155 L490,185 Q460,202 420,195 Q320,180 220,215 Q120,255 20,295 Z"
-                          fill="rgba(50,100,200,0.07)" stroke="none"/>
-                        {/* Поперечники */}
-                        {[60,140,220,300,380,460].map((x,i)=>{
-                          const y = 280 - i*16
-                          return <line key={i} x1={x-10} y1={y+14} x2={x+10} y2={y-14} stroke="#55aaff" strokeWidth="1" opacity="0.5"/>
-                        })}
-                        {/* Зелёные маркеры */}
-                        {[[180,200],[320,168],[440,178]].map(([x,y],i)=>(
-                          <rect key={i} x={x-4} y={y-4} width="8" height="8" fill="none" stroke="#4ade80" strokeWidth="1.5"/>
-                        ))}
-                        <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">01_corridor</text>
-                      </>}
-                      {/* WCS компас */}
+                        {showEarth ? <>
+                          {/* Earthwork — пурпурные замкнутые полигоны объёмов */}
+                          <path d="M80,220 L140,170 L220,140 L290,155 L340,200 L310,250 L240,275 L160,265 Z"
+                            stroke="#cc44cc" strokeWidth="2" fill="rgba(180,60,180,0.08)"/>
+                          <path d="M100,230 L150,185 L210,160 L275,172 L320,210 L295,255 L225,278 L160,268 Z"
+                            stroke="#ee66ee" strokeWidth="1.5" fill="rgba(220,100,220,0.06)"/>
+                          <path d="M120,238 L160,198 L205,178 L260,188 L300,220 L278,258 L215,280 L165,272 Z"
+                            stroke="#dd55dd" strokeWidth="1" fill="rgba(200,80,200,0.05)"/>
+                          {/* Точки съёмки */}
+                          {[[90,215],[200,145],[290,160],[330,205],[240,272],[160,262]].map(([x,y],i)=>(
+                            <g key={i}>
+                              <circle cx={x} cy={y} r="2.5" fill="#4dd"/><circle cx={x} cy={y} r="1" fill="white"/>
+                            </g>
+                          ))}
+                          <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">02_earthwork</text>
+                        </> : <>
+                          {/* Corridor — трасса + коридор */}
+                          <path d="M20,280 Q120,240 220,200 Q320,165 420,180 Q460,187 490,170"
+                            stroke="#4488ee" strokeWidth="2.5" fill="none"/>
+                          <path d="M20,295 Q120,255 220,215 Q320,180 420,195 Q460,202 490,185"
+                            stroke="#3377dd" strokeWidth="1.5" fill="rgba(50,100,200,0.05)"/>
+                          <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155"
+                            stroke="#3377dd" strokeWidth="1.5" fill="none"/>
+                          {/* Коридор-заливка */}
+                          <path d="M20,265 Q120,225 220,185 Q320,150 420,165 Q460,172 490,155 L490,185 Q460,202 420,195 Q320,180 220,215 Q120,255 20,295 Z"
+                            fill="rgba(50,100,200,0.07)" stroke="none"/>
+                          {/* Поперечники */}
+                          {[60,140,220,300,380,460].map((x,i)=>{
+                            const y = 280 - i*16
+                            return <line key={i} x1={x-10} y1={y+14} x2={x+10} y2={y-14} stroke="#55aaff" strokeWidth="1" opacity="0.5"/>
+                          })}
+                          {/* Зелёные маркеры */}
+                          {[[180,200],[320,168],[440,178]].map(([x,y],i)=>(
+                            <rect key={i} x={x-4} y={y-4} width="8" height="8" fill="none" stroke="#4ade80" strokeWidth="1.5"/>
+                          ))}
+                          <text x="8" y="15" fill="#888" fontSize="7" fontFamily="monospace">01_corridor</text>
+                        </>}
+                      </g>
+                      {/* WCS компас — фиксированный (вне трансформации) */}
                       <g transform="translate(458,28)">
                         <circle cx="0" cy="0" r="18" fill="rgba(30,30,40,0.85)" stroke="#555" strokeWidth="0.8"/>
                         <circle cx="0" cy="0" r="16" fill="rgba(20,30,50,0.7)" stroke="none"/>
@@ -6735,16 +6779,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                         <circle cx="0" cy="0" r="2" fill="white"/>
                         <text x="0" y="26" fill="#aaa" fontSize="5" textAnchor="middle" fontFamily="monospace">WCS</text>
                       </g>
-                      {/* Scroll bar */}
-                      <rect x="488" y="50" width="6" height="80" rx="3" fill="#333"/>
-                      <rect x="488" y="55" width="6" height="30" rx="3" fill="#666"/>
-                      {/* X close */}
-                      {!win.active && (
-                        <g transform="translate(485,320)">
-                          <line x1="0" y1="0" x2="8" y2="8" stroke="#666" strokeWidth="1.5"/>
-                          <line x1="8" y1="0" x2="0" y2="8" stroke="#666" strokeWidth="1.5"/>
-                        </g>
-                      )}
                     </svg>
                   </div>
                 </div>
@@ -6762,7 +6796,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                       </button>
                     ))}
                     <div className="flex-1"/>
-                    <button onClick={()=>setMultiViewport(false)}
+                    {/* Синхронизированный зум: индикатор + сброс */}
+                    <span className="text-[9px] text-gray-500 font-mono border border-gray-700 rounded px-2 py-0.5">
+                      🔗 {Math.round(mdiZoom * 100)}%
+                    </span>
+                    <button onClick={()=>{ setMdiZoom(1); setMdiPan({x:0,y:0}) }}
+                      title="Сбросить зум и панорамирование всех видовых экранов"
+                      className="text-[9px] px-2 py-0.5 rounded border border-gray-600 text-gray-400 hover:text-white hover:bg-[#252535] transition-colors">
+                      ⊡ По центру
+                    </button>
+                    <button onClick={()=>{ setMultiViewport(false); setMdiZoom(1); setMdiPan({x:0,y:0}) }}
                       className="text-[9px] px-2 py-0.5 rounded border border-gray-600 text-gray-400 hover:text-white hover:bg-[#0078d4]/20 transition-colors">
                       ✕ Закрыть все
                     </button>
