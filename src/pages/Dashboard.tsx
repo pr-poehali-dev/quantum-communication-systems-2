@@ -40,6 +40,9 @@ import IntegrationModule from "@/modules/IntegrationModule"
 import StandardsModule from "@/modules/StandardsModule"
 import CivilCADModule from "@/modules/CivilCADModule"
 import DTMModule from "@/modules/DTMModule"
+import FileManagerModule from "@/modules/FileManagerModule"
+import ToolsModule from "@/modules/ToolsModule"
+import PublishModule from "@/modules/PublishModule"
 
 
 const MODULES = [
@@ -58,9 +61,12 @@ const MODULES = [
   { id: "analysis", icon: "BarChart3", label: "Анализ и расчёты", desc: "Объёмы, откосы, дренаж", component: AnalysisModule },
   { id: "specs", icon: "ClipboardList", label: "Ведомости и спецификации", desc: "Объёмы, смета, координаты, экспорт", component: SpecsModule },
   { id: "surfaces", icon: "Triangle", label: "Поверхности TIN / Grid", desc: "TIN, Grid, Corridor, горизонтали", component: SurfacesModule },
-  { id: "integration", icon: "Puzzle", label: "Интеграция Autodesk", desc: "DWG, IFC, LandXML, Revit, InfraWorks", component: IntegrationModule },
+  { id: "integration", icon: "Puzzle", label: "Интеграция форматов", desc: "DWG, IFC, LandXML, DXF, SHP", component: IntegrationModule },
   { id: "standards", icon: "BookCheck", label: "Стандарты проектирования", desc: "СП, ГОСТ, AASHTO, EN, ISO — 12 норм", component: StandardsModule },
   { id: "dynamic", icon: "RefreshCw", label: "Динамические модели", desc: "Граф зависимостей, автопересчёт", component: DynamicModule },
+  { id: "filemanager", icon: "FolderOpen", label: "Менеджер файлов", desc: "DWG, DWT, DWS, XML, SDF, ADSKLIB, BAK", component: FileManagerModule },
+  { id: "tools", icon: "Wrench", label: "Инструменты и автоматизация", desc: "LSP-скрипты, DLL-плагины, макросы SCR, палитры CUI", component: ToolsModule },
+  { id: "publish", icon: "Printer", label: "Публикация и печать", desc: "PDF, DWF, CTB/STB, пакеты листов, шрифты SHX", component: PublishModule },
 ]
 
 // ─── Данные последних файлов ─────────────────────────────────────────────────
