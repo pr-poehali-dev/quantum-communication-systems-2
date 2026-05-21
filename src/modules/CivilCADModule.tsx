@@ -332,8 +332,9 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
     <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden relative" style={{fontFamily:"Arial,sans-serif",fontSize:12}}>
       {/* Верхняя полоса */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
-        <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">Л</div>
-        <span className="text-[11px] text-gray-400 font-semibold ml-2">ЛАПА — Редактор — ЛАПА 3D 2027</span>
+        <svg viewBox="0 0 32 32" width="16" height="16" fill="none" className="flex-shrink-0"><circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/><circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/></svg>
+        <span className="text-[11px] text-white font-bold">ЛАПА</span>
+        <span className="text-[11px] text-gray-400 font-semibold">Civil 3D 2027</span>
         <div className="flex-1"/>
         <input placeholder="Ключевое слово или фраза" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-44 rounded-sm placeholder-gray-600 outline-none"/>
       </div>
@@ -351,7 +352,19 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
         {/* Левая панель */}
         <div className="bg-[#252535] border-r border-gray-700 flex flex-col flex-shrink-0" style={{width:220}}>
           <div className="px-6 py-6 border-b border-gray-700">
-            <div className="text-white text-[22px] font-bold mb-4">ЛАПА 3D 2027</div>
+            <div className="flex items-center gap-3 mb-4">
+              <svg viewBox="0 0 32 32" width="32" height="32" fill="none" className="flex-shrink-0">
+                <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
+                <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
+                <circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/>
+                <circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/>
+                <path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/>
+              </svg>
+              <div>
+                <div className="text-white text-[18px] font-bold leading-tight">ЛАПА</div>
+                <div className="text-[#4fc3f7] text-[11px] font-semibold tracking-wide">Civil 3D 2027</div>
+              </div>
+            </div>
 
             {/* Открыть с выпадающим дропдауном */}
             <div className="relative mb-2 group">
@@ -5142,6 +5155,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [viewDimension, setViewDimension] = useState<"3D"|"2D">("3D")
   const [undoStack, setUndoStack] = useState<string[]>(["Начальное состояние"])
   const [redoStack, setRedoStack] = useState<string[]>([])
+  const [showAbout, setShowAbout] = useState(false)
 
   // ── Split viewport state ─────────────────────────────────────────────────
   const [splitView, setSplitView] = useState(false)
@@ -5990,8 +6004,17 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
       {/* ── Title bar ── */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
-        <div className="flex items-center gap-1">
-          <div className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm">C</div>
+        <div className="flex items-center gap-1.5">
+          {/* ЛАПА логотип — лапа SVG */}
+          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0" title="ЛАПА Civil 3D 2027">
+            <svg viewBox="0 0 32 32" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
+              <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
+              <circle cx="7"  cy="13" r="2.6" fill="#4fc3f7"/>
+              <circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/>
+              <path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/>
+            </svg>
+          </div>
         </div>
         <div className="flex items-center gap-0.5 ml-1">
           <button title="Открыть проект" onClick={openProjectDialog}
@@ -6019,9 +6042,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <option value="ЛАПА 3D">ЛАПА 3D</option>
           <option value="ЛАПА 2D">ЛАПА 2D</option>
         </select>
-        <div className="flex-1 text-center text-[11px] text-gray-400 font-semibold tracking-wide select-none">
-          ЛАПА {viewDimension} 2027 — {activeDrawingTab}
-          {currentProjectName && <span className="text-[#0078d4] ml-2">· {currentProjectName}</span>}
+        <div className="flex-1 text-center text-[11px] text-gray-300 font-semibold tracking-wide select-none flex items-center justify-center gap-1.5">
+          <svg viewBox="0 0 32 32" width="12" height="12" fill="none"><circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/><circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/></svg>
+          <span className="text-white">ЛАПА Civil 3D 2027</span>
+          <span className="text-gray-500 mx-1">—</span>
+          <span className="text-gray-300">{activeDrawingTab}</span>
+          {currentProjectName && <span className="text-[#4fc3f7] ml-1">· {currentProjectName}</span>}
         </div>
         <div className="flex items-center gap-1 ml-auto">
           {/* Кнопки навигации между модулями */}
@@ -6040,6 +6066,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             className={`ml-1 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors ${showAssistant?"bg-[#0078d4] text-white":"text-gray-400 hover:text-white hover:bg-[#0078d4]/40"}`}>
             <Icon name="Bot" size={11} fallback="HelpCircle"/>
             <span>AI</span>
+          </button>
+          <button onClick={()=>setShowAbout(true)} title="О программе ЛАПА Civil 3D 2027"
+            className="ml-0.5 w-6 h-6 flex items-center justify-center text-[11px] font-bold text-gray-500 hover:text-white hover:bg-[#252535] rounded transition-colors border border-transparent hover:border-gray-600">
+            ?
           </button>
         </div>
       </div>
@@ -6759,6 +6789,38 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 [{viewMode === "wireframe" ? "2D Каркас" : "Тонирование"}]
               </button>
             </div>
+            {/* ── UCS icon (левый нижний угол) ── */}
+            <div className="absolute bottom-8 left-3 z-10 pointer-events-none select-none">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <line x1="6" y1="30" x2="30" y2="30" stroke="#4fc3f7" strokeWidth="1.5" markerEnd="url(#ax)"/>
+                <line x1="6" y1="30" x2="6" y2="6"  stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#ay)"/>
+                <text x="31" y="32" fill="#4fc3f7" fontSize="7" fontWeight="bold">X</text>
+                <text x="2"  y="5"  fill="#4ade80" fontSize="7" fontWeight="bold">Y</text>
+                <circle cx="6" cy="30" r="1.5" fill="white"/>
+              </svg>
+              <div className="text-[7px] text-gray-600 text-center -mt-1">МСК</div>
+            </div>
+
+            {/* ── Navigation bar (правый край, по центру высоты) ── */}
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-0.5 select-none">
+              {[
+                { icon: "🔍+", title: "Увеличить (ScrollUp)", action: () => setZoom(z=>Math.min(z*1.25,20)) },
+                { icon: "🔍−", title: "Уменьшить (ScrollDown)", action: () => setZoom(z=>Math.max(z/1.25,0.05)) },
+                { icon: "⬚",   title: "По границам объектов", action: () => { setZoom(1.1); setPan({x:30,y:20}); showToast("По границам") } },
+                { icon: "✋",   title: "Панорамирование", action: () => setActiveTool("pan") },
+                { icon: "↺",   title: "Вращение", action: () => showToast("3D-вращение: переключитесь в 3D-режим") },
+                { icon: "⊡",   title: "Орбита", action: () => showToast("Свободная орбита") },
+              ].map((btn, i) => (
+                <button key={i} title={btn.title} onClick={btn.action}
+                  className="w-6 h-6 flex items-center justify-center bg-[#1a1a2e]/80 border border-gray-700 text-[10px] text-gray-400 hover:text-white hover:bg-[#0078d4]/40 hover:border-[#0078d4] transition-colors rounded-sm backdrop-blur-sm">
+                  {btn.icon}
+                </button>
+              ))}
+              <div className="w-6 border-t border-gray-700 mt-0.5"/>
+              <button title="Показать меню навигации" onClick={() => showToast("Панель навигации")}
+                className="w-6 h-5 flex items-center justify-center bg-[#1a1a2e]/80 border border-gray-700 text-[8px] text-gray-500 hover:text-white rounded-sm">≡</button>
+            </div>
+
             {/* ── 3D NavCube ── */}
             <div className="absolute top-2 right-2 z-10 select-none" style={{width:90,height:90}}>
               <svg width="90" height="90" viewBox="0 0 90 90" style={{cursor:"pointer"}}
@@ -7374,11 +7436,21 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         {/* ── Right: AI Ассистент ── */}
         {showAssistant && (
           <div className="bg-[#141420] border-l border-gray-700 flex flex-col flex-shrink-0" style={{width:260}}>
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-[#252535]">
-              <span className="text-white text-[12px] font-bold flex items-center gap-1.5">
-                <Icon name="Bot" size={13} className="text-[#0078d4]" fallback="HelpCircle"/> ЛАПА-Ассистент
-              </span>
-              <button onClick={()=>setShowAssistant(false)} className="text-gray-400 hover:text-white text-sm">✕</button>
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-gradient-to-r from-[#0d2540] to-[#1a1a2e]">
+              <div className="flex items-center gap-2">
+                <svg viewBox="0 0 32 32" width="18" height="18" fill="none" className="flex-shrink-0">
+                  <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
+                  <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
+                  <circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/>
+                  <circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/>
+                  <path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/>
+                </svg>
+                <div>
+                  <div className="text-white text-[11px] font-bold leading-tight">ЛАПА-Ассистент</div>
+                  <div className="text-[#4fc3f7] text-[8px]">Civil 3D AI · powered by ЛАПА</div>
+                </div>
+              </div>
+              <button onClick={()=>setShowAssistant(false)} className="text-gray-400 hover:text-white text-sm leading-none">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-2" style={{minHeight:0}}>
               {assistantMessages.map((msg, i) => (
@@ -7813,86 +7885,187 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
       </div>
 
-      {/* ── Status bar (Civil 3D bottom bar) ── */}
-      <div className="bg-[#1a1a2a] border-t border-gray-800 flex items-center px-1 gap-0 flex-shrink-0" style={{minHeight:22}}>
-        {/* Left: МОДЕЛЬ button — layout switcher */}
-        <button
-          onClick={() => { setActiveLayout(activeLayout === "Model" ? "Layout1" : "Model"); setStatusMsg(`Макет: ${activeLayout === "Model" ? "Лист 1" : "Модель"}`) }}
-          className={`text-[9px] font-bold px-2 py-0.5 mr-1 border-r border-gray-700 transition-colors ${activeLayout === "Model" ? "text-white bg-[#0078d4] hover:bg-[#005fa3]" : "text-gray-300 bg-[#252535] hover:bg-[#2d2d4e]"}`}
-          title="Переключить Модель/Лист">
-          {activeLayout === "Model" ? "МОДЕЛЬ" : "ЛИСТ"}
-        </button>
-        {/* Layout tabs */}
-        <div className="flex items-center gap-0 border-r border-gray-700 pr-1 mr-1">
-          <button onClick={() => setStatusMsg("Align-Superelevation-5")}
-            className="text-[9px] text-gray-400 hover:text-white px-0.5 py-0.5">☰</button>
-          {[{key:"Layout1",label:"Лист 1"},{key:"Layout2",label:"Лист 2"}].map(t => (
-            <button key={t.key} onClick={() => { setActiveLayout(t.key); setStatusMsg(`Макет: ${t.label}`) }}
-              className={`text-[9px] px-2 py-0.5 border-x border-gray-700 transition-colors ${activeLayout===t.key?"bg-[#2d2d4e] text-white":"text-gray-500 hover:text-white hover:bg-[#252535]"}`}>
-              {t.label}
+      {/* ── Status bar — точная копия AutoCAD/Civil 3D ── */}
+      <div className="bg-[#1a1a2a] border-t border-gray-800 flex items-center gap-0 flex-shrink-0 select-none overflow-hidden" style={{minHeight:22, fontSize:10}}>
+        {/* Левый блок: МОДЕЛЬ + листы */}
+        <div className="flex items-center flex-shrink-0 border-r border-gray-700">
+          <button
+            onClick={() => { setActiveLayout("Model"); setStatusMsg("Пространство модели") }}
+            className={`text-[9px] font-bold px-2 py-0.5 transition-colors ${activeLayout==="Model"?"text-white bg-[#0078d4]":"text-[#4fc3f7] hover:bg-[#252535]"}`}
+            title="Перейти к пространству модели">MODEL</button>
+          <span className="text-gray-700 text-[10px] px-0.5">+</span>
+          {drawingTabs.slice(0,3).map((t,i) => (
+            <button key={t} onClick={() => { setActiveLayout("Layout"+(i+1)); setActiveDrawingTab(t); setStatusMsg(`Лист: ${t}`) }}
+              className={`text-[9px] px-2 py-0.5 border-l border-gray-800 transition-colors whitespace-nowrap ${activeLayout==="Layout"+(i+1)?"text-white bg-[#252535]":"text-gray-500 hover:text-white hover:bg-[#252535]"}`}>
+              {i===0?"Лист 1":i===1?"Лист 2":"Лист 3"}
             </button>
           ))}
-          <button onClick={() => setStatusMsg("Новый лист")}
-            className="text-[9px] text-gray-500 hover:text-white px-1.5 py-0.5">+</button>
+          <button onClick={() => showToast("Добавление листа...")} className="text-[10px] text-gray-600 hover:text-white px-1.5 py-0.5 border-l border-gray-800 transition-colors" title="Добавить лист">+</button>
         </div>
-        {/* Center: Drawing setting toggle icons (Civil 3D style) */}
-        <div className="flex items-center gap-0 flex-1 text-[9px]">
-          {[
-            { key: "Сетка",            sym: "⊞", title: "Сетка (F7)" },
-            { key: "Режим привязки",   sym: "⋮⋮", title: "Режим привязки (F9)" },
-            { key: "Режим «Орто»",     sym: "∟", title: "Режим Орто (F8)" },
-            { key: "Полярное отслеживание", sym: "∠", title: "Полярное отслеживание (F10)" },
-            { key: "Объектная привязка 2D", sym: "◎", title: "Объектная привязка (F3)" },
-            { key: "Отслеживание привязки к объектам", sym: "∞", title: "Отслеживание привязки (F11)" },
-            { key: "Динамический ввод", sym: "⊡", title: "Динамический ввод (F12)" },
-          ].map(item => (
-            <button key={item.key}
-              onClick={() => setGeoSettings(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-              title={item.title}
-              className={`px-1.5 py-0.5 border-r border-gray-800 transition-colors font-mono ${geoSettings[item.key] ? "text-white hover:bg-[#0078d4]/20" : "text-gray-600 hover:text-gray-400"}`}>
-              {item.sym}
+
+        {/* Центр: Civil 3D status toggles — SNAP GRID ORTHO POLAR OSNAP OTRACK DUCS DYN LWT TPSNAP SC */}
+        <div className="flex items-center gap-0 flex-1 overflow-hidden">
+          {([
+            { k:"Режим привязки",               lbl:"SNAP",   f:"F9",  tip:"Режим привязки (F9)" },
+            { k:"Сетка",                         lbl:"GRID",   f:"F7",  tip:"Отображение сетки (F7)" },
+            { k:"Режим «Орто»",                  lbl:"ORTHO",  f:"F8",  tip:"Режим Орто (F8)" },
+            { k:"Полярное отслеживание",          lbl:"POLAR",  f:"F10", tip:"Полярное отслеживание (F10)" },
+            { k:"Объектная привязка 2D",          lbl:"OSNAP",  f:"F3",  tip:"Объектная привязка 2D (F3)" },
+            { k:"Отслеживание привязки к объектам",lbl:"OTRACK",f:"F11", tip:"Отслеживание по привязке (F11)" },
+            { k:"Динамическая ПСК",               lbl:"DUCS",   f:"",    tip:"Динамическая ПСК" },
+            { k:"Динамический ввод",              lbl:"DYN",    f:"F12", tip:"Динамический ввод (F12)" },
+            { k:"Толщина линий",                  lbl:"LWT",    f:"",    tip:"Толщина линий" },
+            { k:"Прозрачность",                   lbl:"TPSNAP", f:"",    tip:"Прозрачность объектов" },
+          ] as const).map(item => (
+            <button key={item.k}
+              onClick={() => setGeoSettings(prev => ({ ...prev, [item.k]: !prev[item.k] }))}
+              title={`${item.tip}${item.f?" ("+item.f+")":""}`}
+              className={`text-[8.5px] font-bold px-1.5 py-0.5 border-r border-gray-800 transition-colors tracking-wide
+                ${geoSettings[item.k]?"text-white hover:text-[#4fc3f7]":"text-[#444] hover:text-gray-500"}`}>
+              {item.lbl}
             </button>
           ))}
-          {/* Scale selector */}
+          {/* Масштаб аннотаций */}
           <button onClick={() => setScale(s=>s==="1:500"?"1:1000":s==="1:1000"?"1:200":"1:500")}
-            className="px-2 py-0.5 border-r border-gray-800 text-gray-400 hover:text-white transition-colors text-[9px] font-mono border-l border-gray-800 ml-1">
+            title="Масштаб аннотаций"
+            className="text-[9px] px-2 py-0.5 border-r border-gray-800 text-gray-400 hover:text-white transition-colors font-mono whitespace-nowrap">
             {scale}
           </button>
-          {/* Line weight toggle */}
-          <button
-            onClick={() => setGeoSettings(prev => ({ ...prev, "Толщина линий": !prev["Толщина линий"] }))}
-            title="Толщина линий"
-            className={`px-1.5 py-0.5 border-r border-gray-800 transition-colors ${geoSettings["Толщина линий"] ? "text-white" : "text-gray-600 hover:text-gray-400"}`}>
-            <span className="text-[9px]" style={{fontWeight:900}}>≡</span>
+          {/* Видимость аннотаций */}
+          <button onClick={() => setGeoSettings(prev=>({...prev,"Видимость аннотаций":!prev["Видимость аннотаций"]}))}
+            title="Видимость аннотаций"
+            className={`text-[9px] px-1.5 py-0.5 border-r border-gray-800 transition-colors ${geoSettings["Видимость аннотаций"]?"text-white":"text-[#444] hover:text-gray-500"}`}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" strokeWidth="1.5"/><circle cx="6" cy="6" r="1.5"/></svg>
           </button>
-          {/* F12 dynamic input indicator */}
-          <button
-            onClick={() => setGeoSettings(prev => ({ ...prev, "Динамический ввод": !prev["Динамический ввод"] }))}
-            title="Настройки черчения (F12)"
-            className={`px-1.5 py-0.5 text-[9px] border-r border-gray-800 transition-colors ${geoSettings["Динамический ввод"] ? "text-[#0078d4]" : "text-gray-600 hover:text-gray-400"}`}>
-            F12
+          {/* Рабочее пространство */}
+          <button onClick={()=>showToast("Рабочие пространства: ЛАПА Civil 3D")}
+            title="Переключение рабочего пространства"
+            className="text-[9px] px-2 py-0.5 border-r border-gray-800 text-gray-500 hover:text-white transition-colors whitespace-nowrap flex items-center gap-0.5">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="7" y="1" width="4" height="4" rx="0.5"/><rect x="1" y="7" width="4" height="4" rx="0.5"/><rect x="7" y="7" width="4" height="4" rx="0.5"/></svg>
           </button>
         </div>
-        {/* Data Shortcuts sync indicator */}
-        <button onClick={() => setShowDataShortcuts(true)}
-          className="flex items-center gap-1 text-[9px] border-l border-gray-700 pl-2 pr-1 hover:bg-[#252535] transition-colors">
-          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${syncStatus==="ok"?"bg-green-500":"bg-yellow-400 animate-pulse"}`}/>
-          <span className={`${syncStatus==="ok"?"text-green-400":"text-yellow-400"}`}>
-            {syncStatus==="ok"?"DS ✓":"DS ⚠"}
-          </span>
-          <button onClick={e=>{ e.stopPropagation(); setSyncStatus("ok"); showToast("Синхронизация завершена") }}
-            className="text-gray-500 hover:text-white px-0.5 ml-0.5" title="Синхронизировать">⟳</button>
-        </button>
-        {/* Right: cursor coordinates display */}
-        <div className="flex items-center gap-1 text-[9px] font-mono text-gray-400 border-l border-gray-700 pl-2">
-          <span className="text-gray-500">X</span>
-          <span>{cursorCoords.x.toFixed(3)}</span>
-          <span className="text-gray-500 ml-1">Y</span>
-          <span>{cursorCoords.y.toFixed(3)}</span>
-          <span className="text-gray-500 ml-1">Z</span>
-          <span className="text-gray-600">0.000</span>
+
+        {/* Правый блок: DS статус + координаты + иконка ЛАПА */}
+        <div className="flex items-center flex-shrink-0 gap-0">
+          {/* Data Shortcuts */}
+          <button onClick={() => setShowDataShortcuts(true)}
+            title={syncStatus==="ok"?"Ярлыки данных синхронизированы":"Требуется синхронизация данных"}
+            className="flex items-center gap-1 text-[9px] px-2 py-0.5 border-l border-gray-800 hover:bg-[#252535] transition-colors">
+            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${syncStatus==="ok"?"bg-green-500":"bg-yellow-400 animate-pulse"}`}/>
+            <span className={`font-bold ${syncStatus==="ok"?"text-green-400":"text-yellow-400"}`}>{syncStatus==="ok"?"DS":"DS⚠"}</span>
+          </button>
+          {/* Координаты XYZ */}
+          <div className="flex items-center gap-0 text-[9px] font-mono border-l border-gray-800 px-2 py-0.5 text-gray-400">
+            <span className="text-gray-600 mr-0.5">X</span>
+            <span className="text-[#4fc3f7] min-w-[54px]">{cursorCoords.x.toFixed(4)}</span>
+            <span className="text-gray-600 mx-1">Y</span>
+            <span className="text-[#4fc3f7] min-w-[54px]">{cursorCoords.y.toFixed(4)}</span>
+            <span className="text-gray-600 mx-1">Z</span>
+            <span className="text-gray-600 min-w-[38px]">0.0000</span>
+          </div>
+          {/* Иконка настройки */}
+          <button onClick={() => setShowGeoMenu(p=>!p)} title="Настройки черчения"
+            className="text-[9px] text-gray-600 hover:text-white px-1.5 py-0.5 border-l border-gray-800 transition-colors">
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M3.2 3.2l1.4 1.4M9.4 9.4l1.4 1.4M9.4 4.6L8 6M4.6 9.4L3.2 10.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+          </button>
+          {/* Лого ЛАПА */}
+          <div className="flex items-center gap-1 px-1.5 py-0.5 border-l border-gray-800" title="ЛАПА Civil 3D 2027">
+            <svg viewBox="0 0 32 32" width="11" height="11" fill="none"><circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/><circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/></svg>
+          </div>
         </div>
       </div>
+
+      {/* ── About ЛАПА Civil 3D 2027 диалог ── */}
+      <AnimatePresence>
+        {showAbout && (
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+            className="absolute inset-0 bg-black/60 flex items-center justify-center z-[200]"
+            onClick={()=>setShowAbout(false)}>
+            <motion.div initial={{scale:0.9,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.9,opacity:0}}
+              className="bg-[#1e1e2e] border border-gray-600 rounded shadow-2xl overflow-hidden"
+              style={{width:480,maxWidth:"95vw"}} onClick={e=>e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700 bg-gradient-to-r from-[#0a1a2e] to-[#1a1a2e]">
+                <div className="flex items-center gap-3">
+                  <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+                    <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
+                    <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
+                    <circle cx="7"  cy="13" r="2.6" fill="#4fc3f7"/>
+                    <circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/>
+                    <path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/>
+                  </svg>
+                  <div>
+                    <div className="text-white text-[15px] font-bold">ЛАПА Civil 3D 2027</div>
+                    <div className="text-[#4fc3f7] text-[10px]">Powered by ЛАПА Platform · poehali.dev</div>
+                  </div>
+                </div>
+                <button onClick={()=>setShowAbout(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+              </div>
+              {/* Body */}
+              <div className="p-5 space-y-4">
+                {/* Версия */}
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    ["Версия", "ЛАПА Civil 3D 2027 (v27.0.0)"],
+                    ["Сборка", "Build 2027.05.21"],
+                    ["Платформа", "ЛАПА Platform · poehali.dev"],
+                    [".NET", ".NET 10 / React 18"],
+                    ["Dynamo Core", "4.0.2 (PythonNet3)"],
+                    ["Лицензия", "Активна · Бессрочная"],
+                  ].map(([k,v])=>(
+                    <div key={k} className="bg-[#111827] rounded border border-gray-700 px-3 py-2 text-[10px] flex-1 min-w-[180px]">
+                      <div className="text-gray-500 mb-0.5">{k}</div>
+                      <div className="text-white font-mono">{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Описание */}
+                <div className="text-[11px] text-gray-400 leading-relaxed">
+                  ЛАПА Civil 3D 2027 — профессиональная ГИС/САПР-платформа для проектирования инфраструктуры: дороги, коридоры, трассы, поверхности, съёмка, гидрология, трубопроводы, объёмы земляных работ.
+                  Полный клон интерфейса Autodesk Civil 3D 2027 с российским брендингом.
+                </div>
+                {/* Новое в 2027 */}
+                <div>
+                  <div className="text-[11px] text-gray-300 font-bold mb-2">Новое в версии 2027:</div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-400">
+                    {[
+                      "Характерная линия выхода на рельеф",
+                      "Интеграция InfoDrainage 2027",
+                      "Forma Data Management (трубы)",
+                      ".NET 10 API для плагинов",
+                      "Dynamo Core 4.0.2 + PythonNet3",
+                      "Горизонтальный регрессионный анализ",
+                      "ЛАПА AI-ассистент встроенный",
+                      "Synchro 4D строительный график",
+                    ].map(f=>(
+                      <div key={f} className="flex items-start gap-1.5">
+                        <span className="text-[#4fc3f7] mt-0.5 flex-shrink-0">●</span>
+                        <span>{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Ссылки */}
+                <div className="flex items-center gap-3 pt-1 border-t border-gray-800">
+                  <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
+                    className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1">
+                    <Icon name="HelpCircle" size={11} fallback="Link"/> Поддержка
+                  </a>
+                  <a href="https://t.me/+QgiLIa1gFRY4Y2Iy" target="_blank" rel="noopener noreferrer"
+                    className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1">
+                    <Icon name="Users" size={11} fallback="Link"/> Сообщество ЛАПА
+                  </a>
+                  <div className="flex-1"/>
+                  <button onClick={()=>setShowAbout(false)}
+                    className="text-[11px] px-4 py-1.5 bg-[#0078d4] hover:bg-[#005fa3] text-white rounded transition-colors">
+                    OK
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
