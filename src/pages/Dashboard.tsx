@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense, Component, ReactNode, useContext } from "react"
+import { useEffect, useState, Suspense, Component, ReactNode, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean;
   }
 }
 
-const Viewer3DModule = lazy(() => import("@/modules/Viewer3DModule"))
+import Viewer3DModule from "@/modules/Viewer3DModule"
 import GeodesyModule from "@/modules/GeodesyModule"
 import RoadsModule from "@/modules/RoadsModule"
 import NetworksModule from "@/modules/NetworksModule"
