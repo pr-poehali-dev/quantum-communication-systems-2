@@ -4374,6 +4374,247 @@ function InsightsPanel({ onClose }: { onClose: ()=>void }) {
   )
 }
 
+// ─── LiveCrossSectionPanel (Виды поперечников — живая панель, Civil 3D 2027) ──
+
+const SECTION_PROFILES: Record<string, { label: string; color: string; pts: string; fill?: string; roadW: number; leftSlope: string; rightSlope: string }[]> = {
+  "Дорога ШД-38": [
+    { label: "Дорога и парковочная зона", color: "#f97316", pts: "20,60 60,40 100,38 140,38 180,40 220,60", fill: "#f97316", roadW: 7.0, leftSlope: "-2.5%", rightSlope: "-2.5%" },
+    { label: "Обочина укреплённая", color: "#6b7280", pts: "10,65 20,60 220,60 230,65", fill: "#4b5563", roadW: 3.0, leftSlope: "-4.0%", rightSlope: "-4.0%" },
+    { label: "Откос насыпи", color: "#4ade80", pts: "10,65 0,90 240,90 230,65", fill: "#166534", roadW: 0, leftSlope: "1:1.5", rightSlope: "1:1.5" },
+  ],
+  "Ул. Трумана": [
+    { label: "Дорога 4 полосы", color: "#06b6d4", pts: "10,55 40,38 120,36 180,36 220,38 250,55", fill: "#06b6d4", roadW: 14.0, leftSlope: "-2.0%", rightSlope: "-2.0%" },
+    { label: "Тротуар лев/прав", color: "#a78bfa", pts: "5,65 10,55 250,55 255,65", fill: "#7c3aed", roadW: 3.0, leftSlope: "-2.0%", rightSlope: "-2.0%" },
+    { label: "Бордюр", color: "#e5e7eb", pts: "5,65 10,55 12,55 12,70 248,70 248,55 250,55 255,65", fill: "#9ca3af", roadW: 0.5, leftSlope: "0%", rightSlope: "0%" },
+  ],
+  "Бордюр периметра": [
+    { label: "БОРДЮР ПЕРИМЕТРА", color: "#e879f9", pts: "40,65 60,38 200,38 220,65", fill: "#7e22ce", roadW: 1.0, leftSlope: "0%", rightSlope: "0%" },
+  ],
+  "Ливневая канализация": [
+    { label: "V-образный лоток", color: "#22d3ee", pts: "60,30 120,70 180,30", fill: "#0e7490", roadW: 0, leftSlope: "10%", rightSlope: "10%" },
+    { label: "Трапецеидальный лоток", color: "#60a5fa", pts: "50,30 80,70 160,70 190,30", fill: "#1e40af", roadW: 2.0, leftSlope: "8%", rightSlope: "8%" },
+  ],
+}
+const DEFAULT_SECTIONS = [
+  { label: "ДОРОГА И ПАРКОВОЧНАЯ ЗОНА", color: "#f97316", pts: "20,60 60,40 100,38 140,38 180,40 220,60", roadW: 7.0, leftSlope: "-2.5%", rightSlope: "-2.5%", fill: "#f9731630" },
+  { label: "БОРДЮР ПЕРИМЕТРА", color: "#e879f9", pts: "40,65 60,38 200,38 220,65", roadW: 1.0, leftSlope: "0%", rightSlope: "0%", fill: "#7e22ce30" },
+  { label: "V-ОБРАЗНЫЙ ЛОТОК", color: "#22d3ee", pts: "60,30 120,70 180,30", roadW: 0, leftSlope: "10%", rightSlope: "10%", fill: "#0e749030" },
+]
+
+const STATIONS_BY_ALIGNMENT: Record<string, string[]> = {
+  "Дорога ШД-38": ["0+000","0+020","0+040","0+060","0+080","0+100","0+120","0+140","0+160","0+180","0+200"],
+  "Ул. Трумана": ["0+000","0+050","0+100","0+150","0+200","0+250","0+300","0+350","0+400","0+450","0+500"],
+  "Бордюр периметра": ["0+000","0+040","0+080","0+120","0+160","0+200"],
+  "Ливневая канализация": ["0+000","0+025","0+050","0+075","0+100"],
+}
+
+function LiveCrossSectionPanel({ alignments, onClose, selectedAlignment }: {
+  alignments: string[]
+  onClose: () => void
+  selectedAlignment?: string
+}) {
+  const allAlignments = alignments.length > 0 ? alignments : ["Дорога ШД-38", "Ул. Трумана", "Бордюр периметра", "Ливневая канализация"]
+  const [activeAlignment, setActiveAlignment] = useState(selectedAlignment || allAlignments[0] || "Дорога ШД-38")
+  const stations = STATIONS_BY_ALIGNMENT[activeAlignment] || ["0+000","0+020","0+040","0+060","0+080"]
+  const [stationIdx, setStationIdx] = useState(0)
+  const [selectedSectionIdx, setSelectedSectionIdx] = useState(0)
+  const [showGrid, setShowGrid] = useState(true)
+  const [showDim, setShowDim] = useState(true)
+
+  // Sync when selectedAlignment prop changes
+  useEffect(() => {
+    if (selectedAlignment) {
+      setActiveAlignment(selectedAlignment)
+      setStationIdx(0)
+      setSelectedSectionIdx(0)
+    }
+   
+  }, [selectedAlignment])
+
+  const sections = SECTION_PROFILES[activeAlignment] || DEFAULT_SECTIONS
+  const activeSec = sections[selectedSectionIdx] || sections[0]
+  const currentStation = stations[stationIdx] || "0+000"
+
+  // Slight variation per station for realism
+  const variation = (stationIdx * 0.3) % 2.5
+  const leftSlopeNum = parseFloat(activeSec.leftSlope) - variation
+  const rightSlopeNum = parseFloat(activeSec.rightSlope) + variation * 0.5
+
+  return (
+    <motion.div initial={{ x: 280, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 280, opacity: 0 }}
+      className="absolute right-0 top-0 bottom-0 bg-[#111827] border-l border-gray-700 flex flex-col z-30 overflow-hidden"
+      style={{ width: 280 }}>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-2 py-1.5 bg-[#1a1a2e] border-b border-gray-700 flex-shrink-0">
+        <span className="text-white text-[11px] font-bold">Виды поперечников</span>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowGrid(p => !p)} title="Сетка"
+            className={`text-[9px] px-1 py-0.5 rounded ${showGrid ? "bg-[#0078d4] text-white" : "text-gray-500 hover:text-white"}`}>⊞</button>
+          <button onClick={() => setShowDim(p => !p)} title="Размеры"
+            className={`text-[9px] px-1 py-0.5 rounded ${showDim ? "bg-[#0078d4] text-white" : "text-gray-500 hover:text-white"}`}>↔</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xs ml-1">✕</button>
+        </div>
+      </div>
+
+      {/* Alignment selector */}
+      <div className="px-2 py-1 border-b border-gray-700 flex-shrink-0">
+        <select value={activeAlignment} onChange={e => { setActiveAlignment(e.target.value); setStationIdx(0); setSelectedSectionIdx(0) }}
+          className="w-full bg-[#252535] border border-gray-600 text-white text-[10px] px-1.5 py-1 rounded outline-none focus:border-[#0078d4]">
+          {allAlignments.map(a => <option key={a}>{a}</option>)}
+        </select>
+      </div>
+
+      {/* Station navigator */}
+      <div className="px-2 py-1 border-b border-gray-700 flex items-center gap-1 flex-shrink-0">
+        <button onClick={() => setStationIdx(i => Math.max(0, i - 1))}
+          className="text-gray-400 hover:text-white text-[11px] w-5 h-5 flex items-center justify-center border border-gray-600 rounded hover:bg-[#0078d4]/20">‹</button>
+        <div className="flex-1 text-center">
+          <div className="text-[11px] text-[#0078d4] font-mono font-bold">{currentStation}</div>
+          <div className="text-[9px] text-gray-500">{stationIdx + 1} / {stations.length}</div>
+        </div>
+        <button onClick={() => setStationIdx(i => Math.min(stations.length - 1, i + 1))}
+          className="text-gray-400 hover:text-white text-[11px] w-5 h-5 flex items-center justify-center border border-gray-600 rounded hover:bg-[#0078d4]/20">›</button>
+      </div>
+
+      {/* Section tabs */}
+      <div className="flex border-b border-gray-700 overflow-x-auto flex-shrink-0">
+        {sections.map((sec, i) => (
+          <button key={i} onClick={() => setSelectedSectionIdx(i)}
+            className={`px-2 py-1 text-[9px] whitespace-nowrap border-r border-gray-700 transition-colors flex-shrink-0 ${selectedSectionIdx === i ? "bg-[#0078d4]/20 text-[#0078d4] font-bold border-b-2 border-b-[#0078d4]" : "text-gray-500 hover:text-white"}`}>
+            {sec.label.length > 14 ? sec.label.slice(0, 13) + "…" : sec.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main cross-section SVG */}
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="relative flex-1" style={{ minHeight: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 260 110" preserveAspectRatio="xMidYMid meet"
+            style={{ background: "#0d1117", display: "block" }}>
+
+            {/* Grid */}
+            {showGrid && <>
+              {Array.from({ length: 14 }).map((_, i) => (
+                <line key={`vg${i}`} x1={i * 20} y1="0" x2={i * 20} y2="110" stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
+              ))}
+              {Array.from({ length: 7 }).map((_, i) => (
+                <line key={`hg${i}`} x1="0" y1={i * 18} x2="260" y2={i * 18} stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
+              ))}
+            </>}
+
+            {/* Ground level */}
+            <line x1="0" y1="72" x2="260" y2="72" stroke="#374151" strokeWidth="0.5" strokeDasharray="3,2"/>
+            <text x="2" y="76" fill="#4b5563" fontSize="5">ЗЗ</text>
+
+            {/* Existing terrain shading */}
+            <rect x="0" y="72" width="260" height="38" fill="#1f2937" opacity="0.5"/>
+
+            {/* Fill area under section */}
+            {activeSec.fill && activeSec.pts && (
+              <polygon points={activeSec.pts + " 260,110 0,110"} fill={activeSec.fill} opacity="0.3"/>
+            )}
+
+            {/* Main section polyline */}
+            {activeSec.pts && (
+              <polyline points={activeSec.pts} fill="none" stroke={activeSec.color} strokeWidth="2.5"/>
+            )}
+
+            {/* Station variation effect — slightly shift the profile */}
+            {activeSec.pts && (
+              <polyline
+                points={activeSec.pts.split(" ").map((pt, idx, arr) => {
+                  const [x, y] = pt.split(",").map(Number)
+                  const yOff = idx === 0 || idx === arr.length - 1 ? 0 : variation * (idx % 2 === 0 ? 1 : -0.5)
+                  return `${x},${(y + yOff).toFixed(1)}`
+                }).join(" ")}
+                fill="none" stroke={activeSec.color} strokeWidth="1" opacity="0.3" strokeDasharray="2,2"/>
+            )}
+
+            {/* Slope labels */}
+            {showDim && <>
+              <text x="45" y="52" fill={activeSec.color} fontSize="6.5" textAnchor="middle"
+                transform={`rotate(-15, 45, 52)`}>
+                {leftSlopeNum.toFixed(2)}%
+              </text>
+              <text x="215" y="52" fill={activeSec.color} fontSize="6.5" textAnchor="middle"
+                transform={`rotate(15, 215, 52)`}>
+                {rightSlopeNum.toFixed(2)}%
+              </text>
+            </>}
+
+            {/* Road width dimension */}
+            {showDim && activeSec.roadW > 0 && (
+              <>
+                <line x1="60" y1="82" x2="200" y2="82" stroke="#94a3b8" strokeWidth="0.8"/>
+                <line x1="60" y1="79" x2="60" y2="85" stroke="#94a3b8" strokeWidth="0.8"/>
+                <line x1="200" y1="79" x2="200" y2="85" stroke="#94a3b8" strokeWidth="0.8"/>
+                <text x="130" y="90" fill="#94a3b8" fontSize="6" textAnchor="middle">
+                  B = {activeSec.roadW.toFixed(1)} м
+                </text>
+              </>
+            )}
+
+            {/* Section label */}
+            <text x="130" y="8" fill={activeSec.color} fontSize="7" textAnchor="middle" fontWeight="bold">
+              {activeSec.label}
+            </text>
+            <text x="130" y="16" fill="#6b7280" fontSize="5.5" textAnchor="middle">
+              ПК {currentStation}
+            </text>
+          </svg>
+        </div>
+
+        {/* Properties strip */}
+        <div className="border-t border-gray-700 px-2 py-1.5 flex-shrink-0 space-y-1" style={{ background: "#0d1117" }}>
+          {[
+            ["Ширина", activeSec.roadW > 0 ? `${activeSec.roadW.toFixed(1)} м` : "—"],
+            ["Уклон лев.", `${leftSlopeNum.toFixed(2)}%`],
+            ["Уклон пр.", `${rightSlopeNum.toFixed(2)}%`],
+            ["Пикет", currentStation],
+          ].map(([k, v]) => (
+            <div key={k} className="flex items-center justify-between text-[9px]">
+              <span className="text-gray-500">{k}:</span>
+              <span className="text-white font-mono">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* All sections miniatures */}
+      <div className="border-t border-gray-700 flex-shrink-0" style={{ background: "#0a0a14" }}>
+        <div className="px-2 py-1 text-[9px] text-gray-500 border-b border-gray-800">Все сечения ({sections.length})</div>
+        <div className="overflow-y-auto" style={{ maxHeight: 160 }}>
+          {sections.map((sec, i) => (
+            <button key={i} onClick={() => setSelectedSectionIdx(i)}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 hover:bg-[#1a1a2e] transition-colors border-b border-gray-800 text-left
+                ${selectedSectionIdx === i ? "bg-[#0078d4]/10 border-l-2 border-l-[#0078d4]" : ""}`}>
+              <svg width="52" height="30" viewBox="0 0 260 110" style={{ background: "#0d1117", borderRadius: 2, flexShrink: 0 }}>
+                {sec.fill && sec.pts && (
+                  <polygon points={sec.pts + " 260,110 0,110"} fill={sec.fill} opacity="0.4"/>
+                )}
+                {sec.pts && (
+                  <polyline points={sec.pts} fill="none" stroke={sec.color} strokeWidth="3"/>
+                )}
+                <line x1="0" y1="72" x2="260" y2="72" stroke="#374151" strokeWidth="0.8" strokeDasharray="4,2"/>
+              </svg>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-white font-semibold truncate">{sec.label}</div>
+                <div className="text-[9px] text-gray-500">
+                  {sec.roadW > 0 ? `B=${sec.roadW}м` : "Без ширины"} · {sec.leftSlope}
+                </div>
+              </div>
+              {selectedSectionIdx === i && (
+                <span className="text-[#0078d4] text-[9px]">●</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Superelevation Dialog ───────────────────────────────────────────────────
 function SuperelevationDialog({ onClose }: { onClose: () => void }) {
   const stations = [
@@ -6887,7 +7128,35 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
 
         {/* ── Right: Section views ── */}
-        {showRightPanel && <CrossSectionPanel alignments={corridors} onClose={() => setShowRightPanel(false)} />}
+        {showRightPanel && (
+          <LiveCrossSectionPanel
+            alignments={[
+              ...corridors,
+              ...canvasObjects.filter(o => o.type === "alignment").map(o => o.label),
+              "Ливневая канализация"
+            ].filter((v, i, a) => a.indexOf(v) === i)}
+            onClose={() => setShowRightPanel(false)}
+            selectedAlignment={
+              // Синхронизация: если выбран объект на canvas — берём его label
+              (canvasObjects.find(o => o.id === selectedObjId)?.type === "alignment"
+                ? canvasObjects.find(o => o.id === selectedObjId)?.label
+                : undefined) ||
+              // или из выбранного узла дерева
+              (selectedNode ? (() => {
+                const findNode = (nodes: TreeNode[]): TreeNode | null => {
+                  for (const n of nodes) {
+                    if (n.id === selectedNode) return n
+                    if (n.children) { const f = findNode(n.children); if (f) return f }
+                  }
+                  return null
+                }
+                const node = findNode(treeData)
+                return node && !node.children ? node.label : undefined
+              })() : undefined) ||
+              corridors[0] || "Дорога ШД-38"
+            }
+          />
+        )}
         {showInsights && <InsightsPanel onClose={()=>setShowInsights(false)}/>}
         <AnimatePresence>
           {showScriptEditor && (
