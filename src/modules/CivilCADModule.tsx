@@ -5158,7 +5158,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showEarthworks, setShowEarthworks] = useState(false)
   const [showProjectManager, setShowProjectManager] = useState(false)
   const [showSurveyTraverse, setShowSurveyTraverse] = useState(false)
-  const [toolspaceTab, setToolspaceTab] = useState<"dispatcher"|"params">("dispatcher")
+  const [toolspaceTab, setToolspaceTab] = useState<"prospector"|"navigator"|"settings"|"survey"|"toolbox">("prospector")
+  const [multiViewport, setMultiViewport] = useState(false)
+  const [viewportLayout, setViewportLayout] = useState<"single"|"2h"|"2v"|"3"|"4">("single")
 
   // ── Start screen state ───────────────────────────────────────────────────
   const [showStartScreen, setShowStartScreen] = useState(true)
@@ -6263,19 +6265,22 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               </button>
             </div>
           </div>
-          {/* Диспетчер / Параметры tabs */}
+          {/* Civil 3D Toolspace tabs */}
           <div className="flex border-b border-gray-600">
-            {(["dispatcher","params"] as const).map((tab) => {
-              const label = tab === "dispatcher" ? "Диспетчер" : "Параметры"
-              return (
-                <button key={tab}
-                  className={`flex-1 text-[11px] py-1 border-r border-gray-600 last:border-0 transition-colors font-medium
-                    ${toolspaceTab === tab ? "bg-[#1e1e2e] text-white border-b-2 border-b-[#0078d4]" : "bg-[#252535] text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}
-                  onClick={() => setToolspaceTab(tab)}>
-                  {label}
-                </button>
-              )
-            })}
+            {([
+              { id: "prospector", label: "Проспект" },
+              { id: "navigator", label: "Навигатор" },
+              { id: "settings", label: "Параметры" },
+              { id: "survey", label: "Съёмка" },
+              { id: "toolbox", label: "Ящик" },
+            ] as const).map((tab) => (
+              <button key={tab.id}
+                className={`flex-1 text-[9px] py-1 border-r border-gray-600 last:border-0 transition-colors font-medium leading-tight
+                  ${toolspaceTab === tab.id ? "bg-[#1e1e2e] text-white border-b-2 border-b-[#0078d4]" : "bg-[#252535] text-gray-400 hover:text-white hover:bg-[#2d2d4e]"}`}
+                onClick={() => setToolspaceTab(tab.id)}>
+                {tab.label}
+              </button>
+            ))}
           </div>
           {/* Active Drawing View */}
           <div className="bg-[#252535] px-2 py-1 flex items-center gap-1 border-b border-gray-600 cursor-pointer hover:bg-[#2e2e45]"
@@ -6283,14 +6288,47 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <span className="text-[11px] text-gray-300 flex-1 truncate">Вид активного чертёжа</span>
             <Icon name="ChevronDown" size={10} className="text-gray-500 flex-shrink-0" />
           </div>
-          {/* Tree or Params panel */}
+          {/* Toolspace tab content */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#1e1e2e]">
-            {toolspaceTab === "dispatcher" ? (
+            {toolspaceTab === "prospector" && (
               treeData.map(node => (
                 <TreeItem key={node.id} node={node} depth={0} selected={selectedNode}
                   onSelect={setSelectedNode} onToggle={toggleNode} onAction={handleTreeNodeAction} />
               ))
-            ) : (
+            )}
+            {toolspaceTab === "navigator" && (
+              <div className="p-1 space-y-0.5">
+                <div className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider px-1 py-1">Открытые чертежи</div>
+                {drawingTabs.map(tab => (
+                  <div key={tab}
+                    onClick={() => { setActiveDrawingTab(tab); setShowStartScreen(false) }}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors ${activeDrawingTab === tab ? "bg-[#0078d4]/30 text-blue-300 border border-[#0078d4]/50" : "text-gray-400 hover:bg-[#2a2a3e] hover:text-gray-200"}`}>
+                    <Icon name="FileText" size={10} fallback="File" className="flex-shrink-0" />
+                    <span className="flex-1 text-[10px] truncate">{tab}</span>
+                    {activeDrawingTab === tab && <span className="text-[8px] text-blue-400">●</span>}
+                    {drawingTabs.length > 1 && (
+                      <span className="text-[9px] text-gray-600 hover:text-red-400 transition-colors"
+                        onClick={e => {
+                          e.stopPropagation()
+                          const next = drawingTabs.filter(t => t !== tab)
+                          setDrawingTabs(next)
+                          if (activeDrawingTab === tab) setActiveDrawingTab(next[0])
+                        }}>✕</span>
+                    )}
+                  </div>
+                ))}
+                {drawingTabs.length === 0 && (
+                  <div className="text-[10px] text-gray-600 px-2 py-2 italic">Нет открытых чертежей</div>
+                )}
+                <div className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider px-1 py-1 pt-3">Начало работы</div>
+                <div onClick={() => setShowStartScreen(true)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors ${showStartScreen ? "bg-[#0078d4]/30 text-blue-300 border border-[#0078d4]/50" : "text-gray-400 hover:bg-[#2a2a3e] hover:text-gray-200"}`}>
+                  <Icon name="Home" size={10} fallback="Home" className="flex-shrink-0" />
+                  <span className="flex-1 text-[10px]">Начало</span>
+                </div>
+              </div>
+            )}
+            {toolspaceTab === "settings" && (
               <div className="p-2 space-y-2 text-[11px]">
                 <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider px-1">Единицы измерения</div>
                 {[
@@ -6327,6 +6365,69 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   <div key={p.label} className="flex items-center justify-between gap-1 py-1 border-b border-gray-800">
                     <span className="text-gray-400 text-[10px] truncate">{p.label}</span>
                     <span className="text-white text-[10px] font-mono">{p.val}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {toolspaceTab === "survey" && (
+              <div className="p-2 space-y-2 text-[10px]">
+                <div className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider px-1">Съёмочные данные</div>
+                <div className="bg-[#252535] rounded p-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Точек съёмки</span>
+                    <span className="text-white font-mono">1 247</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Теодолитных ходов</span>
+                    <span className="text-white font-mono">3</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Невязка (f)</span>
+                    <span className="text-green-400 font-mono">1:8500</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Базисная линия</span>
+                    <span className="text-white font-mono">842.31м</span>
+                  </div>
+                </div>
+                <div className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider px-1 pt-1">Базы данных съёмки</div>
+                {["ЦМР_Съёмка_2024", "Теодолит_ход_1", "Пикеты_гл_ось"].map(db => (
+                  <div key={db} className="flex items-center gap-1.5 px-1 py-1 hover:bg-[#252535] rounded cursor-pointer">
+                    <Icon name="Database" size={9} fallback="Folder" className="text-yellow-500 flex-shrink-0" />
+                    <span className="text-gray-300 text-[10px] truncate">{db}</span>
+                  </div>
+                ))}
+                <div className="pt-1 flex flex-col gap-1">
+                  <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#0078d4]/20 px-2 py-1 rounded border border-gray-700 text-left transition-colors">
+                    + Импорт точек (CSV/TXT)
+                  </button>
+                  <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#0078d4]/20 px-2 py-1 rounded border border-gray-700 text-left transition-colors">
+                    Отчёт о невязке
+                  </button>
+                </div>
+              </div>
+            )}
+            {toolspaceTab === "toolbox" && (
+              <div className="p-1 space-y-0.5">
+                <div className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider px-1 py-1">Утилиты</div>
+                {[
+                  { icon: "Calculator", label: "Вычисление объёмов", sub: "Метод сечений" },
+                  { icon: "Map", label: "Геодезические расчёты", sub: "Прямая/обратная задачи" },
+                  { icon: "TrendingUp", label: "Продольный профиль", sub: "По трассе" },
+                  { icon: "Layers", label: "Диспетчер слоёв", sub: "Управление слоями" },
+                  { icon: "Table", label: "Ведомость отметок", sub: "Таблица по пикетам" },
+                  { icon: "FileBarChart", label: "Ведомость объёмов", sub: "CSV / XLS экспорт" },
+                  { icon: "Crosshair", label: "Привязка к точкам", sub: "Snap к съёмке" },
+                  { icon: "BarChart3", label: "Анализ уклонов", sub: "Цветовая карта" },
+                ].map(tool => (
+                  <div key={tool.label}
+                    className="flex items-start gap-1.5 px-2 py-1.5 hover:bg-[#252535] rounded cursor-pointer group transition-colors"
+                    onClick={() => setStatusMsg(`Инструмент: ${tool.label}`)}>
+                    <Icon name={tool.icon} size={10} fallback="Wrench" className="text-[#0078d4] flex-shrink-0 mt-0.5 group-hover:text-blue-300" />
+                    <div>
+                      <div className="text-[10px] text-gray-300 group-hover:text-white leading-tight">{tool.label}</div>
+                      <div className="text-[9px] text-gray-600">{tool.sub}</div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -6377,6 +6478,31 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <button onClick={() => setSplitView(s => !s)}
               className={`text-[9px] px-1.5 py-0.5 border border-gray-700 rounded transition-colors ${splitView ? "text-[#0078d4] bg-[#0078d4]/20 border-[#0078d4]/50" : "text-gray-400 hover:text-white"}`}
               title="Разделить видовой экран">⊟</button>
+            <button
+              onClick={() => {
+                setMultiViewport(mv => {
+                  const next = !mv
+                  if (next) setViewportLayout("2h")
+                  else setViewportLayout("single")
+                  return next
+                })
+              }}
+              className={`text-[9px] px-1.5 py-0.5 border border-gray-700 rounded transition-colors ${multiViewport ? "text-[#0078d4] bg-[#0078d4]/20 border-[#0078d4]/50" : "text-gray-400 hover:text-white"}`}
+              title="Несколько видовых экранов (MDI)">⧉</button>
+            {multiViewport && (
+              <div className="flex items-center gap-0.5 border-l border-gray-700 pl-1 ml-0.5">
+                {([
+                  { layout: "2h" as const, label: "║" , title: "2 горизонтально" },
+                  { layout: "2v" as const, label: "═" , title: "2 вертикально" },
+                  { layout: "4"  as const, label: "⊞" , title: "4 окна" },
+                ] as {layout:"2h"|"2v"|"4";label:string;title:string}[]).map(opt => (
+                  <button key={opt.layout}
+                    onClick={() => setViewportLayout(opt.layout)}
+                    className={`text-[9px] px-1 py-0.5 border border-gray-700 rounded transition-colors ${viewportLayout === opt.layout ? "text-[#0078d4] bg-[#0078d4]/20" : "text-gray-400 hover:text-white"}`}
+                    title={opt.title}>{opt.label}</button>
+                ))}
+              </div>
+            )}
             <button onClick={() => { setZoom(1.1); setPan({ x: 30, y: 20 }) }} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1 py-0.5 rounded">Вписать</button>
             <button onClick={() => setZoom(z => z * 1.25)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">+</button>
             <button onClick={() => setZoom(z => z * 0.8)} className="text-[9px] text-gray-400 hover:text-white bg-black/30 px-1.5 py-0.5 rounded">−</button>
@@ -6471,6 +6597,130 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
           {/* ── Plan view (bottom or full if no split) ── */}
           <div className="flex-1 relative overflow-hidden">
+
+            {/* ── Multi-viewport MDI overlay ── */}
+            {multiViewport && (
+              <div className="absolute inset-0 z-30 bg-[#111827] flex" style={{ paddingTop: 22 }}>
+                {/* MDI workspace background */}
+                <div className={`flex-1 relative flex ${viewportLayout === "2v" ? "flex-col" : "flex-row"} gap-1 p-1`}>
+                  {/* Window 1 */}
+                  {(() => {
+                    const win1name = drawingTabs[1] || "02_earthwork.dwg"
+                    const win2name = drawingTabs[0] || "01_corridor.dwg"
+                    return (
+                      <>
+                        <div className="flex-1 flex flex-col border border-gray-600 bg-[#1a1a2e] min-w-0"
+                          style={{ boxShadow: "2px 2px 8px rgba(0,0,0,0.6)" }}>
+                          {/* MDI title bar */}
+                          <div className="flex items-center bg-[#252535] border-b border-gray-600 px-1 py-0.5 gap-1 flex-shrink-0">
+                            <button className="text-[9px] text-gray-400 hover:text-white px-1 border border-gray-600 rounded leading-none">+</button>
+                            <Icon name="FileText" size={9} fallback="File" className="text-gray-400" />
+                            <span className="flex-1 text-[10px] text-gray-200 truncate font-medium">{win1name}</span>
+                            <div className="flex items-center gap-0">
+                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Свернуть">─</button>
+                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Восстановить">□</button>
+                              <button className="text-[9px] text-gray-400 hover:text-red-400 hover:bg-red-900/30 px-1.5 py-0.5 transition-colors"
+                                onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
+                            </div>
+                          </div>
+                          {/* MDI viewport label */}
+                          <div className="flex items-center gap-0 bg-black/40 border-b border-gray-800 flex-shrink-0">
+                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
+                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[Сверху]</button>
+                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5">[2D Каркас]</button>
+                          </div>
+                          {/* MDI canvas area */}
+                          <div className="flex-1 relative overflow-hidden bg-[#0d1117]">
+                            <svg width="100%" height="100%" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
+                              {Array.from({length:12}).map((_,i)=>(
+                                <line key={`g1h${i}`} x1={i*50} y1="0" x2={i*50} y2="400" stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
+                              ))}
+                              {Array.from({length:9}).map((_,i)=>(
+                                <line key={`g1v${i}`} x1="0" y1={i*50} x2="600" y2={i*50} stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
+                              ))}
+                              <path d="M50,320 Q150,280 250,240 Q350,200 450,230 Q520,250 560,220" stroke="#ef4444" strokeWidth="2" fill="none"/>
+                              <path d="M50,330 Q150,295 250,260 Q350,225 450,255 Q520,272 560,242" stroke="#ef4444" strokeWidth="1.5" fill="none" strokeDasharray="4 2" opacity="0.5"/>
+                              {[50,150,250,350,450,550].map((x,i)=>(
+                                <circle key={i} cx={x} cy={300-i*12} r="3" fill="#f59e0b"/>
+                              ))}
+                              <text x="10" y="20" fill="#4b5563" fontSize="8" fontFamily="monospace">02 Земляные работы</text>
+                            </svg>
+                          </div>
+                        </div>
+
+                        {/* Window 2 */}
+                        <div className="flex-1 flex flex-col border border-gray-600 bg-[#1a1a2e] min-w-0"
+                          style={{ boxShadow: "2px 2px 8px rgba(0,0,0,0.6)" }}>
+                          {/* MDI title bar */}
+                          <div className="flex items-center bg-[#1e3a5c] border-b border-[#0078d4]/50 px-1 py-0.5 gap-1 flex-shrink-0">
+                            <button className="text-[9px] text-gray-400 hover:text-white px-1 border border-gray-600 rounded leading-none">+</button>
+                            <Icon name="FileText" size={9} fallback="File" className="text-blue-300" />
+                            <span className="flex-1 text-[10px] text-white truncate font-medium">{win2name}</span>
+                            <div className="flex items-center gap-0">
+                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Свернуть">─</button>
+                              <button className="text-[9px] text-gray-400 hover:text-white hover:bg-gray-700 px-1.5 py-0.5 transition-colors" title="Восстановить">□</button>
+                              <button className="text-[9px] text-gray-400 hover:text-red-400 hover:bg-red-900/30 px-1.5 py-0.5 transition-colors"
+                                onClick={() => setMultiViewport(false)} title="Закрыть">✕</button>
+                            </div>
+                          </div>
+                          {/* MDI viewport label */}
+                          <div className="flex items-center gap-0 bg-black/40 border-b border-gray-800 flex-shrink-0">
+                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[-]</button>
+                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5 border-r border-gray-700">[Сверху]</button>
+                            <button className="text-[9px] text-gray-300 hover:bg-gray-700 px-1.5 py-0.5">[2D Каркас]</button>
+                          </div>
+                          {/* MDI canvas area */}
+                          <div className="flex-1 relative overflow-hidden bg-[#0a0f1a]">
+                            <svg width="100%" height="100%" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
+                              {Array.from({length:12}).map((_,i)=>(
+                                <line key={`g2h${i}`} x1={i*50} y1="0" x2={i*50} y2="400" stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
+                              ))}
+                              {Array.from({length:9}).map((_,i)=>(
+                                <line key={`g2v${i}`} x1="0" y1={i*50} x2="600" y2={i*50} stroke="rgba(59,130,246,0.08)" strokeWidth="0.5"/>
+                              ))}
+                              <path d="M30,350 Q100,300 180,260 Q260,220 340,240 Q420,260 500,210 Q560,180 590,160" stroke="#3b82f6" strokeWidth="2.5" fill="none"/>
+                              <path d="M80,200 Q160,190 240,195 Q320,200 400,185 Q480,175 560,190" stroke="#a855f7" strokeWidth="1.5" fill="none"/>
+                              {[80,200,320,440].map((x,i)=>(
+                                <rect key={i} x={x-8} y={180+i*8} width="16" height="16" fill="none" stroke="#06b6d4" strokeWidth="1.5"/>
+                              ))}
+                              <text x="10" y="20" fill="#4b5563" fontSize="8" fontFamily="monospace">01 Коридор</text>
+                            </svg>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
+
+                  {/* 4-window layout: extra row */}
+                  {viewportLayout === "4" && (
+                    <div className="absolute inset-0 flex flex-col gap-1 p-0" style={{pointerEvents:"none"}}>
+                      <div className="flex-1"/>
+                      <div className="flex-1 flex gap-1">
+                        <div className="flex-1 border border-gray-700 bg-[#111827] flex flex-col" style={{pointerEvents:"auto"}}>
+                          <div className="flex items-center bg-[#252535] border-b border-gray-600 px-1 py-0.5 text-[9px] text-gray-400 gap-1">
+                            <Icon name="FileText" size={8} fallback="File"/>
+                            <span className="truncate">03_profile.dwg</span>
+                          </div>
+                          <div className="flex-1 bg-[#0d1117] flex items-center justify-center">
+                            <span className="text-[9px] text-gray-600">Продольный профиль</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 border border-gray-700 bg-[#111827] flex flex-col" style={{pointerEvents:"auto"}}>
+                          <div className="flex items-center bg-[#252535] border-b border-gray-600 px-1 py-0.5 text-[9px] text-gray-400 gap-1">
+                            <Icon name="FileText" size={8} fallback="File"/>
+                            <span className="truncate">04_sections.dwg</span>
+                          </div>
+                          <div className="flex-1 bg-[#0d1117] flex items-center justify-center">
+                            <span className="text-[9px] text-gray-600">Поперечные сечения</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Plan viewport header */}
             <div className="absolute top-0 left-0 z-10 flex items-center gap-0 bg-black/40 border-b border-gray-800" style={{ marginTop: splitView ? 0 : 18 }}>
               <button onClick={() => setStatusMsg("Меню видового экрана")}
@@ -7500,20 +7750,56 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             value={commandLine}
             onChange={e => setCommandLine(e.target.value)}
             onKeyDown={e => e.key === "Enter" && runCommand(commandLine)}
-            placeholder="Команды: L=Линия, PL=Полилиния, O=Точка, M=Перенести, E=Удалить, ZE=Вписать, ЗЕМЛЯ, НЕВЯЗКА, ПРОЕКТ, ТРАССА, КОРИДОР, ПОВЕРХНОСТЬ…"
+            placeholder={
+              activeTool === "rect"
+                ? "Задайте противоположный угол или [Линия РМ-угол СМ-угол]:"
+                : activeTool === "line"
+                  ? "Укажите следующую точку или [Отменить]:"
+                  : activeTool === "polyline"
+                    ? "Укажите следующую точку или [Дуга/Закрыть/Длина/Отменить]:"
+                    : activeTool === "point"
+                      ? "Укажите положение точки:"
+                      : "Команды: L=Линия, PL=Полилиния, O=Точка, M=Перенести, E=Удалить, ZE=Вписать, ЗЕМЛЯ, ТРАССА, КОРИДОР…"
+            }
             className="flex-1 bg-transparent text-[11px] text-green-300 font-mono outline-none placeholder-gray-700 px-2"
           />
+          {/* X,Y coordinate quick-entry fields — shown when user types digits */}
+          {/^\d/.test(commandLine) && (
+            <div className="flex items-center gap-0.5 border-l border-gray-700 pl-1.5 flex-shrink-0">
+              <span className="text-[9px] text-gray-500 font-mono">X</span>
+              <input
+                type="number"
+                defaultValue={commandLine.split(",")[0] || ""}
+                className="w-16 bg-[#1a1a2e] border border-gray-700 text-green-300 text-[10px] font-mono px-1 py-0.5 outline-none focus:border-[#0078d4]"
+                placeholder="0.000"
+              />
+              <span className="text-[9px] text-gray-500 font-mono ml-0.5">Y</span>
+              <input
+                type="number"
+                defaultValue={commandLine.split(",")[1] || ""}
+                className="w-16 bg-[#1a1a2e] border border-gray-700 text-green-300 text-[10px] font-mono px-1 py-0.5 outline-none focus:border-[#0078d4]"
+                placeholder="0.000"
+              />
+            </div>
+          )}
           <button onClick={() => runCommand(commandLine)} className="text-[10px] text-gray-500 hover:text-white px-2">↵</button>
         </div>
       </div>
 
       {/* ── Status bar (Civil 3D bottom bar) ── */}
       <div className="bg-[#1a1a2a] border-t border-gray-800 flex items-center px-1 gap-0 flex-shrink-0" style={{minHeight:22}}>
+        {/* Left: МОДЕЛЬ button — layout switcher */}
+        <button
+          onClick={() => { setActiveLayout(activeLayout === "Model" ? "Layout1" : "Model"); setStatusMsg(`Макет: ${activeLayout === "Model" ? "Лист 1" : "Модель"}`) }}
+          className={`text-[9px] font-bold px-2 py-0.5 mr-1 border-r border-gray-700 transition-colors ${activeLayout === "Model" ? "text-white bg-[#0078d4] hover:bg-[#005fa3]" : "text-gray-300 bg-[#252535] hover:bg-[#2d2d4e]"}`}
+          title="Переключить Модель/Лист">
+          {activeLayout === "Model" ? "МОДЕЛЬ" : "ЛИСТ"}
+        </button>
         {/* Layout tabs */}
         <div className="flex items-center gap-0 border-r border-gray-700 pr-1 mr-1">
           <button onClick={() => setStatusMsg("Align-Superelevation-5")}
             className="text-[9px] text-gray-400 hover:text-white px-0.5 py-0.5">☰</button>
-          {[{key:"Model",label:"Модель"},{key:"Layout1",label:"Лист 1"},{key:"Layout2",label:"Лист 2"}].map(t => (
+          {[{key:"Layout1",label:"Лист 1"},{key:"Layout2",label:"Лист 2"}].map(t => (
             <button key={t.key} onClick={() => { setActiveLayout(t.key); setStatusMsg(`Макет: ${t.label}`) }}
               className={`text-[9px] px-2 py-0.5 border-x border-gray-700 transition-colors ${activeLayout===t.key?"bg-[#2d2d4e] text-white":"text-gray-500 hover:text-white hover:bg-[#252535]"}`}>
               {t.label}
@@ -7522,31 +7808,62 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <button onClick={() => setStatusMsg("Новый лист")}
             className="text-[9px] text-gray-500 hover:text-white px-1.5 py-0.5">+</button>
         </div>
-        {/* Center status icons */}
-        <div className="flex items-center gap-1 text-[9px] text-gray-500 flex-1">
-          <span className={`font-bold px-1 ${activeLayout==="Model"?"text-white bg-[#0078d4]":"text-gray-400"}`}>
-            {activeLayout==="Model"?"МОДЕЛЬ":"ЛИСТ"}
-          </span>
-          <button onClick={() => setScale(s=>s==="1:500"?"1:1000":s==="1:1000"?"1:200":"1:500")}
-            className="hover:text-white px-1 border border-gray-700 text-[9px]">{scale}</button>
-          {["⊞","∠","⚙"].map((ic,i)=>(
-            <button key={i} className="hover:text-white px-0.5">{ic}</button>
+        {/* Center: Drawing setting toggle icons (Civil 3D style) */}
+        <div className="flex items-center gap-0 flex-1 text-[9px]">
+          {[
+            { key: "Сетка",            sym: "⊞", title: "Сетка (F7)" },
+            { key: "Режим привязки",   sym: "⋮⋮", title: "Режим привязки (F9)" },
+            { key: "Режим «Орто»",     sym: "∟", title: "Режим Орто (F8)" },
+            { key: "Полярное отслеживание", sym: "∠", title: "Полярное отслеживание (F10)" },
+            { key: "Объектная привязка 2D", sym: "◎", title: "Объектная привязка (F3)" },
+            { key: "Отслеживание привязки к объектам", sym: "∞", title: "Отслеживание привязки (F11)" },
+            { key: "Динамический ввод", sym: "⊡", title: "Динамический ввод (F12)" },
+          ].map(item => (
+            <button key={item.key}
+              onClick={() => setGeoSettings(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+              title={item.title}
+              className={`px-1.5 py-0.5 border-r border-gray-800 transition-colors font-mono ${geoSettings[item.key] ? "text-white hover:bg-[#0078d4]/20" : "text-gray-600 hover:text-gray-400"}`}>
+              {item.sym}
+            </button>
           ))}
+          {/* Scale selector */}
+          <button onClick={() => setScale(s=>s==="1:500"?"1:1000":s==="1:1000"?"1:200":"1:500")}
+            className="px-2 py-0.5 border-r border-gray-800 text-gray-400 hover:text-white transition-colors text-[9px] font-mono border-l border-gray-800 ml-1">
+            {scale}
+          </button>
+          {/* Line weight toggle */}
+          <button
+            onClick={() => setGeoSettings(prev => ({ ...prev, "Толщина линий": !prev["Толщина линий"] }))}
+            title="Толщина линий"
+            className={`px-1.5 py-0.5 border-r border-gray-800 transition-colors ${geoSettings["Толщина линий"] ? "text-white" : "text-gray-600 hover:text-gray-400"}`}>
+            <span className="text-[9px]" style={{fontWeight:900}}>≡</span>
+          </button>
+          {/* F12 dynamic input indicator */}
+          <button
+            onClick={() => setGeoSettings(prev => ({ ...prev, "Динамический ввод": !prev["Динамический ввод"] }))}
+            title="Настройки черчения (F12)"
+            className={`px-1.5 py-0.5 text-[9px] border-r border-gray-800 transition-colors ${geoSettings["Динамический ввод"] ? "text-[#0078d4]" : "text-gray-600 hover:text-gray-400"}`}>
+            F12
+          </button>
         </div>
         {/* Data Shortcuts sync indicator */}
         <button onClick={() => setShowDataShortcuts(true)}
           className="flex items-center gap-1 text-[9px] border-l border-gray-700 pl-2 pr-1 hover:bg-[#252535] transition-colors">
           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${syncStatus==="ok"?"bg-green-500":"bg-yellow-400 animate-pulse"}`}/>
           <span className={`${syncStatus==="ok"?"text-green-400":"text-yellow-400"}`}>
-            Data Shortcuts: {syncStatus==="ok"?"актуальны ✓":"устарели ⚠"}
+            {syncStatus==="ok"?"DS ✓":"DS ⚠"}
           </span>
           <button onClick={e=>{ e.stopPropagation(); setSyncStatus("ok"); showToast("Синхронизация завершена") }}
-            className="text-gray-500 hover:text-white px-0.5 ml-0.5" title="Синхронизировать все">⟳</button>
+            className="text-gray-500 hover:text-white px-0.5 ml-0.5" title="Синхронизировать">⟳</button>
         </button>
-        {/* Cursor coordinates right */}
-        <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 border-l border-gray-700 pl-2">
-          <span className="text-gray-400">{cursorCoords.x.toFixed(2)}, {cursorCoords.y.toFixed(2)}, 0.00</span>
-          <span className="text-gray-600">МОДЕЛЬ</span>
+        {/* Right: cursor coordinates display */}
+        <div className="flex items-center gap-1 text-[9px] font-mono text-gray-400 border-l border-gray-700 pl-2">
+          <span className="text-gray-500">X</span>
+          <span>{cursorCoords.x.toFixed(3)}</span>
+          <span className="text-gray-500 ml-1">Y</span>
+          <span>{cursorCoords.y.toFixed(3)}</span>
+          <span className="text-gray-500 ml-1">Z</span>
+          <span className="text-gray-600">0.000</span>
         </div>
       </div>
     </div>
