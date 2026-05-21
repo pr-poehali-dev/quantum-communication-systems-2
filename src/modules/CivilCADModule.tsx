@@ -1587,6 +1587,406 @@ function drawCanvas(
   ctx.restore()
 }
 
+// ─── Surface Edit Dialog (редактор существующей поверхности) ─────────────────
+
+function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => void }) {
+  const [tab, setTab] = useState<"triangles"|"boundaries"|"edit_pts"|"smoothing"|"update">("triangles")
+  const [triangles, setTriangles] = useState([
+    { id: "T-001", v1: "П.1001", v2: "П.1002", v3: "П.1003", area: "48.2", deleted: false },
+    { id: "T-002", v1: "П.1002", v2: "П.1004", v3: "П.1003", area: "52.7", deleted: false },
+    { id: "T-003", v1: "П.1003", v2: "П.1004", v3: "П.1005", area: "41.8", deleted: false },
+    { id: "T-004", v1: "П.1001", v2: "П.1003", v3: "П.1006", area: "55.1", deleted: false },
+    { id: "T-005", v1: "П.1004", v2: "П.1005", v3: "П.1007", area: "39.4", deleted: false },
+  ])
+  const [boundaries, setBoundaries] = useState([
+    { id: "B-01", type: "Внешняя", name: "Граница участка", pts: 12, active: true },
+    { id: "B-02", type: "Обрезающая", name: "Зона застройки", pts: 6, active: true },
+    { id: "B-03", type: "Восстанавливающая", name: "Дорога", pts: 8, active: false },
+  ])
+  const [manualPts, setManualPts] = useState([
+    { id: "М-1", x: "1234.50", y: "5678.20", z: "121.35" },
+    { id: "М-2", x: "1289.10", y: "5645.80", z: "119.87" },
+  ])
+  const [newPt, setNewPt] = useState({ x: "", y: "", z: "" })
+  const [smoothMethod, setSmoothMethod] = useState("Натуральный сосед")
+  const [smoothFactor, setSmoothFactor] = useState("0.5")
+  const [updated, setUpdated] = useState(false)
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col"
+        style={{ width: 640, maxHeight: "92vh", fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
+          <span className="text-white font-bold text-sm">Редактировать поверхность — {name}</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-300 bg-[#e8e8e8] flex-shrink-0 flex-wrap">
+          {([
+            ["triangles","Треугольники"], ["boundaries","Границы"],
+            ["edit_pts","Точки"], ["smoothing","Сглаживание"], ["update","Обновление"]
+          ] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`px-3 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors whitespace-nowrap ${tab===id?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+
+          {/* ── Треугольники ── */}
+          {tab === "triangles" && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-gray-600 px-1">Ручное редактирование TIN-треугольников. Удалённые рёбра перестраивают триангуляцию.</div>
+              <div className="border border-gray-400 bg-white">
+                <div className="bg-[#d0d0d0] px-2 py-1 font-bold text-xs border-b border-gray-400 flex items-center gap-2">
+                  <span className="text-blue-600">▼</span> Список треугольников
+                  <span className="ml-auto text-gray-500 font-normal">{triangles.filter(t=>!t.deleted).length} активных / {triangles.length} всего</span>
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-[#e8e8e8] border-b border-gray-300">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200 w-16">ID</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Вершина 1</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Вершина 2</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Вершина 3</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200 w-20">Площадь м²</th>
+                      <th className="px-2 py-1 text-left font-semibold w-20">Действие</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {triangles.map((t, i) => (
+                      <tr key={t.id} className={`border-b border-gray-100 ${t.deleted ? "opacity-40 line-through bg-red-50" : i%2===0?"bg-white":"bg-gray-50"}`}>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono text-gray-500">{t.id}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 text-blue-700 font-mono">{t.v1}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 text-blue-700 font-mono">{t.v2}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 text-blue-700 font-mono">{t.v3}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono">{t.area}</td>
+                        <td className="px-2 py-1">
+                          <button onClick={() => setTriangles(prev => prev.map((tr, j) => j===i ? {...tr, deleted: !tr.deleted} : tr))}
+                            className={`text-[10px] px-2 py-0.5 border rounded ${t.deleted ? "border-green-500 text-green-700 hover:bg-green-50":"border-red-400 text-red-600 hover:bg-red-50"}`}>
+                            {t.deleted ? "Восстановить" : "Удалить"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex gap-2">
+                <button className="px-3 py-1 bg-[#0078d4] text-white text-xs hover:bg-blue-700 border border-blue-700">Добавить ребро</button>
+                <button className="px-3 py-1 bg-[#e0e0e0] text-gray-700 text-xs hover:bg-gray-300 border border-gray-400">Сбросить изменения</button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Границы ── */}
+          {tab === "boundaries" && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-gray-600 px-1">Управление границами поверхности. Внешняя граница ограничивает область, обрезающая — исключает участки.</div>
+              <div className="border border-gray-400 bg-white">
+                <div className="bg-[#d0d0d0] px-2 py-1 font-bold text-xs border-b border-gray-400 flex items-center gap-2">
+                  <span className="text-blue-600">▼</span> Границы
+                  <button className="ml-auto px-2 py-0.5 bg-[#0078d4] text-white text-[10px] hover:bg-blue-700">+ Добавить</button>
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-[#e8e8e8] border-b border-gray-300">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">ID</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Тип</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Название</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200 w-16">Точек</th>
+                      <th className="px-2 py-1 text-left font-semibold w-20">Активна</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {boundaries.map((b, i) => (
+                      <tr key={b.id} className={i%2===0?"bg-white":"bg-gray-50"}>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono text-gray-500">{b.id}</td>
+                        <td className={`px-2 py-1 border-r border-gray-100 font-semibold ${b.type==="Внешняя"?"text-blue-700":b.type==="Обрезающая"?"text-red-600":"text-green-700"}`}>{b.type}</td>
+                        <td className="px-2 py-1 border-r border-gray-100">{b.name}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono text-center">{b.pts}</td>
+                        <td className="px-2 py-1">
+                          <input type="checkbox" checked={b.active}
+                            onChange={() => setBoundaries(prev => prev.map((br,j) => j===i ? {...br,active:!br.active} : br))}
+                            className="accent-blue-600"/>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[["Внешняя","blue"],["Обрезающая","red"],["Восстанавливающая","green"]].map(([t,c])=>(
+                  <button key={t} className={`px-2 py-1.5 text-xs border rounded font-semibold text-${c}-700 border-${c}-300 hover:bg-${c}-50`}>
+                    + {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Точки ── */}
+          {tab === "edit_pts" && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-gray-600">Ручное добавление точек для уточнения геометрии поверхности.</div>
+              <div className="border border-gray-400 bg-white">
+                <div className="bg-[#d0d0d0] px-2 py-1 font-bold text-xs border-b border-gray-400">▼ Добавленные точки</div>
+                <table className="w-full text-xs">
+                  <thead className="bg-[#e8e8e8] border-b border-gray-300">
+                    <tr>
+                      {["ID","X (м)","Y (м)","Z (м)",""].map(h=><th key={h} className="px-2 py-1 text-left font-semibold border-r border-gray-200">{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {manualPts.map((p, i) => (
+                      <tr key={p.id} className={i%2===0?"bg-white":"bg-gray-50"}>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono text-gray-500">{p.id}</td>
+                        {["x","y","z"].map(f => (
+                          <td key={f} className="px-1 py-0.5 border-r border-gray-100">
+                            <input value={(p as Record<string,string>)[f]}
+                              onChange={e => setManualPts(prev => prev.map((pt,j) => j===i ? {...pt,[f]:e.target.value} : pt))}
+                              className="w-full bg-transparent outline-none font-mono text-xs"/>
+                          </td>
+                        ))}
+                        <td className="px-1"><button onClick={() => setManualPts(prev=>prev.filter((_,j)=>j!==i))} className="text-gray-400 hover:text-red-500">✕</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex gap-2 items-end">
+                {[["X",newPt.x,"x"],["Y",newPt.y,"y"],["Z",newPt.z,"z"]].map(([lbl,val,f])=>(
+                  <div key={f}>
+                    <div className="text-xs text-gray-600 mb-0.5">{lbl}:</div>
+                    <input value={val} onChange={e => setNewPt(p=>({...p,[f]:e.target.value}))} placeholder="0.00"
+                      className="w-24 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono"/>
+                  </div>
+                ))}
+                <button onClick={() => {
+                  if (!newPt.x||!newPt.y||!newPt.z) return
+                  setManualPts(prev=>[...prev, {id:`М-${prev.length+1}`, ...newPt}])
+                  setNewPt({x:"",y:"",z:""})
+                }} className="px-3 py-1 bg-[#0078d4] text-white text-xs border border-blue-700 hover:bg-blue-700">+ Точка</button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Сглаживание ── */}
+          {tab === "smoothing" && (
+            <div className="space-y-3">
+              <div className="text-[11px] text-gray-600">Сглаживание TIN-поверхности для более плавного отображения горизонталей.</div>
+              <div className="flex items-center gap-2">
+                <label className="w-44 text-xs text-gray-700">Метод сглаживания:</label>
+                <select value={smoothMethod} onChange={e=>setSmoothMethod(e.target.value)} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                  {["Натуральный сосед","Идентификация зон","Krige","Обратная взвешенная дистанция"].map(m=><option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="w-44 text-xs text-gray-700">Коэффициент сглаживания:</label>
+                <input value={smoothFactor} onChange={e=>setSmoothFactor(e.target.value)}
+                  className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono"/>
+                <span className="text-xs text-gray-500">(0.1 — 1.0)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="w-44 text-xs text-gray-700">Применить к:</label>
+                <select className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                  <option>Всей поверхности</option>
+                  <option>Выбранной области</option>
+                </select>
+              </div>
+              <button className="px-4 py-1 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 border border-blue-700">Применить сглаживание</button>
+            </div>
+          )}
+
+          {/* ── Обновление ── */}
+          {tab === "update" && (
+            <div className="space-y-3">
+              <div className="text-[11px] text-gray-600">Пересчёт поверхности после внесения изменений. Затронутые объекты будут пересчитаны автоматически.</div>
+              <div className="border border-gray-300 bg-white rounded p-3 space-y-1.5">
+                <div className="text-xs font-semibold text-gray-700 mb-2">Зависимые объекты:</div>
+                {[
+                  { name: "Профиль Проект_Трасса-1", type: "Профиль", status: updated ? "Актуален ✓" : "Устарел ⚠", color: updated ? "text-green-700" : "text-yellow-700" },
+                  { name: "Коридор Дорога ШД-38", type: "Коридор", status: updated ? "Актуален ✓" : "Устарел ⚠", color: updated ? "text-green-700" : "text-yellow-700" },
+                  { name: "Объём земляных работ", type: "Анализ", status: updated ? "Актуален ✓" : "Устарел ⚠", color: updated ? "text-green-700" : "text-yellow-700" },
+                ].map(obj => (
+                  <div key={obj.name} className="flex items-center gap-2 text-xs">
+                    <span className="w-6 text-blue-600">▸</span>
+                    <span className="flex-1 text-gray-700">{obj.name}</span>
+                    <span className="text-gray-500 w-20">{obj.type}</span>
+                    <span className={`font-semibold w-28 ${obj.color}`}>{obj.status}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setUpdated(true)}
+                  className="px-4 py-1.5 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 border border-blue-700">
+                  Обновить поверхность
+                </button>
+                <button onClick={() => setUpdated(true)}
+                  className="px-4 py-1.5 bg-[#e0e0e0] text-gray-700 text-xs font-semibold hover:bg-gray-300 border border-gray-400">
+                  Синхронизировать все зависимости
+                </button>
+              </div>
+              {updated && (
+                <div className="px-3 py-2 bg-green-50 border border-green-300 rounded text-xs text-green-800 font-semibold">
+                  ✓ Поверхность пересчитана. Все зависимые объекты обновлены.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-3 py-2 border-t border-gray-300 flex-shrink-0">
+          <button onClick={onClose} className="px-6 py-1 bg-[#0078d4] text-white border border-blue-700 text-xs font-semibold hover:bg-blue-700">Закрыть</button>
+          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Daylight Feature Line Dialog ─────────────────────────────────────────────
+
+function DaylightFeatureLineDialog({ onClose, onOK }: { onClose: () => void; onOK: () => void }) {
+  const [corridor, setCorridor] = useState("Дорога ШД-38")
+  const [surface, setSurface] = useState("Существующая поверхность")
+  const [side, setSide] = useState("Обе стороны")
+  const [criteria, setCriteria] = useState("Уклон откоса 1:1.5")
+  const [method, setMethod] = useState("Итерационный")
+  const [done, setDone] = useState(false)
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)" }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[500px]"
+        style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
+          <span className="text-white font-bold text-sm">Daylight Feature Line — Линия выхода на рельеф</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-800">
+            Новинка Civil 3D 2027. Автоматически создаёт характерные линии откосов на основе проектного коридора и существующего рельефа.
+          </div>
+          {[
+            ["Коридор:", corridor, setCorridor, ["Дорога ШД-38","Коридор Ул. Трумана"]],
+            ["Поверхность:", surface, setSurface, ["Существующая поверхность","Проектная поверхность"]],
+            ["Сторона:", side, setSide, ["Левая","Правая","Обе стороны"]],
+            ["Критерий:", criteria, setCriteria, ["Уклон откоса 1:1.5","Уклон откоса 1:2","Вертикальный откос","По поверхности"]],
+            ["Метод:", method, setMethod, ["Итерационный","Прямой","По точкам"]]
+          ].map(([lbl, val, setter, opts]) => (
+            <div key={lbl as string} className="flex items-center gap-2">
+              <label className="w-32 text-xs text-gray-700 shrink-0">{lbl as string}</label>
+              <select value={val as string} onChange={e => (setter as (v:string)=>void)(e.target.value)}
+                className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                {(opts as string[]).map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
+          <button onClick={() => setDone(true)}
+            className="px-4 py-1.5 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 border border-blue-700 w-full">
+            Создать линии выхода на рельеф
+          </button>
+          {done && (
+            <div className="px-3 py-2 bg-green-50 border border-green-400 rounded text-xs text-green-800 font-semibold">
+              ✓ Создано 2 характерные линии (левая/правая). Объекты добавлены в дерево проекта.
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-3 pb-3">
+          <button onClick={() => { onOK(); onClose() }} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
+          <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Data Shortcuts Panel ──────────────────────────────────────────────────────
+
+function DataShortcutsPanel({ onClose }: { onClose: () => void }) {
+  const [syncAll, setSyncAll] = useState(false)
+  const [items, setItems] = useState([
+    { id: "DS-01", type: "Поверхность", name: "Существующая поверхность", file: "Тopo_2024.dwg", status: "Актуален", modified: "20.05.2026 14:32" },
+    { id: "DS-02", type: "Трасса", name: "Трасса ШД-38", file: "Road_Main.dwg", status: "Устарел", modified: "19.05.2026 18:10" },
+    { id: "DS-03", type: "Профиль", name: "Проект_Трасса-1", file: "Road_Main.dwg", status: "Устарел", modified: "19.05.2026 18:10" },
+    { id: "DS-04", type: "Коридор", name: "Дорога ШД-38", file: "Corridor.dwg", status: "Актуален", modified: "20.05.2026 09:15" },
+    { id: "DS-05", type: "Трубосеть", name: "Сеть дождевой канализации", file: "Drainage.dwg", status: "Не загружен", modified: "18.05.2026 11:20" },
+  ])
+  const statusColor: Record<string,string> = {
+    "Актуален": "text-green-700 bg-green-50",
+    "Устарел": "text-yellow-700 bg-yellow-50",
+    "Не загружен": "text-gray-500 bg-gray-100"
+  }
+  const syncItem = (id: string) => setItems(prev => prev.map(it => it.id===id ? {...it, status:"Актуален", modified: new Date().toLocaleString("ru")} : it))
+  const syncAllItems = () => {
+    setItems(prev => prev.map(it => ({...it, status:"Актуален", modified: new Date().toLocaleString("ru")})))
+    setSyncAll(true)
+    setTimeout(()=>setSyncAll(false),3000)
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col" style={{width:660, maxHeight:"85vh", fontFamily:"Arial,sans-serif",fontSize:12}}>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
+          <span className="text-white font-bold text-sm">Быстрые ссылки на данные — Data Shortcuts</span>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
+        </div>
+        <div className="px-3 py-2 bg-blue-50 border-b border-blue-200 text-[11px] text-blue-800 flex-shrink-0 flex items-center gap-2">
+          <span className="font-semibold">Проект:</span> Дорожное строительство ШД-38 · 5 ссылок
+          <button onClick={syncAllItems} className="ml-auto px-3 py-0.5 bg-[#0078d4] text-white text-[11px] hover:bg-blue-700 border border-blue-700">
+            Синхронизировать все
+          </button>
+        </div>
+        {syncAll && (
+          <div className="px-3 py-1.5 bg-green-50 border-b border-green-300 text-[11px] text-green-800 font-semibold flex-shrink-0">
+            ✓ Все ссылки синхронизированы
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead className="bg-[#e8e8e8] border-b border-gray-300 sticky top-0">
+              <tr>
+                {["ID","Тип объекта","Название","Файл-источник","Дата изм.","Статус","Действие"].map(h=>(
+                  <th key={h} className="text-left px-2 py-1.5 font-semibold border-r border-gray-200 last:border-0">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={it.id} className={i%2===0?"bg-white":"bg-gray-50"}>
+                  <td className="px-2 py-1.5 border-r border-gray-100 font-mono text-gray-400">{it.id}</td>
+                  <td className="px-2 py-1.5 border-r border-gray-100 font-semibold text-blue-700">{it.type}</td>
+                  <td className="px-2 py-1.5 border-r border-gray-100">{it.name}</td>
+                  <td className="px-2 py-1.5 border-r border-gray-100 font-mono text-gray-600 text-[10px]">{it.file}</td>
+                  <td className="px-2 py-1.5 border-r border-gray-100 text-[10px] text-gray-500 font-mono">{it.modified}</td>
+                  <td className="px-2 py-1.5 border-r border-gray-100">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${statusColor[it.status]}`}>{it.status}</span>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {it.status !== "Актуален" && (
+                      <button onClick={() => syncItem(it.id)}
+                        className="text-[10px] px-2 py-0.5 bg-[#0078d4] text-white hover:bg-blue-700 rounded">
+                        Синхр.
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-gray-300 px-3 py-2 flex justify-between items-center flex-shrink-0">
+          <span className="text-[10px] text-gray-500">Команда: SYNCHRONIZEDATA | F5 — обновить | Ctrl+Shift+S — сохранить всё</span>
+          <button onClick={onClose} className="px-4 py-1 bg-[#e0e0e0] border border-gray-400 text-xs font-semibold hover:bg-gray-300">Закрыть</button>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Surface Dialog ──────────────────────────────────────────────────────────
 
 function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: SurfaceDef) => void }) {
@@ -1596,10 +1996,12 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
     style: "Горизонтали 1м", layer: "C-TOPO-SURF", gridX: "10", gridY: "10",
     pointFiles: [{ name: "Точки_съёмки.csv", format: "CSV (N,E,Z,Desc)" }],
   })
-  const [tab, setTab] = useState<"info" | "build" | "analysis">("info")
+  const [tab, setTab] = useState<"info" | "build" | "edit" | "analysis">("info")
   const [addFile, setAddFile] = useState("")
   const [addFormat, setAddFormat] = useState("CSV (N,E,Z,Desc)")
   const FORMATS = ["CSV (N,E,Z,Desc)", "TXT (X,Y,Z)", "LandXML", "DEM/GeoTIFF", "Облако точек RCP"]
+  const [surfToast, setSurfToast] = useState<string|null>(null)
+  const showSurfToast = (msg: string) => { setSurfToast(msg); setTimeout(() => setSurfToast(null), 2500) }
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
@@ -1612,10 +2014,10 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
         </div>
         {/* Tabs */}
         <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
-          {(["info","build","analysis"] as const).map(t => (
+          {(["info","build","edit","analysis"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
-              {t==="info"?"Информация":t==="build"?"Построение":"Анализ"}
+              {t==="info"?"Информация":t==="build"?"Построение":t==="edit"?"Редактирование":"Анализ"}
             </button>
           ))}
         </div>
@@ -1700,6 +2102,45 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
             <p className="text-[10px] text-gray-500">После добавления источников нажмите ОК — поверхность будет построена и добавлена в дерево проекта.</p>
           </>}
 
+          {tab === "edit" && <>
+            <div className="space-y-3">
+              <div className="border border-gray-300 bg-white rounded">
+                <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Редактирование треугольников</div>
+                <div className="p-2 flex gap-2">
+                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить ребро</button>
+                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить ребро</button>
+                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Поменять ребро</button>
+                </div>
+              </div>
+              <div className="border border-gray-300 bg-white rounded">
+                <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Структурные линии</div>
+                <div className="p-2 flex gap-2">
+                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
+                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить</button>
+                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Редактировать</button>
+                </div>
+              </div>
+              <div className="border border-gray-300 bg-white rounded">
+                <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Границы</div>
+                <div className="p-2 space-y-1.5">
+                  {["Внешняя граница","Обрезающая граница","Восстанавливающая граница"].map(label => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">{label}</span>
+                      <button className="px-3 py-0.5 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => showSurfToast("Поверхность пересчитана")}
+                className="w-full py-1.5 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 transition-colors rounded"
+              >
+                Обновить поверхность
+              </button>
+              {surfToast && <div className="text-center text-xs text-green-700 font-semibold bg-green-50 border border-green-300 rounded py-1">{surfToast}</div>}
+            </div>
+          </>}
+
           {tab === "analysis" && <>
             <div className="space-y-2">
               {[
@@ -1747,7 +2188,10 @@ function AlignmentDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Ali
       { type: "line", length: "180.00", radius: "—", Az: "105°45′00″", A: "—" },
     ],
   })
-  const [tab, setTab] = useState<"info"|"geom"|"station">("info")
+  const [tab, setTab] = useState<"info"|"geom"|"station"|"visibility">("info")
+  const [visObsH, setVisObsH] = useState("1.20")
+  const [visTgtH, setVisTgtH] = useState("0.30")
+  const [visMethod, setVisMethod] = useState("Линейный")
   const TYPE_LABELS: Record<string,string> = { line: "Прямая", curve: "Круговая кривая", spiral: "Клотоида" }
   const TYPE_COLORS: Record<string,string> = { line: "text-blue-700", curve: "text-orange-600", spiral: "text-green-700" }
 
@@ -1768,10 +2212,10 @@ function AlignmentDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Ali
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
         </div>
         <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
-          {(["info","geom","station"] as const).map(t=>(
+          {(["info","geom","station","visibility"] as const).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
-              {t==="info"?"Информация":t==="geom"?"Геометрия элементов":"Пикетаж"}
+              {t==="info"?"Информация":t==="geom"?"Геометрия элементов":t==="station"?"Пикетаж":"Анализ видимости"}
             </button>
           ))}
         </div>
@@ -1860,6 +2304,9 @@ function AlignmentDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Ali
                 </tfoot>
               </table>
             </div>
+            <div className="mt-2 px-1 py-1 bg-gray-50 border border-gray-200 rounded text-[10px] text-gray-500">
+              A — добавить вершину | D — удалить | R — изменить радиус
+            </div>
           </>}
 
           {tab==="station" && <>
@@ -1892,6 +2339,51 @@ function AlignmentDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Ali
               </div>
             </div>
           </>}
+
+          {tab==="visibility" && <>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="w-44 text-xs text-gray-700 shrink-0">Высота наблюдателя, м:</label>
+                <input value={visObsH} onChange={e=>setVisObsH(e.target.value)} className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="w-44 text-xs text-gray-700 shrink-0">Высота цели, м:</label>
+                <input value={visTgtH} onChange={e=>setVisTgtH(e.target.value)} className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="w-44 text-xs text-gray-700 shrink-0">Метод:</label>
+                <select value={visMethod} onChange={e=>setVisMethod(e.target.value)} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                  {["Линейный","Зонный","Критический"].map(m=><option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <button className="px-4 py-1 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 border border-blue-700 rounded">Выполнить анализ</button>
+              <div className="bg-[#1a1a2e] rounded border border-gray-600 overflow-hidden" style={{height:200}}>
+                <svg width="100%" height="100%" viewBox="0 0 520 190">
+                  <text x="10" y="14" fill="#9ca3af" fontSize="9">Диаграмма видимости вдоль трассы</text>
+                  <line x1="10" y1="160" x2="510" y2="160" stroke="#555" strokeWidth="1"/>
+                  {/* Green visible zones */}
+                  <rect x="10" y="130" width="80" height="30" fill="#4ade80" opacity="0.7"/>
+                  <rect x="120" y="130" width="100" height="30" fill="#4ade80" opacity="0.7"/>
+                  <rect x="260" y="130" width="70" height="30" fill="#4ade80" opacity="0.7"/>
+                  <rect x="370" y="130" width="140" height="30" fill="#4ade80" opacity="0.7"/>
+                  {/* Red blind zones */}
+                  <rect x="90" y="130" width="30" height="30" fill="#ef4444" opacity="0.7"/>
+                  <rect x="220" y="130" width="40" height="30" fill="#ef4444" opacity="0.7"/>
+                  <rect x="330" y="130" width="40" height="30" fill="#ef4444" opacity="0.7"/>
+                  <text x="10" y="125" fill="#4ade80" fontSize="8">Видимо</text>
+                  <text x="90" y="125" fill="#ef4444" fontSize="8">Слепая</text>
+                  <line x1="10" y1="80" x2="510" y2="80" stroke="#374151" strokeWidth="0.5" strokeDasharray="3,3"/>
+                  <polyline points="10,100 80,75 150,90 220,110 290,70 370,85 510,95" fill="none" stroke="#6366f1" strokeWidth="1.5"/>
+                  <text x="10" y="175" fill="#6b7280" fontSize="7">0+00</text>
+                  <text x="200" y="175" fill="#6b7280" fontSize="7">5+00</text>
+                  <text x="430" y="175" fill="#6b7280" fontSize="7">10+00</text>
+                </svg>
+              </div>
+              <div className="px-2 py-1.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 font-semibold">
+                Видимость: 78.3% трассы | Проблемных зон: 3
+              </div>
+            </div>
+          </>}
         </div>
         <div className="flex justify-end gap-2 px-3 pb-3">
           <button onClick={()=>onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
@@ -1918,8 +2410,10 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
       { station: "10+00", elev: "121.40", k: "—" },
     ],
   })
-  const [tab, setTab] = useState<"info"|"pvc"|"preview">("info")
+  const [tab, setTab] = useState<"info"|"pvc"|"slopes"|"preview">("info")
   const [newSt, setNewSt] = useState(""); const [newEl, setNewEl] = useState(""); const [newK, setNewK] = useState("—")
+  const [syncSurface, setSyncSurface] = useState(true)
+  const [showCritical, setShowCritical] = useState(true)
 
   const addPVC = () => {
     if (!newSt || !newEl) return
@@ -1940,10 +2434,10 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
         </div>
         <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
-          {(["info","pvc","preview"] as const).map(t=>(
+          {(["info","pvc","slopes","preview"] as const).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
-              {t==="info"?"Информация":t==="pvc"?"Точки ВК":"Предпросмотр"}
+              {t==="info"?"Информация":t==="pvc"?"Точки ВК":t==="slopes"?"Уклоны":"Предпросмотр"}
             </button>
           ))}
         </div>
@@ -1976,6 +2470,18 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
               <label className="w-32 text-xs text-gray-700 shrink-0">Слой:</label>
               <input value={def.layer} onChange={e=>setDef(d=>({...d,layer:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             </div>
+            <div className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-300 rounded">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={syncSurface} onChange={e=>setSyncSurface(e.target.checked)} className="accent-blue-600" />
+                <span className="text-xs text-gray-700">Синхронизировать с поверхностью</span>
+              </label>
+              {syncSurface && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-green-500"/>
+                  <span className="text-[10px] text-green-700 font-semibold">Синхронизировано</span>
+                </div>
+              )}
+            </div>
           </>}
 
           {tab==="pvc" && <>
@@ -1989,6 +2495,8 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
                     <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Пикет</th>
                     <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Отметка (м)</th>
                     <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Параметр K</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Уклон i1</th>
+                    <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Уклон i2</th>
                     <th className="w-6"></th>
                   </tr>
                 </thead>
@@ -2007,6 +2515,14 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
                         <input value={pvc.k} onChange={e=>{const p=[...def.pvcs];p[i]={...p[i],k:e.target.value};setDef(d=>({...d,pvcs:p}))}}
                           className="w-full bg-transparent outline-none font-mono text-xs" />
                       </td>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input defaultValue={i===0?"—":`${((parseFloat(def.pvcs[i].elev||"0")-parseFloat(def.pvcs[i-1]?.elev||"0"))/100*100).toFixed(2)}%`}
+                          className="w-full bg-transparent outline-none font-mono text-xs text-blue-700" />
+                      </td>
+                      <td className="px-1 py-0.5 border-r border-gray-100">
+                        <input defaultValue={i===def.pvcs.length-1?"—":`${((parseFloat(def.pvcs[i+1]?.elev||"0")-parseFloat(def.pvcs[i].elev||"0"))/100*100).toFixed(2)}%`}
+                          className="w-full bg-transparent outline-none font-mono text-xs text-orange-600" />
+                      </td>
                       <td className="px-1"><button onClick={()=>setDef(d=>({...d,pvcs:d.pvcs.filter((_,j)=>j!==i)}))} className="text-gray-400 hover:text-red-500">✕</button></td>
                     </tr>
                   ))}
@@ -2018,6 +2534,45 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
               <div><div className="text-xs text-gray-600 mb-0.5">Отметка:</div><input value={newEl} onChange={e=>setNewEl(e.target.value)} placeholder="120.00" className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" /></div>
               <div><div className="text-xs text-gray-600 mb-0.5">K:</div><input value={newK} onChange={e=>setNewK(e.target.value)} placeholder="—" className="w-14 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" /></div>
               <button onClick={addPVC} className="px-3 py-1 bg-[#0078d4] text-white text-xs border border-blue-700 hover:bg-blue-700">+ ВК</button>
+            </div>
+          </>}
+
+          {tab==="slopes" && <>
+            <div className="space-y-2">
+              <div className="border border-gray-400 bg-white">
+                <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
+                  <span className="text-blue-600">▼</span> Продольные уклоны
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-[#e8e8e8] border-b border-gray-300">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Участок</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Уклон %</th>
+                      <th className="px-2 py-1 text-left font-semibold border-r border-gray-200">Длина м</th>
+                      <th className="px-2 py-1 text-left font-semibold">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { seg: "0+00 — 2+50", slope: "+2.12", len: "250.0", status: "норма", color: "text-green-700 bg-green-50" },
+                      { seg: "2+50 — 5+00", slope: "-1.40", len: "250.0", status: "норма", color: "text-green-700 bg-green-50" },
+                      { seg: "5+00 — 8+00", slope: "-1.13", len: "300.0", status: "предупреждение", color: "text-yellow-700 bg-yellow-50" },
+                      { seg: "8+00 — 10+00", slope: "+1.25", len: "200.0", status: "критический", color: "text-red-700 bg-red-50" },
+                    ].map((row,i)=>(
+                      <tr key={i} className={`border-b border-gray-100 ${showCritical ? row.color : ""}`}>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono">{row.seg}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono font-semibold">{row.slope}</td>
+                        <td className="px-2 py-1 border-r border-gray-100 font-mono">{row.len}</td>
+                        <td className="px-2 py-1 text-xs font-semibold">{row.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={showCritical} onChange={e=>setShowCritical(e.target.checked)} className="accent-blue-600" />
+                <span className="text-xs text-gray-700">Цветовая индикация критических участков</span>
+              </label>
             </div>
           </>}
 
@@ -2931,6 +3486,143 @@ function PipeNetDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{name:
             <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded">Отмена</button>
             <button onClick={()=>onOK({name,type,material})} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">ОК</button>
           </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── Pipe Network Dialog ───────────────────────────────────────────────────────
+
+function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () => void }) {
+  const [pipeTab, setPipeTab] = useState<"manholes"|"pipes"|"collisions"|"profile">("manholes")
+  const [collisionChecked, setCollisionChecked] = useState(false)
+  const manholes = [
+    { name: "КК-1", type: "Смотровой", diam: "1000", elev: "118.40" },
+    { name: "КК-2", type: "Смотровой", diam: "1000", elev: "117.85" },
+    { name: "КК-3", type: "Перепадный", diam: "1250", elev: "117.20" },
+    { name: "КК-4", type: "Смотровой", diam: "1000", elev: "116.60" },
+  ]
+  const pipes = [
+    { name: "Т-1", from: "КК-1", to: "КК-2", diam: "300", mat: "Железобетон", slope: "2.85" },
+    { name: "Т-2", from: "КК-2", to: "КК-3", diam: "300", mat: "Железобетон", slope: "3.10" },
+    { name: "Т-3", from: "КК-3", to: "КК-4", diam: "400", mat: "Полиэтилен",  slope: "2.40" },
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[620px] max-h-[90vh] overflow-y-auto">
+        <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
+          <span className="text-[11px] font-bold text-white">Редактор трубопроводной сети</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
+        </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-700 bg-[#1e1e2e]">
+          {([["manholes","Колодцы"],["pipes","Трубы"],["collisions","Коллизии"],["profile","Профиль сети"]] as const).map(([id,label])=>(
+            <button key={id} onClick={()=>setPipeTab(id)}
+              className={`px-4 py-1.5 text-[11px] font-semibold border-r border-gray-700 transition-colors ${pipeTab===id?"bg-[#2d2d3d] text-[#0078d4] border-b-2 border-b-[#0078d4]":"text-gray-400 hover:text-gray-200 hover:bg-[#252535]"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="p-3">
+          {pipeTab==="manholes" && (
+            <div className="space-y-2">
+              <table className="w-full text-[11px] border-collapse">
+                <thead><tr className="bg-[#1e1e2e]">
+                  {["Имя","Тип","Диаметр мм","Отм. лотка"].map(h=>(
+                    <th key={h} className="text-left px-2 py-1 text-gray-400 border border-gray-700">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>{manholes.map((m,i)=>(
+                  <tr key={i} className={i%2===0?"bg-[#252535]":"bg-[#2d2d3d]"}>
+                    <td className="px-2 py-1 border border-gray-700 text-white font-semibold">{m.name}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300">{m.type}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300 font-mono">{m.diam}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300 font-mono">{m.elev}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <div className="flex gap-2">
+                <button className="px-3 py-1 bg-[#0078d4] text-white text-[11px] rounded hover:bg-[#0066b3]">Добавить колодец</button>
+                <button className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Удалить</button>
+              </div>
+              <p className="text-[10px] text-gray-500">Перетащите колодец на план для изменения положения</p>
+            </div>
+          )}
+          {pipeTab==="pipes" && (
+            <div className="space-y-2">
+              <table className="w-full text-[11px] border-collapse">
+                <thead><tr className="bg-[#1e1e2e]">
+                  {["Имя","От","До","Диаметр мм","Материал","Уклон %"].map(h=>(
+                    <th key={h} className="text-left px-2 py-1 text-gray-400 border border-gray-700">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>{pipes.map((p,i)=>(
+                  <tr key={i} className={i%2===0?"bg-[#252535]":"bg-[#2d2d3d]"}>
+                    <td className="px-2 py-1 border border-gray-700 text-white font-semibold">{p.name}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300">{p.from}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300">{p.to}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300 font-mono">{p.diam}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300">{p.mat}</td>
+                    <td className="px-2 py-1 border border-gray-700 text-gray-300 font-mono">{p.slope}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <div className="flex gap-2">
+                <button className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Изменить диаметр</button>
+                <button className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Изменить материал</button>
+              </div>
+            </div>
+          )}
+          {pipeTab==="collisions" && (
+            <div className="space-y-2">
+              <button onClick={()=>setCollisionChecked(true)}
+                className="px-4 py-1.5 bg-[#0078d4] text-white text-[11px] rounded hover:bg-[#0066b3] font-semibold">Проверить коллизии</button>
+              {collisionChecked && (
+                <div className="space-y-1.5">
+                  <div className="flex items-start gap-2 p-2 bg-red-900/20 border border-red-700/40 rounded">
+                    <span className="text-red-400 text-xs mt-0.5">⚠</span>
+                    <span className="text-[11px] text-red-300">Труба Т-2 × Водопровод В-4: пересечение на отм. 118.50м</span>
+                  </div>
+                  <div className="flex items-start gap-2 p-2 bg-red-900/20 border border-red-700/40 rounded">
+                    <span className="text-red-400 text-xs mt-0.5">⚠</span>
+                    <span className="text-[11px] text-red-300">Колодец КК-3: расстояние до здания {"<"} 5м</span>
+                  </div>
+                  <div className="flex items-start gap-2 p-2 bg-green-900/20 border border-green-700/40 rounded">
+                    <span className="text-green-400 text-xs mt-0.5">✓</span>
+                    <span className="text-[11px] text-green-300">Остальные объекты — без коллизий</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {pipeTab==="profile" && (
+            <div className="bg-[#1a1a2e] rounded border border-gray-700 overflow-hidden" style={{height:160}}>
+              <svg width="100%" height="160" viewBox="0 0 580 160">
+                <text x="10" y="14" fill="#9ca3af" fontSize="9">Профиль трубопроводной сети</text>
+                {/* Ground line */}
+                <polyline points="20,100 160,95 300,90 440,85 560,80" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4,2"/>
+                {/* Pipe line */}
+                <polyline points="20,120 160,118 300,122 440,130 560,128" fill="none" stroke="#6366f1" strokeWidth="2"/>
+                {/* Manholes */}
+                {[20,160,300,440,560].map((x,i)=>(
+                  <g key={i}>
+                    <rect x={x-6} y={100} width="12" height={[20,18,22,30,28][i]} fill="#4b5563" stroke="#6366f1" strokeWidth="1"/>
+                    <circle cx={x} cy={98} r="5" fill="#1e1e2e" stroke="#6366f1" strokeWidth="1.5"/>
+                    <text x={x} y="150" fill="#6b7280" fontSize="8" textAnchor="middle">{["КК-1","КК-2","КК-3","КК-4","КК-5"][i]}</text>
+                    <text x={x} y="140" fill="#9ca3af" fontSize="7" textAnchor="middle">{["118.4","117.9","117.2","116.6","116.1"][i]}</text>
+                  </g>
+                ))}
+                {/* Labels */}
+                <text x="10" y="95" fill="#9ca3af" fontSize="7">Рельеф</text>
+                <text x="10" y="125" fill="#818cf8" fontSize="7">Лоток</text>
+              </svg>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-3 pb-3 border-t border-gray-700 pt-2">
+          <button onClick={onOK} className="px-4 py-1 bg-[#0078d4] text-white text-[11px] rounded hover:bg-[#0066b3]">ОК</button>
+          <button onClick={onClose} className="px-4 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Отмена</button>
         </div>
       </div>
     </motion.div>
@@ -4092,6 +4784,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [showSurface, setShowSurface] = useState(false)
+  const [showSurfaceEdit, setShowSurfaceEdit] = useState(false)
+  const [surfaceEditName, setSurfaceEditName] = useState("Существующая поверхность")
+  const [showDaylightFL, setShowDaylightFL] = useState(false)
+  const [showDataShortcuts, setShowDataShortcuts] = useState(false)
   const [showAlignment, setShowAlignment] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showAssembly, setShowAssembly] = useState(false)
@@ -4109,6 +4805,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDrawingSettings, setShowDrawingSettings] = useState(false)
   const [toast, setToast] = useState<string|null>(null)
   const showToast = (msg: string) => { setToast(msg); setTimeout(()=>setToast(null), 2500) }
+  const [syncStatus, setSyncStatus] = useState<"ok"|"outdated">("ok")
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
@@ -4521,16 +5218,47 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   // ── Delete selected ────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedObjId && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedObjId && !isInput) {
         const obj = canvasObjects.find(o => o.id === selectedObjId)
         if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); deleteCanvasObject(selectedObjId); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
       }
       if (e.key === "Escape") { setDrawingPts([]); setActiveTool("select"); setSelectedObjId(null) }
+      // Extended hotkeys
+      if (!isInput) {
+        if (e.key === "a" || e.key === "A") {
+          if (activeTool === "polyline" || activeTool === "line") showToast("A: добавить вершину")
+        }
+        if (e.key === "d" || e.key === "D") {
+          if (selectedObjId) {
+            const obj = canvasObjects.find(o => o.id === selectedObjId)
+            if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); deleteCanvasObject(selectedObjId); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
+          }
+        }
+        if (e.key === "r" || e.key === "R") {
+          if (selectedObjId) showToast("R: введите новый радиус кривой")
+        }
+        if (e.key === "g" || e.key === "G") {
+          showToast("G: отображение отметок включено/выключено")
+        }
+        if (e.key === "z" || e.key === "Z") {
+          showToast("Зум экстентов")
+          setZoom(1.1); setPan({ x: 30, y: 20 })
+        }
+        if (e.key === "F3") {
+          e.preventDefault()
+          showToast("F3: объектная привязка вкл/выкл")
+        }
+        if (e.key === "S" && e.ctrlKey && e.shiftKey) {
+          e.preventDefault()
+          showToast("Сохранение всех файлов проекта...")
+        }
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
    
-  }, [selectedObjId, canvasObjects])
+  }, [selectedObjId, canvasObjects, activeTool])
 
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault()
@@ -4775,6 +5503,15 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "ЗЕМЛЯ" || c === "EARTHWORKS" || c === "ВЗР") { setShowEarthworks(true); setStatusMsg("Ведомость земляных работ"); setCommandLine(""); return }
     else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
     else if (c === "ПРОЕКТ" || c === "PROJECT" || c === "ДП") { setShowProjectManager(true); setStatusMsg("Диспетчер проекта"); setCommandLine(""); return }
+    else if (c === "SURFACEEDIT" || c === "РЕДАКТИРОВАТЬ ПОВЕРХНОСТЬ" || c === "РПОВ") { setSurfaceEditName("Существующая поверхность"); setShowSurfaceEdit(true); setStatusMsg("Редактор поверхности"); setCommandLine(""); return }
+    else if (c === "DAYLIGHT" || c === "DAYLIGHT FL" || c === "ХАР.ЛИНИЯ" || c === "ВЫХОД НА РЕЛЬЕФ") { setShowDaylightFL(true); setStatusMsg("Daylight Feature Line"); setCommandLine(""); return }
+    else if (c === "SYNCHRONIZEDATA" || c === "SYNCH" || c === "СИНХР" || c === "DATA SHORTCUTS") { setShowDataShortcuts(true); setStatusMsg("Data Shortcuts — синхронизация"); setCommandLine(""); return }
+    else if (c === "REFRESH" || c === "F5" || c === "ОБНОВИТЬ") { setSyncStatus("ok"); showToast("Данные обновлены"); setCommandLine(""); return }
+    else if (c === "FEATURELINEEDIT" || c === "РЕДХАРЛИН") { setShowFeatureLine(true); setStatusMsg("Редактор характерных линий"); setCommandLine(""); return }
+    else if (c === "?" || c === "HELP" || c === "СПРАВКА") {
+      showToast("Команды: ПОВЕРХНОСТЬ, ТРАССА, ПРОФИЛЬ, КОРИДОР, ТРУБА, SURFACEEDIT, DAYLIGHT, SYNCHRONIZEDATA, ЗЕМЛЯ, НЕВЯЗКА, ZE...")
+      setCommandLine(""); return
+    }
     else { setStatusMsg(`Неизвестная команда: ${cmd}. Введите ? для справки`); setCommandLine(""); return }
     setStatusMsg(`Команда: ${cmd}`)
     setCommandLine("")
@@ -4799,6 +5536,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("пересечен")) { setShowIntersection(true) }
     // Характерные линии
     else if (k.includes("хар. лин") || k.includes("характерн")) { setShowFeatureLine(true) }
+    else if (k.includes("daylight") || k.includes("выход на рельеф")) { setShowDaylightFL(true) }
+    else if (k.includes("data shortcut") || k.includes("синхронизир") || k.includes("быстрые ссылки")) { setShowDataShortcuts(true) }
+    else if (k.includes("редактировать поверхност") || k.includes("surfaceedit")) { setSurfaceEditName("Существующая поверхность"); setShowSurfaceEdit(true) }
     // Анализ
     else if (k.includes("уклон") || k.includes("высот") || k.includes("водосбор") || k.includes("анализ")) {
       setAnalysisType(k.includes("высот") ? "Анализ высот" : k.includes("водосбор") ? "Анализ водосборов" : "Анализ уклонов")
@@ -5581,6 +6321,26 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
           {/* Dialogs */}
           <AnimatePresence>
+            {showSurfaceEdit && (
+              <SurfaceEditDialog name={surfaceEditName} onClose={() => setShowSurfaceEdit(false)} />
+            )}
+            {showDaylightFL && (
+              <DaylightFeatureLineDialog
+                onClose={() => setShowDaylightFL(false)}
+                onOK={() => {
+                  showToast("✓ Характерные линии выхода на рельеф созданы")
+                  setTreeData(prev => {
+                    const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n =>
+                      n.id === "featurelines" ? {...n, children:[...(n.children||[]),{id:`dfl_${Date.now()}`,label:"Daylight FL (лев/прав)",icon:"Spline",color:"#a78bfa"}]} : {...n, children: n.children ? add(n.children) : undefined}
+                    )
+                    return add(prev)
+                  })
+                }}
+              />
+            )}
+            {showDataShortcuts && (
+              <DataShortcutsPanel onClose={() => setShowDataShortcuts(false)} />
+            )}
             {showCorridor && (
               <CorridorDialog
                 onClose={() => setShowCorridor(false)}
@@ -5675,13 +6435,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               }}/>
             )}
             {showPipeNet && (
-              <PipeNetDialog onClose={()=>setShowPipeNet(false)} onOK={d=>{
+              <PipeNetworkDialog onClose={()=>setShowPipeNet(false)} onOK={()=>{
                 setShowPipeNet(false)
-                setStatusMsg(`Сеть «${d.name}» создана (${d.type})`)
-                saveObject("pipe_network", d.name, { type: d.type, material: d.material })
-                showToast(`💾 Сеть «${d.name}» сохранена`)
+                showToast("Сеть сохранена")
+                saveObject("pipe_network", "Трубопроводная сеть", {})
                 setTreeData(prev=>{
-                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="pipenet"?{...n,children:[...(n.children||[]),{id:`pipe_${Date.now()}`,label:d.name,icon:"Network",color:"#6366f1"}]}:{...n,children:n.children?add(n.children):undefined})
+                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="pipenet"?{...n,children:[...(n.children||[]),{id:`pipe_${Date.now()}`,label:"Трубопроводная сеть",icon:"Network",color:"#6366f1"}]}:{...n,children:n.children?add(n.children):undefined})
                   return add(prev)
                 })
               }}/>
@@ -6087,14 +6846,17 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             { icon: "Layers",        title: "Слои",                   action: () => setShowLayers(true) },
             { icon: "ListFilter",    title: "Свойства объекта  PR",   action: () => setShowProperties(p => !p) },
             { icon: "BarChart3",     title: "Земляные работы",        action: () => setShowEarthworks(true) },
-            { icon: "Mountain",      title: "Создать поверхность",    action: () => setShowSurface(true) },
-            { icon: "Route",         title: "Создать трассу",         action: () => setShowAlignment(true) },
-            { icon: "Navigation",    title: "Создать коридор",        action: () => setShowCorridor(true) },
-            { icon: "Network",       title: "Создать трубопровод",    action: () => setShowPipeNet(true) },
+            { icon: "Mountain",      title: "Создать поверхность",           action: () => setShowSurface(true) },
+            { icon: "PencilRuler",   title: "Редактировать поверхность  SURFACEEDIT", action: () => { setSurfaceEditName("Существующая поверхность"); setShowSurfaceEdit(true) }, fallback: "Edit" },
+            { icon: "Route",         title: "Создать трассу",                action: () => setShowAlignment(true) },
+            { icon: "Navigation",    title: "Создать коридор",               action: () => setShowCorridor(true) },
+            { icon: "Network",       title: "Создать трубопровод",           action: () => setShowPipeNet(true) },
+            { icon: "Spline",        title: "Daylight Feature Line (2027)",  action: () => setShowDaylightFL(true) },
             null,
-            { icon: "FileBarChart2", title: "Диспетчер отчётов",      action: () => setShowProjectManager(true) },
-            { icon: "GitBranch",     title: "Отчёт о невязке",        action: () => setShowSurveyTraverse(true) },
-            { icon: "Bot",           title: "ЛАПА-Ассистент",         action: () => setShowAssistant(p => !p) },
+            { icon: "Share2",        title: "Data Shortcuts — Синхронизация  SYNCHRONIZEDATA", action: () => setShowDataShortcuts(true), fallback: "Link" },
+            { icon: "FileBarChart2", title: "Диспетчер отчётов",             action: () => setShowProjectManager(true) },
+            { icon: "GitBranch",     title: "Отчёт о невязке",               action: () => setShowSurveyTraverse(true) },
+            { icon: "Bot",           title: "ЛАПА-Ассистент",                action: () => setShowAssistant(p => !p) },
             null,
             { icon: "SplitSquareVertical", title: "Разделить экран", action: () => setSplitView(p => !p), fallback: "Columns" },
             { icon: "Sun",           title: "Тонирование",            action: () => { setViewMode("shaded"); setStatusMsg("Визуальный стиль: Тонирование") } },
@@ -6214,6 +6976,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <button key={i} className="hover:text-white px-0.5">{ic}</button>
           ))}
         </div>
+        {/* Data Shortcuts sync indicator */}
+        <button onClick={() => setShowDataShortcuts(true)}
+          className="flex items-center gap-1 text-[9px] border-l border-gray-700 pl-2 pr-1 hover:bg-[#252535] transition-colors">
+          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${syncStatus==="ok"?"bg-green-500":"bg-yellow-400 animate-pulse"}`}/>
+          <span className={`${syncStatus==="ok"?"text-green-400":"text-yellow-400"}`}>
+            Data Shortcuts: {syncStatus==="ok"?"актуальны ✓":"устарели ⚠"}
+          </span>
+          <button onClick={e=>{ e.stopPropagation(); setSyncStatus("ok"); showToast("Синхронизация завершена") }}
+            className="text-gray-500 hover:text-white px-0.5 ml-0.5" title="Синхронизировать все">⟳</button>
+        </button>
         {/* Cursor coordinates right */}
         <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 border-l border-gray-700 pl-2">
           <span className="text-gray-400">{cursorCoords.x.toFixed(2)}, {cursorCoords.y.toFixed(2)}, 0.00</span>
