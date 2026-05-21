@@ -156,6 +156,10 @@ export interface ProjectStore {
   // Уведомление для UI
   notification: { text: string; type: "info" | "success" | "error" } | null
   notify: (text: string, type?: "info" | "success" | "error") => void
+
+  // ── Объекты с canvas редактора (live-синхронизация с 3D) ─────────────────
+  liveCanvasObjects: CanvasObject[]
+  setLiveCanvasObjects: (objs: CanvasObject[]) => void
 }
 
 export interface Layer {

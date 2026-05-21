@@ -41,6 +41,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ text: string; type: "info" | "success" | "error" } | null>(null)
   const notifTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [liveCanvasObjects, setLiveCanvasObjects] = useState<CanvasObject[]>([])
 
   const notify = useCallback((text: string, type: "info" | "success" | "error" = "info") => {
     setNotification({ text, type })
@@ -156,6 +157,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setSelectedObjectId,
     notification,
     notify,
+    liveCanvasObjects,
+    setLiveCanvasObjects,
   }
 
   return (

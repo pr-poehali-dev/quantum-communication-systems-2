@@ -133,11 +133,17 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const видRef = useRef(вид)
   const ширRef = useRef(ширДор)
   const солнцеRef = useRef(высотаСолнца)
+  // Ref для live-объектов из редактора (чтобы анимационный цикл всегда видел актуальное)
+  const liveObjsRef = useRef<import("@/hooks/useProjectStore").CanvasObject[]>([])
   useEffect(() => { слоиRef.current = слои }, [слои])
   useEffect(() => { режимRef.current = режим; if (режим === "Каркас") setСлои(s => ({ ...s, каркас: true })) }, [режим])
   useEffect(() => { видRef.current = вид }, [вид])
   useEffect(() => { ширRef.current = ширДор }, [ширДор])
   useEffect(() => { солнцеRef.current = высотаСолнца }, [высотаСолнца])
+  // Синхронизируем ref с store при каждом изменении live-объектов
+  useEffect(() => {
+    if (store) liveObjsRef.current = store.liveCanvasObjects
+  }, [store?.liveCanvasObjects])
 
   const переключитьСлой = (k: keyof SloyState) => setСлои(s => ({ ...s, [k]: !s[k] }))
 
@@ -487,6 +493,101 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
         ctx.fillStyle = color + "cc"; ctx.fillRect(tip.sx - tw / 2, tip.sy - 14, tw, 15)
         ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(txt, tip.sx, tip.sy - 2); ctx.textAlign = "left"
       })
+    }
+
+    // ── Live-объекты из редактора (синхронизация с CivilCADModule) ─────────────
+    const liveObjs = liveObjsRef.current
+    if (liveObjs.length > 0) {
+      // Масштаб: canvas-координаты редактора → мировые координаты 3D
+      // Редактор работает в условных единицах ~0..300, 3D-сцена: -25..25
+      // Нормализуем через bbox всех точек
+      let minX = Infinity, maxX = -Infinity, minY2 = Infinity, maxY2 = -Infinity
+      liveObjs.forEach(obj => obj.pts.forEach(([px, py]) => {
+        if (px < minX) minX = px; if (px > maxX) maxX = px
+        if (py < minY2) minY2 = py; if (py > maxY2) maxY2 = py
+      }))
+      const rangeX = maxX - minX || 1, rangeY = maxY2 - minY2 || 1
+      const scale3d = 40 / Math.max(rangeX, rangeY)
+      const offX = (minX + maxX) / 2, offY2 = (minY2 + maxY2) / 2
+
+      const toWorld3D = (px: number, py: number): Vec3 => {
+        const wx = (px - offX) * scale3d
+        const wz = (py - offY2) * scale3d
+        const wy = высота(wx, wz) + 0.3
+        return { x: wx, y: wy, z: wz }
+      }
+
+      liveObjs.forEach(obj => {
+        if (obj.pts.length === 0) return
+        const color = obj.color || "#22d3ee"
+
+        if (obj.type === "point") {
+          const p3 = toWorld3D(obj.pts[0][0], obj.pts[0][1])
+          const base = prj(p3)
+          const tip = prj({ x: p3.x, y: p3.y + 3.5, z: p3.z })
+          if (!base) return
+          ctx.beginPath(); ctx.arc(base.sx, base.sy, 5, 0, Math.PI * 2)
+          ctx.fillStyle = color; ctx.fill()
+          ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.stroke()
+          if (tip) {
+            ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(tip.sx, tip.sy)
+            ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.stroke()
+            ctx.setLineDash([])
+            ctx.font = "bold 8px Arial"
+            const tw = ctx.measureText(obj.label).width + 8
+            ctx.fillStyle = color + "cc"; ctx.fillRect(tip.sx - tw / 2, tip.sy - 14, tw, 14)
+            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(obj.label, tip.sx, tip.sy - 2); ctx.textAlign = "left"
+          }
+          return
+        }
+
+        if (obj.pts.length < 2) return
+
+        // Проецируем все точки
+        const projected = obj.pts.map(([px, py]) => prj(toWorld3D(px, py)))
+
+        // Определяем стиль по типу объекта
+        const isAlignment = obj.type === "alignment" || obj.layer === "Трассы"
+        const isPipe = obj.type === "pipe"
+        const lw = isAlignment ? 3.5 : isPipe ? 2.5 : (obj.lineWidth ?? 2)
+
+        ctx.beginPath()
+        let started = false
+        for (let i = 0; i < projected.length; i++) {
+          const p = projected[i]
+          if (!p) { started = false; continue }
+          if (!started) { ctx.moveTo(p.sx, p.sy); started = true }
+          else ctx.lineTo(p.sx, p.sy)
+        }
+
+        // Свечение для трасс
+        if (isAlignment && !ночь) {
+          ctx.shadowColor = color; ctx.shadowBlur = 8
+        }
+        ctx.strokeStyle = color
+        ctx.lineWidth = lw
+        ctx.setLineDash([])
+        ctx.stroke()
+        ctx.shadowBlur = 0
+
+        // Метка по середине
+        const midIdx = Math.floor(projected.length / 2)
+        const mid3 = projected[midIdx]
+        if (mid3 && obj.label) {
+          ctx.font = "bold 9px Arial"
+          const tw = ctx.measureText(obj.label).width + 10
+          ctx.fillStyle = color + "dd"
+          ctx.fillRect(mid3.sx - tw / 2, mid3.sy - 15, tw, 15)
+          ctx.fillStyle = "white"; ctx.textAlign = "center"
+          ctx.fillText(obj.label, mid3.sx, mid3.sy - 3); ctx.textAlign = "left"
+        }
+      })
+
+      // Счётчик live-объектов (HUD)
+      ctx.fillStyle = "rgba(0,120,212,0.85)"
+      ctx.fillRect(8, 8, 160, 22)
+      ctx.fillStyle = "white"; ctx.font = "bold 10px Arial"
+      ctx.fillText(`▶ Из редактора: ${liveObjs.length} объект(ов)`, 14, 23)
     }
 
     // Компас

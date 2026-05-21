@@ -4513,6 +4513,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   useEffect(() => { draw() }, [draw])
 
+  // ── Синхронизация canvasObjects → store (live 3D) ─────────────────────────
+  useEffect(() => {
+    if (store) store.setLiveCanvasObjects(canvasObjects)
+  }, [canvasObjects, store])
+
   // ── Delete selected ────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
