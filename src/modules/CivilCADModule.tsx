@@ -5927,6 +5927,724 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// НОВЫЕ МОДУЛИ: Survey DB · Breaklines · Sample Lines · Section Views ·
+//               Pressure Network · Manning · Mass Haul · Label Styles ·
+//               Plan Production · Visibility Analysis · Parcels ROW
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Survey Database + Figures + FieldBook ────────────────────────────────────
+function SurveyDBDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"db"|"figures"|"fieldbook"|"codes">("db")
+  const [points] = useState([
+    {id:"1001",x:"5420.145",y:"3817.234",z:"121.340",code:"Р",desc:"Рельеф"},
+    {id:"1002",x:"5435.280",y:"3825.110",z:"122.015",code:"Д",desc:"Дорога"},
+    {id:"1003",x:"5441.920",y:"3830.640",z:"119.780",code:"КН",desc:"Канава"},
+    {id:"1004",x:"5418.500",y:"3845.220",z:"123.450",code:"ЗД",desc:"Здание"},
+    {id:"1005",x:"5455.330",y:"3812.780",z:"120.890",code:"Р",desc:"Рельеф"},
+    {id:"1006",x:"5462.140",y:"3838.900",z:"118.230",code:"ОК",desc:"Окно/ось"},
+  ])
+  const figures = [
+    {name:"Ось дороги",type:"Линия",points:"1002,1003,1006",length:"87.4м",code:"Д"},
+    {name:"Контур здания",type:"Полигон",points:"1004,1004",length:"34.2м",code:"ЗД"},
+    {name:"Канава лев.",type:"Полилиния",points:"1003,1005",length:"42.1м",code:"КН"},
+  ]
+  const fieldBook = [
+    {time:"08:14",inst:"ТС-20",from:"ПП-1",to:"ПП-2",hz:"42°18'36\"",v:"89°58'12\"",dist:"125.340",note:""},
+    {time:"08:31",inst:"ТС-20",from:"ПП-2",to:"ПП-3",hz:"118°45'12\"",v:"90°01'48\"",dist:"98.720",note:""},
+    {time:"08:52",inst:"ТС-20",from:"ПП-3",to:"1001",hz:"287°22'10\"",v:"88°44'30\"",dist:"31.280",note:"Тропа"},
+    {time:"09:05",inst:"ТС-20",from:"ПП-3",to:"1002",hz:"312°14'48\"",v:"90°12'18\"",dist:"28.750",note:"Ось"},
+  ]
+  const codes = [
+    {code:"Р",desc:"Рельефная точка",symbol:"○",layer:"Рельеф",color:"#4ade80"},
+    {code:"Д",desc:"Дорога / ось",symbol:"⬤",layer:"Дороги",color:"#f97316"},
+    {code:"КН",desc:"Канава / лоток",symbol:"◇",layer:"Дренаж",color:"#60a5fa"},
+    {code:"ЗД",desc:"Здание / сооружение",symbol:"□",layer:"Здания",color:"#a855f7"},
+    {code:"КЛ",desc:"Кабель / электролиния",symbol:"⚡",layer:"Сети",color:"#facc15"},
+    {code:"ТР",desc:"Трубопровод",symbol:"○─",layer:"Трубы",color:"#06b6d4"},
+    {code:"ОК",desc:"Ось кривой",symbol:"⌒",layer:"Трассы",color:"#ec4899"},
+    {code:"ПК",desc:"Пикет",symbol:"│",layer:"Пикетаж",color:"#e879f9"},
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="MapPin" size={13} className="text-[#0078d4]"/>База данных съёмки (Survey Database)
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
+          {([["db","Точки БД"],["figures","Фигуры"],["fieldbook","Полевой журнал"],["codes","Коды"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-3 min-h-0 text-[10px]">
+          {tab==="db" && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400">{points.length} точек · GPS/Тахеометр · МСК-70</span>
+                <div className="flex gap-1">
+                  <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">Импорт CSV/RW5</button>
+                  <button className="px-2 py-0.5 bg-[#252535] text-gray-400 border border-gray-700 rounded text-[9px]">Экспорт</button>
+                </div>
+              </div>
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-[#0d1117]">{["ID","X","Y","Z","Код","Описание"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 font-normal text-left">{h}</th>)}</tr></thead>
+                <tbody>{points.map((p,i)=>(
+                  <tr key={i} className="hover:bg-[#252535]">
+                    <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{p.id}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 font-mono text-gray-300">{p.x}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 font-mono text-gray-300">{p.y}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 font-mono text-green-400">{p.z}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-yellow-400 font-bold">{p.code}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-500">{p.desc}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {tab==="figures" && (
+            <div className="space-y-2">
+              <div className="text-gray-500 mb-2">Линейные объекты по кодам точек (Survey Figures)</div>
+              {figures.map((f,i)=>(
+                <div key={i} className="flex items-center gap-3 p-2 rounded border border-gray-700 hover:bg-[#252535]" style={{background:"#111827"}}>
+                  <Icon name={f.type==="Полигон"?"Square":"Route"} size={14} className="text-[#0078d4] flex-shrink-0" fallback="Minus"/>
+                  <div className="flex-1"><div className="text-white font-semibold">{f.name}</div>
+                  <div className="text-gray-500">Код: {f.code} · {f.type} · Точки: {f.points}</div></div>
+                  <span className="text-gray-400 font-mono">{f.length}</span>
+                </div>
+              ))}
+              <button className="mt-2 px-3 py-1.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[10px] w-full">+ Создать фигуру по коду</button>
+            </div>
+          )}
+          {tab==="fieldbook" && (
+            <div>
+              <div className="text-gray-500 mb-2">Полевой журнал (Field Book) · Прибор: ТС-20</div>
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-[#0d1117]">{["Время","Откуда","Куда","Гор.угол","Верт.угол","Расстояние","Примечание"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 font-normal text-left">{h}</th>)}</tr></thead>
+                <tbody>{fieldBook.map((r,i)=>(
+                  <tr key={i} className="hover:bg-[#252535]">
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-500 font-mono">{r.time}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{r.from}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-white font-mono">{r.to}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-yellow-400 font-mono">{r.hz}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-400 font-mono">{r.v}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-green-400 font-mono">{r.dist}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-600">{r.note}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {tab==="codes" && (
+            <div className="grid grid-cols-2 gap-2">
+              {codes.map(c=>(
+                <div key={c.code} className="flex items-center gap-3 p-2 rounded border border-gray-700" style={{background:"#111827"}}>
+                  <div className="w-7 h-7 rounded flex items-center justify-center text-[14px] flex-shrink-0" style={{background:c.color+"20",color:c.color}}>{c.symbol}</div>
+                  <div><div className="text-white font-bold">{c.code}</div><div className="text-gray-500 text-[9px]">{c.desc} · Слой: {c.layer}</div></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px]">Закрыть</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Breaklines + Voids + Surface Stats + Compare Surfaces ────────────────────
+function SurfaceAdvancedDialog({ onClose, mode }: { onClose: ()=>void; mode: "breaklines"|"voids"|"stats"|"compare"|"interpolation" }) {
+  const titles = { breaklines:"Линии разрыва TIN (Breaklines)", voids:"Исключения поверхности (Voids)", stats:"Статистика поверхности", compare:"Сравнение поверхностей", interpolation:"Интерполяция (IDW / Kriging / NN)" }
+  const [breaklines] = useState([
+    {name:"Ось дороги", type:"Стандартная", pts:5, len:"423.4м"},
+    {name:"Кромка проезжей части лев.", type:"Стандартная", pts:8, len:"418.2м"},
+    {name:"Бровка откоса прав.", type:"Не деструктивная", pts:12, len:"415.7м"},
+    {name:"Ось канавы", type:"Стандартная", pts:6, len:"198.3м"},
+  ])
+  const stats = {
+    min:"118.24 м",max:"135.72 м",mean:"124.81 м",area2D:"48 230.5 м²",area3D:"49 118.3 м²",
+    pts:"1 847",tri:"3 691",minSlope:"0.2%",maxSlope:"38.4%",meanSlope:"8.7%"
+  }
+  const interpMethod = useState("IDW")[0]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:580,maxHeight:"85vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="Triangle" size={13} className="text-[#4ade80]"/>{titles[mode]}
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {mode==="breaklines" && (
+            <div className="space-y-2">
+              <div className="flex justify-between mb-3">
+                <span className="text-gray-400">Линии разрыва влияют на триангуляцию TIN вдоль объектов</span>
+                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">+ Добавить</button>
+              </div>
+              {breaklines.map((b,i)=>(
+                <div key={i} className="flex items-center gap-3 p-2 rounded border border-gray-700 hover:bg-[#252535]" style={{background:"#111827"}}>
+                  <Icon name="Minus" size={14} className="text-yellow-400"/>
+                  <div className="flex-1"><div className="text-white">{b.name}</div>
+                  <div className="text-gray-500 text-[9px]">Тип: {b.type} · {b.pts} точек · {b.len}</div></div>
+                  <button className="text-gray-600 hover:text-red-400 text-[10px]">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {mode==="voids" && (
+            <div className="space-y-3">
+              <p className="text-gray-400">Исключения удаляют треугольники TIN внутри контуров</p>
+              <div className="rounded-lg border border-dashed border-gray-600 p-6 text-center" style={{background:"#111827"}}>
+                <Icon name="Triangle" size={24} className="text-gray-600 mx-auto mb-2"/>
+                <div className="text-gray-500 text-[10px]">Нет добавленных исключений</div>
+                <button className="mt-2 px-3 py-1 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[10px]">Выбрать контур на чертеже</button>
+              </div>
+            </div>
+          )}
+          {mode==="stats" && (
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(stats).map(([k,v])=>(
+                <div key={k} className="rounded border border-gray-700 px-3 py-2" style={{background:"#111827"}}>
+                  <div className="text-gray-500 text-[9px] mb-0.5">{k==="min"?"Мин. отметка":k==="max"?"Макс. отметка":k==="mean"?"Средняя":k==="area2D"?"Площадь 2D":k==="area3D"?"Площадь 3D":k==="pts"?"Точек":k==="tri"?"Треугольников":k==="minSlope"?"Мин. уклон":k==="maxSlope"?"Макс. уклон":"Средний уклон"}</div>
+                  <div className="text-white font-mono font-bold">{v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {mode==="compare" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {["Поверхность 1","Поверхность 2"].map(lbl=>(
+                  <div key={lbl}>
+                    <div className="text-gray-500 text-[9px] mb-1">{lbl}</div>
+                    <select className="w-full bg-[#252535] border border-gray-600 text-white text-[10px] px-2 py-1 rounded">
+                      <option>Существующая поверхность</option>
+                      <option>Проектная поверхность</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[10px] font-bold text-white mb-2">Объём между поверхностями</div>
+                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                  <div className="text-center"><div className="text-red-400 font-bold text-[14px]">13 407 м³</div><div className="text-gray-500">Выемка (Cut)</div></div>
+                  <div className="text-center"><div className="text-blue-400 font-bold text-[14px]">6 154 м³</div><div className="text-gray-500">Насыпь (Fill)</div></div>
+                  <div className="text-center"><div className="text-green-400 font-bold text-[14px]">+7 253 м³</div><div className="text-gray-500">Баланс</div></div>
+                </div>
+              </div>
+            </div>
+          )}
+          {mode==="interpolation" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                {["IDW","Kriging","Natural Neighbor"].map(m=>(
+                  <button key={m} className={`p-3 rounded-lg border text-center transition-all ${interpMethod===m?"border-[#0078d4] bg-[#0078d4]/20":"border-gray-700 hover:bg-[#252535]"}`} style={{background:interpMethod===m?undefined:"#111827"}}>
+                    <div className="text-white text-[11px] font-bold">{m}</div>
+                    <div className="text-gray-500 text-[9px] mt-0.5">{m==="IDW"?"Обратных расстояний":m==="Kriging"?"Геостатистика":"Естественный сосед"}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[10px] text-gray-400 font-bold mb-2">Параметры IDW</div>
+                {[["Степень (Power)","2"],["Поиск соседей","12"],["Макс. расстояние","—"],].map(([k,v])=>(
+                  <div key={k} className="flex items-center gap-3 mb-1">
+                    <span className="text-gray-500 w-36">{k}:</span>
+                    <input defaultValue={v} className="w-20 bg-[#252535] border border-gray-600 text-white text-[10px] px-2 py-0.5 rounded font-mono"/>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px]">Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Sample Lines + Section Views ─────────────────────────────────────────────
+function SampleLinesDialog({ onClose }: { onClose: ()=>void }) {
+  const [spacing, setSpacing] = useState("20")
+  const [halfWidth, setHalfWidth] = useState("25")
+  const [corridor, setCorridor] = useState("Дорога и парковочная зона")
+  const count = Math.floor(2000/parseFloat(spacing||"20")) + 1
+  const rows = Array.from({length:Math.min(count,12)},(_,i)=>{
+    const st = i*parseFloat(spacing||"20")
+    const cut = (Math.random()*8).toFixed(2), fill = (Math.random()*6).toFixed(2)
+    return {pk:`ПК${Math.floor(st/100)}+${String(st%100).padStart(2,"0")}`,st,cut,fill,net:(parseFloat(cut)-parseFloat(fill)).toFixed(2)}
+  })
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:680,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="AlignCenter" size={13} className="text-[#f97316]"/>Sample Lines + Section Views
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-3 border-b border-gray-800 bg-[#111827] flex-shrink-0 flex gap-4 flex-wrap text-[10px]">
+          {([["Коридор:",corridor,setCorridor,null],["Шаг, м:",spacing,setSpacing,null],["Полуширина, м:",halfWidth,setHalfWidth,null]] as [string,string,(v:string)=>void,null][]).map(([lbl,val,set])=>(
+            <label key={lbl} className="flex items-center gap-2">
+              <span className="text-gray-500">{lbl}</span>
+              {lbl==="Коридор:" ? <select value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-0.5 rounded text-[10px]"><option>Дорога и парковочная зона</option><option>Ул. Трумана</option></select>
+                : <input value={val} onChange={e=>set(e.target.value)} className="w-16 bg-[#252535] border border-gray-600 text-white px-2 py-0.5 rounded font-mono text-[10px]"/>}
+            </label>
+          ))}
+          <span className="text-gray-500">Сечений: <span className="text-white font-bold">{count}</span></span>
+        </div>
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Таблица */}
+          <div className="flex-1 overflow-auto border-r border-gray-800">
+            <table className="w-full border-collapse text-[10px]">
+              <thead><tr className="bg-[#0d1117] sticky top-0">{["Пикет","Пл. выемки м²","Пл. насыпи м²","Нетто м²"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+              <tbody>{rows.map((r,i)=>(
+                <tr key={i} className={`${i%2===0?"bg-[#111827]":"bg-[#0d1117]"} hover:bg-[#1a2a3a]`}>
+                  <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{r.pk}</td>
+                  <td className="px-2 py-0.5 border border-gray-800 text-red-300 font-mono">{r.cut}</td>
+                  <td className="px-2 py-0.5 border border-gray-800 text-blue-300 font-mono">{r.fill}</td>
+                  <td className={`px-2 py-0.5 border border-gray-800 font-mono ${parseFloat(r.net)>=0?"text-red-400":"text-blue-400"}`}>{r.net}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+          {/* Section View превью */}
+          <div className="w-48 flex-shrink-0 p-2 overflow-auto">
+            <div className="text-[9px] text-gray-500 mb-1 text-center">Поперечник ПК0+000</div>
+            <svg width="176" height="100" viewBox="-22 -12 44 16" style={{background:"#0d1117",borderRadius:4}}>
+              <path d="M-20,-3 C-12,-3 -8,0 0,0 8,0 12,-3 20,-3" stroke="#4ade80" strokeWidth="0.4" fill="none"/>
+              <path d="M-6,0 L-6,-1.5 L6,-1.5 L6,0" fill="rgba(35,40,55,0.9)" stroke="rgba(255,255,255,0.3)" strokeWidth="0.2"/>
+              <line x1="0" y1="-4" x2="0" y2="4" stroke="#ef4444" strokeWidth="0.2" strokeDasharray="0.5 0.5"/>
+              <line x1="-20" y1="0" x2="20" y2="0" stroke="#6b7280" strokeWidth="0.15" strokeDasharray="0.8 0.5"/>
+              <text x="0" y="3" textAnchor="middle" fill="#6b7280" fontSize="1.8">ПК0+000</text>
+            </svg>
+          </div>
+        </div>
+        <div className="flex justify-between px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button className="px-3 py-1.5 bg-[#252535] text-gray-300 border border-gray-600 rounded text-[11px]">Создать листы поперечников</button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+            <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px]">Создать Sample Lines</button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Pressure Networks + Manning + Ливневая канализация ───────────────────────
+function PressureNetworkDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"pressure"|"manning"|"storm">("pressure")
+  // Manning
+  const [Q, setQ] = useState("0.150")
+  const [n, setN] = useState("0.013")
+  const [D, setD] = useState("0.300")
+  const manningV = () => {
+    const r = parseFloat(D)/4, slope = 0.005
+    return (1/parseFloat(n)) * Math.pow(r, 2/3) * Math.pow(slope, 0.5)
+  }
+  const manningQfull = () => {
+    const r = parseFloat(D)/4, A = Math.PI*parseFloat(D)**2/4
+    return (1/parseFloat(n)) * A * Math.pow(r, 2/3) * Math.pow(0.005, 0.5)
+  }
+  // Darcy-Weisbach
+  const [flowRate, setFlowRate] = useState("5.0")
+  const [pipeDiam, setPipeDiam] = useState("0.100")
+  const [pipeLen, setPipeLen] = useState("250")
+  const f = 0.02
+  const velDP = parseFloat(flowRate)/1000 / (Math.PI*parseFloat(pipeDiam)**2/4)
+  const headLoss = f * parseFloat(pipeLen)/parseFloat(pipeDiam) * velDP**2/(2*9.81)
+  // Рациональная формула
+  const [C, setC] = useState("0.85")
+  const [i, setI] = useState("120")
+  const [Fc, setFc] = useState("1.5")
+  const stormQ = parseFloat(C)*parseFloat(i)/1000/3600*parseFloat(Fc)*10000/3.6
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:600,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="Network" size={13} className="text-[#60a5fa]"/>Гидравлический расчёт сетей
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
+          {([["pressure","Напорные (Дарси)"],["manning","Самотёчные (Манинг)"],["storm","Ливневая (Рац. ф-ла)"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="manning" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500">Формула Манинга: V = (1/n)·R^(2/3)·i^(1/2)</div>
+              <div className="grid grid-cols-3 gap-3">
+                {([["Расход Q, м³/с",Q,setQ],["Коэф. шероховатости n",n,setN],["Диаметр трубы D, м",D,setD]] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                  <label key={lbl} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{lbl}</span>
+                    <input value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded font-mono text-[11px]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                {[
+                  ["Гидравлический радиус R","(D/4) = " + (parseFloat(D)/4).toFixed(3) + " м","#4ade80"],
+                  ["Уклон (принято)","i = 0.005 (0.5%)","#60a5fa"],
+                  ["Скорость в полном сечении","V = " + manningV().toFixed(3) + " м/с",manningV()<0.7?"#ef4444":manningV()>3?"#ef4444":"#4ade80"],
+                  ["Расход в полном сечении","Qполн = " + manningQfull().toFixed(4) + " м³/с","#4fc3f7"],
+                  ["Наполнение h/D","≈ " + Math.min(1,(parseFloat(Q)/manningQfull())).toFixed(2),"#f97316"],
+                  ["Проверка скорости",manningV()>=0.7&&manningV()<=3?"✓ В норме (0.7–3.0 м/с)":"⚠ Вне нормы",manningV()>=0.7&&manningV()<=3?"#4ade80":"#ef4444"],
+                ].map(([k,v,c])=>(
+                  <div key={k as string} className="rounded border border-gray-700 px-3 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{k}</div>
+                    <div className="font-mono font-bold mt-0.5" style={{color:c as string}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tab==="pressure" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500">Потери напора: Дарси-Вейсбах h = λ·(L/D)·V²/(2g)</div>
+              <div className="grid grid-cols-3 gap-3">
+                {([["Расход Q, л/с",flowRate,setFlowRate],["Диаметр d, м",pipeDiam,setPipeDiam],["Длина L, м",pipeLen,setPipeLen]] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                  <label key={lbl} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{lbl}</span>
+                    <input value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded font-mono text-[11px]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                {[
+                  ["Скорость V","" + velDP.toFixed(3) + " м/с",velDP<0.5||velDP>3?"#ef4444":"#4ade80"],
+                  ["Число Рейнольдса Re","" + (velDP*parseFloat(pipeDiam)/0.000001).toFixed(0),"#60a5fa"],
+                  ["Коэф. трения λ (принято)","λ = " + f,"#gray-400"],
+                  ["Потери напора h","" + headLoss.toFixed(2) + " м","#f97316"],
+                  ["Уд. потери hуд","" + (headLoss/parseFloat(pipeLen)*1000).toFixed(2) + " м/км","#4fc3f7"],
+                  ["Режим течения",velDP*parseFloat(pipeDiam)/0.000001>4000?"Турбулентный":"Ламинарный","#e879f9"],
+                ].map(([k,v,c])=>(
+                  <div key={k as string} className="rounded border border-gray-700 px-3 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{k}</div>
+                    <div className="font-mono font-bold mt-0.5" style={{color:c as string}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tab==="storm" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500">Рациональная формула: Q = C·i·F / 3.6 (л/с)</div>
+              <div className="grid grid-cols-3 gap-3">
+                {([["Коэф. стока C",C,setC],["Интенсивность i, мм/ч",i,setI],["Площадь F, га",Fc,setFc]] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                  <label key={lbl} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{lbl}</span>
+                    <input value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded font-mono text-[11px]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-4 text-center" style={{background:"#111827"}}>
+                <div className="text-[10px] text-gray-500 mb-1">Расчётный расход ливневой канализации</div>
+                <div className="text-[24px] font-bold text-blue-400 font-mono">{stormQ.toFixed(2)} л/с</div>
+                <div className="text-[10px] text-gray-500 mt-1">= {(stormQ/1000).toFixed(4)} м³/с</div>
+              </div>
+              <div className="text-[9px] text-gray-600">СП 32.13330.2018 Канализация. Наружные сети и сооружения.</div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px]">Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Mass Haul + Pay Items ─────────────────────────────────────────────────────
+function MassHaulDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"masshaul"|"payitems">("masshaul")
+  const [swell, setSwell] = useState("1.15")
+  const [shrink, setShrink] = useState("0.90")
+  const segments = [
+    {from:"ПК0+000",to:"ПК0+200",cut:13407,fill:6154,dist:200,haul:"2 800"},
+    {from:"ПК0+200",to:"ПК0+400",cut:4820,fill:9340,dist:200,haul:"—"},
+    {from:"ПК0+400",to:"ПК0+600",cut:8120,fill:3670,dist:200,haul:"1 400"},
+  ]
+  const payItems = [
+    {code:"1-01",desc:"Разработка грунта в выемке",unit:"м³",qty:"13 407",rate:"280",sum:"3 753 960"},
+    {code:"1-02",desc:"Уплотнение грунта насыпи",unit:"м³",qty:"6 154",rate:"195",sum:"1 200 030"},
+    {code:"1-03",desc:"Транспортировка грунта",unit:"м³·км",qty:"28 000",rate:"85",sum:"2 380 000"},
+    {code:"2-01",desc:"Устройство дорожной одежды (АБ)",unit:"м²",qty:"14 200",rate:"2 100",sum:"29 820 000"},
+    {code:"2-02",desc:"Подстилающий слой (ПГС)",unit:"м³",qty:"1 278",rate:"650",sum:"830 700"},
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:620,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="TrendingUp" size={13} className="text-yellow-400"/>Mass Haul + Pay Items
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
+          {([["masshaul","Баланс грунта"],["payitems","Pay Items (ведомость)"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[10px] min-h-0">
+          {tab==="masshaul" && (
+            <div className="space-y-3">
+              <div className="flex gap-4">
+                {([["Коэф. разрыхления (Swell)",swell,setSwell],["Коэф. уплотнения (Shrink)",shrink,setShrink]] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                  <label key={lbl} className="flex items-center gap-2">
+                    <span className="text-gray-500">{lbl}:</span>
+                    <input value={val} onChange={e=>set(e.target.value)} className="w-16 bg-[#252535] border border-gray-600 text-white px-2 py-0.5 rounded font-mono text-[10px]"/>
+                  </label>
+                ))}
+              </div>
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-[#0d1117]">{["От","До","Выемка м³","Насыпь м³","L, м","Возка м·т"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{segments.map((s,i)=>(
+                  <tr key={i} className="hover:bg-[#252535]">
+                    <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{s.from}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{s.to}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-red-300 font-mono">{s.cut.toLocaleString()}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-blue-300 font-mono">{s.fill.toLocaleString()}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-400 font-mono">{s.dist}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-yellow-400 font-mono">{s.haul}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {tab==="payitems" && (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-gray-500">Сметные позиции (ФЕР / ТЕР)</span>
+                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">Экспорт в Excel</button>
+              </div>
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-[#0d1117]">{["Шифр","Наименование","Ед.","Кол-во","Расценка","Сумма, руб"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{payItems.map((p,i)=>(
+                  <tr key={i} className="hover:bg-[#252535]">
+                    <td className="px-2 py-0.5 border border-gray-800 text-yellow-400 font-mono">{p.code}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-white">{p.desc}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-400">{p.unit}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-300 font-mono">{p.qty}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-400 font-mono">{p.rate}</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-green-400 font-mono">{p.sum}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <div className="flex justify-end mt-2 pr-1 text-[11px]">
+                <div className="text-gray-400">Итого: <span className="text-green-400 font-bold font-mono">37 984 690 руб.</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px]">Экспорт CSV</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Plan Production + Label Styles ───────────────────────────────────────────
+function PlanProductionDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"plan"|"labels">("plan")
+  const sheets = [
+    {num:"01",name:"Общие данные",scale:"1:1000",format:"А1",status:"Готов"},
+    {num:"02",name:"План трассы",scale:"1:2000",format:"А1",status:"Готов"},
+    {num:"03",name:"Продольный профиль ПК0–ПК10",scale:"Г 1:2000 / В 1:200",format:"А1",status:"В работе"},
+    {num:"04",name:"Поперечные профили ПК0–ПК5",scale:"1:100",format:"А2",status:"Не начат"},
+    {num:"05",name:"Детали конструкции дорожной одежды",scale:"1:20",format:"А2",status:"Не начат"},
+  ]
+  const labelStyles = [
+    {obj:"Точка съёмки",style:"Номер+Z",font:"Arial 2.5",color:"#4fc3f7",example:"1001\n121.34"},
+    {obj:"Трасса",style:"Имя + длина",font:"Arial 3.5",color:"#f97316",example:"Ось ШД-38\nL=2000м"},
+    {obj:"Пикет",style:"ПК+метраж",font:"Arial 2.0",color:"#e879f9",example:"ПК5+00"},
+    {obj:"Горизонталь",style:"Отметка",font:"Arial 2.0",color:"#4ade80",example:"125"},
+    {obj:"Коридор",style:"Откос+%",font:"Arial 2.0",color:"#facc15",example:"1:1.5"},
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:600,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="FileStack" size={13} className="text-[#a78bfa]"/>Plan Production + Label Styles
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
+          {([["plan","Комплект чертежей"],["labels","Стили подписей"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[10px] min-h-0">
+          {tab==="plan" && (
+            <div className="space-y-2">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-400">Листы чертежей · ГОСТ Р 21.1101</span>
+                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">+ Добавить лист</button>
+              </div>
+              {sheets.map((s,i)=>(
+                <div key={i} className="flex items-center gap-3 p-2 rounded border border-gray-700 hover:bg-[#252535]" style={{background:"#111827"}}>
+                  <div className="w-7 h-7 rounded bg-[#0078d4]/20 flex items-center justify-center text-[#60a5fa] font-mono font-bold text-[10px]">{s.num}</div>
+                  <div className="flex-1"><div className="text-white">{s.name}</div>
+                  <div className="text-gray-500 text-[9px]">Масштаб {s.scale} · Формат {s.format}</div></div>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full ${s.status==="Готов"?"bg-green-900/30 text-green-400":s.status==="В работе"?"bg-yellow-900/30 text-yellow-400":"bg-gray-800 text-gray-500"}`}>{s.status}</span>
+                </div>
+              ))}
+              <button className="w-full mt-2 py-2 text-[11px] text-white bg-[#0078d4] hover:bg-[#0066b3] rounded transition-colors">Создать все листы (Publish)</button>
+            </div>
+          )}
+          {tab==="labels" && (
+            <div className="space-y-2">
+              <div className="text-gray-400 mb-2">Стили динамических подписей объектов</div>
+              {labelStyles.map((ls,i)=>(
+                <div key={i} className="flex items-start gap-3 p-2 rounded border border-gray-700" style={{background:"#111827"}}>
+                  <pre className="w-20 text-center text-[8px] rounded p-1 leading-tight flex-shrink-0 border" style={{color:ls.color,borderColor:ls.color+"40",background:ls.color+"10"}}>{ls.example}</pre>
+                  <div className="flex-1"><div className="text-white font-semibold">{ls.obj}</div>
+                  <div className="text-gray-500 text-[9px]">Стиль: {ls.style} · Шрифт: {ls.font}</div></div>
+                  <button className="text-[9px] text-[#0078d4] hover:underline mt-0.5">Изменить</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px]">Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Visibility Analysis + Parcels ROW ────────────────────────────────────────
+function VisibilityAnalysisDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"visibility"|"parcels">("visibility")
+  const [eyeH, setEyeH] = useState("1.2")
+  const [objH, setObjH] = useState("0.2")
+  const stations = Array.from({length:10},(_,i)=>({
+    pk:`ПК${i}+00`, sight: (150+i*30+Math.sin(i)*40).toFixed(0),
+    required:"150", ok: (150+i*30+Math.sin(i)*40) >= 150
+  }))
+  const parcels = [
+    {id:"У-001",area:"1 240 м²",perim:"148.2 м",owner:"Иванов А.П.",type:"Жилой"},
+    {id:"У-002",area:"890 м²", perim:"122.4 м",owner:"ООО «Агро»",type:"С/х"},
+    {id:"У-003",area:"2 100 м²",perim:"186.0 м",owner:"Муниципальная",type:"Дорога/ROW"},
+    {id:"У-004",area:"560 м²", perim:"98.6 м",owner:"Петров Н.С.",type:"Жилой"},
+  ]
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:580,maxHeight:"85vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
+          <span className="text-white font-bold text-[12px] flex items-center gap-2">
+            <Icon name="Eye" size={13} className="text-[#facc15]"/>Видимость + Участки ROW
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
+          {([["visibility","Анализ видимости"],["parcels","Участки / ROW"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[10px] min-h-0">
+          {tab==="visibility" && (
+            <div className="space-y-3">
+              <div className="flex gap-4">
+                {([["Высота глаза, м",eyeH,setEyeH],["Высота объекта, м",objH,setObjH]] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                  <label key={lbl} className="flex items-center gap-2">
+                    <span className="text-gray-500">{lbl}:</span>
+                    <input value={val} onChange={e=>set(e.target.value)} className="w-16 bg-[#252535] border border-gray-600 text-white px-2 py-0.5 rounded font-mono"/>
+                  </label>
+                ))}
+                <div className="flex items-center gap-1 text-gray-500">Норма: <span className="text-yellow-400 font-bold">150 м</span> (СП 34)</div>
+              </div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-3 h-3 rounded-full bg-green-500"/>
+                <span className="text-green-400">{stations.filter(s=>s.ok).length} пикетов — видимость в норме</span>
+                <div className="w-3 h-3 rounded-full bg-red-500 ml-2"/>
+                <span className="text-red-400">{stations.filter(s=>!s.ok).length} — не соответствует</span>
+              </div>
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-[#0d1117]">{["Пикет","Расст. видим.","Норма","Статус"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{stations.map((s,i)=>(
+                  <tr key={i} className="hover:bg-[#252535]">
+                    <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{s.pk}</td>
+                    <td className={`px-2 py-0.5 border border-gray-800 font-mono font-bold ${s.ok?"text-green-400":"text-red-400"}`}>{s.sight} м</td>
+                    <td className="px-2 py-0.5 border border-gray-800 text-gray-500 font-mono">{s.required} м</td>
+                    <td className={`px-2 py-0.5 border border-gray-800 text-[10px] font-bold ${s.ok?"text-green-400":"text-red-400"}`}>{s.ok?"✓ OK":"⚠ Не норм."}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {tab==="parcels" && (
+            <div className="space-y-2">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-400">Земельные участки + полоса отвода (ROW)</span>
+                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">Экспорт Shapefile</button>
+              </div>
+              {parcels.map((p,i)=>(
+                <div key={i} className="flex items-center gap-3 p-2 rounded border border-gray-700 hover:bg-[#252535]" style={{background:"#111827"}}>
+                  <div className="w-8 h-8 rounded border-2 flex items-center justify-center flex-shrink-0 text-[9px] font-bold"
+                    style={{borderColor:p.type==="Дорога/ROW"?"#f97316":p.type==="С/х"?"#4ade80":"#60a5fa",color:p.type==="Дорога/ROW"?"#f97316":p.type==="С/х"?"#4ade80":"#60a5fa"}}>
+                    {p.id.split("-")[1]}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-white font-semibold">{p.id} · {p.owner}</div>
+                    <div className="text-gray-500 text-[9px]">{p.area} · Пер-р {p.perim} · {p.type}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#151525]">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px]">Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Navigation modules list ──────────────────────────────────────────────────
 
 const NAV_MODULES = [
@@ -6005,6 +6723,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [showSurveyDB, setShowSurveyDB] = useState(false)
+  const [showSurfaceAdv, setShowSurfaceAdv] = useState(false)
+  const [surfaceAdvMode, setSurfaceAdvMode] = useState<"breaklines"|"voids"|"stats"|"compare"|"interpolation">("breaklines")
+  const [showSampleLines, setShowSampleLines] = useState(false)
+  const [showPressureNet, setShowPressureNet] = useState(false)
+  const [showMassHaul, setShowMassHaul] = useState(false)
+  const [showPlanProd, setShowPlanProd] = useState(false)
+  const [showVisibility, setShowVisibility] = useState(false)
   const [showInsights, setShowInsights] = useState(false)
   const [showScriptEditor, setShowScriptEditor] = useState(false)
   const [scriptType, setScriptType] = useState<"autolisp" | "dynamo" | "assistant">("autolisp")
@@ -6825,6 +7551,17 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "ЛИНИЯ" || c === "LINE" || c === "L" || c === "ПОЛИЛИНИЯ" || c === "PLINE" || c === "PL" || c === "КРУГ" || c === "CIRCLE" || c === "C" || c === "ДУГА" || c === "ARC" || c === "A" || c === "ТЕКСТ" || c === "TEXT" || c === "T" || c === "ШТРИХОВКА" || c === "HATCH" || c === "H" || c === "ЧЕРЧЕНИЕ" || c === "DRAW") setShowDraw2D(true)
     else if (c === "АННОТАЦИИ" || c === "ANNOTATION" || c === "РАЗМЕР" || c === "DIM" || c === "D" || c === "ВЫНОСКА" || c === "LEADER") setShowAnnotation(true)
     else if (c === "ВОДОСБОР" || c === "CATCHMENT" || c === "ГИДРОЛОГИЯ" || c === "HYDROLOGY" || c === "ДРЕНАЖ") setShowHydrology(true)
+  else if (c === "SURVEYDB" || c === "БД СЪЁМКИ" || c === "SURVEYDATABASE" || c === "БДСЪЁМКИ") setShowSurveyDB(true)
+  else if (c === "BREAKLINES" || c === "BREAKLINE" || c === "ЛИНИИ РАЗРЫВА" || c === "ЛР") { setSurfaceAdvMode("breaklines"); setShowSurfaceAdv(true) }
+  else if (c === "VOIDS" || c === "ИСКЛЮЧЕНИЯ" || c === "VOID") { setSurfaceAdvMode("voids"); setShowSurfaceAdv(true) }
+  else if (c === "СТАТИСТИКА" || c === "SURFSTATS" || c === "STAT") { setSurfaceAdvMode("stats"); setShowSurfaceAdv(true) }
+  else if (c === "СРАВНЕНИЕ" || c === "SURFCOMPARE" || c === "COMPARE") { setSurfaceAdvMode("compare"); setShowSurfaceAdv(true) }
+  else if (c === "INTERPOLATION" || c === "IDW" || c === "KRIGING" || c === "ИНТЕРПОЛЯЦИЯ") { setSurfaceAdvMode("interpolation"); setShowSurfaceAdv(true) }
+  else if (c === "SAMPLELINES" || c === "ПОПЕРЕЧНИКИ" || c === "SL" || c === "SECTIONVIEWS" || c === "РАЗРЕЗЫ") setShowSampleLines(true)
+  else if (c === "PRESSURE" || c === "НАПОРНАЯ" || c === "MANNING" || c === "МАНИНГ" || c === "STORM" || c === "ЛИВНЕВАЯ") setShowPressureNet(true)
+  else if (c === "MASSHAUL" || c === "БАЛАНСГРУНТА" || c === "PAYITEMS" || c === "ВЕДОМОСТЬ") setShowMassHaul(true)
+  else if (c === "PLANPRODUCTION" || c === "ЛИСТЫ" || c === "SHEETS" || c === "LABELSTYLES" || c === "СТИЛИПОДПИСЕЙ") setShowPlanProd(true)
+  else if (c === "VISIBILITY" || c === "ВИДИМОСТЬ" || c === "PARCELS" || c === "УЧАСТКИ" || c === "ROW") setShowVisibility(true)
     else if (c === "INSIGHTS" || c === "ПОДСКАЗКИ") setShowInsights(prev=>!prev)
     else if (c === "ЗЕМЛЯ" || c === "EARTHWORKS" || c === "ВЗР") { setShowEarthworks(true); setStatusMsg("Ведомость земляных работ"); setCommandLine(""); return }
     else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
@@ -6916,6 +7653,21 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("невязк") || k.includes("теодолитн") || k.includes("traverse")) { setShowSurveyTraverse(true) }
     // Адаптация / палитры инструментов
     else if (k.includes("адаптац") || k.includes("палитр") || k.includes("инструментальные") || k.includes("cui") || k.includes("пользовательский интерфейс")) { setShowAdaptation(true) }
+    // Новые диалоги
+    else if (k.includes("база съёмки") || k.includes("fieldbook") || k.includes("survey db") || k.includes("фигуры") || k.includes("код точки")) { setShowSurveyDB(true) }
+    else if (k.includes("breakline") || k.includes("линии разрыва")) { setSurfaceAdvMode("breaklines"); setShowSurfaceAdv(true) }
+    else if (k.includes("void") || k.includes("исключен")) { setSurfaceAdvMode("voids"); setShowSurfaceAdv(true) }
+    else if (k.includes("статистик")) { setSurfaceAdvMode("stats"); setShowSurfaceAdv(true) }
+    else if (k.includes("сравнени")) { setSurfaceAdvMode("compare"); setShowSurfaceAdv(true) }
+    else if (k.includes("idw") || k.includes("kriging") || k.includes("интерполяц")) { setSurfaceAdvMode("interpolation"); setShowSurfaceAdv(true) }
+    else if (k.includes("sample line") || k.includes("section view") || k.includes("поперечник") || k.includes("листы попер")) { setShowSampleLines(true) }
+    else if (k.includes("напорн") || k.includes("дарси") || k.includes("потери напора") || k.includes("манинг") || k.includes("рац. формул") || k.includes("ливневая") || k.includes("профиль сети")) { setShowPressureNet(true) }
+    else if (k.includes("mass haul") || k.includes("pay item") || k.includes("баланс грунт")) { setShowMassHaul(true) }
+    else if (k.includes("листы") || k.includes("plan production") || k.includes("стили подп") || k.includes("label style") || k.includes("sheet")) { setShowPlanProd(true) }
+    else if (k.includes("видимость") || k.includes("участк") || k.includes("row") || k.includes("парцел") || k.includes("конфликт")) { setShowVisibility(true) }
+    else if (k.includes("настройки") || k.includes("параметры") || k.includes("epsg") || k.includes("единицы") || k.includes("python") || k.includes("плагин")) { setShowDrawingSettings(true) }
+    else if (k.includes("ai-асс") || k.includes("ai асс") || k.includes("ассистент")) { setShowAssistant(p=>!p) }
+    else if (k.includes("3d-вьюер") || k.includes("3d вьюер")) { onNavigate?.("viewer3d") }
     // Всё остальное
     else { setStatusMsg(`Выполнено: ${key}`) }
   }
@@ -6936,6 +7688,232 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (node.id === "corridors" || node.id === "c1" || node.id === "ds5") { setShowCorridor(true) }
     else if (node.id === "assemblies" || node.id.startsWith("asm_")) { setShowAssembly(true) }
     else { setStatusMsg(`Объект: ${node.label}`) }
+  }
+
+  // ── Ribbon definitions ──────────────────────────────────────────────────────
+  interface RibbonItem { label: string; icon: string; size: "lg"|"sm"; drop?: string; fallback?: string }
+  interface RibbonGroup { label: string; items: RibbonItem[] }
+
+  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Анализ","Вывод","Надстройки"]
+
+  const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
+    "Главная": [
+      { label: "Создать", items: [
+        { label:"Трасса",      icon:"Route",        size:"lg", drop:"Трасса" },
+        { label:"Коридор",     icon:"Navigation",   size:"lg", drop:"Коридор" },
+        { label:"Поверхность", icon:"Triangle",     size:"lg", drop:"Поверхность" },
+        { label:"Профиль",     icon:"TrendingUp",   size:"lg" },
+        { label:"Assembly",    icon:"Layers",       size:"lg" },
+      ]},
+      { label: "Сети", items: [
+        { label:"Труба",       icon:"Network",      size:"lg" },
+        { label:"Колодец",     icon:"Circle",       size:"sm", fallback:"MapPin" },
+        { label:"Напорная",    icon:"Gauge",        size:"sm", fallback:"Gauge" },
+        { label:"Ливневая",    icon:"CloudRain",    size:"sm", fallback:"Droplets" },
+      ]},
+      { label: "Геодезия", items: [
+        { label:"Точки",       icon:"MapPin",       size:"lg" },
+        { label:"База съёмки", icon:"Database",     size:"sm", fallback:"FolderOpen" },
+        { label:"Код точки",   icon:"Tag",          size:"sm" },
+        { label:"Ход",         icon:"Crosshair",    size:"sm", fallback:"Navigation" },
+      ]},
+      { label: "Изменить", items: [
+        { label:"Свойства",    icon:"Settings",     size:"sm", fallback:"Settings2" },
+        { label:"Удалить",     icon:"Trash2",       size:"sm" },
+        { label:"Слои",        icon:"Layers",       size:"sm" },
+        { label:"Отменить",    icon:"Undo",         size:"sm", fallback:"RotateCcw" },
+      ]},
+      { label: "Данные", items: [
+        { label:"Импорт",      icon:"Upload",       size:"lg", drop:"Импорт" },
+        { label:"Экспорт",     icon:"Download",     size:"lg", drop:"Экспорт" },
+        { label:"Shortcuts",   icon:"Share2",       size:"sm", fallback:"Link" },
+        { label:"Проект",      icon:"FolderKanban", size:"sm" },
+      ]},
+    ],
+    "Черчение": [
+      { label: "Линии", items: [
+        { label:"Линия",       icon:"Minus",        size:"lg" },
+        { label:"Полилиния",   icon:"Spline",       size:"lg" },
+        { label:"Дуга",        icon:"RefreshCw",    size:"lg", fallback:"RotateCw" },
+        { label:"Круг",        icon:"Circle",       size:"sm" },
+        { label:"Прямоугольник",icon:"Square",      size:"sm" },
+        { label:"Сплайн",      icon:"Waypoints",    size:"sm", fallback:"Route" },
+      ]},
+      { label: "Аннотации", items: [
+        { label:"Текст",       icon:"Type",         size:"lg" },
+        { label:"Размер",      icon:"Ruler",        size:"lg" },
+        { label:"Выноска",     icon:"MessageSquare",size:"sm", fallback:"ExternalLink" },
+        { label:"Штриховка",   icon:"Grid2x2",      size:"sm", fallback:"LayoutGrid" },
+      ]},
+      { label: "Точки", items: [
+        { label:"Точка",       icon:"Dot",          size:"lg", fallback:"MapPin" },
+        { label:"Импорт CSV",  icon:"FileSpreadsheet",size:"sm",fallback:"Upload" },
+      ]},
+    ],
+    "Съёмка": [
+      { label: "База данных", items: [
+        { label:"База съёмки", icon:"Database",     size:"lg", fallback:"FolderOpen" },
+        { label:"Фигуры",      icon:"Shapes",       size:"lg", fallback:"Layers" },
+        { label:"FieldBook",   icon:"BookOpen",     size:"lg" },
+        { label:"Коды точек",  icon:"Tag",          size:"sm" },
+      ]},
+      { label: "Точки", items: [
+        { label:"Точки",       icon:"MapPin",       size:"lg" },
+        { label:"Импорт CSV",  icon:"Upload",       size:"lg" },
+        { label:"Группы",      icon:"Users",        size:"sm", fallback:"Layers" },
+        { label:"Фильтр",      icon:"Filter",       size:"sm" },
+      ]},
+      { label: "Теодолит", items: [
+        { label:"Ход",         icon:"Crosshair",    size:"lg", fallback:"Navigation" },
+        { label:"Невязка",     icon:"Calculator",   size:"sm", fallback:"BarChart3" },
+        { label:"Разбивка",    icon:"Milestone",    size:"sm" },
+      ]},
+    ],
+    "Поверхности": [
+      { label: "Создать", items: [
+        { label:"Поверхность", icon:"Triangle",     size:"lg", drop:"Поверхность" },
+        { label:"Breaklines",  icon:"Minus",        size:"lg" },
+        { label:"Voids",       icon:"Square",       size:"lg", fallback:"Eraser" },
+      ]},
+      { label: "Анализ", items: [
+        { label:"Статистика",  icon:"BarChart3",    size:"lg" },
+        { label:"Уклоны",      icon:"TrendingUp",   size:"sm" },
+        { label:"Горизонтали", icon:"Layers",       size:"sm" },
+        { label:"Водосборы",   icon:"Droplets",     size:"sm", fallback:"CloudRain" },
+        { label:"Сравнение",   icon:"GitCompare",   size:"sm", fallback:"ArrowLeftRight" },
+      ]},
+      { label: "Интерполяция", items: [
+        { label:"IDW",         icon:"Grid3x3",      size:"sm" },
+        { label:"Kriging",     icon:"ScatterChart", size:"sm", fallback:"BarChart2" },
+        { label:"Редактировать",icon:"PencilRuler", size:"sm", fallback:"Edit" },
+      ]},
+    ],
+    "Трасса": [
+      { label: "Создать", items: [
+        { label:"Трасса",      icon:"Route",        size:"lg", drop:"Трасса" },
+        { label:"Профиль",     icon:"TrendingUp",   size:"lg" },
+        { label:"Вираж",       icon:"RotateCw",     size:"lg", fallback:"RefreshCw" },
+        { label:"Уширение",    icon:"MoveHorizontal",size:"sm",fallback:"ArrowLeftRight" },
+      ]},
+      { label: "Пикетаж", items: [
+        { label:"Пикеты",      icon:"Milestone",    size:"lg" },
+        { label:"Ведомость",   icon:"ClipboardList",size:"sm", fallback:"List" },
+        { label:"Уклоны",      icon:"TrendingUp",   size:"sm" },
+      ]},
+      { label: "Видимость", items: [
+        { label:"Видимость",   icon:"Eye",          size:"lg" },
+        { label:"Пересечения", icon:"Crosshair",    size:"sm" },
+      ]},
+    ],
+    "Коридоры": [
+      { label: "Создать", items: [
+        { label:"Коридор",     icon:"Navigation",   size:"lg", drop:"Коридор" },
+        { label:"Assembly",    icon:"Layers",       size:"lg" },
+        { label:"Sample Lines",icon:"AlignCenter",  size:"lg", fallback:"Minus" },
+        { label:"Регионы",     icon:"Columns",      size:"sm", fallback:"Layers" },
+      ]},
+      { label: "Поперечники", items: [
+        { label:"Section View",icon:"ScanLine",     size:"lg", fallback:"Minus" },
+        { label:"Поперечники", icon:"AlignCenter",  size:"sm", fallback:"AlignJustify" },
+        { label:"Листы попер.", icon:"FileStack",   size:"sm", fallback:"Files" },
+      ]},
+      { label: "Объёмы", items: [
+        { label:"Объёмы",      icon:"BarChart3",    size:"lg" },
+        { label:"Mass Haul",   icon:"TrendingUp",   size:"lg" },
+        { label:"Pay Items",   icon:"ClipboardList",size:"sm", fallback:"List" },
+        { label:"Земляные работы",icon:"Layers",    size:"sm" },
+      ]},
+    ],
+    "Сети": [
+      { label: "Самотёчные", items: [
+        { label:"Труба",       icon:"Network",      size:"lg" },
+        { label:"Колодец",     icon:"Circle",       size:"lg", fallback:"MapPin" },
+        { label:"Профиль сети",icon:"TrendingUp",   size:"sm" },
+        { label:"Манинг",      icon:"Gauge",        size:"sm", fallback:"Calculator" },
+      ]},
+      { label: "Напорные", items: [
+        { label:"Напорная",    icon:"Gauge",        size:"lg" },
+        { label:"Дарси",       icon:"Calculator",   size:"sm", fallback:"BarChart3" },
+        { label:"Потери напора",icon:"ArrowDown",   size:"sm" },
+      ]},
+      { label: "Ливневая", items: [
+        { label:"Ливневая",    icon:"CloudRain",    size:"lg", fallback:"Droplets" },
+        { label:"Рац. формула",icon:"Calculator",   size:"sm", fallback:"BarChart3" },
+        { label:"Дренаж",      icon:"Droplets",     size:"sm" },
+      ]},
+    ],
+    "Анализ": [
+      { label: "Поверхность", items: [
+        { label:"Уклоны",      icon:"TrendingUp",   size:"lg" },
+        { label:"Экспозиция",  icon:"Compass",      size:"sm", fallback:"Navigation" },
+        { label:"Водосборы",   icon:"Droplets",     size:"sm" },
+        { label:"Гидрология",  icon:"CloudRain",    size:"sm", fallback:"Droplets" },
+      ]},
+      { label: "Трасса", items: [
+        { label:"Видимость",   icon:"Eye",          size:"lg" },
+        { label:"Конфликты",   icon:"AlertTriangle",size:"sm", fallback:"AlertCircle" },
+        { label:"Участки ROW", icon:"LayoutGrid",   size:"sm", fallback:"Layers" },
+      ]},
+      { label: "Объёмы", items: [
+        { label:"Объёмы",      icon:"BarChart3",    size:"lg" },
+        { label:"Между пов.",  icon:"GitCompare",   size:"sm", fallback:"ArrowLeftRight" },
+        { label:"Земляные",    icon:"TrendingDown", size:"sm" },
+      ]},
+    ],
+    "Вывод": [
+      { label: "Импорт", items: [
+        { label:"Импорт",      icon:"Upload",       size:"lg", drop:"Импорт" },
+        { label:"LandXML",     icon:"Code2",        size:"sm" },
+        { label:"DXF/DWG",     icon:"PencilRuler",  size:"sm" },
+        { label:"GeoTIFF DEM", icon:"Mountain",     size:"sm", fallback:"Image" },
+      ]},
+      { label: "Экспорт", items: [
+        { label:"Экспорт",     icon:"Download",     size:"lg", drop:"Экспорт" },
+        { label:"PDF",         icon:"FileText",     size:"sm" },
+        { label:"OBJ/glTF",    icon:"Box",          size:"sm" },
+        { label:"Печать",      icon:"Printer",      size:"sm" },
+      ]},
+      { label: "Чертежи", items: [
+        { label:"Листы",       icon:"FileStack",    size:"lg", fallback:"Files" },
+        { label:"Стили подп.", icon:"Type",         size:"sm" },
+        { label:"Параметры",   icon:"Settings",     size:"sm", fallback:"Settings2" },
+      ]},
+    ],
+    "Надстройки": [
+      { label: "Скрипты", items: [
+        { label:"AutoLISP",    icon:"Code",         size:"lg", fallback:"Terminal" },
+        { label:"Dynamo",      icon:"Cpu",          size:"lg" },
+        { label:"Python",      icon:"FileCode",     size:"sm" },
+        { label:"Плагины",     icon:"Puzzle",       size:"sm" },
+      ]},
+      { label: "Настройки", items: [
+        { label:"EPSG / СК",   icon:"Globe",        size:"lg" },
+        { label:"Параметры",   icon:"Settings",     size:"lg", fallback:"Settings2" },
+        { label:"AI-асс.",     icon:"Bot",          size:"sm", fallback:"Cpu" },
+      ]},
+    ],
+    "Вид": [
+      { label: "Виды", items: [
+        { label:"3D-вьюер",    icon:"Box",          size:"lg" },
+        { label:"Вписать",     icon:"Maximize",     size:"lg" },
+        { label:"Сверху",      icon:"ArrowUp",      size:"sm" },
+        { label:"Изометрия",   icon:"Cube",         size:"sm", fallback:"Box" },
+      ]},
+      { label: "Отображение", items: [
+        { label:"Слои",        icon:"Layers",       size:"lg" },
+        { label:"Сетка",       icon:"Grid3x3",      size:"sm" },
+        { label:"Свойства",    icon:"Info",         size:"sm" },
+        { label:"Разрезать",   icon:"Split",        size:"sm", fallback:"Columns" },
+      ]},
+    ],
+  }
+
+  const DROPDOWN_ITEMS: Record<string, string[]> = {
+    "Трасса":      ["Создать трассу по точкам","Создать параметрическую трассу","Редактировать трассу","Таблица элементов"],
+    "Коридор":     ["Создать коридор","Редактировать коридор","Регионы коридора","Цели коридора"],
+    "Поверхность": ["Создать поверхность TIN","Создать поверхность Grid","Редактировать поверхность","Импорт из точек"],
+    "Импорт":      ["LandXML","DXF","DEM/GeoTIFF","CSV точек","IFC","Shapefile","GeoJSON"],
+    "Экспорт":     ["DXF","LandXML","OBJ","glTF","PDF","CSV точек","GeoJSON","Shapefile"],
   }
 
   const currentToolbar = TOOLBAR_BY_MENU[activeMenuTab] || TOOLBAR_BY_MENU["Главная"] || []
@@ -8426,6 +9404,15 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 })
               }}/>
             )}
+
+            {/* ── Новые диалоги ── */}
+            {showSurveyDB && <SurveyDBDialog onClose={()=>setShowSurveyDB(false)}/>}
+            {showSurfaceAdv && <SurfaceAdvancedDialog mode={surfaceAdvMode} onClose={()=>setShowSurfaceAdv(false)}/>}
+            {showSampleLines && <SampleLinesDialog onClose={()=>setShowSampleLines(false)}/>}
+            {showPressureNet && <PressureNetworkDialog onClose={()=>setShowPressureNet(false)}/>}
+            {showMassHaul && <MassHaulDialog onClose={()=>setShowMassHaul(false)}/>}
+            {showPlanProd && <PlanProductionDialog onClose={()=>setShowPlanProd(false)}/>}
+            {showVisibility && <VisibilityAnalysisDialog onClose={()=>setShowVisibility(false)}/>}
 
             {/* Диалог сохранения в проект */}
             {showSaveDialog && (
