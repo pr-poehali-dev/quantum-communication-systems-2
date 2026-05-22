@@ -319,26 +319,52 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string, projectId?: n
   )
 }
 
-// ─── FeedbackModalInner — нормальный React-компонент с useState ───────────────
+// ─── FeedbackModalInner — встроенная система без внешних ссылок ───────────────
+const СПРАВКА_РАЗДЕЛЫ = [
+  { title:"Быстрый старт",         desc:"Создание первого проекта за 15 минут", icon:"Play",         content:"1. Нажмите «Создать» → выберите тип проекта.\n2. Импортируйте данные рельефа (LandXML, TIN, DXF).\n3. Постройте трассу: вкладка «Главная» → «Создать трассу».\n4. Добавьте коридор: вкладка «Коридоры» → «Создать коридор».\n5. Рассчитайте объёмы: «Анализ» → «Объёмы земляных работ»." },
+  { title:"Работа с ЦМР",           desc:"LiDAR, GNSS, TIN-поверхности",        icon:"Mountain",     content:"Цифровая модель рельефа (ЦМР):\n• Импорт: Файл → Импорт → LandXML / DXF / CSV-точки\n• Построение TIN: Поверхности → Создать поверхность TIN\n• Горизонтали: Поверхности → Горизонтали → настроить интервал\n• Анализ уклонов: Поверхности → Анализ → Уклоны и водосборы" },
+  { title:"Проектирование трассы",  desc:"СП 34, клотоиды, пикетаж",            icon:"Route",        content:"Трасса (горизонтальная ось):\n• Создать: Главная → Трассы → Создать трассу по объектам\n• Типы элементов: прямая, дуга, клотоида (переходная кривая)\n• Пикетаж: задаётся начальный ПК, шаг разбивки\n• Нормы СП 34.13330: радиусы, уклоны, видимость\n• Экспорт разбивки: Вывод → Таблица разбивки трассы" },
+  { title:"Создание коридора",      desc:"Assembly, поперечники, объёмы",        icon:"RoadHorizon",  content:"Коридор = трасса + профиль + поперечное сечение (Assembly):\n1. Создайте Assembly: Коридоры → Assembly → Добавить полосы\n2. Назначьте трассу и профиль: Коридоры → Создать коридор\n3. Укажите Assembly и поверхность рельефа\n4. Вычислите объёмы: Анализ → Сечения → Ведомость объёмов\n5. График масс: Анализ → График масс Брикнера" },
+  { title:"Инженерные сети",        desc:"Гидравлика, коллизии",                 icon:"Network",      content:"Трассировка инженерных сетей:\n• Водопровод / канализация / ливневая канализация\n• Создание: Главная → Трубопроводные сети → Создать сеть\n• Гидравлический расчёт: Анализ → Гидравлика\n• Проверка коллизий: Анализ → Проверка коллизий\n• Экспорт: LandXML, IFC 2x3, DXF" },
+  { title:"Горячие клавиши",        desc:"Все команды редактора",                icon:"Keyboard",     content:"Основные горячие клавиши:\nCtrl+Z — Отменить    Ctrl+Y — Повторить\nCtrl+S — Сохранить   Ctrl+N — Новый чертёж\nCtrl+O — Открыть     Ctrl+P — Печать\nDelete — Удалить     Esc — Отмена команды\nF2 — Командная строка    F8 — Орто-режим\nF3 — Привязки         F10 — Полярное отслеживание\nMW — Zoom            Shift+MW — Pan\nSS — Быстрый выбор    SP — Редактировать свойства" },
+]
+
 function FeedbackModalInner({ тип, onClose }: { тип: "отзыв"|"ошибка"|"документация"; onClose: ()=>void }) {
   const [текст, setТекст] = useState("")
   const [отправлено, setОтправлено] = useState(false)
-  const DOCS = [
-    { title:"Быстрый старт",        desc:"Создание первого проекта",     icon:"Play",        url:"https://docs.poehali.dev/getting-started/prompting" },
-    { title:"Работа с ЦМР",          desc:"LiDAR, GNSS, TIN-поверхности", icon:"Mountain",    url:"https://poehali.dev/help" },
-    { title:"Проектирование трассы", desc:"СП 34, клотоиды, пикетаж",     icon:"Route",       url:"https://poehali.dev/help" },
-    { title:"Создание коридора",     desc:"Assembly, поперечники, объёмы", icon:"RoadHorizon", url:"https://poehali.dev/help" },
-    { title:"Инженерные сети",       desc:"Гидравлика, коллизии",          icon:"Network",     url:"https://poehali.dev/help" },
-    { title:"Горячие клавиши",       desc:"Все команды редактора",         icon:"Keyboard",    url:"https://poehali.dev/help" },
-  ]
+  const [активРаздел, setАктивРаздел] = useState<number|null>(null)
+  const [номерТикета] = useState(() => `ЛАПА-${Math.floor(100000+Math.random()*900000)}`)
   const заголовок = тип==="отзыв" ? "Сообщество ЛАПА" : тип==="ошибка" ? "Служба поддержки" : "Онлайн-справка"
+
+  if (активРаздел !== null) {
+    const р = СПРАВКА_РАЗДЕЛЫ[активРаздел]
+    return (
+      <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+        className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4" onClick={onClose}>
+        <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
+          className="rounded-xl shadow-2xl w-full bg-[#1e1e2e] border border-gray-700"
+          style={{maxWidth:540}} onClick={e=>e.stopPropagation()}>
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-700">
+            <button onClick={()=>setАктивРаздел(null)} className="text-gray-400 hover:text-white text-sm">← Назад</button>
+            <span className="text-white font-bold text-[14px] flex-1">{р.title}</span>
+            <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+          </div>
+          <div className="p-5">
+            <p className="text-gray-400 text-[11px] mb-3">{р.desc}</p>
+            <pre className="bg-[#0d1117] border border-gray-700 rounded-lg p-4 text-[12px] text-gray-200 whitespace-pre-wrap leading-relaxed font-mono">{р.content}</pre>
+          </div>
+        </motion.div>
+      </motion.div>
+    )
+  }
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4"
       onClick={onClose}>
       <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
         className="rounded-xl shadow-2xl w-full bg-[#1e1e2e] border border-gray-700"
-        style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+        style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
           <span className="text-white font-bold text-[14px]">{заголовок}</span>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
@@ -346,45 +372,40 @@ function FeedbackModalInner({ тип, onClose }: { тип: "отзыв"|"оши�
         {отправлено ? (
           <div className="px-5 py-10 text-center">
             <Icon name="CheckCircle" size={40} className="text-green-500 mx-auto mb-3" fallback="Check"/>
-            <div className="text-white font-semibold text-[14px]">Отправлено!</div>
-            <div className="text-gray-400 text-[12px] mt-1">Спасибо за обратную связь</div>
+            <div className="text-white font-semibold text-[14px]">{тип==="ошибка" ? `Тикет создан: ${номерТикета}` : "Отправлено!"}</div>
+            <div className="text-gray-400 text-[12px] mt-1">{тип==="ошибка" ? "Мы рассмотрим обращение в течение 24 часов" : "Спасибо за обратную связь"}</div>
+            <button onClick={onClose} className="mt-4 px-5 py-2 text-[12px] text-white bg-[#0078d4] hover:bg-[#0066b3] rounded transition-colors">Закрыть</button>
           </div>
         ) : тип === "документация" ? (
-          <div className="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
-            <a href="https://docs.poehali.dev" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-3 p-3 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/30 hover:bg-[#0078d4]/20 transition-colors mb-3 no-underline">
+          <div className="p-4 space-y-1.5 max-h-[70vh] overflow-y-auto">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/30 mb-3">
               <Icon name="BookOpen" size={16} className="text-[#0078d4] flex-shrink-0"/>
-              <div className="flex-1"><div className="text-white text-[13px] font-bold">Открыть полную документацию →</div>
-              <div className="text-[#60a5fa] text-[11px]">Все разделы, поиск, примеры кода</div></div>
-            </a>
-            {DOCS.map(d=>(
-              <a key={d.title} href={d.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] border border-gray-800 hover:border-gray-600 transition-colors no-underline">
+              <div className="flex-1">
+                <div className="text-white text-[13px] font-bold">Встроенная документация ЛАПА</div>
+                <div className="text-[#60a5fa] text-[11px]">Выберите раздел ниже для просмотра</div>
+              </div>
+            </div>
+            {СПРАВКА_РАЗДЕЛЫ.map((d,i)=>(
+              <button key={d.title} onClick={()=>setАктивРаздел(i)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] border border-gray-800 hover:border-[#0078d4] transition-colors text-left">
                 <Icon name={d.icon} size={16} className="text-[#0078d4] flex-shrink-0" fallback="BookOpen"/>
                 <div className="flex-1"><div className="text-white text-[13px] font-semibold">{d.title}</div>
                 <div className="text-gray-500 text-[11px]">{d.desc}</div></div>
                 <Icon name="ChevronRight" size={14} className="text-gray-600"/>
-              </a>
+              </button>
             ))}
           </div>
         ) : тип === "отзыв" ? (
           <div className="p-5 space-y-3">
-            <div className="flex gap-3">
-              <a href="https://t.me/+QgiLIa1gFRY4Y2Iy" target="_blank" rel="noopener noreferrer"
-                className="flex-1 flex items-center gap-2 p-3 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/30 hover:bg-[#0078d4]/20 transition-colors no-underline">
-                <Icon name="MessageCircle" size={18} className="text-[#0078d4]"/>
-                <div><div className="text-white text-[12px] font-bold">Telegram-сообщество</div>
-                <div className="text-[#60a5fa] text-[10px]">Вопросы, советы, новости</div></div>
-              </a>
-              <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
-                className="flex-1 flex items-center gap-2 p-3 rounded-lg bg-[#1e2e1e] border border-green-800/40 hover:bg-green-900/20 transition-colors no-underline">
-                <Icon name="Star" size={18} className="text-green-400"/>
-                <div><div className="text-white text-[12px] font-bold">Оставить отзыв</div>
-                <div className="text-green-400 text-[10px]">На poehali.dev</div></div>
-              </a>
+            <p className="text-[11px] text-gray-400">Ваш отзыв помогает нам делать ЛАПА лучше.</p>
+            <div className="grid grid-cols-3 gap-2">
+              {["👍 Всё отлично","🐛 Нашёл баг","💡 Идея"].map(v=>(
+                <button key={v} onClick={()=>setТекст(p=>p?p:v)}
+                  className="p-2 rounded border border-gray-700 hover:border-[#0078d4] text-gray-400 hover:text-white text-[11px] transition-colors">{v}</button>
+              ))}
             </div>
             <textarea value={текст} onChange={e=>setТекст(e.target.value)} rows={4}
-              placeholder="Расскажите что нравится или что можно улучшить..."
+              placeholder="Расскажите подробнее..."
               className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] resize-none placeholder-gray-600"/>
             <div className="flex gap-2 justify-end">
               <button onClick={onClose} className="px-4 py-2 text-[12px] text-gray-400 hover:text-white border border-gray-700 rounded">Отмена</button>
@@ -394,20 +415,201 @@ function FeedbackModalInner({ тип, onClose }: { тип: "отзыв"|"оши�
           </div>
         ) : (
           <div className="p-5 space-y-3">
-            <p className="text-[11px] text-gray-400">Опишите проблему — мы поможем её решить через тикетную систему.</p>
-            <textarea value={текст} onChange={e=>setТекст(e.target.value)} rows={5}
-              placeholder="Опишите шаги для воспроизведения ошибки..."
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-900/20 border border-yellow-700/40 text-[11px] text-yellow-300">
+              <Icon name="AlertTriangle" size={14} fallback="AlertTriangle"/>
+              Номер вашего тикета: <strong>{номерТикета}</strong> — сохраните его
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {["Ошибка при расчёте","Не открывается файл","Зависание программы","Другое"].map(v=>(
+                <button key={v} onClick={()=>setТекст(p=>p?p:v+" — ")}
+                  className="p-2 rounded border border-gray-700 hover:border-[#ef4444] text-gray-400 hover:text-white text-[11px] transition-colors text-left">{v}</button>
+              ))}
+            </div>
+            <textarea value={текст} onChange={e=>setТекст(e.target.value)} rows={4}
+              placeholder="Опишите проблему: что делали, что произошло, шаги воспроизведения..."
               className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] resize-none placeholder-gray-600"/>
             <div className="flex gap-2 justify-end">
               <button onClick={onClose} className="px-4 py-2 text-[12px] text-gray-400 hover:text-white border border-gray-700 rounded">Отмена</button>
-              <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
-                className="px-4 py-2 text-[12px] text-white rounded bg-[#0078d4] hover:bg-[#0066b3] transition-colors no-underline inline-block">
-                Открыть тикет →</a>
+              <button onClick={()=>{ if(текст.trim()) setОтправлено(true); else onClose() }}
+                className="px-4 py-2 text-[12px] text-white rounded bg-[#ef4444] hover:bg-[#dc2626] transition-colors">Создать тикет</button>
             </div>
           </div>
         )}
       </motion.div>
     </motion.div>
+  )
+}
+
+// ─── LearningTab — полноценное обучение без внешних ссылок ────────────────────
+const УРОКИ = [
+  {
+    id:1, icon:"Play", color:"#0078d4", tag:"Видео · 15 мин", level:"Начинающий",
+    title:"Быстрый старт — первый проект",
+    desc:"Создайте первый проект с нуля за 15 минут",
+    шаги:["Создайте новый проект: Файл → Создать → Проект дороги","Импортируйте данные рельефа (LandXML или CSV-точки)","Постройте трассу горизонтального выравнивания","Создайте продольный профиль по трассе","Добавьте коридор с Assembly и поверхностью рельефа","Рассчитайте объёмы земляных работ"],
+  },
+  {
+    id:2, icon:"Mountain", color:"#059669", tag:"Урок · 30 мин", level:"Начинающий",
+    title:"Работа с ЦМР и поверхностями",
+    desc:"TIN-поверхности, горизонтали, анализ рельефа",
+    шаги:["Файл → Импорт → LandXML / DXF / CSV-точки съёмки","Поверхности → Создать поверхность TIN по точкам","Настройте триангуляцию Делоне: макс. длина ребра, угол","Горизонтали: Поверхности → Горизонтали → интервал 1м/5м","Водосборы: Поверхности → Анализ → Водосборные бассейны","Уклоны: Поверхности → Анализ → Карта уклонов"],
+  },
+  {
+    id:3, icon:"Route", color:"#d97706", tag:"Урок · 45 мин", level:"Средний",
+    title:"Проектирование горизонтальной трассы",
+    desc:"Трассирование по СП 34, клотоиды, пикетаж",
+    шаги:["Главная → Трассы → Создать трассу","Тип трассы: дорога, съезд, парковка, пешеходная","Добавьте элементы: прямая → дуга → клотоида (переходная кривая)","Параметры СП 34: минимальные радиусы, вираж, уширение","Пикетаж: начало ПК 0+000, шаг 20м / 100м","Вывод: таблица разбивки, ведомость углов поворота"],
+  },
+  {
+    id:4, icon:"TrendingUp", color:"#7c3aed", tag:"Урок · 30 мин", level:"Средний",
+    title:"Продольный профиль и вертикальная трасса",
+    desc:"ВУП, уклоны, вертикальные кривые, земляное полотно",
+    шаги:["Трассы → Профили → Создать профиль по поверхности","Постройте чёрный профиль (рельеф) по оси трассы","Создайте красный профиль: вкладка Профили → ВУП","Вертикальные уклоны по СП 34: норма и допуск","Вертикальные кривые: выпуклые и вогнутые, кривая разгона","Маска земляного полотна: насыпь, выемка, нулевые точки"],
+  },
+  {
+    id:5, icon:"RoadHorizon", color:"#be185d", tag:"Урок · 60 мин", level:"Продвинутый",
+    title:"Коридоры и объёмы земляных работ",
+    desc:"Assembly, поперечные сечения, ведомость объёмов",
+    шаги:["Коридоры → Assembly → Добавить компонент полосы","Компоненты: проезжая часть, обочина, откос, кювет","Коридоры → Создать коридор: трасса + профиль + Assembly","Привяжите коридор к поверхности рельефа","Сечения: Коридоры → Поперечные сечения (шаг 20м)","Объёмы: Анализ → Ведомость объёмов, График масс Брикнера"],
+  },
+  {
+    id:6, icon:"Network", color:"#0284c7", tag:"Урок · 40 мин", level:"Средний",
+    title:"Инженерные сети",
+    desc:"Трубопроводные сети, гидравлика, коллизии",
+    шаги:["Главная → Трубопроводные сети → Создать сеть","Типы сетей: водопровод / самотёчная / ливневая / газ","Трассировка: труба, колодец, водозаборный узел","Параметры: диаметр, материал, уклон, глубина заложения","Анализ: Сети → Гидравлический расчёт (скорость, давление)","Коллизии: Анализ → Проверка коллизий с коридором"],
+  },
+  {
+    id:7, icon:"Scan", color:"#f59e0b", tag:"Урок · 35 мин", level:"Средний",
+    title:"Геодезия и съёмка",
+    desc:"Теодолитные ходы, координаты, разбивка",
+    шаги:["Геодезия → Съёмочные точки → Импорт CSV/TXT","Формат: N, E, Z, код точки (пример: 1000, 5000, 115.40, Р)","Теодолитный ход: Геодезия → Теодолитный ход → Вычислить","Уравнивание хода: МНК, допустимая невязка f≤1:2000","Разбивка оси: Геодезия → Разбивка → Трасса → Пикеты","Экспорт разбивки: Вывод → CSV/GNSS/Тахеометр"],
+  },
+  {
+    id:8, icon:"Layers", color:"#6366f1", tag:"Урок · 25 мин", level:"Средний",
+    title:"BIM и экспорт IFC",
+    desc:"3D-модель, IFC 2x3, интеграция с Revit",
+    шаги:["BIM → Создать 3D-модель коридора (Solid)","Назначьте материалы: асфальт, грунт, бетон, металл","Экспорт IFC: Файл → Экспорт → IFC 2x3 (открытый стандарт)","Экспорт LandXML: все трассы, профили, поверхности","DXF-экспорт: выбор слоёв, масштаб, система координат","Проверка модели: BIM → Контроль коллизий (Clash Detection)"],
+  },
+]
+
+function LearningTab({ onFeedback }: { onFeedback: (t:"отзыв"|"ошибка"|"документация")=>void }) {
+  const [активУрок, setАктивУрок] = useState<number|null>(null)
+  const [фильтр, setФильтр] = useState<string>("Все")
+  const [завершённые, setЗавершённые] = useState<Set<number>>(new Set())
+
+  const урок = активУрок !== null ? УРОКИ.find(u=>u.id===активУрок) : null
+  const УРОВНИ = ["Все","Начинающий","Средний","Продвинутый"]
+  const видимые = фильтр==="Все" ? УРОКИ : УРОКИ.filter(u=>u.level===фильтр)
+
+  if (урок) return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={()=>setАктивУрок(null)} className="flex items-center gap-1 text-[#4fc3f7] hover:text-white text-[12px] transition-colors">
+          <Icon name="ChevronLeft" size={14}/> Все уроки
+        </button>
+        <span className="text-gray-600">·</span>
+        <span className="text-gray-400 text-[12px]">{урок.tag}</span>
+        <span className="text-[9px] px-2 py-0.5 rounded-full" style={{background:урок.color+"20",color:урок.color}}>{урок.level}</span>
+      </div>
+      <div className="rounded-xl border border-gray-700 overflow-hidden" style={{background:"#111827"}}>
+        {/* Превью урока */}
+        <div className="relative flex items-center justify-center" style={{height:140,background:`linear-gradient(135deg,#0a1628,${урок.color}30)`}}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{background:урок.color+"30",border:`2px solid ${урок.color}50`}}>
+            <Icon name={урок.icon} size={26} style={{color:урок.color}} fallback="Play"/>
+          </div>
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-black/50 px-2 py-1 rounded text-[10px] text-gray-300">
+            <Icon name="Clock" size={10}/> {урок.tag.split("·")[1]?.trim()}
+          </div>
+        </div>
+        <div className="p-5">
+          <h3 className="text-white text-[16px] font-bold mb-1">{урок.title}</h3>
+          <p className="text-gray-400 text-[12px] mb-4">{урок.desc}</p>
+          <div className="space-y-2">
+            {урок.шаги.map((шаг,i)=>(
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-[#1a2035] transition-colors group cursor-pointer"
+                onClick={()=>setЗавершённые(s=>{ const n=new Set(s); if(n.has(урок.id*100+i)){n.delete(урок.id*100+i)}else{n.add(урок.id*100+i)}; return n })}>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border transition-colors ${завершённые.has(урок.id*100+i)?"border-green-500 bg-green-500/20":"border-gray-600 group-hover:border-[#0078d4]"}`}>
+                  {завершённые.has(урок.id*100+i)
+                    ? <Icon name="Check" size={10} className="text-green-400"/>
+                    : <span className="text-[9px] text-gray-500">{i+1}</span>}
+                </div>
+                <span className={`text-[12px] leading-relaxed ${завершённые.has(урок.id*100+i)?"text-gray-600 line-through":"text-gray-300"}`}>{шаг}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
+            <div className="text-[11px] text-gray-500">{завершённые.size > 0 ? `${[...завершённые].filter(k=>Math.floor(k/100)===урок.id).length} из ${урок.шаги.length} шагов` : "Нажмите на шаг чтобы отметить"}</div>
+            <button onClick={()=>{ setЗавершённые(s=>{ const n=new Set(s); урок.шаги.forEach((_,i)=>n.add(урок.id*100+i)); return n }); setTimeout(()=>setАктивУрок(null),800) }}
+              className="px-4 py-1.5 text-[12px] text-white rounded transition-colors" style={{background:урок.color}}>
+              Завершить урок ✓
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-white text-[20px] font-semibold">Обучение</h2>
+        <div className="flex gap-1">
+          {УРОВНИ.map(у=>(
+            <button key={у} onClick={()=>setФильтр(у)}
+              className={`px-3 py-1 text-[11px] rounded-full transition-colors ${фильтр===у?"bg-[#0078d4] text-white":"text-gray-400 hover:text-white border border-gray-700"}`}>{у}</button>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-3" style={{gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))"}}>
+        {видимые.map(у=>{
+          const пройден = у.шаги.every((_,i)=>завершённые.has(у.id*100+i))
+          return (
+            <button key={у.id} onClick={()=>setАктивУрок(у.id)}
+              className="p-4 rounded-xl border text-left transition-all group hover:scale-[1.02]"
+              style={{background:"#111827",borderColor:пройден?"#16a34a50":"#374151"}}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:у.color+"20"}}>
+                  <Icon name={у.icon} size={18} style={{color:у.color}} fallback="Play"/>
+                </div>
+                <div className="flex items-center gap-1">
+                  {пройден && <Icon name="CheckCircle" size={14} className="text-green-500"/>}
+                  <span className="text-[9px] px-2 py-0.5 rounded-full" style={{background:у.color+"15",color:у.color}}>{у.tag}</span>
+                </div>
+              </div>
+              <div className="text-white text-[13px] font-bold group-hover:text-[#60b0ff] transition-colors mb-1">{у.title}</div>
+              <div className="text-gray-500 text-[11px] mb-2">{у.desc}</div>
+              <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                <Icon name="BarChart2" size={10}/>
+                <span>{у.level}</span>
+                <span className="mx-1">·</span>
+                <span>{у.шаги.length} шагов</span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      {/* Прогресс */}
+      <div className="rounded-xl border border-gray-700 p-4 flex items-center gap-6" style={{background:"#111827"}}>
+        <div>
+          <div className="text-white font-extrabold text-[22px]">{УРОКИ.filter(у=>у.шаги.every((_,i)=>завершённые.has(у.id*100+i))).length}<span className="text-gray-500 text-[14px] font-normal"> / {УРОКИ.length}</span></div>
+          <div className="text-gray-500 text-[11px]">Уроков завершено</div>
+        </div>
+        <div className="flex-1">
+          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-full bg-[#0078d4] rounded-full transition-all" style={{width:`${Math.round(УРОКИ.filter(у=>у.шаги.every((_,i)=>завершённые.has(у.id*100+i))).length/УРОКИ.length*100)}%`}}/>
+          </div>
+          <div className="text-[10px] text-gray-500 mt-1">{Math.round(УРОКИ.filter(у=>у.шаги.every((_,i)=>завершённые.has(у.id*100+i))).length/УРОКИ.length*100)}% пройдено</div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>onFeedback("документация")} className="px-3 py-1.5 text-[11px] rounded border border-[#0078d4]/50 text-[#60a5fa] hover:bg-[#0078d4]/20 transition-colors">
+            <Icon name="BookOpen" size={12} className="inline mr-1"/>Справка
+          </button>
+          <button onClick={()=>onFeedback("ошибка")} className="px-3 py-1.5 text-[11px] rounded border border-gray-700 text-gray-400 hover:text-white hover:bg-[#252535] transition-colors">
+            <Icon name="HelpCircle" size={12} className="inline mr-1"/>Поддержка
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -430,7 +632,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
     <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden relative" style={{fontFamily:"Arial,sans-serif",fontSize:12}}>
       {/* Верхняя полоса */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
-        <svg viewBox="0 0 32 32" width="16" height="16" fill="none" className="flex-shrink-0"><circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/><circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/></svg>
+        <svg viewBox="0 0 32 32" width="16" height="16" fill="none" className="flex-shrink-0"><ellipse cx="16" cy="22" rx="7" ry="6" fill="#4fc3f7"/><ellipse cx="10" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="22" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="7" cy="18" rx="2.5" ry="3" fill="#4fc3f7"/><ellipse cx="25" cy="18" rx="2.5" ry="3" fill="#4fc3f7"/><ellipse cx="16" cy="8" rx="2.5" ry="2.8" fill="#4fc3f7"/></svg>
         <span className="text-[11px] text-white font-bold">ЛАПА</span>
         <span className="text-[11px] text-gray-400 font-semibold">— Редактор</span>
         <div className="flex-1"/>
@@ -452,11 +654,12 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
           <div className="px-6 py-6 border-b border-gray-700">
             <div className="flex items-center gap-3 mb-4">
               <svg viewBox="0 0 32 32" width="32" height="32" fill="none" className="flex-shrink-0">
-                <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
-                <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
-                <circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/>
-                <circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/>
-                <path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/>
+                <ellipse cx="16" cy="22" rx="7.5" ry="6.5" fill="#4fc3f7"/>
+                <ellipse cx="9.5" cy="12.5" rx="3.2" ry="3.7" fill="#4fc3f7"/>
+                <ellipse cx="22.5" cy="12.5" rx="3.2" ry="3.7" fill="#4fc3f7"/>
+                <ellipse cx="6"   cy="18"   rx="2.6" ry="3.1" fill="#4fc3f7"/>
+                <ellipse cx="26"  cy="18"   rx="2.6" ry="3.1" fill="#4fc3f7"/>
+                <ellipse cx="16"  cy="7.5"  rx="2.7" ry="3"   fill="#4fc3f7"/>
               </svg>
               <div>
                 <div className="text-white text-[18px] font-bold leading-tight">ЛАПА</div>
@@ -604,71 +807,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
             <AutodeskProjectsTab onOpen={onOpen}/>
           )}
           {tab === "learning" && (
-            <div className="space-y-5">
-              <h2 className="text-white text-[20px] font-semibold">Обучение и аналитика</h2>
-              {/* Карточки курсов */}
-              <div className="grid gap-4" style={{gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))"}}>
-                {[
-                  {icon:"Play",      title:"Быстрый старт",           desc:"Создание первого проекта за 15 минут",   tag:"Видео · 15 мин", color:"#0078d4", url:"https://docs.poehali.dev/getting-started/prompting"},
-                  {icon:"Mountain",  title:"Работа с ЦМР",             desc:"Импорт данных, TIN-поверхности",          tag:"Урок · 30 мин",  color:"#059669", url:"https://poehali.dev/help"},
-                  {icon:"Route",     title:"Проектирование трассы",     desc:"Трассирование, пикетаж, клотоиды, СП 34", tag:"Урок · 45 мин",  color:"#d97706", url:"https://poehali.dev/help"},
-                  {icon:"RoadHorizon","title":"Создание коридора",       desc:"Assembly, поперечники, объёмы земляных работ",tag:"Урок · 60 мин",color:"#7c3aed",url:"https://poehali.dev/help"},
-                  {icon:"Network",   title:"Инженерные сети",           desc:"Трассировка труб, гидравлика, коллизии", tag:"Урок · 40 мин",  color:"#0284c7", url:"https://poehali.dev/help"},
-                  {icon:"Layers",    title:"BIM-интеграция",            desc:"IFC-экспорт, Construction Cloud",        tag:"Видео · 25 мин", color:"#be185d", url:"https://poehali.dev/help"},
-                ].map((c,i)=>(
-                  <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
-                    className="p-4 rounded-xl border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e2a3a] transition-all block group no-underline"
-                    style={{background:"#111827"}}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:c.color+"20"}}>
-                        <Icon name={c.icon} size={16} style={{color:c.color}} fallback="Play"/>
-                      </div>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full font-medium" style={{background:c.color+"20",color:c.color}}>{c.tag}</span>
-                    </div>
-                    <div className="text-white text-[13px] font-bold group-hover:text-[#60b0ff] transition-colors">{c.title}</div>
-                    <div className="text-gray-500 text-[11px] mt-1">{c.desc}</div>
-                  </a>
-                ))}
-              </div>
-              {/* My Insights — статистика */}
-              <div className="rounded-xl border border-gray-700 p-5" style={{background:"#111827"}}>
-                <h3 className="text-white font-bold text-[14px] mb-4 flex items-center gap-2">
-                  <Icon name="BarChart3" size={16} className="text-[#0078d4]"/>
-                  My Insights — Статистика использования
-                </h3>
-                <div className="grid grid-cols-2 gap-3" style={{gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))"}}>
-                  {[
-                    {label:"Проектов",  value:"8",  icon:"FolderKanban", color:"#0078d4"},
-                    {label:"Модулей",   value:"17", icon:"LayoutGrid",   color:"#059669"},
-                    {label:"Сессий",    value:"34", icon:"Clock",        color:"#d97706"},
-                    {label:"Экспортов", value:"12", icon:"Download",     color:"#7c3aed"},
-                  ].map(s=>(
-                    <div key={s.label} className="flex items-center gap-3 p-3 rounded-lg" style={{background:"#1a1a2e"}}>
-                      <Icon name={s.icon} size={18} style={{color:s.color}} fallback="Circle"/>
-                      <div>
-                        <div className="text-white font-extrabold text-lg">{s.value}</div>
-                        <div className="text-gray-500 text-[10px]">{s.label}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Ссылки на документацию */}
-              <div className="flex gap-3 flex-wrap">
-                <a href="https://docs.poehali.dev" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#0078d4]/50 bg-[#0078d4]/10 hover:bg-[#0078d4]/20 text-[#60a5fa] text-[12px] no-underline transition-colors">
-                  <Icon name="BookOpen" size={14}/> Документация
-                </a>
-                <a href="https://t.me/+QgiLIa1gFRY4Y2Iy" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 hover:bg-[#252535] text-gray-400 hover:text-white text-[12px] no-underline transition-colors">
-                  <Icon name="MessageCircle" size={14}/> Telegram-сообщество
-                </a>
-                <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 hover:bg-[#252535] text-gray-400 hover:text-white text-[12px] no-underline transition-colors">
-                  <Icon name="HelpCircle" size={14}/> Поддержка
-                </a>
-              </div>
-            </div>
+            <LearningTab onFeedback={setShowFeedback}/>
           )}
         </div>
       </div>
@@ -6344,7 +6483,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <option value="ЛАПА 2D">ЛАПА 2D</option>
         </select>
         <div className="flex-1 text-center text-[11px] text-gray-300 font-semibold tracking-wide select-none flex items-center justify-center gap-1.5">
-          <svg viewBox="0 0 32 32" width="12" height="12" fill="none"><circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/><circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/></svg>
+          <svg viewBox="0 0 32 32" width="12" height="12" fill="none"><ellipse cx="16" cy="22" rx="7" ry="6" fill="#4fc3f7"/><ellipse cx="10" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="22" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="7" cy="18" rx="2.5" ry="3" fill="#4fc3f7"/><ellipse cx="25" cy="18" rx="2.5" ry="3" fill="#4fc3f7"/><ellipse cx="16" cy="8" rx="2.5" ry="2.8" fill="#4fc3f7"/></svg>
           <span className="text-white">ЛАПА — Редактор</span>
           <span className="text-gray-500 mx-1">—</span>
           <span className="text-gray-300">{activeDrawingTab}</span>
@@ -7201,7 +7340,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     {/* Title bar */}
                     <div className={`flex items-center px-1 py-0.5 gap-1 flex-shrink-0 ${active?"bg-[#1b3a5c]":"bg-[#2a2a38]"}`}>
                       <div className="w-3.5 h-3.5 rounded-sm bg-[#0078d4] flex items-center justify-center flex-shrink-0">
-                        <svg viewBox="0 0 32 32" width="9" height="9" fill="none"><circle cx="12" cy="7" r="3.2" fill="white"/><circle cx="20" cy="7" r="3.2" fill="white"/><circle cx="7" cy="13" r="2.6" fill="white"/><circle cx="25" cy="13" r="2.6" fill="white"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="white"/></svg>
+                        <svg viewBox="0 0 32 32" width="9" height="9" fill="none"><ellipse cx="16" cy="22" rx="7" ry="6" fill="white"/><ellipse cx="10" cy="13" rx="3" ry="3.5" fill="white"/><ellipse cx="22" cy="13" rx="3" ry="3.5" fill="white"/><ellipse cx="7" cy="18" rx="2.5" ry="3" fill="white"/><ellipse cx="25" cy="18" rx="2.5" ry="3" fill="white"/><ellipse cx="16" cy="8" rx="2.5" ry="2.8" fill="white"/></svg>
                       </div>
                       <span className={`flex-1 text-[10px] truncate font-medium ${active?"text-white":"text-gray-400"}`}>{name}</span>
                       <span className="text-[8px] text-gray-500 font-mono">{Math.round(mdiZoom*100)}%</span>
@@ -8402,7 +8541,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   {/* Tech Preview badge */}
                   <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center gap-2 flex-shrink-0">
                     <span className="text-[9px] px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded font-bold border border-orange-500/40">TECH PREVIEW</span>
-                    <span className="text-[9.5px] text-orange-200">Autodesk Assistant for Civil 3D 2027</span>
+                    <span className="text-[9.5px] text-orange-200">ЛАПА AI-Ассистент — проектирование инфраструктуры</span>
                   </div>
 
                   {/* Context pills */}
@@ -8624,11 +8763,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700 bg-gradient-to-r from-[#0a1a2e] to-[#1a1a2e]">
                 <div className="flex items-center gap-3">
                   <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
-                    <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
-                    <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
-                    <circle cx="7"  cy="13" r="2.6" fill="#4fc3f7"/>
-                    <circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/>
-                    <path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/>
+                    <ellipse cx="16" cy="22" rx="7.5" ry="6.5" fill="#4fc3f7"/>
+                    <ellipse cx="9.5" cy="12.5" rx="3.2" ry="3.7" fill="#4fc3f7"/>
+                    <ellipse cx="22.5" cy="12.5" rx="3.2" ry="3.7" fill="#4fc3f7"/>
+                    <ellipse cx="6"   cy="18"   rx="2.6" ry="3.1" fill="#4fc3f7"/>
+                    <ellipse cx="26"  cy="18"   rx="2.6" ry="3.1" fill="#4fc3f7"/>
+                    <ellipse cx="16"  cy="7.5"  rx="2.7" ry="3"   fill="#4fc3f7"/>
                   </svg>
                   <div>
                     <div className="text-white text-[15px] font-bold">ЛАПА — Инфраструктурный редактор</div>
@@ -8680,16 +8820,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     ))}
                   </div>
                 </div>
-                {/* Ссылки */}
+                {/* Действия */}
                 <div className="flex items-center gap-3 pt-1 border-t border-gray-800">
-                  <a href="https://poehali.dev/help" target="_blank" rel="noopener noreferrer"
-                    className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1">
-                    <Icon name="HelpCircle" size={11} fallback="Link"/> Поддержка
-                  </a>
-                  <a href="https://t.me/+QgiLIa1gFRY4Y2Iy" target="_blank" rel="noopener noreferrer"
-                    className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1">
-                    <Icon name="Users" size={11} fallback="Link"/> Сообщество ЛАПА
-                  </a>
+                  <button onClick={()=>{ setShowAbout(false); setShowFeedback("документация") }}
+                    className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer">
+                    <Icon name="HelpCircle" size={11} fallback="Link"/> Справка
+                  </button>
+                  <button onClick={()=>{ setShowAbout(false); setShowFeedback("ошибка") }}
+                    className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer">
+                    <Icon name="Users" size={11} fallback="Link"/> Техподдержка
+                  </button>
                   <div className="flex-1"/>
                   <button onClick={()=>setShowAbout(false)}
                     className="text-[11px] px-4 py-1.5 bg-[#0078d4] hover:bg-[#005fa3] text-white rounded transition-colors">
