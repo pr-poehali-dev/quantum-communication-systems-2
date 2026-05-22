@@ -4436,6 +4436,403 @@ function VolumeDialog({ onClose, onOK, scene }: {
   )
 }
 
+// ─── EarthworksDialog — Земляные работы и График масс Брикнера ────────────────
+type EarthworksResult = { name: string; cut: string; fill: string }
+
+function EarthworksDialog({ onClose, onOK }: {
+  onClose: () => void
+  onOK: (d: EarthworksResult) => void
+}) {
+  const [tab, setTab] = useState<"summary"|"sections"|"mass"|"export">("summary")
+  const [roadWidth, setRoadWidth] = useState(7.0)
+  const [shoulderWidth, setShoulderWidth] = useState(2.5)
+  const [cutSlope, setCutSlope] = useState(1.5)
+  const [fillSlope, setFillSlope] = useState(1.5)
+  const [spacing, setSpacing] = useState(20)
+
+  // Генерация сечений по продольному профилю
+  const sections = useMemo(() => {
+    const res: { station: number; cutArea: number; fillArea: number; totalWidth: number; cutH: number; fillH: number }[] = []
+    const totalLen = 2000
+    const count = Math.floor(totalLen / spacing) + 1
+    for (let i = 0; i < count; i++) {
+      const st = i * spacing
+      // Имитация рельефа (реалистичный горный профиль)
+      const terrainH = Math.sin(st * 0.004) * 4.2 + Math.cos(st * 0.0028) * 2.8 + Math.sin(st * 0.011) * 1.1
+      // Проектная красная линия (плавная)
+      const designH = Math.sin(st * 0.003) * 2.0 + Math.cos(st * 0.0018) * 1.2
+      const diff = terrainH - designH  // > 0 = выемка, < 0 = насыпь
+      const hw = roadWidth / 2 + shoulderWidth
+      let cutArea = 0, fillArea = 0
+      if (diff > 0) {
+        // Выемка: трапеция с откосами
+        cutArea = diff * (roadWidth + shoulderWidth * 2) + cutSlope * diff * diff
+      } else {
+        // Насыпь: трапеция с откосами
+        const fh = Math.abs(diff)
+        fillArea = fh * (roadWidth + shoulderWidth * 2) + fillSlope * fh * fh
+      }
+      res.push({ station: st, cutArea: Math.max(0, cutArea), fillArea: Math.max(0, fillArea), totalWidth: hw * 2, cutH: diff > 0 ? diff : 0, fillH: diff < 0 ? Math.abs(diff) : 0 })
+    }
+    return res
+  }, [roadWidth, shoulderWidth, cutSlope, fillSlope, spacing])
+
+  // Призматоидный расчёт объёмов
+  const volumeData = useMemo(() => {
+    let cumCut = 0, cumFill = 0
+    const rows = sections.slice(1).map((s, i) => {
+      const s0 = sections[i]
+      const L = s.station - s0.station
+      const cutVol  = (s0.cutArea  + s.cutArea)  / 2 * L
+      const fillVol = (s0.fillArea + s.fillArea) / 2 * L
+      const corr = L / 12 * Math.abs(s0.cutArea - s.cutArea)
+      const cv = Math.max(0, cutVol  - corr * 0.08)
+      const fv = Math.max(0, fillVol - corr * 0.08)
+      cumCut  += cv; cumFill += fv
+      return { station: s.station, cutArea: s.cutArea, fillArea: s.fillArea, L, cutVol: cv, fillVol: fv, cumCut, cumFill, mass: cumCut - cumFill }
+    })
+    return { rows, totalCut: cumCut, totalFill: cumFill, net: cumCut - cumFill }
+  }, [sections])
+
+  const netColor = volumeData.net >= 0 ? "#f87171" : "#60a5fa"
+  const netLabel = volumeData.net >= 0 ? "Избыток выемки (вывоз)" : "Дефицит (привоз)"
+
+  // Масштаб для графика Брикнера
+  const massPts = volumeData.rows
+  const mMin = Math.min(0, ...massPts.map(p=>p.mass))
+  const mMax = Math.max(0, ...massPts.map(p=>p.mass))
+  const mRange = mMax - mMin || 1
+  const sMax = massPts[massPts.length-1]?.station || 1
+  const gW = 520, gH = 180
+  const gx = (s: number) => (s / sMax) * (gW - 40) + 20
+  const gy = (m: number) => gH - 20 - ((m - mMin) / mRange) * (gH - 40)
+  const zeroY = gy(0)
+  const polyline = massPts.map(p=>`${gx(p.station).toFixed(1)},${gy(p.mass).toFixed(1)}`).join(" ")
+  // fillPath используется ниже для SVG-графика
+  const fillPath = massPts.length > 1
+    ? `M${gx(massPts[0].station).toFixed(1)},${zeroY.toFixed(1)} ` + massPts.map(p=>`L${gx(p.station).toFixed(1)},${gy(p.mass).toFixed(1)}`).join(" ") + ` L${gx(massPts[massPts.length-1].station).toFixed(1)},${zeroY.toFixed(1)} Z`
+    : ""
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <motion.div initial={{scale:0.95,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.95,opacity:0}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        style={{width:680, maxWidth:"98vw", maxHeight:"92vh"}}>
+
+        {/* Шапка */}
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 flex-shrink-0 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <Icon name="BarChart3" size={14} className="text-[#0078d4]"/>
+            <span className="text-white text-[12px] font-bold">Объёмы земляных работ — Ведомость</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-sm">✕</button>
+        </div>
+
+        {/* Параметры коридора */}
+        <div className="flex gap-4 px-4 py-2.5 border-b border-gray-800 bg-[#111827] flex-shrink-0 flex-wrap">
+          {([
+            ["Ширина проезжей части, м", roadWidth, setRoadWidth, 4, 12, 0.5],
+            ["Обочины, м", shoulderWidth, setShoulderWidth, 0.5, 4, 0.5],
+            ["Откос выемки 1:", cutSlope, setCutSlope, 0.5, 3, 0.25],
+            ["Откос насыпи 1:", fillSlope, setFillSlope, 0.5, 3, 0.25],
+            ["Шаг сечений, м", spacing, setSpacing, 10, 50, 10],
+          ] as [string, number, (v:number)=>void, number, number, number][]).map(([lbl, val, set, min, max, step])=>(
+            <label key={lbl} className="flex flex-col gap-0.5 min-w-[100px]">
+              <span className="text-[9px] text-gray-500">{lbl}</span>
+              <div className="flex items-center gap-1">
+                <input type="range" min={min} max={max} step={step} value={val}
+                  onChange={e=>set(parseFloat(e.target.value))}
+                  className="w-20 accent-[#0078d4] h-1"/>
+                <span className="text-[10px] text-white font-mono w-8">{val}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        {/* Вкладки */}
+        <div className="flex border-b border-gray-700 flex-shrink-0 bg-[#1a1a2e]">
+          {([["summary","Сводка"],["sections","По сечениям"],["mass","График масс"],["export","Экспорт"]] as const).map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 min-h-0">
+
+          {/* ── СВОДКА ── */}
+          {tab === "summary" && (
+            <div className="space-y-4">
+              {/* Итоговые блоки */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label:"Выемка (Cut)", value:`${(volumeData.totalCut/1000).toFixed(2)} тыс. м³`, sub:`${volumeData.totalCut.toFixed(0)} м³`, color:"#f87171", icon:"ArrowDown" },
+                  { label:"Насыпь (Fill)", value:`${(volumeData.totalFill/1000).toFixed(2)} тыс. м³`, sub:`${volumeData.totalFill.toFixed(0)} м³`, color:"#60a5fa", icon:"ArrowUp" },
+                  { label:netLabel, value:`${(Math.abs(volumeData.net)/1000).toFixed(2)} тыс. м³`, sub:`${Math.abs(volumeData.net).toFixed(0)} м³`, color: netColor, icon:"TrendingUp" },
+                ].map(b=>(
+                  <div key={b.label} className="rounded-lg border border-gray-700 p-3 flex items-start gap-3" style={{background:"#111827"}}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:b.color+"15"}}>
+                      <Icon name={b.icon} size={16} style={{color:b.color}} fallback="BarChart3"/>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-gray-500 mb-0.5">{b.label}</div>
+                      <div className="text-white font-bold text-[14px] font-mono">{b.value}</div>
+                      <div className="text-[10px] font-mono" style={{color:b.color}}>{b.sub}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Параметры коридора */}
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Параметры коридора</div>
+                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                  {[
+                    ["Длина трассы", "2 000 м"],
+                    ["Ширина дороги", `${roadWidth} + 2×${shoulderWidth} м`],
+                    ["Сечений", `${sections.length} шт.`],
+                    ["Шаг", `${spacing} м`],
+                    ["Откос выемки", `1:${cutSlope}`],
+                    ["Откос насыпи", `1:${fillSlope}`],
+                  ].map(([k,v])=>(
+                    <div key={k} className="flex justify-between gap-2 border-b border-gray-800 pb-1">
+                      <span className="text-gray-500">{k}</span>
+                      <span className="text-white font-mono">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Распределение по зонам */}
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Распределение земляных работ</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-[9px] text-red-400 w-12">Выемка</div>
+                  <div className="flex-1 h-4 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-500/70 rounded-full transition-all"
+                      style={{width:`${(volumeData.totalCut/(volumeData.totalCut+volumeData.totalFill||1)*100).toFixed(0)}%`}}/>
+                  </div>
+                  <div className="text-[9px] text-red-400 font-mono w-12 text-right">{(volumeData.totalCut/(volumeData.totalCut+volumeData.totalFill||1)*100).toFixed(0)}%</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[9px] text-blue-400 w-12">Насыпь</div>
+                  <div className="flex-1 h-4 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500/70 rounded-full transition-all"
+                      style={{width:`${(volumeData.totalFill/(volumeData.totalCut+volumeData.totalFill||1)*100).toFixed(0)}%`}}/>
+                  </div>
+                  <div className="text-[9px] text-blue-400 font-mono w-12 text-right">{(volumeData.totalFill/(volumeData.totalCut+volumeData.totalFill||1)*100).toFixed(0)}%</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ПО СЕЧЕНИЯМ ── */}
+          {tab === "sections" && (
+            <div>
+              <div className="text-[9px] text-gray-500 mb-2">{volumeData.rows.length} интервалов · призматоидный метод · шаг {spacing} м</div>
+              <div className="overflow-auto" style={{maxHeight:380}}>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead>
+                    <tr className="bg-[#0d1117] sticky top-0">
+                      {["Пикет","Выем. пл. м²","Нас. пл. м²","L, м","V выем. м³","V нас. м³","∑ Выем. м³","∑ Нас. м³","Ордината"].map(h=>(
+                        <th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 font-normal whitespace-nowrap text-left">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {volumeData.rows.map((r,i)=>(
+                      <tr key={i} className={`${i%2===0?"bg-[#111827]":"bg-[#0d1117]"} hover:bg-[#1a2a3a]`}>
+                        <td className="px-2 py-0.5 border border-gray-800 font-mono text-gray-300 whitespace-nowrap">
+                          ПК{Math.floor(r.station/100)}+{String(r.station%100).padStart(2,"0")}
+                        </td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-red-300 font-mono">{r.cutArea.toFixed(2)}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-blue-300 font-mono">{r.fillArea.toFixed(2)}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-gray-400 font-mono">{r.L.toFixed(0)}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-red-200 font-mono">{r.cutVol.toFixed(1)}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-blue-200 font-mono">{r.fillVol.toFixed(1)}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-red-400 font-mono font-semibold">{r.cumCut.toFixed(0)}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-blue-400 font-mono font-semibold">{r.cumFill.toFixed(0)}</td>
+                        <td className={`px-2 py-0.5 border border-gray-800 font-mono font-semibold ${r.mass>=0?"text-red-400":"text-blue-400"}`}>{r.mass.toFixed(0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#0a1a2e] font-bold">
+                      <td className="px-2 py-1 border border-gray-700 text-white text-[10px]" colSpan={4}>ИТОГО</td>
+                      <td className="px-2 py-1 border border-gray-700 text-red-300 font-mono text-[10px]">{volumeData.totalCut.toFixed(0)}</td>
+                      <td className="px-2 py-1 border border-gray-700 text-blue-300 font-mono text-[10px]">{volumeData.totalFill.toFixed(0)}</td>
+                      <td className="px-2 py-1 border border-gray-700 text-red-400 font-mono text-[10px]">{volumeData.totalCut.toFixed(0)}</td>
+                      <td className="px-2 py-1 border border-gray-700 text-blue-400 font-mono text-[10px]">{volumeData.totalFill.toFixed(0)}</td>
+                      <td className={`px-2 py-1 border border-gray-700 font-mono text-[10px] ${volumeData.net>=0?"text-red-400":"text-blue-400"}`}>{volumeData.net.toFixed(0)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── ГРАФИК МАСС БРИКНЕРА ── */}
+          {tab === "mass" && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-4 text-[10px] text-gray-400">
+                <div>Ординаты нарастающим итогом: <span className="text-red-400">+ Выемка</span>, <span className="text-blue-400">− Насыпь</span></div>
+                <div>Горизонталь — равновесная линия распределения грунта</div>
+              </div>
+
+              {/* Главный график */}
+              <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#080e18"}}>
+                <svg width="100%" viewBox={`0 0 ${gW} ${gH+40}`} style={{display:"block"}}>
+                  {/* Сетка */}
+                  {Array.from({length:11}).map((_,i)=>(
+                    <line key={`vg${i}`} x1={gx(sMax*i/10)} y1="10" x2={gx(sMax*i/10)} y2={gH+10}
+                      stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+                  ))}
+                  {Array.from({length:6}).map((_,i)=>(
+                    <line key={`hg${i}`} x1="20" y1={gy(mMin+(mMax-mMin)*i/5)} x2={gW-10} y2={gy(mMin+(mMax-mMin)*i/5)}
+                      stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+                  ))}
+
+                  {/* Зона выемки (над нулём) — красная */}
+                  {massPts.length > 1 && (
+                    <path d={`M${gx(massPts[0].station)},${zeroY} ` +
+                      massPts.map(p=>`L${gx(p.station).toFixed(1)},${Math.min(zeroY, gy(p.mass)).toFixed(1)}`).join(" ") +
+                      ` L${gx(massPts[massPts.length-1].station)},${zeroY} Z`}
+                      fill="rgba(239,68,68,0.12)" strokeWidth="0"/>
+                  )}
+                  {/* Зона насыпи (под нулём) — синяя */}
+                  {massPts.length > 1 && (
+                    <path d={`M${gx(massPts[0].station)},${zeroY} ` +
+                      massPts.map(p=>`L${gx(p.station).toFixed(1)},${Math.max(zeroY, gy(p.mass)).toFixed(1)}`).join(" ") +
+                      ` L${gx(massPts[massPts.length-1].station)},${zeroY} Z`}
+                      fill="rgba(96,165,250,0.12)" strokeWidth="0"/>
+                  )}
+
+                  {/* Нулевая линия */}
+                  <line x1="20" y1={zeroY} x2={gW-10} y2={zeroY} stroke="#6b7280" strokeWidth="1" strokeDasharray="6 3"/>
+                  <text x="10" y={zeroY-3} fill="#6b7280" fontSize="7" fontFamily="monospace" textAnchor="middle">0</text>
+
+                  {/* Область под кривой */}
+                  {fillPath && <path d={fillPath} fill="rgba(79,195,247,0.06)" strokeWidth="0"/>}
+                  {/* Кривая масс */}
+                  {massPts.length > 1 && (
+                    <polyline points={polyline} stroke="#4fc3f7" strokeWidth="2" fill="none"/>
+                  )}
+
+                  {/* Точки пересечения с нулём */}
+                  {massPts.filter((p,i)=>i>0&&massPts[i-1].mass*p.mass<0).map((p,i)=>(
+                    <circle key={i} cx={gx(p.station)} cy={zeroY} r="4"
+                      fill="none" stroke="#facc15" strokeWidth="1.5"/>
+                  ))}
+
+                  {/* Подписи оси X (пикеты) */}
+                  {Array.from({length:11}).map((_,i)=>{
+                    const st = sMax*i/10
+                    return <text key={i} x={gx(st)} y={gH+25} fill="#6b7280" fontSize="7" fontFamily="monospace" textAnchor="middle">
+                      ПК{Math.floor(st/100)}+{String(Math.round(st%100)).padStart(2,"0")}
+                    </text>
+                  })}
+
+                  {/* Подписи оси Y */}
+                  {Array.from({length:5}).map((_,i)=>{
+                    const m = mMin+(mMax-mMin)*i/4
+                    return <text key={i} x="18" y={gy(m)+3} fill="#6b7280" fontSize="6.5" fontFamily="monospace" textAnchor="end">
+                      {m>=0?"+":" "}{(m/1000).toFixed(1)}k
+                    </text>
+                  })}
+
+                  {/* Легенда */}
+                  <rect x="20" y="12" width="8" height="4" fill="rgba(239,68,68,0.4)"/>
+                  <text x="32" y="17" fill="#f87171" fontSize="7">Выемка (↑)</text>
+                  <rect x="90" y="12" width="8" height="4" fill="rgba(96,165,250,0.4)"/>
+                  <text x="102" y="17" fill="#60a5fa" fontSize="7">Насыпь (↓)</text>
+                  <line x1="160" y1="15" x2="175" y2="15" stroke="#4fc3f7" strokeWidth="1.5"/>
+                  <text x="179" y="18" fill="#4fc3f7" fontSize="7">Кривая масс</text>
+                  <circle cx="237" cy="15" r="3.5" fill="none" stroke="#facc15" strokeWidth="1.5"/>
+                  <text x="244" y="18" fill="#facc15" fontSize="7">Нулевые точки</text>
+                </svg>
+              </div>
+
+              {/* Анализ */}
+              <div className="grid grid-cols-3 gap-2 text-[10px]">
+                {[
+                  { label:"Макс. ордината", value:`+${(Math.max(0,...massPts.map(p=>p.mass))/1000).toFixed(2)} тыс. м³`, color:"#f87171" },
+                  { label:"Мин. ордината", value:`${(Math.min(0,...massPts.map(p=>p.mass))/1000).toFixed(2)} тыс. м³`, color:"#60a5fa" },
+                  { label:"Нулевых точек", value:`${massPts.filter((p,i)=>i>0&&massPts[i-1].mass*p.mass<0).length} шт.`, color:"#facc15" },
+                ].map(s=>(
+                  <div key={s.label} className="rounded-lg border border-gray-700 px-3 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 mb-0.5">{s.label}</div>
+                    <div className="font-mono font-bold" style={{color:s.color}}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── ЭКСПОРТ ── */}
+          {tab === "export" && (
+            <div className="space-y-4">
+              <div className="text-[11px] text-gray-400">Выберите формат экспорта ведомости земляных работ</div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { fmt:"CSV", icon:"FileSpreadsheet", desc:"Таблица для Excel / Calc", color:"#16a34a" },
+                  { fmt:"XML", icon:"FileCode", desc:"LandXML — трассы и объёмы", color:"#0078d4" },
+                  { fmt:"PDF", icon:"FileText", desc:"Ведомость для согласования", color:"#ef4444" },
+                  { fmt:"DXF", icon:"PencilRuler", desc:"Поперечники в AutoCAD", color:"#7c3aed" },
+                ].map(f=>(
+                  <button key={f.fmt}
+                    onClick={()=>onOK({ name:`Ведомость земляных работ.${f.fmt}`, cut:volumeData.totalCut.toFixed(0), fill:volumeData.totalFill.toFixed(0) })}
+                    className="flex items-center gap-3 p-4 rounded-lg border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e2a3a] transition-all text-left">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:f.color+"20"}}>
+                      <Icon name={f.fmt==="CSV"?"Sheet":f.fmt==="XML"?"Code2":f.fmt==="PDF"?"FileText":"PencilRuler"} size={20} style={{color:f.color}} fallback="Download"/>
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-[13px]">{f.fmt}</div>
+                      <div className="text-gray-500 text-[11px]">{f.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Предпросмотр CSV */}
+              <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#0d1117"}}>
+                <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400">Предпросмотр CSV</span>
+                  <span className="text-[9px] text-gray-600">{volumeData.rows.length} строк</span>
+                </div>
+                <pre className="p-3 text-[9px] text-gray-400 font-mono overflow-x-auto max-h-32">{
+                  "Пикет;Выемка м²;Насыпь м²;L м;V выем. м³;V нас. м³;∑Выем м³;∑Нас м³;Ордината\n" +
+                  volumeData.rows.slice(0,6).map(r=>`ПК${Math.floor(r.station/100)}+${String(r.station%100).padStart(2,"0")};${r.cutArea.toFixed(2)};${r.fillArea.toFixed(2)};${r.L.toFixed(0)};${r.cutVol.toFixed(1)};${r.fillVol.toFixed(1)};${r.cumCut.toFixed(0)};${r.cumFill.toFixed(0)};${r.mass.toFixed(0)}`).join("\n") +
+                  "\n..."
+                }</pre>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Футер */}
+        <div className="flex items-center justify-between px-4 py-2 border-t border-gray-700 flex-shrink-0 bg-[#111827] rounded-b-lg">
+          <div className="text-[10px] text-gray-500 font-mono">
+            Выемка: <span className="text-red-400">{volumeData.totalCut.toFixed(0)} м³</span>
+            &nbsp;·&nbsp;
+            Насыпь: <span className="text-blue-400">{volumeData.totalFill.toFixed(0)} м³</span>
+            &nbsp;·&nbsp;
+            Баланс: <span style={{color:netColor}}>{volumeData.net.toFixed(0)} м³</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Закрыть</button>
+            <button onClick={()=>onOK({ name:"Ведомость земляных работ.csv", cut:volumeData.totalCut.toFixed(0), fill:volumeData.totalFill.toFixed(0) })}
+              className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px] flex items-center gap-1">
+              <Icon name="Download" size={11}/>Экспорт CSV
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Drawing Settings Dialog ──────────────────────────────────────────────────
 function DrawingSettingsDialog({ onClose }: { onClose: () => void }) {
   const [units, setUnits] = useState("Метры")
