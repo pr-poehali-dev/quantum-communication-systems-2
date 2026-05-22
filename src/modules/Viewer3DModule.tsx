@@ -296,14 +296,43 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
       }
     }
 
-    // Сетка
+    // Координатная подложка-сетка с подписями
     if (лр.сетка) {
-      ctx.strokeStyle = ночь ? "rgba(100,120,200,0.2)" : "rgba(148,163,184,0.25)"; ctx.lineWidth = 0.4
+      // Тонкая сетка 5м
+      ctx.strokeStyle = ночь ? "rgba(60,80,140,0.15)" : "rgba(148,163,184,0.12)"; ctx.lineWidth = 0.3
+      for (let v = -SZ / 2; v <= SZ / 2; v += 5) {
+        const a = prj({ x: v, y: 0, z: -SZ / 2 }), b = prj({ x: v, y: 0, z: SZ / 2 })
+        if (a && b) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke() }
+        const c2 = prj({ x: -SZ / 2, y: 0, z: v }), d2 = prj({ x: SZ / 2, y: 0, z: v })
+        if (c2 && d2) { ctx.beginPath(); ctx.moveTo(c2.sx, c2.sy); ctx.lineTo(d2.sx, d2.sy); ctx.stroke() }
+      }
+      // Жирная сетка 10м
+      ctx.strokeStyle = ночь ? "rgba(80,100,180,0.35)" : "rgba(100,120,160,0.35)"; ctx.lineWidth = 0.7
       for (let v = -SZ / 2; v <= SZ / 2; v += 10) {
         const a = prj({ x: v, y: 0, z: -SZ / 2 }), b = prj({ x: v, y: 0, z: SZ / 2 })
         if (a && b) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke() }
         const c2 = prj({ x: -SZ / 2, y: 0, z: v }), d2 = prj({ x: SZ / 2, y: 0, z: v })
         if (c2 && d2) { ctx.beginPath(); ctx.moveTo(c2.sx, c2.sy); ctx.lineTo(d2.sx, d2.sy); ctx.stroke() }
+        // Подписи координат
+        const lbl = prj({ x: v, y: 0.1, z: -SZ / 2 })
+        if (lbl && v !== -SZ/2) {
+          ctx.font = "7px monospace"; ctx.fillStyle = ночь ? "rgba(100,140,220,0.6)" : "rgba(80,100,140,0.7)"
+          ctx.fillText(`${(v*10).toFixed(0)}`, lbl.sx - 6, lbl.sy - 2)
+        }
+      }
+      // Оси координат
+      const ox = prj({ x: 0, y: 0.15, z: 0 })
+      const oxEnd = prj({ x: 8, y: 0.15, z: 0 })
+      const ozEnd = prj({ x: 0, y: 0.15, z: 8 })
+      if (ox && oxEnd) {
+        ctx.beginPath(); ctx.moveTo(ox.sx, ox.sy); ctx.lineTo(oxEnd.sx, oxEnd.sy)
+        ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 1.5; ctx.stroke()
+        ctx.fillStyle = "#ef4444"; ctx.font = "bold 9px sans-serif"; ctx.fillText("X", oxEnd.sx+2, oxEnd.sy)
+      }
+      if (ox && ozEnd) {
+        ctx.beginPath(); ctx.moveTo(ox.sx, ox.sy); ctx.lineTo(ozEnd.sx, ozEnd.sy)
+        ctx.strokeStyle = "#22c55e"; ctx.lineWidth = 1.5; ctx.stroke()
+        ctx.fillStyle = "#22c55e"; ctx.font = "bold 9px sans-serif"; ctx.fillText("Y", ozEnd.sx+2, ozEnd.sy)
       }
     }
 
@@ -334,6 +363,35 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
           ctx.fillStyle = "white"; ctx.fillText(pp.label, lp.sx + 2, lp.sy - 1)
         }
       })
+    }
+
+    // 3D-Коридор дорожного полотна (насыпи, выемки, откосы)
+    if (лр.дорога && лр.рельеф) {
+      const slopeColor = ночь ? "rgba(180,150,80,0.35)" : "rgba(160,130,60,0.4)"
+      const cutColor = ночь ? "rgba(100,80,50,0.35)" : "rgba(140,110,70,0.4)"
+      const N2 = 40, slopeW = 6, slope = 1.5
+      for (let i = 0; i < N2; i++) {
+        const t0 = (i / N2) * SZ - SZ / 2
+        const t1 = ((i + 1) / N2) * SZ - SZ / 2
+        for (const t of [t0, t1].slice(0, 1)) {
+          const xc = t * 0.8 + Math.sin(t * 0.13) * 4
+          const zc = Math.cos(t * 0.11) * 6 + t * 0.3
+          const yc = высота(xc, zc) + 0.1
+          const yTerrain = высота(xc, zc)
+          const diff = yc - yTerrain  // насыпь > 0, выемка < 0
+          const ang = Math.atan2(Math.cos(t * 0.11) * -6 * 0.11, 0.8 + Math.cos(t * 0.13) * 4 * 0.13)
+          const px2 = Math.cos(ang + Math.PI / 2), pz2 = Math.sin(ang + Math.PI / 2)
+          const halfW = rw / 2
+          // Откос слева
+          const edgeL = { x: xc - px2 * halfW, y: yc, z: zc - pz2 * halfW }
+          const daylightL = { x: xc - px2 * (halfW + slopeW + Math.abs(diff) * slope), y: высота(xc - px2 * (halfW + slopeW), zc - pz2 * (halfW + slopeW)), z: zc - pz2 * (halfW + slopeW) }
+          const p0 = prj(edgeL), p1 = prj(daylightL)
+          if (p0 && p1) {
+            ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy)
+            ctx.strokeStyle = diff > 0 ? slopeColor : cutColor; ctx.lineWidth = 1.5; ctx.stroke()
+          }
+        }
+      }
     }
 
     // Дорога

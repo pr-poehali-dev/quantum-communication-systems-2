@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+/* ЛАПА — Инфраструктурный редактор */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -45,8 +46,8 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
 
-    --font-sans: 'Inter', sans-serif;
-    --font-heading: 'Manrope', sans-serif;
+    --font-sans: "Inter", sans-serif;
+    --font-heading: "Manrope", sans-serif;
   }
 
   .dark {

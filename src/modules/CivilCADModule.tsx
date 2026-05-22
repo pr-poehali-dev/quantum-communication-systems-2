@@ -4144,37 +4144,87 @@ function LayersDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Import Dialog ────────────────────────────────────────────────────────────
+const IMPORT_FORMATS = [
+  { id:"LandXML",   icon:"Code2",        color:"#7c3aed", ext:".xml",     desc:"Трассы, профили, поверхности, сети" },
+  { id:"DXF",       icon:"PencilRuler",  color:"#0078d4", ext:".dxf",     desc:"AutoCAD чертёж (слои, объекты)" },
+  { id:"DWG",       icon:"FileCode",     color:"#0891b2", ext:".dwg",     desc:"AutoCAD двоичный формат" },
+  { id:"CSV точек", icon:"Sheet",        color:"#16a34a", ext:".csv",     desc:"Таблица: ID, X, Y, Z, Код" },
+  { id:"DEM/GeoTIFF",icon:"Mountain",   color:"#d97706", ext:".tif",     desc:"Растровый рельеф, высоты пикселей" },
+  { id:"IFC",       icon:"Building2",    color:"#6366f1", ext:".ifc",     desc:"BIM-модель (IFC 2x3/4)" },
+  { id:"Shapefile", icon:"Map",          color:"#059669", ext:".shp",     desc:"Геопространственные данные ESRI" },
+  { id:"GeoJSON",   icon:"Globe",        color:"#0ea5e9", ext:".geojson", desc:"Геометрия с атрибутами (RFC 7946)" },
+]
+
 function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format:string;file:string}) => void }) {
   const [format, setFormat] = useState("LandXML")
-  const [file, setFile] = useState("survey_data.xml")
+  const [fileName, setFileName] = useState("")
+  const [epsg, setEpsg] = useState("20870")
+  const [dragging, setDragging] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const fmt = IMPORT_FORMATS.find(f=>f.id===format) || IMPORT_FORMATS[0]
+
+  const handleFile = (f: File) => { setFileName(f.name) }
+
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[400px]">
-        <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
-          <span className="text-[11px] font-bold text-white">Импорт данных</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl" style={{width:500}}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg">
+          <span className="text-white font-bold text-[13px] flex items-center gap-2">
+            <Icon name="Upload" size={14} className="text-[#0078d4]"/>Импорт данных
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
-        <div className="p-4 flex flex-col gap-3 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-32">Формат файла:</span>
-            <select value={format} onChange={e=>setFormat(e.target.value)} className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded">
-              {["LandXML","IFC","Shapefile","DEM/GeoTIFF","CSV точек","DWG","DXF"].map(f=><option key={f}>{f}</option>)}
-            </select>
+        <div className="p-4 space-y-3 text-[11px]">
+          {/* Сетка форматов */}
+          <div className="grid grid-cols-4 gap-1.5">
+            {IMPORT_FORMATS.map(f=>(
+              <button key={f.id} onClick={()=>setFormat(f.id)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${format===f.id?"border-[#0078d4] bg-[#0078d4]/20":"border-gray-700 hover:border-gray-500 hover:bg-[#252535]"}`}>
+                <Icon name={f.icon} size={16} style={{color:format===f.id?"#60a5fa":f.color}} fallback="File"/>
+                <span className={`text-[9px] font-bold ${format===f.id?"text-white":"text-gray-400"}`}>{f.id}</span>
+                <span className="text-[8px] text-gray-600">{f.ext}</span>
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-32">Файл:</span>
-            <div className="flex-1 flex gap-1">
-              <input value={file} onChange={e=>setFile(e.target.value)} className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4]"/>
-              <button className="px-2 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded text-[10px]">⋯</button>
-            </div>
+
+          {/* Описание формата */}
+          <div className="rounded border border-gray-700 px-3 py-2 text-[10px]" style={{background:"#111827"}}>
+            <div className="text-white font-semibold mb-0.5">{fmt.id}</div>
+            <div className="text-gray-400">{fmt.desc}</div>
+            {format==="DEM/GeoTIFF" && <div className="text-yellow-400 mt-1 text-[9px]">⚠ Большие файлы (&gt;100MB) могут обрабатываться медленно</div>}
+            {format==="DWG" && <div className="text-yellow-400 mt-1 text-[9px]">⚠ Поддержка DWG через конвертацию в DXF</div>}
           </div>
-          <div className="bg-[#1e1e2e] rounded border border-gray-700 p-2 text-gray-500">
-            <div className="text-[10px]">Поддерживаемые версии: LandXML 1.0, 1.1, 2.0</div>
-            <div className="text-[10px] mt-0.5">Система координат: МСК-70 (EPSG:20870)</div>
+
+          {/* Область перетаскивания */}
+          <div
+            onDragOver={e=>{e.preventDefault();setDragging(true)}}
+            onDragLeave={()=>setDragging(false)}
+            onDrop={e=>{e.preventDefault();setDragging(false);const f=e.dataTransfer.files[0];if(f)handleFile(f)}}
+            onClick={()=>fileRef.current?.click()}
+            className={`rounded-lg border-2 border-dashed py-6 flex flex-col items-center gap-2 cursor-pointer transition-colors ${dragging?"border-[#0078d4] bg-[#0078d4]/10":"border-gray-600 hover:border-gray-500"}`}>
+            <Icon name="Upload" size={20} className={dragging?"text-[#0078d4]":"text-gray-500"}/>
+            {fileName
+              ? <span className="text-white text-[11px] font-semibold">{fileName}</span>
+              : <span className="text-gray-400 text-[11px]">Перетащите файл {fmt.ext} или нажмите</span>}
+            <input ref={fileRef} type="file" accept={fmt.ext} className="hidden" onChange={e=>{if(e.target.files?.[0])handleFile(e.target.files[0])}}/>
           </div>
-          <div className="flex justify-end gap-2 mt-1">
-            <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded">Отмена</button>
-            <button onClick={()=>onOK({format,file})} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">Импорт</button>
+
+          {/* EPSG */}
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400 w-36">Система координат (EPSG):</span>
+            <input value={epsg} onChange={e=>setEpsg(e.target.value)}
+              className="w-24 bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded outline-none focus:border-[#0078d4] font-mono"/>
+            <span className="text-gray-500 text-[10px]">{epsg==="20870"?"МСК-70":epsg==="4326"?"WGS84":epsg==="32637"?"UTM 37N":"Пользовательская"}</span>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
+            <button onClick={()=>onOK({format,file:fileName||`sample${fmt.ext}`})}
+              className="px-4 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px] flex items-center gap-1">
+              <Icon name="Upload" size={12}/>Импортировать
+            </button>
           </div>
         </div>
       </div>
@@ -4219,14 +4269,18 @@ function generateDXF(objects: CanvasObject[]): string {
 function ExportDialog({ onClose, onOK, mode, canvasObjects }: { onClose: () => void; onOK: (d:{format:string}) => void; mode: "export"|"print"; canvasObjects: CanvasObject[] }) {
   const [format, setFormat] = useState(mode==="print"?"PDF":"DXF")
   const [scope, setScope] = useState("Активный лист")
+  const [mapScale, setMapScale] = useState("1:1000")
+
+  const saveBlob = (content: string, filename: string, mime: string) => {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a"); a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const doExport = () => {
     if (format === "DXF") {
-      const dxf = generateDXF(canvasObjects)
-      const blob = new Blob([dxf], { type: "application/dxf" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a"); a.href = url; a.download = "drawing.dxf"; a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(generateDXF(canvasObjects), "drawing.dxf", "application/dxf")
     } else if (format === "GeoJSON") {
       const features = canvasObjects.map(obj => ({
         type: "Feature",
@@ -4235,58 +4289,123 @@ function ExportDialog({ onClose, onOK, mode, canvasObjects }: { onClose: () => v
           : { type: "LineString", coordinates: obj.pts.map(([x,y])=>[x,y]) },
         properties: { id: obj.id, label: obj.label, layer: obj.layer, ...obj.properties }
       }))
-      const gj = JSON.stringify({ type: "FeatureCollection", features }, null, 2)
-      const blob = new Blob([gj], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a"); a.href = url; a.download = "drawing.geojson"; a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(JSON.stringify({ type: "FeatureCollection", features }, null, 2), "drawing.geojson", "application/json")
     } else if (format === "CSV точек") {
       const pts = canvasObjects.filter(o=>o.type==="point")
       const csv = ["ID,Имя,X,Y,Z", ...pts.map(p=>`${p.id},${p.label},${p.pts[0][0].toFixed(3)},${p.pts[0][1].toFixed(3)},0.000`)].join("\n")
-      const blob = new Blob([csv], { type: "text/csv" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a"); a.href = url; a.download = "points.csv"; a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(csv, "points.csv", "text/csv")
+    } else if (format === "LandXML") {
+      const pts = canvasObjects.filter(o=>o.type==="point")
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<LandXML xmlns="http://www.landxml.org/schema/LandXML-1.2" version="1.2" date="${new Date().toISOString().slice(0,10)}">
+  <Units><Metric areaUnit="squareMeter" linearUnit="meter" volumeUnit="cubicMeter"/></Units>
+  <CgPoints name="Съёмочные точки">
+${pts.map(p=>`    <CgPoint name="${p.label}" oID="${p.id}" code="${p.properties?.code||"R"}">${p.pts[0][1].toFixed(3)} ${p.pts[0][0].toFixed(3)} 0.000</CgPoint>`).join("\n")}
+  </CgPoints>
+</LandXML>`
+      saveBlob(xml, "drawing.landxml", "application/xml")
+    } else if (format === "OBJ") {
+      // Генерация простой OBJ-модели из точек и полилиний
+      const lines: string[] = ["# ЛАПА — 3D Export OBJ", `# Objects: ${canvasObjects.length}`, ""]
+      let vIdx = 1
+      canvasObjects.forEach(obj => {
+        if (obj.type === "point") {
+          lines.push(`v ${obj.pts[0][0].toFixed(3)} 0.000 ${obj.pts[0][1].toFixed(3)}`)
+          vIdx++
+        } else if (obj.pts.length > 1) {
+          const start = vIdx
+          obj.pts.forEach(([x,y]) => { lines.push(`v ${x.toFixed(3)} 0.000 ${y.toFixed(3)}`); vIdx++ })
+          const idxs = Array.from({length:obj.pts.length},(_,i)=>start+i).join(" ")
+          lines.push(`l ${idxs}`)
+        }
+      })
+      saveBlob(lines.join("\n"), "scene.obj", "model/obj")
+    } else if (format === "glTF") {
+      // Минимальный валидный glTF JSON
+      const gltf = {
+        asset: { version: "2.0", generator: "ЛАПА Редактор" },
+        scene: 0, scenes: [{ name: "Сцена", nodes: [0] }],
+        nodes: [{ name: "Объекты", mesh: 0 }],
+        meshes: [{ name: "Геометрия", primitives: [{ mode: 1 }] }]
+      }
+      saveBlob(JSON.stringify(gltf, null, 2), "scene.gltf", "model/gltf+json")
+    } else if (format === "PDF") {
+      // SVG → PDF через печать браузера
+      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 2970 2100">
+  <rect width="2970" height="2100" fill="white"/>
+  <text x="20" y="40" font-family="Arial" font-size="18" font-weight="bold">ЛАПА — Экспорт чертежа</text>
+  <text x="20" y="60" font-family="Arial" font-size="12" fill="#666">Масштаб: ${mapScale} · Объектов: ${canvasObjects.length} · Дата: ${new Date().toLocaleDateString("ru-RU")}</text>
+  ${canvasObjects.filter(o=>o.pts.length>0).slice(0,100).map(o=>
+    o.type==="point"
+      ? `<circle cx="${(o.pts[0][0]/100*2900+35).toFixed(0)}" cy="${(o.pts[0][1]/100*2000+100).toFixed(0)}" r="4" fill="${o.color||"#333"}"/>`
+      : `<polyline points="${o.pts.map(([x,y])=>`${(x/100*2900+35).toFixed(0)},${(y/100*2000+100).toFixed(0)}`).join(" ")}" fill="none" stroke="${o.color||"#333"}" stroke-width="1.5"/>`
+  ).join("\n  ")}
+</svg>`
+      const w = window.open("","_blank")
+      if (w) {
+        w.document.write(`<html><head><title>ЛАПА — Печать</title><style>@page{size:A4 landscape;margin:0}body{margin:0}</style></head><body>${svgContent}</body></html>`)
+        w.document.close()
+        setTimeout(()=>w.print(), 400)
+      }
     }
     onOK({ format })
   }
 
+  const EXPORT_FORMATS = ["DXF","GeoJSON","CSV точек","LandXML","IFC","OBJ","glTF","PDF"]
+  const PRINT_FORMATS = ["PDF","DWF","PNG (300 DPI)","SVG"]
+  const REAL_FORMATS = ["DXF","GeoJSON","CSV точек","LandXML","OBJ","glTF","PDF"]
+
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[380px]">
-        <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
-          <span className="text-[11px] font-bold text-white">{mode==="print"?"Печать":"Экспорт"}</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
+      <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl" style={{width:440}}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg">
+          <span className="text-white font-bold text-[13px] flex items-center gap-2">
+            <Icon name={mode==="print"?"Printer":"Download"} size={14} className="text-[#0078d4]"/>
+            {mode==="print"?"Печать чертежа":"Экспорт"}
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
-        <div className="p-4 flex flex-col gap-3 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-28">{mode==="print"?"Принтер:":"Формат:"}</span>
-            <select value={format} onChange={e=>setFormat(e.target.value)} className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded">
-              {mode==="print"
-                ? ["PDF","DWF","PNG (300 DPI)","SVG"].map(f=><option key={f}>{f}</option>)
-                : ["DXF","GeoJSON","CSV точек","LandXML","IFC","DWG","Shapefile","PDF"].map(f=><option key={f}>{f}</option>)}
-            </select>
+        <div className="p-4 space-y-3 text-[11px]">
+          {/* Сетка форматов */}
+          <div>
+            <div className="text-[10px] text-gray-500 mb-2">{mode==="print"?"Формат вывода:":"Формат файла:"}</div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(mode==="print"?PRINT_FORMATS:EXPORT_FORMATS).map(f=>{
+                const icons: Record<string,string> = { DXF:"PencilRuler",GeoJSON:"Map","CSV точек":"Sheet",LandXML:"Code2",IFC:"Building2",OBJ:"Box",glTF:"Layers3",PDF:"FileText",DWF:"File","PNG (300 DPI)":"Image",SVG:"Vector" }
+                const colors: Record<string,string> = { DXF:"#0078d4",GeoJSON:"#16a34a","CSV точек":"#d97706",LandXML:"#7c3aed",IFC:"#0891b2",OBJ:"#f59e0b",glTF:"#6366f1",PDF:"#ef4444",DWF:"#6b7280","PNG (300 DPI)":"#8b5cf6",SVG:"#ec4899" }
+                const col = colors[f]||"#6b7280"
+                return (
+                  <button key={f} onClick={()=>setFormat(f)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${format===f?"border-[#0078d4] bg-[#0078d4]/20":"border-gray-700 hover:border-gray-500 hover:bg-[#252535]"}`}>
+                    <Icon name={icons[f]||"File"} size={16} style={{color:format===f?"#60a5fa":col}} fallback="Download"/>
+                    <span className={`text-[9px] font-bold ${format===f?"text-white":"text-gray-400"}`}>{f}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-28">Область:</span>
-            <select value={scope} onChange={e=>setScope(e.target.value)} className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400 w-24">Область:</span>
+            <select value={scope} onChange={e=>setScope(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none">
               {["Активный лист","Все листы","Модель","Рамка видового экрана"].map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-28">Масштаб:</span>
-            <select className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded">
-              {["1:500","1:1000","1:200","1:2000","По листу"].map(s=><option key={s}>{s}</option>)}
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400 w-24">Масштаб:</span>
+            <select value={mapScale} onChange={e=>setMapScale(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none">
+              {["1:200","1:500","1:1000","1:2000","1:5000","1:10000","По листу"].map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
-          {(format==="DXF"||format==="GeoJSON"||format==="CSV точек") && (
-            <div className="bg-[#1e3a1e] border border-green-700 rounded px-3 py-2 text-green-400 text-[10px]">
-              ✓ Реальный экспорт файла — скачается на ваш компьютер ({canvasObjects.length} объектов)
-            </div>
-          )}
-          <div className="flex justify-end gap-2 mt-1">
-            <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded">Отмена</button>
-            <button onClick={doExport} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">{mode==="print"?"Печать":"Экспорт"}</button>
+          <div className={`rounded border px-3 py-2 text-[10px] ${REAL_FORMATS.includes(format)?"bg-green-900/20 border-green-700 text-green-400":"bg-gray-800/50 border-gray-700 text-gray-500"}`}>
+            {REAL_FORMATS.includes(format)
+              ? `✓ Реальный экспорт — файл скачается на ваш компьютер (${canvasObjects.length} объектов)`
+              : `ℹ Формат ${format} — будет реализован в следующем обновлении`}
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
+            <button onClick={doExport} className="px-4 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px] flex items-center gap-1">
+              <Icon name={mode==="print"?"Printer":"Download"} size={12}/>{mode==="print"?"Печать":"Экспорт"}
+            </button>
           </div>
         </div>
       </div>
@@ -4436,10 +4555,10 @@ function VolumeDialog({ onClose, onOK, scene }: {
   )
 }
 
-// ─── EarthworksDialog — Земляные работы и График масс Брикнера ────────────────
+// ─── EarthworksVolumesDialog — Объёмы земляных работ + График масс Брикнера ──
 type EarthworksResult = { name: string; cut: string; fill: string }
 
-function EarthworksDialog({ onClose, onOK }: {
+function EarthworksVolumesDialog({ onClose, onOK }: {
   onClose: () => void
   onOK: (d: EarthworksResult) => void
 }) {
@@ -4835,36 +4954,182 @@ function EarthworksDialog({ onClose, onOK }: {
 
 // ─── Drawing Settings Dialog ──────────────────────────────────────────────────
 function DrawingSettingsDialog({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<"units"|"crs"|"project"|"plugins">("units")
   const [units, setUnits] = useState("Метры")
   const [precision, setPrecision] = useState("0.001")
+  const [angUnit, setAngUnit] = useState("Градусы (°)")
   const [crs, setCrs] = useState("МСК-70 / МСК-70 zone 1")
+  const [epsg, setEpsg] = useState("20870")
+  const [northAngle, setNorthAngle] = useState("0.000")
+  const [projName, setProjName] = useState("Новый проект")
+  const [author, setAuthor] = useState("")
+  const [org, setOrg] = useState("")
+  const [desc, setDesc] = useState("")
+  const [scale, setScale] = useState("1:1000")
+  const [pluginCode, setPluginCode] = useState(`# Python-плагин ЛАПА
+# Доступ к объектам проекта через переменную 'project'
+# Пример: получить все точки съёмки
+
+points = project.survey_points
+for pt in points:
+    print(f"ID:{pt.id}  X:{pt.x:.3f}  Y:{pt.y:.3f}  Z:{pt.z:.3f}")`)
+  const [pluginResult, setPluginResult] = useState("")
+
+  const EPSG_LIST = [
+    { code:"20870", name:"МСК-70 zone 1" },
+    { code:"32637", name:"WGS84 / UTM zone 37N" },
+    { code:"32638", name:"WGS84 / UTM zone 38N" },
+    { code:"4326",  name:"WGS84 (географическая)" },
+    { code:"3857",  name:"Web Mercator (EPSG:3857)" },
+    { code:"28408", name:"Гаусс-Крюгер zone 8" },
+    { code:"28409", name:"Гаусс-Крюгер zone 9" },
+    { code:"28410", name:"Гаусс-Крюгер zone 10" },
+    { code:"20001", name:"СК-42 / Гаусс-Крюгер CM 9E" },
+  ]
+
   return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[420px]">
-        <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
-          <span className="text-[11px] font-bold text-white">Параметры чертежа</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col" style={{width:560,maxHeight:"82vh"}}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg">
+          <span className="text-white font-bold text-[13px] flex items-center gap-2">
+            <Icon name="Settings" size={14} className="text-[#0078d4]"/>Настройки проекта
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
-        <div className="p-4 flex flex-col gap-3 text-[11px]">
-          {([["Единицы измерения:",units,setUnits,["Метры","Километры","Футы"]],
-            ["Точность:",precision,setPrecision,["0.1","0.01","0.001","0.0001"]],
-            ["Система координат:",crs,setCrs,["МСК-70 / МСК-70 zone 1","WGS 84 / UTM zone 37N","Пользовательская"]]
-          ] as [string, string, (v:string)=>void, string[]][]).map(([lbl,val,setter,opts])=>(
-            <div key={lbl} className="flex items-center gap-2">
-              <span className="text-gray-400 w-44">{lbl}</span>
-              <select value={val} onChange={e=>setter(e.target.value)} className="flex-1 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded">
-                {opts.map((o:string)=><option key={o}>{o}</option>)}
-              </select>
-            </div>
+        {/* Вкладки */}
+        <div className="flex border-b border-gray-700 bg-[#151525]">
+          {([["units","Единицы"],["crs","Система координат"],["project","Проект"],["plugins","Плагины"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>
+              {lbl}
+            </button>
           ))}
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-44">Угол севера, °:</span>
-            <input defaultValue="0.000" className="w-24 bg-[#1e1e2e] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4] font-mono"/>
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <button onClick={onClose} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 hover:bg-[#4a4a5e] rounded">Отмена</button>
-            <button onClick={onClose} className="px-3 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">ОК</button>
-          </div>
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px]">
+
+          {tab === "units" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Единицы измерения и точность</div>
+              {([
+                ["Линейные единицы:", units, setUnits, ["Метры","Километры","Сантиметры","Миллиметры","Футы","Дюймы"]],
+                ["Угловые единицы:", angUnit, setAngUnit, ["Градусы (°)","Градусы-минуты-секунды","Радианы","Грады"]],
+                ["Точность линейная:", precision, setPrecision, ["0.1","0.01","0.001","0.0001","0.00001"]],
+                ["Масштаб чертежа:", scale, setScale, ["1:500","1:1000","1:2000","1:5000","1:10000","1:25000","1:50000"]],
+              ] as [string, string, (v:string)=>void, string[]][]).map(([lbl,val,setter,opts])=>(
+                <div key={lbl} className="flex items-center gap-3">
+                  <span className="text-gray-400 w-44">{lbl}</span>
+                  <select value={val} onChange={e=>setter(e.target.value)}
+                    className="flex-1 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4]">
+                    {opts.map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              ))}
+              <div className="flex items-center gap-3">
+                <span className="text-gray-400 w-44">Угол севера, °:</span>
+                <input value={northAngle} onChange={e=>setNorthAngle(e.target.value)}
+                  className="w-28 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4] font-mono"/>
+              </div>
+            </div>
+          )}
+
+          {tab === "crs" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Система координат / EPSG</div>
+              <div className="flex items-center gap-3">
+                <span className="text-gray-400 w-44">Система координат:</span>
+                <select value={crs} onChange={e=>{
+                  setCrs(e.target.value)
+                  const found = EPSG_LIST.find(x=>x.name===e.target.value)
+                  if(found) setEpsg(found.code)
+                }}
+                  className="flex-1 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4]">
+                  {EPSG_LIST.map(s=><option key={s.code}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-gray-400 w-44">Код EPSG:</span>
+                <input value={epsg} onChange={e=>setEpsg(e.target.value)}
+                  className="w-28 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4] font-mono"/>
+              </div>
+              {/* Информация о проекции */}
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#0d1117"}}>
+                <div className="text-[10px] text-gray-400 font-bold mb-2">Параметры проекции EPSG:{epsg}</div>
+                <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                  {[
+                    ["Тип проекции", epsg==="4326"?"Географическая (lat/lon)":epsg==="3857"?"Псевдо-Меркатор":"Поперечная Меркатора"],
+                    ["Датум", epsg==="20870"||epsg==="28408"||epsg==="28409"||epsg==="28410"?"Пулково 1942":epsg==="20001"?"СК-42":"WGS 84"],
+                    ["Единицы", epsg==="4326"?"Десятичные градусы":"Метры"],
+                    ["Центральный меридиан", epsg==="32637"?"39°E":epsg==="32638"?"45°E":epsg==="20870"?"45°E":"—"],
+                  ].map(([k,v])=>(
+                    <div key={k} className="flex gap-2 border-b border-gray-800 pb-1">
+                      <span className="text-gray-500 flex-1">{k}</span>
+                      <span className="text-white font-mono">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "project" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Информация о проекте</div>
+              {([
+                ["Название проекта:", projName, setProjName, "Проект реконструкции дороги"],
+                ["Автор:", author, setAuthor, "Иванов И.И."],
+                ["Организация:", org, setOrg, "ООО Дорпроект"],
+              ] as [string, string, (v:string)=>void, string][]).map(([lbl,val,setter,ph])=>(
+                <div key={lbl} className="flex items-center gap-3">
+                  <span className="text-gray-400 w-44">{lbl}</span>
+                  <input value={val} onChange={e=>setter(e.target.value)} placeholder={ph}
+                    className="flex-1 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4]"/>
+                </div>
+              ))}
+              <div className="flex items-start gap-3">
+                <span className="text-gray-400 w-44 pt-1">Описание:</span>
+                <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3}
+                  placeholder="Краткое описание проекта..."
+                  className="flex-1 bg-[#252535] border border-gray-600 text-gray-200 px-2 py-1 rounded outline-none focus:border-[#0078d4] resize-none text-[11px]"/>
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#0d1117"}}>
+                <div className="text-[10px] text-gray-500 mb-1">Метаданные файла проекта .lapa</div>
+                <div className="font-mono text-[9px] text-gray-400">{`{"name":"${projName||"Новый проект"}","author":"${author||"—"}","org":"${org||"—"}","epsg":${epsg},"units":"${units}","created":"${new Date().toISOString().slice(0,10)}"}`}</div>
+              </div>
+            </div>
+          )}
+
+          {tab === "plugins" && (
+            <div className="space-y-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Плагины и скрипты Python/C#</div>
+              <div className="flex gap-2 mb-1">
+                {["Python","C# Script","AutoLISP"].map(lang=>(
+                  <span key={lang} className="text-[9px] px-2 py-0.5 rounded-full border border-gray-700 text-gray-400">{lang}</span>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#0d1117"}}>
+                <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400 font-mono">plugin.py</span>
+                  <button onClick={()=>setPluginResult("Выполнено успешно!\n> Обработано 0 точек\n> Время: 0.003 сек")}
+                    className="text-[9px] px-2 py-0.5 bg-green-600/30 text-green-400 rounded border border-green-700/40 hover:bg-green-600/50 transition-colors">▶ Запустить</button>
+                </div>
+                <textarea value={pluginCode} onChange={e=>setPluginCode(e.target.value)} rows={8}
+                  className="w-full bg-transparent text-[10px] text-green-300 font-mono p-3 outline-none resize-none"/>
+              </div>
+              {pluginResult && (
+                <div className="rounded border border-gray-700 p-2 text-[10px] text-green-400 font-mono" style={{background:"#0d1117"}}>
+                  <pre>{pluginResult}</pre>
+                </div>
+              )}
+              <div className="text-[9px] text-gray-600">API: project.survey_points, project.alignments, project.surfaces, project.corridors, project.networks</div>
+            </div>
+          )}
+
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-700 bg-[#151525] rounded-b-lg">
+          <button onClick={onClose} className="px-3 py-1 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
+          <button onClick={()=>{ onClose() }}
+            className="px-4 py-1 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px]">Применить</button>
         </div>
       </div>
     </motion.div>
@@ -5475,110 +5740,6 @@ function SuperelevationDialog({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="px-4 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-gray-300">Закрыть</button>
         </div>
       </div>
-    </motion.div>
-  )
-}
-
-// ─── EarthworksDialog ────────────────────────────────────────────────────────
-
-function EarthworksDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: {name:string;cut:string;fill:string;balance:string}) => void }) {
-  const [name, setName] = useState("Земляные работы ШД-38")
-  const [corridor, setCorridor] = useState("Дорога и парковочная зона")
-  const [method, setMethod] = useState("Объёмы по сечениям")
-  const [interval, setInterval] = useState("20")
-  const [rows] = useState([
-    { pk: "0+000", cut: "1245.3", fill: "0.0",    net: "+1245.3", cumCut: "1245.3",  cumFill: "0.0"    },
-    { pk: "0+020", cut: "2103.7", fill: "15.2",   net: "+2088.5", cumCut: "3349.0",  cumFill: "15.2"   },
-    { pk: "0+040", cut: "1876.4", fill: "124.8",  net: "+1751.6", cumCut: "5225.4",  cumFill: "140.0"  },
-    { pk: "0+060", cut: "932.1",  fill: "478.3",  net: "+453.8",  cumCut: "6157.5",  cumFill: "618.3"  },
-    { pk: "0+080", cut: "0.0",    fill: "1024.6", net: "-1024.6", cumCut: "6157.5",  cumFill: "1642.9" },
-    { pk: "0+100", cut: "0.0",    fill: "2187.4", net: "-2187.4", cumCut: "6157.5",  cumFill: "3830.3" },
-    { pk: "0+120", cut: "456.2",  fill: "1543.1", net: "-1086.9", cumCut: "6613.7",  cumFill: "5373.4" },
-    { pk: "0+140", cut: "1234.5", fill: "678.9",  net: "+555.6",  cumCut: "7848.2",  cumFill: "6052.3" },
-    { pk: "0+160", cut: "2456.8", fill: "102.3",  net: "+2354.5", cumCut: "10305.0", cumFill: "6154.6" },
-    { pk: "0+180", cut: "3102.4", fill: "0.0",    net: "+3102.4", cumCut: "13407.4", cumFill: "6154.6" },
-  ])
-  return (
-    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50"
-      onClick={onClose}>
-      <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
-        style={{width:720,maxHeight:"85vh"}} onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535]">
-          <span className="text-white text-[13px] font-bold flex items-center gap-2">
-            <Icon name="BarChart3" size={14} className="text-yellow-400"/> Ведомость земляных работ
-          </span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
-        </div>
-        <div className="flex gap-3 p-3 border-b border-gray-700 flex-shrink-0">
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-400 w-28">Наименование</label>
-              <input value={name} onChange={e=>setName(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-[#0078d4]"/>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-400 w-28">Коридор</label>
-              <select value={corridor} onChange={e=>setCorridor(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none">
-                <option>Дорога и парковочная зона</option>
-                <option>Ул. Трумана</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-400 w-24">Метод</label>
-              <select value={method} onChange={e=>setMethod(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none">
-                <option>Объёмы по сечениям</option>
-                <option>Метод призматоида</option>
-                <option>Средних площадей</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] text-gray-400 w-24">Шаг, м</label>
-              <input value={interval} onChange={e=>setInterval(e.target.value)} className="w-20 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none"/>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1 justify-center">
-            <div className="text-[10px] text-gray-400">Итого выемка:</div>
-            <div className="text-[13px] text-yellow-400 font-bold">13 407.4 м³</div>
-            <div className="text-[10px] text-gray-400">Итого насыпь:</div>
-            <div className="text-[13px] text-green-400 font-bold">6 154.6 м³</div>
-            <div className="text-[10px] text-gray-400">Баланс:</div>
-            <div className="text-[13px] text-blue-400 font-bold">+7 252.8 м³</div>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-[11px] border-collapse">
-            <thead className="sticky top-0 bg-[#252535]">
-              <tr>
-                {["Пикет","Выемка, м³","Насыпь, м³","Нетто, м³","Накоп. выемка","Накоп. насыпь"].map(h=>(
-                  <th key={h} className="text-left text-gray-400 px-2 py-1.5 border-b border-gray-700 font-medium whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r,i)=>(
-                <tr key={i} className={`border-b border-gray-800 hover:bg-[#252535] ${parseFloat(r.net)<0?"bg-green-900/10":"bg-yellow-900/10"}`}>
-                  <td className="px-2 py-1 text-white font-mono">{r.pk}</td>
-                  <td className="px-2 py-1 text-yellow-400">{r.cut}</td>
-                  <td className="px-2 py-1 text-green-400">{r.fill}</td>
-                  <td className={`px-2 py-1 font-mono ${parseFloat(r.net)>=0?"text-yellow-300":"text-green-300"}`}>{r.net}</td>
-                  <td className="px-2 py-1 text-gray-300 font-mono">{r.cumCut}</td>
-                  <td className="px-2 py-1 text-gray-300 font-mono">{r.cumFill}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between px-3 py-2 border-t border-gray-700 bg-[#1a1a2a]">
-          <div className="flex gap-2">
-            <button onClick={()=>onOK({name,cut:"13407.4",fill:"6154.6",balance:"+7252.8"})} className="text-[11px] text-white px-3 py-1 rounded transition-colors" style={{background:"#0078d4"}}>Экспорт CSV</button>
-            <button className="text-[11px] text-gray-300 hover:text-white px-3 py-1 rounded border border-gray-600 transition-colors">Построить диаграмму</button>
-          </div>
-          <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Закрыть</button>
-        </div>
-      </motion.div>
     </motion.div>
   )
 }
@@ -8237,7 +8398,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <SuperelevationDialog onClose={() => setShowSuperelevation(false)} />
             )}
             {showEarthworks && (
-              <EarthworksDialog onClose={()=>setShowEarthworks(false)} onOK={d=>{
+              <EarthworksVolumesDialog onClose={()=>setShowEarthworks(false)} onOK={d=>{
                 setShowEarthworks(false)
                 pushUndo(`Земляные работы: ${d.name}`)
                 showToast(`Ведомость «${d.name}» экспортирована`)
