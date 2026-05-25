@@ -5928,6 +5928,429 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TRANSPORTATION MODULE · HYDROLOGY MODULE · DAYLIGHT FL · DYNAMO CIVIL
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Transportation Module — Развязки и трафик ────────────────────────────────
+function TransportationDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"junction"|"traffic"|"signals"|"safety">("junction")
+  const [jType, setJType] = useState("Клеверный лист")
+  const [aadt1, setAadt1] = useState("18000")
+  const [aadt2, setAadt2] = useState("12000")
+  const [growth, setGrowth] = useState("3.5")
+  const [years, setYears] = useState("20")
+
+  const aadt1V = parseFloat(aadt1)||18000
+  const aadt2V = parseFloat(aadt2)||12000
+  const growthV = parseFloat(growth)||3.5
+  const yearsV = parseFloat(years)||20
+  const future1 = Math.round(aadt1V * Math.pow(1+growthV/100, yearsV))
+  const future2 = Math.round(aadt2V * Math.pow(1+growthV/100, yearsV))
+  const peakHour = Math.round((future1+future2) * 0.1)
+  const LOS = peakHour<1800?"A":peakHour<2200?"B":peakHour<2600?"C":peakHour<3000?"D":peakHour<3400?"E":"F"
+  const losColor = LOS==="A"||LOS==="B"?"#4ade80":LOS==="C"?"#facc15":LOS==="D"?"#f97316":"#ef4444"
+
+  const JunctionSVG = () => {
+    const cx=90, cy=80
+    return (
+      <svg width="180" height="160" viewBox="0 0 180 160" style={{background:"#080e18",borderRadius:8,display:"block"}}>
+        <rect width="180" height="160" fill="#1a2535"/>
+        {jType==="Клеверный лист" && (
+          <g>
+            <rect x="0" y={cy-10} width="180" height="20" fill="#2a3045"/>
+            <rect x={cx-10} y="0" width="20" height="160" fill="#2a3045"/>
+            {[[1,1],[1,-1],[-1,1],[-1,-1]].map(([sx,sy],i)=>(
+              <circle key={i} cx={cx+sx*30} cy={cy+sy*30} r="20" fill="none" stroke="#60a5fa" strokeWidth="2"/>
+            ))}
+          </g>
+        )}
+        {jType==="Ромбовидная" && (
+          <g>
+            <rect x="0" y={cy-10} width="180" height="20" fill="#2a3045"/>
+            <rect x={cx-10} y="0" width="20" height="160" fill="#2a3045"/>
+            <polygon points={`${cx-30},${cy-30} ${cx+30},${cy-30} ${cx+30},${cy+30} ${cx-30},${cy+30}`} fill="none" stroke="#f97316" strokeWidth="2"/>
+            <line x1={cx-30} y1={cy-30} x2={cx-10} y2={cy-10} stroke="#f97316" strokeWidth="1.5"/>
+            <line x1={cx+30} y1={cy-30} x2={cx+10} y2={cy-10} stroke="#f97316" strokeWidth="1.5"/>
+          </g>
+        )}
+        {jType==="Кольцевая" && (
+          <g>
+            <rect x="0" y={cy-10} width="180" height="20" fill="#2a3045"/>
+            <rect x={cx-10} y="0" width="20" height="160" fill="#2a3045"/>
+            <circle cx={cx} cy={cy} r="35" fill="#2a3045" stroke="#60a5fa" strokeWidth="2"/>
+            <circle cx={cx} cy={cy} r="15" fill="#374151"/>
+          </g>
+        )}
+        {jType==="T-образная" && (
+          <g>
+            <rect x="0" y={cy-10} width="180" height="20" fill="#2a3045"/>
+            <rect x={cx-10} y="0" width="20" height={cy+10} fill="#2a3045"/>
+          </g>
+        )}
+        <text x="90" y="155" textAnchor="middle" fill="#9ca3af" fontSize="7">{jType}</text>
+      </svg>
+    )
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:680,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Car" size={15} className="text-[#f97316]" fallback="Navigation"/>
+            <span className="text-white font-bold text-[13px]">Transportation — Развязки, трафик, светофоры</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["junction","Развязка"],["traffic","Трафик"],["signals","Светофоры"],["safety","Конфликты"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#f97316]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+            {tab==="junction" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    {id:"Клеверный лист",icon:"⊕",desc:"Полная развязка, 4 кольца"},
+                    {id:"Ромбовидная",   icon:"◇",desc:"Городская развязка"},
+                    {id:"Кольцевая",     icon:"⊙",desc:"Простая кольцевая"},
+                    {id:"T-образная",    icon:"⊥",desc:"Примыкание"},
+                  ].map(t=>(
+                    <button key={t.id} onClick={()=>setJType(t.id)}
+                      className={`p-3 rounded-lg border text-left transition-all ${jType===t.id?"border-[#f97316] bg-[#f97316]/10":"border-gray-700 hover:border-gray-500"}`}
+                      style={{background:jType===t.id?undefined:"#111827"}}>
+                      <div className="text-[20px] mb-1">{t.icon}</div>
+                      <div className={`font-bold text-[11px] ${jType===t.id?"text-[#f97316]":"text-white"}`}>{t.id}</div>
+                      <div className="text-gray-500 text-[9px]">{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="traffic" && (
+              <div className="space-y-4">
+                <div className="text-gray-400 text-[10px]">Прогноз транспортной нагрузки (СП 34.13330)</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["AADT направление 1, авт/сут",aadt1,setAadt1],
+                    ["AADT направление 2, авт/сут",aadt2,setAadt2],
+                    ["Темп роста, %/год",growth,setGrowth],
+                    ["Горизонт планирования, лет",years,setYears],
+                  ] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                    <label key={l} className="flex flex-col gap-1">
+                      <span className="text-gray-500 text-[9px]">{l}</span>
+                      <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#f97316]"/>
+                    </label>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  {[
+                    {label:"AADT₁ через "+years+" лет",val:future1.toLocaleString()+" авт/сут",color:"#60a5fa"},
+                    {label:"AADT₂ через "+years+" лет",val:future2.toLocaleString()+" авт/сут",color:"#60a5fa"},
+                    {label:"Пиковый час (10%)",val:peakHour.toLocaleString()+" авт/ч",color:"#f97316"},
+                    {label:"Уровень обслуживания",val:"LOS "+LOS,color:losColor},
+                  ].map(r=>(
+                    <div key={r.label} className="rounded border border-gray-700 px-3 py-2" style={{background:"#111827"}}>
+                      <div className="text-gray-500 text-[9px]">{r.label}</div>
+                      <div className="font-mono font-bold text-[12px]" style={{color:r.color}}>{r.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="signals" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Оптимизация светофорного цикла</div>
+                <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                  {[
+                    ["Цикл светофора","T = 90 с"],
+                    ["Зелёная фаза (главная)","g₁ = 45 с (50%)"],
+                    ["Зелёная фаза (второст.)","g₂ = 25 с (28%)"],
+                    ["Жёлтая фаза","y = 3 с"],
+                    ["Красно-жёлтая","ry = 1 с"],
+                    ["Кол-во фаз","4"],
+                    ["Тип управления","Адаптивный (АСУДД)"],
+                  ].map(([k,v])=>(
+                    <div key={k} className="flex justify-between border-b border-gray-800 py-1">
+                      <span className="text-gray-500">{k}</span>
+                      <span className="text-white font-mono">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="safety" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Анализ конфликтных точек</div>
+                <div className="space-y-2">
+                  {[
+                    {type:"Пересечение",cnt:8,risk:"Высокий",color:"#ef4444"},
+                    {type:"Слияние",cnt:4,risk:"Средний",color:"#facc15"},
+                    {type:"Отделение",cnt:4,risk:"Низкий",color:"#4ade80"},
+                  ].map(c=>(
+                    <div key={c.type} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-700" style={{background:"#111827"}}>
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background:c.color}}/>
+                      <div className="flex-1"><div className="text-white text-[11px] font-semibold">{c.type}</div></div>
+                      <div className="text-gray-400 font-mono">{c.cnt} точек</div>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full font-bold" style={{background:c.color+"20",color:c.color}}>{c.risk}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="w-52 flex-shrink-0 border-l border-gray-800 p-3" style={{background:"#0a0e14"}}>
+            <div className="text-[9px] text-gray-500 uppercase mb-2 text-center">Схема развязки</div>
+            <JunctionSVG/>
+            <div className="text-[9px] text-center mt-2 space-y-0.5">
+              <div className="text-white font-semibold">{jType}</div>
+              <div className="font-mono" style={{color:losColor}}>LOS {LOS}</div>
+              <div className="text-gray-500">{peakHour.toLocaleString()} авт/ч (пик)</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#f97316] text-white hover:bg-[#fb923c] rounded text-[11px] font-bold">✓ Создать развязку</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Hydrology Module — Гидрологический анализ ────────────────────────────────
+function HydrologyModuleDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"basins"|"peakflow"|"flood"|"erosion">("basins")
+  const [method, setMethod] = useState("SCS Curve Number")
+  const [area, setArea] = useState("48.5")
+  const [cn, setCn] = useState("78")
+  const [P, setP] = useState("85")
+  const [tc, setTc] = useState("28")
+  const [returnPeriod, setReturnPeriod] = useState("25")
+
+  // SCS CN метод
+  const Av = parseFloat(area)||48.5
+  const CNv = parseFloat(cn)||78
+  const Pv = parseFloat(P)||85
+  const tcV = parseFloat(tc)||28
+  const S = 25400/CNv - 254
+  const Ia = 0.2*S
+  const Q = Pv > Ia ? Math.pow(Pv-Ia, 2) / (Pv-Ia+S) : 0
+  const Qpeak = (Q/1000) * (Av*10000) / (tcV*60) * 1000  // л/с
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="CloudRain" size={15} className="text-[#22d3ee]" fallback="Droplets"/>
+            <span className="text-white font-bold text-[13px]">Hydrology — Водосборы, паводки, эрозия</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["basins","Водосборы"],["peakflow","Пиковый расход"],["flood","Зоны затопления"],["erosion","Эрозия"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#22d3ee]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="basins" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px]">Водосборные бассейны</div>
+              {[
+                {id:"ВБ-1",name:"Северный склон",area:"12.5 га",cn:78,L:"850 м",slope:"2.5%"},
+                {id:"ВБ-2",name:"Восточный склон",area:"8.7 га",cn:82,L:"620 м",slope:"3.8%"},
+                {id:"ВБ-3",name:"Южный склон",area:"15.2 га",cn:75,L:"940 м",slope:"1.9%"},
+                {id:"ВБ-4",name:"Долина реки",area:"12.1 га",cn:65,L:"1240 м",slope:"0.8%"},
+              ].map(b=>(
+                <div key={b.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
+                  <div className="w-9 h-9 rounded-full bg-[#22d3ee]/20 border-2 border-[#22d3ee]/60 flex items-center justify-center text-[#22d3ee] font-bold text-[10px] flex-shrink-0">{b.id.split("-")[1]}</div>
+                  <div className="flex-1">
+                    <div className="text-white text-[11px] font-semibold">{b.id} · {b.name}</div>
+                    <div className="text-gray-500 text-[9px]">Площадь {b.area} · CN={b.cn} · L={b.L} · уклон {b.slope}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {tab==="peakflow" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Метод</span>
+                  <select value={method} onChange={e=>setMethod(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {["SCS Curve Number","Rational (рациональная)","SCS Hydrograph","TR-55","Snyder Unit Hydrograph"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Период повторяемости, лет</span>
+                  <select value={returnPeriod} onChange={e=>setReturnPeriod(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {["2","5","10","25","50","100","500"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                {([["Площадь F, га",area,setArea],["CN (Curve Number)",cn,setCn],["Осадки P, мм (за tc)",P,setP],["Время конц. tc, мин",tc,setTc]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[10px] font-bold text-white mb-2">SCS CN: S = 25400/CN−254 · Q = (P−Ia)²/(P−Ia+S)</div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  {[
+                    {label:"S (потенциал удерж.)",val:`${S.toFixed(1)} мм`,color:"#60a5fa"},
+                    {label:"Ia (начальные потери)",val:`${Ia.toFixed(1)} мм`,color:"#a78bfa"},
+                    {label:"Q (сток)",val:`${Q.toFixed(2)} мм`,color:"#4ade80"},
+                    {label:"Qпик (пиковый расход)",val:`${Qpeak.toFixed(0)} л/с`,color:"#22d3ee"},
+                  ].map(r=>(
+                    <div key={r.label} className="rounded border border-gray-700 px-3 py-2" style={{background:"#0d1117"}}>
+                      <div className="text-gray-500 text-[9px]">{r.label}</div>
+                      <div className="font-mono font-bold" style={{color:r.color}}>{r.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==="flood" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px]">Прогнозирование зон затопления</div>
+              <div className="grid grid-cols-3 gap-2 text-[10px]">
+                {[
+                  {p:"1%",h:"+4.20м",area:"32.4 га",color:"#ef4444"},
+                  {p:"3%",h:"+3.15м",area:"24.8 га",color:"#f97316"},
+                  {p:"5%",h:"+2.40м",area:"18.2 га",color:"#facc15"},
+                  {p:"10%",h:"+1.65м",area:"12.1 га",color:"#4ade80"},
+                  {p:"25%",h:"+0.90м",area:"6.8 га",color:"#22d3ee"},
+                  {p:"50%",h:"+0.40м",area:"3.2 га",color:"#60a5fa"},
+                ].map(f=>(
+                  <div key={f.p} className="rounded border border-gray-700 px-2 py-2 text-center" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">P={f.p} ({100/parseFloat(f.p)} лет)</div>
+                    <div className="font-mono font-bold text-[12px]" style={{color:f.color}}>{f.h}</div>
+                    <div className="text-gray-400 text-[9px]">S={f.area}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-lg border border-yellow-700/40 bg-yellow-900/10 p-2 text-[10px] text-yellow-300">
+                ⚠ Расчёт по СП 33-101-2003 «Определение основных расчётных гидрологических характеристик»
+              </div>
+            </div>
+          )}
+          {tab==="erosion" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px]">Расчёт смыва почв (USLE) и оценка эрозии</div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[10px] font-bold text-white mb-2">Формула USLE: A = R·K·LS·C·P</div>
+                {[
+                  ["R (фактор осадков)","85 МДж·мм/(га·ч·год)"],
+                  ["K (эродируемость почвы)","0.42"],
+                  ["LS (длина и крутизна)","1.84"],
+                  ["C (растительный покров)","0.18"],
+                  ["P (агротехнические меры)","1.0"],
+                  ["A — смыв почвы","11.8 т/(га·год)"],
+                  ["Категория эрозии","Сильная (>10 т/га)"],
+                ].map(([k,v],i)=>(
+                  <div key={k} className={`flex justify-between border-b border-gray-800 py-1 text-[10px] ${i===5||i===6?"font-bold":""}`}>
+                    <span className="text-gray-500">{k}</span>
+                    <span className={i===6?"text-red-400":i===5?"text-yellow-400":"text-white"}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#22d3ee] text-[#0d1520] hover:bg-[#67e8f9] rounded text-[11px] font-bold">Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Daylight Feature Line (Tech Preview) ─────────────────────────────────────
+function DaylightFLDialog2({ onClose }: { onClose: ()=>void }) {
+  const [criteria, setCriteria] = useState("Откос 1:1.5 насыпь")
+  const [from, setFrom] = useState("0+000")
+  const [to, setTo] = useState("20+000")
+  const [side, setSide] = useState("Обе стороны")
+  const [layer, setLayer] = useState("DFL_Daylight")
+  const [style, setStyle] = useState("Стандартный")
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:560,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#1a1228] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Spline" size={15} className="text-[#a78bfa]"/>
+            <span className="text-white font-bold text-[13px]">Daylight Feature Line</span>
+            <span className="text-[9px] px-2 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 rounded-full font-bold">Tech Preview</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] space-y-3 min-h-0">
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-2 text-[10px] text-orange-300">
+            Tech Preview · Автоматизация daylight-линий вместо хрупких Grading objects
+          </div>
+          {([
+            ["Критерий планировки (Grading Criteria)",criteria,setCriteria,["Откос 1:1.5 насыпь","Откос 1:1 выемка","Откос 1:2 пологий","Кювет V-образный","Берма 2м","Пользовательский"]],
+            ["От пикета",from,setFrom,null],
+            ["До пикета",to,setTo,null],
+            ["Сторона",side,setSide,["Слева","Справа","Обе стороны"]],
+            ["Слой (Layer)",layer,setLayer,null],
+            ["Стиль (Style)",style,setStyle,["Стандартный","Насыпь — красный","Выемка — синий","Невидимый"]],
+          ] as [string,string,(v:string)=>void,string[]|null][]).map(([l,v,s,opts])=>(
+            <div key={l} className="flex items-center gap-3">
+              <span className="text-gray-500 w-44 text-[10px]">{l}:</span>
+              {opts ?
+                <select value={v} onChange={e=>s(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                  {opts.map(o=><option key={o}>{o}</option>)}
+                </select> :
+                <input value={v} onChange={e=>s(e.target.value)} className="flex-1 bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px]"/>
+              }
+            </div>
+          ))}
+          <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+            <div className="text-white font-bold mb-2">Преимущества Daylight FL над Grading objects</div>
+            {[
+              "Динамическое обновление при изменении проектной поверхности",
+              "Устойчивость к перемещению — нет «ломки» при правке трассы",
+              "Возможность задания диапазонов станций и сторон",
+              "Назначение собственных слоёв и стилей",
+              "Замена устаревшего Grading group объекта",
+            ].map(t=>(
+              <div key={t} className="flex items-start gap-2 py-0.5">
+                <Icon name="Check" size={10} className="text-green-400 mt-0.5"/>
+                <span className="text-gray-400">{t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#15102a] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#a78bfa] text-white hover:bg-[#c4b5fd] rounded text-[11px] font-bold">✓ Создать Daylight FL</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HORIZONTAL REGRESSION ANALYSIS · INFODRAINAGE · FORMA DATA MANAGEMENT
 // TRANSPORTATION MODULE · HYDROLOGY MODULE · DWT TEMPLATES · DYNAMIC MODEL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -10211,6 +10634,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [showTransportation, setShowTransportation] = useState(false)
+  const [showHydrologyModule, setShowHydrologyModule] = useState(false)
+  const [showDaylightFL2, setShowDaylightFL2] = useState(false)
   const [showHRA, setShowHRA] = useState(false)
   const [showInfoDrainage, setShowInfoDrainage] = useState(false)
   const [showFormaData, setShowFormaData] = useState(false)
@@ -11071,6 +11497,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   else if (c === "ROUNDABOUT" || c === "КОЛЬЦО" || c === "КОЛЬЦЕВОЕ" || c === "RB") setShowRoundabout(true)
   else if (c === "RAIL" || c === "RAILTRACK" || c === "ЖД" || c === "РЕЛЬСЫ" || c === "RT") setShowRailTrack(true)
   else if (c === "BRIDGE" || c === "МОСТ" || c === "BM" || c === "BRIDGE MODELER") setShowBridgeModeler(true)
+  else if (c === "TRANSPORT" || c === "ТРАНСПОРТ" || c === "РАЗВЯЗКА" || c === "TRAFFIC") setShowTransportation(true)
+  else if (c === "HYDRO" || c === "ГИДРОЛОГИЯ_М" || c === "SCS" || c === "ПАВОДОК") setShowHydrologyModule(true)
+  else if (c === "DAYLIGHT FL" || c === "DFL" || c === "ХЛВР") setShowDaylightFL2(true)
   else if (c === "HRA" || c === "РЕГРЕССИЯ" || c === "ALIGNMENT ANALYSIS") setShowHRA(true)
   else if (c === "INFODRAINAGE" || c === "ДРЕНАЖ" || c === "ЛИВНЕВАЯ" || c === "FAA" || c === "KIRPICH") setShowInfoDrainage(true)
   else if (c === "FORMA" || c === "DM" || c === "DATA MANAGEMENT") setShowFormaData(true)
@@ -11194,6 +11623,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("3d-вьюер") || k.includes("3d вьюер")) { onNavigate?.("viewer3d") }
     else if (k.includes("жд") || k.includes("рельс") || k.includes("rail track") || k.includes("ж/д путь")) { setShowRailTrack(true) }
     else if (k.includes("мост") || k.includes("bridge") || k.includes("путепровод") || k.includes("виадук")) { setShowBridgeModeler(true) }
+    else if (k.includes("транспорт") || k.includes("transportation") || k.includes("трафик") || k.includes("развязк") || k.includes("светофор")) { setShowTransportation(true) }
+    else if (k.includes("hydrology") || k.includes("scs") || k.includes("паводок") || k.includes("водосбор") || k.includes("эроз")) { setShowHydrologyModule(true) }
+    else if (k.includes("daylight") || k.includes("dfl") || k.includes("feature line")) { setShowDaylightFL2(true) }
     else if (k.includes("hra") || k.includes("регресс") || k.includes("horizontal regression")) { setShowHRA(true) }
     else if (k.includes("infodrainage") || k.includes("ливнев") || k.includes("kirpich") || k.includes("faa метод") || k.includes("время концентр")) { setShowInfoDrainage(true) }
     else if (k.includes("forma") || k.includes("data management") || k.includes("connected ref")) { setShowFormaData(true) }
@@ -11233,7 +11665,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   interface RibbonItem { label: string; icon: string; size: "lg"|"sm"; drop?: string; fallback?: string }
   interface RibbonGroup { label: string; items: RibbonItem[] }
 
-  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Геология","Анализ","Инструменты","Вывод","Производство","Надстройки"]
+  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Транспорт","Геология","Анализ","Инструменты","Вывод","Производство","Надстройки"]
 
   const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     "Главная": [
@@ -11457,6 +11889,22 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Тоннель",     icon:"Circle",       size:"lg", fallback:"CircleDot" },
         { label:"Обделка",     icon:"Layers",       size:"sm" },
         { label:"Расчёт",      icon:"Calculator",   size:"sm", fallback:"BarChart3" },
+      ]},
+    ],
+    "Транспорт": [
+      { label: "Развязки", items: [
+        { label:"Transportation",icon:"Car",          size:"lg", fallback:"Navigation" },
+        { label:"Развязки",      icon:"GitBranch",    size:"lg", fallback:"Crosshair" },
+        { label:"Светофоры",     icon:"AlertCircle",  size:"sm", fallback:"Circle" },
+      ]},
+      { label: "Гидрология", items: [
+        { label:"Hydrology",     icon:"CloudRain",    size:"lg", fallback:"Droplets" },
+        { label:"Паводки",       icon:"Waves",        size:"sm", fallback:"Droplets" },
+        { label:"Эрозия",        icon:"TrendingDown", size:"sm" },
+      ]},
+      { label: "Daylight", items: [
+        { label:"Daylight FL",   icon:"Spline",       size:"lg" },
+        { label:"Критерии",      icon:"Settings",     size:"sm", fallback:"Settings2" },
       ]},
     ],
     "Инструменты": [
@@ -13022,6 +13470,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             )}
 
             {/* ── Новые диалоги ── */}
+            {showTransportation && <TransportationDialog onClose={()=>setShowTransportation(false)}/>}
+            {showHydrologyModule && <HydrologyModuleDialog onClose={()=>setShowHydrologyModule(false)}/>}
+            {showDaylightFL2 && <DaylightFLDialog2 onClose={()=>setShowDaylightFL2(false)}/>}
             {showHRA && <HRADialog onClose={()=>setShowHRA(false)}/>}
             {showInfoDrainage && <InfoDrainageDialog onClose={()=>setShowInfoDrainage(false)}/>}
             {showFormaData && <FormaDataDialog onClose={()=>setShowFormaData(false)}/>}

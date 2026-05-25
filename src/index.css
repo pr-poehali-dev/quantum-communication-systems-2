@@ -146,3 +146,58 @@
     max-width: 1536px;
   }
 }
+
+/* ── Универсальные правила для модальных окон ЛАПА ────────────────────────── */
+/* Все диалоги должны влезать в окно и быть прокручиваемы */
+[class*="absolute inset-0 bg-black"] > div,
+[class*="fixed inset-0 bg-black"] > div {
+  max-height: 92vh !important;
+  max-width: 96vw !important;
+}
+
+/* Контейнеры с конкретной шириной (style={{width:NNNpx}}) — ограничить max-width */
+[style*="width:"] {
+  max-width: min(96vw, var(--w-current, 100%));
+}
+
+/* Скроллбар внутри диалогов — тонкий и тёмный */
+[class*="overflow-auto"]::-webkit-scrollbar,
+[class*="overflow-y-auto"]::-webkit-scrollbar,
+[class*="overflow-x-auto"]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+[class*="overflow-auto"]::-webkit-scrollbar-track,
+[class*="overflow-y-auto"]::-webkit-scrollbar-track,
+[class*="overflow-x-auto"]::-webkit-scrollbar-track {
+  background: rgba(20, 20, 30, 0.4);
+}
+[class*="overflow-auto"]::-webkit-scrollbar-thumb,
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+[class*="overflow-x-auto"]::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+  border-radius: 4px;
+}
+[class*="overflow-auto"]::-webkit-scrollbar-thumb:hover,
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+/* Гарантия что Escape работает и закрытие всегда доступно */
+button[onclick] {
+  cursor: pointer;
+}
+
+/* На мобильных и при низкой высоте — уменьшить отступы */
+@media (max-height: 700px) {
+  [class*="absolute inset-0 bg-black"] > div,
+  [class*="fixed inset-0 bg-black"] > div {
+    max-height: 94vh !important;
+  }
+}
+@media (max-width: 720px) {
+  [class*="absolute inset-0 bg-black"] > div,
+  [class*="fixed inset-0 bg-black"] > div {
+    max-width: 98vw !important;
+  }
+}
