@@ -5928,6 +5928,818 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// REALITY CAPTURE · GIS INTEGRATION · VOLUME DASHBOARD ·
+// CONSTRUCTION PHASES · REVIT EXCHANGE · DYNAMO CIVIL
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Reality Capture + Point Cloud ────────────────────────────────────────────
+function RealityCaptureDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"import"|"cloud"|"process"|"export">("import")
+  const [source, setSource] = useState("Лидар LAS/LAZ")
+  const [file, setFile] = useState("")
+  const [filtering, setFiltering] = useState(true)
+  const [thinning, setThinning] = useState("0.05")
+  const [classification, setClassification] = useState(true)
+  const [progress, setProgress] = useState(0)
+  const [processing, setProcessing] = useState(false)
+  const [done, setDone] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const startProcess = () => {
+    setProcessing(true); setProgress(0); setDone(false)
+    const iv = setInterval(()=>{
+      setProgress(p=>{
+        if(p>=100){ clearInterval(iv); setProcessing(false); setDone(true); return 100 }
+        return p + Math.random()*8+3
+      })
+    }, 180)
+  }
+
+  // Статистика облака
+  const stats = {pts:"2 847 320", density:"14.2 пт/м²", area:"200 500 м²", classes:"Земля, Растит., Здания, Дороги, Шум"}
+
+  // SVG визуализация облака точек
+  const PointCloudSVG = () => {
+    const pts = Array.from({length:200},(_,i)=>({
+      x: (Math.sin(i*0.23)*85+Math.cos(i*0.47)*50+Math.random()*20),
+      y: (Math.cos(i*0.19)*40+Math.sin(i*0.31)*25+Math.random()*12),
+      z: Math.sin(i*0.13)*8+Math.cos(i*0.27)*5,
+    }))
+    const colors = ["#4ade80","#22d3ee","#f59e0b","#a78bfa","#f87171"]
+    return (
+      <svg width="100%" viewBox="-120 -60 240 120" style={{background:"#080e18",borderRadius:8,display:"block"}}>
+        {pts.map((p,i)=>{
+          const ci = Math.floor(((p.z+13)/26)*5)
+          const sx = p.x*0.85 + p.y*0.3, sy = -p.z*2.5 + p.y*0.5
+          const size = 0.8 + (p.z+13)/26*0.8
+          return <circle key={i} cx={sx} cy={sy} r={size} fill={colors[Math.min(4,Math.max(0,ci))]} opacity="0.7"/>
+        })}
+        <text x="-115" y="-52" fill="#4b5563" fontSize="6">Облако точек LiDAR · {stats.pts} точек</text>
+      </svg>
+    )
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="ScanLine" size={15} className="text-[#22d3ee]" fallback="Scan"/>
+            <span className="text-white font-bold text-[13px]">Reality Capture — Облака точек и фотограмметрия</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["import","Импорт"],["cloud","Визуализация"],["process","Обработка"],["export","Экспорт"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#22d3ee]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="import" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Источник данных</span>
+                  <select value={source} onChange={e=>setSource(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#22d3ee] text-[10px]">
+                    {["Лидар LAS/LAZ","Фотограмметрия (фото→облако)","Тахеометрическая съёмка","E57 (структурированное)","XYZ/ASCII","PLY (полигональная)"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Система координат (EPSG)</span>
+                  <select className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none text-[10px]">
+                    {["20870 — МСК-70","32637 — UTM 37N","4326 — WGS84","28408 — ГК зона 8"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+              </div>
+              {/* Drag&Drop */}
+              <div onClick={()=>fileRef.current?.click()}
+                className="rounded-xl border-2 border-dashed border-gray-600 hover:border-[#22d3ee] p-8 flex flex-col items-center gap-3 cursor-pointer transition-colors"
+                style={{background:"#0d1520"}}>
+                <Icon name="Upload" size={28} className="text-gray-500"/>
+                {file ? <span className="text-white font-semibold">{file}</span>
+                  : <span className="text-gray-500">Перетащите .las / .laz / .e57 / .xyz или нажмите</span>}
+                <input ref={fileRef} type="file" accept=".las,.laz,.e57,.xyz,.ply,.csv" className="hidden"
+                  onChange={e=>setFile(e.target.files?.[0]?.name||"")}/>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={filtering} onChange={e=>setFiltering(e.target.checked)} className="accent-[#22d3ee]"/>
+                  <span className="text-gray-300 text-[10px]">Фильтрация шума</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={classification} onChange={e=>setClassification(e.target.checked)} className="accent-[#22d3ee]"/>
+                  <span className="text-gray-300 text-[10px]">Авто-классификация</span>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Прореживание, м</span>
+                  <input type="number" value={thinning} onChange={e=>setThinning(e.target.value)} step="0.01"
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded font-mono text-[10px]"/>
+                </label>
+              </div>
+            </div>
+          )}
+          {tab==="cloud" && (
+            <div className="space-y-3">
+              <PointCloudSVG/>
+              <div className="grid grid-cols-3 gap-2 text-[10px]">
+                {[
+                  {label:"Точек всего",val:stats.pts,color:"#22d3ee"},
+                  {label:"Плотность",val:stats.density,color:"#4ade80"},
+                  {label:"Площадь",val:stats.area,color:"#f97316"},
+                  {label:"Классы",val:"5 шт.",color:"#a78bfa"},
+                  {label:"Формат",val:"LAS 1.4",color:"#60a5fa"},
+                  {label:"СК",val:"МСК-70",color:"#facc15"},
+                ].map(s=>(
+                  <div key={s.label} className="rounded border border-gray-700 px-2 py-1.5" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{s.label}</div>
+                    <div className="font-mono font-bold text-[11px]" style={{color:s.color}}>{s.val}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-2" style={{background:"#111827"}}>
+                <div className="text-[9px] text-gray-500 mb-1">Классификация точек (ASPRS LAS)</div>
+                <div className="flex gap-2 flex-wrap">
+                  {[{c:"#4ade80",l:"Земля"},{"c":"#22d3ee",l:"Вода"},{c:"#86efac",l:"Растительность"},{c:"#a78bfa",l:"Здания"},{c:"#94a3b8",l:"Шум"}].map(cl=>(
+                    <div key={cl.l} className="flex items-center gap-1 text-[9px]">
+                      <div className="w-3 h-3 rounded-full" style={{background:cl.c}}/><span className="text-gray-400">{cl.l}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==="process" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Построение поверхности TIN из облака точек</div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {label:"Макс. расстояние между точками",val:"2.0 м",desc:"Ограничение триангуляции"},
+                  {label:"Фильтр класса",val:"Земля (класс 2)",desc:"Только наземные точки"},
+                  {label:"Сглаживание",val:"Нет",desc:"Сохранить острые границы"},
+                  {label:"Выходная поверхность",val:"Существующая TIN",desc:"Перезаписать или создать"},
+                ].map(r=>(
+                  <div key={r.label} className="rounded border border-gray-700 px-3 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{r.label}</div>
+                    <div className="text-white font-semibold text-[10px]">{r.val}</div>
+                    <div className="text-gray-600 text-[9px]">{r.desc}</div>
+                  </div>
+                ))}
+              </div>
+              {processing || done ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-gray-400">{done?"Готово!":"Обработка..."}</span>
+                    <span className="text-[#22d3ee] font-mono">{Math.round(Math.min(100,progress))}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#22d3ee] rounded-full transition-all" style={{width:`${Math.min(100,progress)}%`}}/>
+                  </div>
+                  {done && <div className="text-green-400 text-[10px]">✓ TIN-поверхность построена · 284 419 треугольников · Экспортирована в проект</div>}
+                </div>
+              ) : (
+                <button onClick={startProcess}
+                  className="w-full py-2.5 bg-[#22d3ee] text-[#0d1520] font-bold rounded-lg text-[11px] hover:bg-[#67e8f9] transition-colors">
+                  ▶ Построить TIN-поверхность из облака точек
+                </button>
+              )}
+            </div>
+          )}
+          {tab==="export" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px]">Экспорт обработанного облака точек</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  {fmt:"LAS 1.4",icon:"FileCode",desc:"Стандарт ASPRS, с классами",color:"#22d3ee"},
+                  {fmt:"LAZ",icon:"Archive",desc:"Сжатый LAS (lossless)",color:"#60a5fa",fallback:"FileCode"},
+                  {fmt:"E57",icon:"Database",desc:"Структурированные данные",color:"#a78bfa",fallback:"Layers"},
+                  {fmt:"XYZ/CSV",icon:"Sheet",desc:"Текстовый формат X Y Z",color:"#4ade80"},
+                  {fmt:"TIN (LandXML)",icon:"Code2",desc:"Поверхность для Civil 3D",color:"#f97316"},
+                  {fmt:"OBJ Mesh",icon:"Box",desc:"3D-меш для визуализации",color:"#facc15"},
+                ].map(f=>(
+                  <button key={f.fmt} onClick={onClose}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-700 hover:border-[#22d3ee] hover:bg-[#1e2a3e] transition-all text-left">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:f.color+"20"}}>
+                      <Icon name={f.icon} size={16} style={{color:f.color}} fallback="Download"/>
+                    </div>
+                    <div><div className="text-white font-bold text-[11px]">{f.fmt}</div>
+                    <div className="text-gray-500 text-[9px]">{f.desc}</div></div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={()=>{ setTab("process") }}
+            className="px-4 py-1.5 bg-[#22d3ee] text-[#0d1520] hover:bg-[#67e8f9] rounded text-[11px] font-bold">Построить TIN →</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── GIS Integration (WMS/WMTS подложки, Esri, OpenStreetMap) ─────────────────
+function GISIntegrationDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"basemap"|"wms"|"export"|"epsg">("basemap")
+  const [activeMap, setActiveMap] = useState("OpenStreetMap")
+  const [wmsUrl, setWmsUrl] = useState("https://ows.terrestris.de/osm/service")
+  const [wmsLayer, setWmsLayer] = useState("OSM-WMS")
+  const [opacity, setOpacity] = useState(70)
+  const [epsgFrom, setEpsgFrom] = useState("4326")
+  const [epsgTo, setEpsgTo] = useState("20870")
+  const [coordX, setCoordX] = useState("55.7558")
+  const [coordY, setCoordY] = useState("37.6173")
+
+  const basemaps = [
+    {name:"OpenStreetMap",     provider:"OSM",   color:"#4ade80", desc:"Бесплатная карта мира"},
+    {name:"Яндекс.Карты",     provider:"Yandex",color:"#f97316", desc:"Спутник + гибрид + карта"},
+    {name:"Esri Satellite",   provider:"Esri",  color:"#60a5fa", desc:"Спутниковая подложка"},
+    {name:"Google Maps",      provider:"Google",color:"#ef4444", desc:"Google Maps API"},
+    {name:"Bing Aerial",      provider:"Bing",  color:"#0078d4", desc:"Microsoft спутник"},
+    {name:"Rosreestr",        provider:"ГКН",   color:"#facc15", desc:"Кадастровая карта РФ"},
+    {name:"2GIS",             provider:"2GIS",  color:"#10b981", desc:"Детальные карты городов"},
+    {name:"Отключить",        provider:"—",     color:"#6b7280", desc:"Без подложки"},
+  ]
+
+  // Конвертер координат (упрощённый)
+  const converted = {
+    x: (parseFloat(coordX)*111319.9).toFixed(3),
+    y: (parseFloat(coordY)*111319.9*Math.cos(parseFloat(coordX)*Math.PI/180)).toFixed(3)
+  }
+
+  // Превью карты (схематично)
+  const MapPreview = () => (
+    <svg width="100%" viewBox="0 0 300 160" style={{background:"#1a2535",borderRadius:8,display:"block"}}>
+      {/* Фон карты */}
+      <rect width="300" height="160" fill={activeMap==="Esri Satellite"||activeMap==="Google Maps"||activeMap==="Bing Aerial"?"#1a3a1a":"#1e2d3e"}/>
+      {/* Дороги */}
+      <path d="M 0,80 C 60,78 120,82 180,76 C 220,72 260,78 300,80" fill="none" stroke={activeMap==="Отключить"?"#374151":"#4b5563"} strokeWidth="3"/>
+      <path d="M 150,0 C 148,40 152,80 150,160" fill="none" stroke={activeMap==="Отключить"?"#374151":"#374151"} strokeWidth="2"/>
+      {/* Здания */}
+      {[[40,30,20,14],[80,50,15,20],[200,60,25,18],[240,30,18,15],[180,100,30,22]].map(([x,y,w,h],i)=>(
+        <rect key={i} x={x} y={y} width={w} height={h} fill={activeMap.includes("Satellite")?"#2d3748":"#334155"} stroke="#4b5563" strokeWidth="0.5"/>
+      ))}
+      {/* Водоём */}
+      <ellipse cx="80" cy="120" rx="35" ry="20" fill="#1e3a5f" stroke="#2563eb" strokeWidth="0.5"/>
+      <text x="80" y="124" textAnchor="middle" fill="#3b82f6" fontSize="6">Пруд</text>
+      {/* Проект */}
+      <path d="M 60,80 C 100,76 160,78 240,80" fill="none" stroke="#f97316" strokeWidth="2"/>
+      <text x="150" y="73" textAnchor="middle" fill="#f97316" fontSize="6">Трасса ШД-38</text>
+      {/* Подпись */}
+      <text x="5" y="155" fill={activeMap==="Отключить"?"#4b5563":"#9ca3af"} fontSize="6">
+        {activeMap==="Отключить"?"Подложка отключена":activeMap + " · opacity=" + opacity + "%"}
+      </text>
+      {/* Кадастр */}
+      {activeMap==="Rosreestr"&&(
+        <g>
+          {[[20,40,60,50],[100,40,60,50],[20,100,60,50],[100,100,60,50],[160,100,60,50]].map(([x,y,w,h],i)=>(
+            <rect key={i} x={x} y={y} width={w} height={h} fill="none" stroke="#facc15" strokeWidth="1" strokeDasharray="3 2" opacity="0.5"/>
+          ))}
+          <text x="50" y="68" textAnchor="middle" fill="#facc15" fontSize="5">У-001</text>
+        </g>
+      )}
+    </svg>
+  )
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:680,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1a1a] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Globe" size={15} className="text-[#4ade80]"/>
+            <span className="text-white font-bold text-[13px]">GIS Integration — Карты, WMS и системы координат</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1a10] flex-shrink-0">
+          {([["basemap","Подложки"],["wms","WMS/WMTS"],["epsg","Конвертер СК"],["export","Экспорт ГИС"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1a2e1a] text-white border-b-2 border-b-[#4ade80]":"text-gray-400 hover:bg-[#1a2e1a]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+            {tab==="basemap" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {basemaps.map(b=>(
+                    <button key={b.name} onClick={()=>setActiveMap(b.name)}
+                      className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${activeMap===b.name?"border-[#4ade80] bg-[#1a2e1a]":"border-gray-700 hover:border-gray-500"}`}
+                      style={{background:activeMap===b.name?undefined:"#111827"}}>
+                      <div className="w-6 h-6 rounded-full flex-shrink-0" style={{background:b.color+"30",border:`2px solid ${b.color}`}}/>
+                      <div>
+                        <div className={`font-semibold text-[10px] ${activeMap===b.name?"text-[#4ade80]":"text-white"}`}>{b.name}</div>
+                        <div className="text-gray-600 text-[9px]">{b.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <div className="text-gray-500 text-[9px] mb-1">Прозрачность подложки: <span className="text-white font-mono">{opacity}%</span></div>
+                  <input type="range" min="10" max="100" value={opacity} onChange={e=>setOpacity(+e.target.value)} className="w-full accent-green-500"/>
+                </div>
+              </div>
+            )}
+            {tab==="wms" && (
+              <div className="space-y-4">
+                <div className="text-gray-400 text-[10px]">Подключение внешних WMS/WMTS-сервисов</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1 col-span-2">
+                    <span className="text-gray-500 text-[9px]">URL сервиса WMS/WMTS</span>
+                    <input value={wmsUrl} onChange={e=>setWmsUrl(e.target.value)}
+                      className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#4ade80] font-mono text-[10px]"/>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Слой (Layer)</span>
+                    <input value={wmsLayer} onChange={e=>setWmsLayer(e.target.value)}
+                      className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#4ade80]"/>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Версия WMS</span>
+                    <select className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none text-[10px]">
+                      <option>1.3.0</option><option>1.1.1</option><option>1.0.0</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#0d1520"}}>
+                  <div className="font-bold text-white mb-2">Готовые WMS-сервисы РФ</div>
+                  {[
+                    {name:"Росреестр (ПКК)",url:"https://pkk.rosreestr.ru/arcgis/services/PKK6/CadastreObjects/MapServer/WMSServer"},
+                    {name:"Геологическая карта",url:"https://geoinfo.vsegei.ru/geoserver/wms"},
+                    {name:"OpenTopoMap",url:"https://tile.opentopomap.org/{z}/{x}/{y}.png"},
+                  ].map(s=>(
+                    <button key={s.name} onClick={()=>setWmsUrl(s.url)}
+                      className="w-full flex items-center gap-2 py-1.5 border-b border-gray-800 hover:text-[#4ade80] transition-colors text-left">
+                      <Icon name="Globe" size={10} className="text-gray-600"/>
+                      <div className="flex-1"><div className="text-white">{s.name}</div>
+                      <div className="text-gray-600 text-[9px] truncate">{s.url}</div></div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="epsg" && (
+              <div className="space-y-4">
+                <div className="text-gray-400 text-[10px]">Перевод координат между системами</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {([["Исходная СК (EPSG)",epsgFrom,setEpsgFrom],["Целевая СК (EPSG)",epsgTo,setEpsgTo]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                    <label key={l} className="flex flex-col gap-1">
+                      <span className="text-gray-500 text-[9px]">{l}</span>
+                      <select value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none text-[10px]">
+                        {["4326 — WGS84 (GPS)","20870 — МСК-70","32637 — UTM 37N","32638 — UTM 38N","28408 — ГК зона 8","28409 — ГК зона 9","3857 — Web Mercator"].map(o=><option key={o}>{o}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {([["Долгота / X",coordX,setCoordX],["Широта / Y",coordY,setCoordY]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                    <label key={l} className="flex flex-col gap-1">
+                      <span className="text-gray-500 text-[9px]">{l}</span>
+                      <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px]"/>
+                    </label>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                  <div className="text-[9px] text-gray-500 mb-2">Результат конвертации (приближённый)</div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div><div className="text-gray-500">X (E):</div><div className="text-[#4ade80] font-mono font-bold">{converted.x} м</div></div>
+                    <div><div className="text-gray-500">Y (N):</div><div className="text-[#4ade80] font-mono font-bold">{converted.y} м</div></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {tab==="export" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Экспорт в ГИС-форматы</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    {fmt:"GeoJSON",icon:"Code2",desc:"RFC 7946, для веб-ГИС",color:"#4ade80"},
+                    {fmt:"Shapefile",icon:"Map",desc:"ESRI .shp + .dbf + .prj",color:"#0078d4"},
+                    {fmt:"GeoPackage",icon:"Database",desc:"OGC GeoPackage .gpkg",color:"#7c3aed"},
+                    {fmt:"KML/KMZ",icon:"Globe",desc:"Google Earth/Maps",color:"#f97316"},
+                    {fmt:"GeoTIFF",icon:"Image",desc:"Растровый экспорт",color:"#ef4444"},
+                    {fmt:"DWG + geo",icon:"PencilRuler",desc:"AutoCAD с геопривязкой",color:"#0891b2"},
+                  ].map(f=>(
+                    <button key={f.fmt} onClick={onClose}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-gray-700 hover:border-[#4ade80] hover:bg-[#1a2e1a] transition-all text-left">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:f.color+"20"}}>
+                        <Icon name={f.icon} size={16} style={{color:f.color}} fallback="Download"/>
+                      </div>
+                      <div><div className="text-white font-bold text-[11px]">{f.fmt}</div>
+                      <div className="text-gray-500 text-[9px]">{f.desc}</div></div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Превью карты */}
+          <div className="w-52 flex-shrink-0 border-l border-gray-800 p-3 flex flex-col gap-2" style={{background:"#0a100a"}}>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide text-center">Предпросмотр</div>
+            <MapPreview/>
+            <div className="text-[9px] text-center space-y-0.5">
+              <div className="text-white font-semibold">{activeMap}</div>
+              <div className="text-gray-500">Прозрачность: {opacity}%</div>
+              <div className="text-[#4ade80] font-mono text-[8px]">EPSG:{epsgTo.split(" ")[0]}</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1a10] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#4ade80] text-[#0a100a] hover:bg-[#86efac] rounded text-[11px] font-bold">Применить подложку</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Volume Dashboard ──────────────────────────────────────────────────────────
+function VolumeDashboardDialog({ onClose }: { onClose: ()=>void }) {
+  const corridors = ["Дорога и парковочная зона","Ул. Трумана","Съезд №1"]
+  const [selCorridor, setSelCorridor] = useState(corridors[0])
+
+  const data = {
+    cut:  [1245,2103,1876,932,0,0,456,1234,2456,3102,2847,1923],
+    fill: [0,15,124,478,1024,2187,1543,678,102,0,0,340],
+    pks:  Array.from({length:12},(_,i)=>`ПК${i*2}`)
+  }
+  const totalCut  = data.cut.reduce((a,b)=>a+b,0)
+  const totalFill = data.fill.reduce((a,b)=>a+b,0)
+  const net = totalCut - totalFill
+
+  // SVG диаграмма
+  const ChartSVG = () => {
+    const W=340, H=100, maxV=Math.max(...data.cut,...data.fill,1)
+    const bW = (W-20)/(data.cut.length*2+data.cut.length-1)
+    return (
+      <svg width={W} height={H+20} viewBox={`0 0 ${W} ${H+20}`} style={{background:"#0d1117",borderRadius:6,display:"block"}}>
+        {/* Нулевая линия */}
+        <line x1="10" y1={H} x2={W-10} y2={H} stroke="#374151" strokeWidth="0.8"/>
+        {data.cut.map((c,i)=>{
+          const x = 10+i*(bW*3)
+          const hc = (c/maxV)*(H-10), hf = (data.fill[i]/maxV)*(H-10)
+          return (
+            <g key={i}>
+              <rect x={x} y={H-hc} width={bW} height={hc} fill="#ef4444" opacity="0.8" rx="1"/>
+              <rect x={x+bW+1} y={H-hf} width={bW} height={hf} fill="#3b82f6" opacity="0.8" rx="1"/>
+              {i%3===0&&<text x={x+bW} y={H+12} textAnchor="middle" fill="#6b7280" fontSize="5">{data.pks[i]}</text>}
+            </g>
+          )
+        })}
+        {/* Легенда */}
+        <rect x="10" y="4" width="7" height="5" fill="#ef4444" rx="1"/>
+        <text x="20" y="9" fill="#f87171" fontSize="5.5">Выемка</text>
+        <rect x="65" y="4" width="7" height="5" fill="#3b82f6" rx="1"/>
+        <text x="75" y="9" fill="#60a5fa" fontSize="5.5">Насыпь</text>
+      </svg>
+    )
+  }
+
+  // График масс
+  const MassCurveSVG = () => {
+    let cum=0; const pts=data.cut.map((c,i)=>{ cum+=c-data.fill[i]; return cum })
+    const min=Math.min(...pts), max=Math.max(...pts), range=max-min||1
+    const W=340,H=70
+    return (
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{background:"#0d1117",borderRadius:6,display:"block"}}>
+        <line x1="10" y1={H/2} x2={W-10} y2={H/2} stroke="#374151" strokeWidth="0.8" strokeDasharray="4 2"/>
+        <polyline points={pts.map((v,i)=>`${10+i*(W-20)/(pts.length-1)},${H-10-((v-min)/range)*(H-20)}`).join(" ")}
+          fill="none" stroke="#4fc3f7" strokeWidth="1.5"/>
+        {pts.filter((v,i)=>i>0&&(pts[i-1]>0)!==(v>0)).map((v,i)=>(
+          <circle key={i} cx={10+i*(W-20)/(pts.length-1)} cy={H/2} r="3" fill="none" stroke="#facc15" strokeWidth="1.5"/>
+        ))}
+        <text x="12" y="8" fill="#4fc3f7" fontSize="6">Кривая масс Брикнера</text>
+      </svg>
+    )
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:620,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1628] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="BarChart3" size={15} className="text-[#60a5fa]"/>
+            <span className="text-white font-bold text-[13px]">Volume Dashboard — Дашборд объёмов</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 border-b border-gray-800 flex-shrink-0 flex items-center gap-3">
+          <span className="text-gray-500 text-[10px]">Коридор:</span>
+          <div className="flex gap-1">{corridors.map(c=>(
+            <button key={c} onClick={()=>setSelCorridor(c)}
+              className={`px-2 py-0.5 rounded text-[10px] transition-colors ${selCorridor===c?"bg-[#0078d4] text-white":"bg-[#252535] text-gray-400 hover:text-white"}`}>{c}</button>
+          ))}</div>
+        </div>
+        <div className="flex-1 overflow-auto p-4 space-y-4 min-h-0">
+          {/* KPI */}
+          <div className="grid grid-cols-3 gap-3 text-[10px]">
+            {[
+              {label:"Выемка (Cut)",val:`${(totalCut/1000).toFixed(1)} тыс. м³`,color:"#f87171",icon:"ArrowDown"},
+              {label:"Насыпь (Fill)",val:`${(totalFill/1000).toFixed(1)} тыс. м³`,color:"#60a5fa",icon:"ArrowUp"},
+              {label:net>0?"Вывоз грунта":"Привоз грунта",val:`${(Math.abs(net)/1000).toFixed(1)} тыс. м³`,color:net>0?"#f97316":"#4ade80",icon:"TrendingUp"},
+            ].map(k=>(
+              <div key={k.label} className="rounded-lg border border-gray-700 p-3 flex gap-2 items-start" style={{background:"#111827"}}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:k.color+"20"}}>
+                  <Icon name={k.icon} size={16} style={{color:k.color}} fallback="BarChart3"/>
+                </div>
+                <div><div className="text-gray-500 text-[9px]">{k.label}</div>
+                <div className="font-mono font-bold text-[13px]" style={{color:k.color}}>{k.val}</div></div>
+              </div>
+            ))}
+          </div>
+          {/* Гистограмма */}
+          <div>
+            <div className="text-[9px] text-gray-500 mb-1">Объёмы по пикетам</div>
+            <ChartSVG/>
+          </div>
+          {/* Кривая масс */}
+          <div>
+            <div className="text-[9px] text-gray-500 mb-1">График масс Брикнера</div>
+            <MassCurveSVG/>
+          </div>
+          {/* Баланс */}
+          <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+            <div className="font-bold text-white mb-2">Баланс земляных работ</div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-red-400 w-12">Выемка</div>
+              <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-red-500/70 rounded-full" style={{width:`${(totalCut/(totalCut+totalFill)*100).toFixed(0)}%`}}/>
+              </div>
+              <div className="text-red-400 font-mono w-10">{(totalCut/(totalCut+totalFill)*100).toFixed(0)}%</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-blue-400 w-12">Насыпь</div>
+              <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500/70 rounded-full" style={{width:`${(totalFill/(totalCut+totalFill)*100).toFixed(0)}%`}}/>
+              </div>
+              <div className="text-blue-400 font-mono w-10">{(totalFill/(totalCut+totalFill)*100).toFixed(0)}%</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0a1628] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#60a5fa] text-[#0a1020] hover:bg-[#93c5fd] rounded text-[11px] font-bold">Экспорт CSV</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Construction Phases ───────────────────────────────────────────────────────
+function ConstructionPhasesDialog({ onClose }: { onClose: ()=>void }) {
+  const [activePhase, setActivePhase] = useState(2)
+  const phases = [
+    {id:1, name:"Подготовительный",   start:"01.03.2025",end:"01.05.2025",color:"#f59e0b",status:"Завершён",  pct:100,
+     works:["Вырубка леса и кустарника","Снятие почвенно-растительного слоя","Водоотвод строительный","Устройство технологических дорог"]},
+    {id:2, name:"Земляное полотно",   start:"01.05.2025",end:"01.09.2025",color:"#f97316",status:"В работе",  pct:65,
+     works:["Разработка грунта в выемке","Отсыпка насыпи","Уплотнение (Proctor ≥ 0.98)","Укрепление откосов","Водоотводные канавы"]},
+    {id:3, name:"Дорожная одежда",    start:"01.09.2025",end:"01.12.2025",color:"#4ade80",status:"Не начат", pct:0,
+     works:["Подстилающий слой ПГС","Основание из щебня","Нижний слой АБ (крупнозернистый)","Верхний слой АБ (мелкозернистый)","Дорожная разметка"]},
+    {id:4, name:"Инженерные сети",    start:"15.05.2025",end:"15.10.2025",color:"#60a5fa",status:"В работе",  pct:40,
+     works:["Ливневая канализация","Водопровод Ø200","Освещение","Сигнализация и связь"]},
+    {id:5, name:"Благоустройство",    start:"01.10.2025",end:"01.03.2026",color:"#a78bfa",status:"Не начат", pct:0,
+     works:["Озеленение откосов","Дорожные знаки и ограждения","Автобусные остановки","Сдача объекта"]},
+  ]
+  const phase = phases[activePhase-1]
+  const totalDays = 365
+  const today = new Date("2025-07-01")
+
+  const dayOf = (s:string)=>{ const d=new Date(s); return Math.round((d.getTime()-new Date("2025-03-01").getTime())/86400000) }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#141028] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Calendar" size={15} className="text-[#a78bfa]" fallback="Clock"/>
+            <span className="text-white font-bold text-[13px]">Construction Phases — Стройгенплан и фазы</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0 space-y-4">
+          {/* Диаграмма Ганта */}
+          <div>
+            <div className="text-[10px] text-gray-400 mb-2 font-bold">Диаграмма Ганта</div>
+            <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#0d1117"}}>
+              <div className="flex border-b border-gray-800 text-[8px] text-gray-600 px-2 py-1">
+                {["Март","Апр","Май","Июнь","Июль","Авг","Сен","Окт","Нояб","Дек","Янв","Фев","Март"].map(m=>(
+                  <div key={m} className="flex-1 text-center">{m}</div>
+                ))}
+              </div>
+              {phases.map(ph=>{
+                const start = dayOf(ph.start)/totalDays*100
+                const width = (dayOf(ph.end)-dayOf(ph.start))/totalDays*100
+                const todayPct = (today.getTime()-new Date("2025-03-01").getTime())/86400000/totalDays*100
+                return (
+                  <div key={ph.id} className="flex items-center border-b border-gray-900 hover:bg-[#1a1a2e] cursor-pointer"
+                    onClick={()=>setActivePhase(ph.id)}>
+                    <div className="w-36 px-2 py-1.5 text-[10px] text-gray-400 truncate border-r border-gray-800 flex-shrink-0">{ph.name}</div>
+                    <div className="flex-1 relative h-6 px-1">
+                      <div className="absolute rounded" style={{left:`${start}%`,width:`${width}%`,top:"4px",height:"16px",background:ph.color+(activePhase===ph.id?"":"80")}}>
+                        <div className="h-full rounded" style={{width:`${ph.pct}%`,background:ph.color,opacity:0.9}}/>
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] text-white font-bold">{ph.pct}%</span>
+                      </div>
+                      {/* Сегодня */}
+                      <div className="absolute top-0 bottom-0 border-l-2 border-red-500 opacity-70" style={{left:`${todayPct}%`}}/>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Детали фазы */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border p-3" style={{background:"#111827",borderColor:phase.color+"40"}}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-3 h-3 rounded-full" style={{background:phase.color}}/>
+                <span className="text-white font-bold text-[11px]">{phase.name}</span>
+                <span className={`ml-auto text-[9px] px-2 py-0.5 rounded-full ${phase.status==="Завершён"?"bg-green-900/30 text-green-400":phase.status==="В работе"?"bg-yellow-900/30 text-yellow-400":"bg-gray-800 text-gray-500"}`}>{phase.status}</span>
+              </div>
+              <div className="text-[9px] text-gray-500 space-y-1">
+                <div>Начало: <span className="text-white">{phase.start}</span></div>
+                <div>Окончание: <span className="text-white">{phase.end}</span></div>
+                <div className="mt-2">
+                  <div className="flex justify-between mb-0.5"><span>Готовность</span><span className="text-white font-bold">{phase.pct}%</span></div>
+                  <div className="h-1.5 bg-gray-800 rounded-full"><div className="h-full rounded-full" style={{width:`${phase.pct}%`,background:phase.color}}/></div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+              <div className="text-[10px] text-gray-400 font-bold mb-2">Состав работ</div>
+              {phase.works.map((w,i)=>(
+                <div key={i} className="flex items-center gap-2 py-1 border-b border-gray-800 text-[9px]">
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:phase.color}}/>
+                  <span className="text-gray-300">{w}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Навигация по фазам */}
+          <div className="flex gap-2">
+            {phases.map(ph=>(
+              <button key={ph.id} onClick={()=>setActivePhase(ph.id)}
+                className={`flex-1 py-1.5 text-[9px] rounded transition-all ${activePhase===ph.id?"text-white font-bold":"text-gray-500 hover:text-gray-300"}`}
+                style={{background:activePhase===ph.id?ph.color+"30":"#111827",borderBottom:`2px solid ${activePhase===ph.id?ph.color:"transparent"}`}}>
+                {ph.id}. {ph.name.split(" ")[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#141028] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#a78bfa] text-[#0d0a1a] hover:bg-[#c4b5fd] rounded text-[11px] font-bold">Экспорт PDF</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Revit / AutoCAD Exchange ──────────────────────────────────────────────────
+function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"import"|"export"|"links">("export")
+  const [format, setFormat] = useState("IFC 2x3")
+  const [progress, setProgress] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+  const [synced, setSynced] = useState(false)
+
+  const doSync = () => {
+    setSyncing(true); setProgress(0); setSynced(false)
+    const iv = setInterval(()=>setProgress(p=>{ if(p>=100){clearInterval(iv);setSyncing(false);setSynced(true);return 100} return p+5 }), 120)
+  }
+
+  const links = [
+    {name:"Мост_ст.ОКА.rvt",app:"Revit 2025",status:"Синхронизирован",date:"2025-06-28",color:"#60a5fa"},
+    {name:"Тоннель_№1.rvt",app:"Revit 2025",status:"Устарел",date:"2025-05-14",color:"#f97316"},
+    {name:"КТП_проект.dwg",app:"AutoCAD 2025",status:"Синхронизирован",date:"2025-06-30",color:"#4ade80"},
+  ]
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:580,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1428] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="RefreshCw" size={15} className="text-[#0078d4]" fallback="RotateCw"/>
+            <span className="text-white font-bold text-[13px]">Revit / AutoCAD Exchange</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["export","Экспорт"],["import","Импорт"],["links","Связанные файлы"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="export" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Формат обмена</span>
+                  <select value={format} onChange={e=>setFormat(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none text-[10px]">
+                    {["IFC 2x3","IFC 4","ADSK (Autodesk Exchange)","LandXML 2.0","DWG (AutoCAD 2025)","DXF","ACIS (SAT)"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Целевое приложение</span>
+                  <select className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none text-[10px]">
+                    {["Autodesk Revit 2025","AutoCAD 2025","Navisworks 2025","BIM 360","Tekla Structures","AVEVA"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+                <div className="font-bold text-white mb-2">Объекты для экспорта</div>
+                {[
+                  {name:"Поверхности TIN",cnt:2,check:true},
+                  {name:"Трассы и профили",cnt:3,check:true},
+                  {name:"Коридоры",cnt:1,check:true},
+                  {name:"Трубопроводные сети",cnt:2,check:true},
+                  {name:"Точки съёмки",cnt:847,check:false},
+                  {name:"Сооружения (мосты, тоннели)",cnt:2,check:true},
+                ].map((o,i)=>(
+                  <div key={i} className="flex items-center gap-2 py-1 border-b border-gray-800">
+                    <input type="checkbox" defaultChecked={o.check} className="accent-[#0078d4]"/>
+                    <span className="text-gray-300 flex-1">{o.name}</span>
+                    <span className="text-gray-500 font-mono">{o.cnt}</span>
+                  </div>
+                ))}
+              </div>
+              {syncing || synced ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px]"><span className="text-gray-400">{synced?"Готово!":"Экспорт..."}</span><span className="text-[#0078d4] font-mono">{Math.round(progress)}%</span></div>
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden"><div className="h-full bg-[#0078d4] rounded-full transition-all" style={{width:`${progress}%`}}/></div>
+                  {synced&&<div className="text-green-400 text-[10px]">✓ {format} экспортирован · Файл готов к загрузке в Revit</div>}
+                </div>
+              ) : (
+                <button onClick={doSync} className="w-full py-2.5 bg-[#0078d4] text-white font-bold rounded-lg text-[11px] hover:bg-[#0066b3] transition-colors">
+                  ▶ Экспортировать в {format}
+                </button>
+              )}
+            </div>
+          )}
+          {tab==="import" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Импорт из Revit / AutoCAD в проект ЛАПА</div>
+              <div className="rounded-xl border-2 border-dashed border-gray-600 hover:border-[#0078d4] p-8 flex flex-col items-center gap-3 cursor-pointer transition-colors" style={{background:"#0d1520"}}>
+                <Icon name="Upload" size={28} className="text-gray-500"/>
+                <span className="text-gray-500 text-[11px]">Перетащите .rvt / .rfa / .dwg / .ifc / .nwd</span>
+              </div>
+            </div>
+          )}
+          {tab==="links" && (
+            <div className="space-y-2">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-400 text-[10px]">Связанные BIM-файлы</span>
+                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">+ Добавить ссылку</button>
+              </div>
+              {links.map((l,i)=>(
+                <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
+                  <div className="w-8 h-8 rounded bg-[#0078d4]/20 flex items-center justify-center flex-shrink-0">
+                    <Icon name="FileCode" size={16} className="text-[#0078d4]"/>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-white text-[11px] font-semibold">{l.name}</div>
+                    <div className="text-gray-500 text-[9px]">{l.app} · {l.date}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full ${l.status==="Синхронизирован"?"bg-green-900/30 text-green-400":"bg-yellow-900/30 text-yellow-400"}`}>{l.status}</span>
+                    <button className="text-[#0078d4] text-[9px] hover:underline">Обновить</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0a1428] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px] font-bold">Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // GEOTECHNICAL · GRADING · TUNNEL DESIGN · VISIBILITY 3D · PROJECT EXPLORER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -8638,6 +9450,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [showRealityCapture, setShowRealityCapture] = useState(false)
+  const [showGISIntegration, setShowGISIntegration] = useState(false)
+  const [showVolumeDashboard, setShowVolumeDashboard] = useState(false)
+  const [showConstructionPhases, setShowConstructionPhases] = useState(false)
+  const [showRevitExchange, setShowRevitExchange] = useState(false)
   const [showGeotechnical, setShowGeotechnical] = useState(false)
   const [showGrading, setShowGrading] = useState(false)
   const [showTunnel, setShowTunnel] = useState(false)
@@ -9489,6 +10306,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   else if (c === "ROUNDABOUT" || c === "КОЛЬЦО" || c === "КОЛЬЦЕВОЕ" || c === "RB") setShowRoundabout(true)
   else if (c === "RAIL" || c === "RAILTRACK" || c === "ЖД" || c === "РЕЛЬСЫ" || c === "RT") setShowRailTrack(true)
   else if (c === "BRIDGE" || c === "МОСТ" || c === "BM" || c === "BRIDGE MODELER") setShowBridgeModeler(true)
+  else if (c === "RC" || c === "LIDAR" || c === "ОБЛАКО" || c === "POINTCLOUD" || c === "REALITY") setShowRealityCapture(true)
+  else if (c === "GIS" || c === "ПОДЛОЖКА" || c === "BASEMAP" || c === "КАРТА") setShowGISIntegration(true)
+  else if (c === "VD" || c === "DASHBOARD" || c === "ДАШБОРД" || c === "VOLUME DASHBOARD") setShowVolumeDashboard(true)
+  else if (c === "CP" || c === "PHASES" || c === "ФАЗЫ" || c === "СТРОЙГЕНПЛАН") setShowConstructionPhases(true)
+  else if (c === "REVIT" || c === "IFC" || c === "EXCHANGE" || c === "BIM") setShowRevitExchange(true)
   else if (c === "GEO" || c === "ГЕОЛОГИЯ" || c === "GEOTECHNICAL" || c === "СКВАЖИНЫ") setShowGeotechnical(true)
   else if (c === "GRADING" || c === "ПЛАНИРОВКА" || c === "ПЛОЩАДКА" || c === "GR") setShowGrading(true)
   else if (c === "TUNNEL" || c === "ТОННЕЛЬ" || c === "TN") setShowTunnel(true)
@@ -9603,6 +10425,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("3d-вьюер") || k.includes("3d вьюер")) { onNavigate?.("viewer3d") }
     else if (k.includes("жд") || k.includes("рельс") || k.includes("rail track") || k.includes("ж/д путь")) { setShowRailTrack(true) }
     else if (k.includes("мост") || k.includes("bridge") || k.includes("путепровод") || k.includes("виадук")) { setShowBridgeModeler(true) }
+    else if (k.includes("облако точек") || k.includes("lidar") || k.includes("reality capture") || k.includes("лидар") || k.includes("фотограмметр")) { setShowRealityCapture(true) }
+    else if (k.includes("gis") || k.includes("подложк") || k.includes("basemap") || k.includes("wms") || k.includes("карт") || k.includes("esri")) { setShowGISIntegration(true) }
+    else if (k.includes("дашборд") || k.includes("volume dashboard") || k.includes("dashboard")) { setShowVolumeDashboard(true) }
+    else if (k.includes("фаз") || k.includes("стройгенплан") || k.includes("gantt") || k.includes("construction phase")) { setShowConstructionPhases(true) }
+    else if (k.includes("revit") || k.includes("ifc") || k.includes("naviswork") || k.includes("bim exchange") || k.includes("autocad exchange")) { setShowRevitExchange(true) }
     else if (k.includes("геолог") || k.includes("скважин") || k.includes("geotechn") || k.includes("стратиграф")) { setShowGeotechnical(true) }
     else if (k.includes("планировк") || k.includes("grading") || k.includes("площадк") || k.includes("рабочие отметки")) { setShowGrading(true) }
     else if (k.includes("тоннель") || k.includes("tunnel") || k.includes("тпмк")) { setShowTunnel(true) }
@@ -9633,7 +10460,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   interface RibbonItem { label: string; icon: string; size: "lg"|"sm"; drop?: string; fallback?: string }
   interface RibbonGroup { label: string; items: RibbonItem[] }
 
-  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Геология","Анализ","Вывод","Надстройки"]
+  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Геология","Анализ","Вывод","Производство","Надстройки"]
 
   const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     "Главная": [
@@ -9857,6 +10684,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Тоннель",     icon:"Circle",       size:"lg", fallback:"CircleDot" },
         { label:"Обделка",     icon:"Layers",       size:"sm" },
         { label:"Расчёт",      icon:"Calculator",   size:"sm", fallback:"BarChart3" },
+      ]},
+    ],
+    "Производство": [
+      { label: "BIM", items: [
+        { label:"Revit\nExchange",  icon:"RefreshCw",    size:"lg", fallback:"RotateCw" },
+        { label:"IFC Export",       icon:"Building2",    size:"sm" },
+        { label:"Navisworks",       icon:"Box",          size:"sm", fallback:"Layers" },
+      ]},
+      { label: "ГИС", items: [
+        { label:"GIS / WMS",        icon:"Globe",        size:"lg" },
+        { label:"Облако точек",     icon:"ScanLine",     size:"lg", fallback:"Scan" },
+        { label:"Kадастр",          icon:"Map",          size:"sm" },
+        { label:"EPSG конвертер",   icon:"Crosshair",    size:"sm" },
+      ]},
+      { label: "Планирование", items: [
+        { label:"Фазы стр-ва",      icon:"Calendar",     size:"lg", fallback:"Clock" },
+        { label:"Дашборд",          icon:"BarChart3",    size:"lg" },
+        { label:"Отчёт PDF",        icon:"FileText",     size:"sm" },
       ]},
     ],
     "Надстройки": [
@@ -11386,6 +12231,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             )}
 
             {/* ── Новые диалоги ── */}
+            {showRealityCapture && <RealityCaptureDialog onClose={()=>setShowRealityCapture(false)}/>}
+            {showGISIntegration && <GISIntegrationDialog onClose={()=>setShowGISIntegration(false)}/>}
+            {showVolumeDashboard && <VolumeDashboardDialog onClose={()=>setShowVolumeDashboard(false)}/>}
+            {showConstructionPhases && <ConstructionPhasesDialog onClose={()=>setShowConstructionPhases(false)}/>}
+            {showRevitExchange && <RevitExchangeDialog onClose={()=>setShowRevitExchange(false)}/>}
             {showGeotechnical && <GeotechnicalDialog onClose={()=>setShowGeotechnical(false)}/>}
             {showGrading && <GradingDialog onClose={()=>setShowGrading(false)}/>}
             {showTunnel && (
