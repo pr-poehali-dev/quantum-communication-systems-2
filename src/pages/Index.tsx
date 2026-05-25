@@ -2,6 +2,7 @@ import { Navbar } from "@/components/Navbar"
 import { Hero7 } from "@/components/Hero7"
 import { Features } from "@/components/Features"
 import { DetailedFeatures } from "@/components/DetailedFeatures"
+import { HowItWorks } from "@/components/HowItWorks"
 import { Pricing } from "@/components/Pricing"
 import { Advantages } from "@/components/Advantages"
 
@@ -26,6 +27,7 @@ const Index = () => {
             button={{ text: "Попробовать бесплатно", url: "/login" }}
           />
           <Features />
+          <HowItWorks />
           <DetailedFeatures />
           <Pricing />
         </main>

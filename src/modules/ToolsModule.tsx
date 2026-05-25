@@ -251,6 +251,49 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<string | null>(null)
   const [command, setCommand] = useState("")
+  const [toast, setToast] = useState<string | null>(null)
+  const [history, setHistory] = useState<string[]>([])
+  const [scriptStatuses, setScriptStatuses] = useState<Record<string, string>>(
+    Object.fromEntries(LSP_SCRIPTS.map(s => [s.id, s.status]))
+  )
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [showUploadDialog, setShowUploadDialog] = useState<"lisp" | "plugin" | null>(null)
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  const runCommand = (cmd?: string) => {
+    const c = (cmd ?? command).trim().toUpperCase()
+    if (!c) return
+    setHistory(h => [...h, c])
+    const allCommands = LSP_SCRIPTS.flatMap(s => s.commands)
+    if (allCommands.includes(c)) {
+      const script = LSP_SCRIPTS.find(s => s.commands.includes(c))
+      if (script && scriptStatuses[script.id] === "not_loaded") {
+        showToast(`Скрипт «${script.name}» не загружен. Сначала нажмите «Загрузить».`)
+      } else {
+        showToast(`▶ Команда выполнена: ${c}`)
+      }
+    } else if (c === "APPLOAD") {
+      setShowUploadDialog("lisp")
+    } else if (c === "CLEAR" || c === "CLS") {
+      setHistory([])
+      showToast("История очищена")
+    } else if (c === "?") {
+      showToast(`Доступно команд: ${allCommands.length}. Список во вкладках`)
+    } else {
+      showToast(`Неизвестная команда: ${c}. Введите ? для справки`)
+    }
+    setCommand("")
+  }
+
+  const loadScript = (id: string, name: string) => {
+    setScriptStatuses(s => ({ ...s, [id]: "loaded" }))
+    showToast(`✓ Скрипт «${name}» загружен в память`)
+  }
+
+  const reloadScript = (name: string) => {
+    showToast(`↻ Скрипт «${name}» перезагружен`)
+  }
 
   const filteredLsp = LSP_SCRIPTS.filter(s => {
     const matchCat = catFilter === "all" || s.category === catFilter
@@ -272,13 +315,13 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" className="text-xs gap-1.5">
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setShowUploadDialog("lisp")}>
             <Icon name="FolderOpen" size={13} />Загрузить LISP
           </Button>
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onNavigate?.("civilcad")}>
             <Icon name="Monitor" size={13} />Редактор
           </Button>
-          <Button size="sm" className="text-xs gap-1.5 bg-violet-600 hover:bg-violet-700">
+          <Button size="sm" className="text-xs gap-1.5 bg-violet-600 hover:bg-violet-700" onClick={() => setShowUploadDialog("plugin")}>
             <Icon name="Plus" size={13} />Установить плагин
           </Button>
         </div>
@@ -290,12 +333,20 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
         <Input
           value={command}
           onChange={e => setCommand(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") runCommand() }}
           placeholder="Введите команду LISP (напр. GPEDIT) или APPLOAD для загрузки скрипта..."
           className="flex-1 h-7 text-[11px] font-mono bg-[#252535] border-gray-700 text-green-400 placeholder:text-gray-600 focus:border-green-500"
         />
-        <button className="text-[10px] text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700 font-mono transition-colors">
-          ENTER
+        <button onClick={() => runCommand()}
+          className="text-[10px] text-white bg-green-600 hover:bg-green-500 px-3 py-1 rounded border border-green-500 font-mono font-bold transition-colors">
+          ENTER ↵
         </button>
+        {history.length > 0 && (
+          <button onClick={() => setCommand(history[history.length - 1])} title="Последняя команда"
+            className="text-[10px] text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700 font-mono transition-colors">
+            ↑ {history[history.length - 1].slice(0, 10)}
+          </button>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col overflow-hidden">
@@ -337,10 +388,11 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                 value={search} onChange={e => setSearch(e.target.value)} />
 
               {filteredLsp.map(script => {
-                const st = STATUS_STYLE[script.status]
+                const currentStatus = scriptStatuses[script.id] || script.status
+                const st = STATUS_STYLE[currentStatus]
                 return (
                   <motion.div key={script.id} layout
-                    className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    className="bg-white rounded-xl border border-gray-200 overflow-hidden relative">
                     <div className="p-4">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
@@ -358,8 +410,9 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                           <div className="flex flex-wrap gap-1 mb-2">
                             {script.commands.map(cmd => (
                               <code key={cmd}
-                                onClick={() => setCommand(cmd)}
-                                className="text-[9px] bg-[#1e1e2e] text-green-400 px-2 py-1 rounded font-mono cursor-pointer hover:bg-[#252535] transition-colors">
+                                onClick={() => { setCommand(cmd); runCommand(cmd) }}
+                                title="Кликните чтобы выполнить"
+                                className="text-[9px] bg-[#1e1e2e] text-green-400 px-2 py-1 rounded font-mono cursor-pointer hover:bg-green-600 hover:text-white transition-colors">
                                 {cmd}
                               </code>
                             ))}
@@ -377,19 +430,47 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-1.5 flex-shrink-0">
-                          {script.status === "not_loaded" ? (
-                            <Button size="sm" className="text-xs h-7 bg-violet-600 hover:bg-violet-700 gap-1">
+                        <div className="flex gap-1.5 flex-shrink-0 relative">
+                          {currentStatus === "not_loaded" ? (
+                            <Button size="sm" className="text-xs h-7 bg-violet-600 hover:bg-violet-700 gap-1"
+                              onClick={() => loadScript(script.id, script.name)}>
                               <Icon name="Upload" size={11} />Загрузить
                             </Button>
                           ) : (
-                            <Button size="sm" variant="outline" className="text-xs h-7 gap-1">
+                            <Button size="sm" variant="outline" className="text-xs h-7 gap-1"
+                              onClick={() => reloadScript(script.name)}>
                               <Icon name="RefreshCw" size={11} />Перезагрузить
                             </Button>
                           )}
-                          <Button size="sm" variant="ghost" className="text-xs h-7 px-2">
+                          <Button size="sm" variant="ghost" className="text-xs h-7 px-2"
+                            onClick={() => setOpenMenu(openMenu === script.id ? null : script.id)}>
                             <Icon name="MoreHorizontal" size={13} />
                           </Button>
+                          {openMenu === script.id && (
+                            <div className="absolute right-0 top-9 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[180px]">
+                              {[
+                                { icon: "Eye",        label: "Просмотреть код",   action: () => showToast(`Открыт ${script.file}`) },
+                                { icon: "Edit",       label: "Редактировать",      action: () => { onNavigate?.("civilcad"); showToast("Открыт редактор скриптов") } },
+                                { icon: "Settings",   label: "Настройки скрипта",  action: () => showToast("Настройки скрипта открыты") },
+                                { icon: "FileText",   label: "Документация",       action: () => showToast(`Документация ${script.name}`) },
+                                { icon: "Download",   label: "Скачать .lsp",       action: () => showToast(`Скачивание ${script.file}…`) },
+                                { icon: "Power",      label: currentStatus === "loaded" ? "Выгрузить" : "Загрузить",
+                                  action: () => {
+                                    setScriptStatuses(s => ({ ...s, [script.id]: currentStatus === "loaded" ? "not_loaded" : "loaded" }))
+                                    showToast(currentStatus === "loaded" ? `Скрипт выгружен` : `Скрипт загружен`)
+                                  }
+                                },
+                                { icon: "Trash2",     label: "Удалить",            action: () => showToast(`Скрипт удалён из библиотеки`), danger: true },
+                              ].map(item => (
+                                <button key={item.label}
+                                  onClick={() => { item.action(); setOpenMenu(null) }}
+                                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-100 transition-colors ${item.danger ? "text-red-600 hover:bg-red-50" : "text-gray-700"}`}>
+                                  <Icon name={item.icon} size={12} />
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -398,7 +479,8 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
               })}
 
               {/* Загрузить новый */}
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-violet-300 hover:bg-violet-50/30 transition-colors cursor-pointer">
+              <div onClick={() => setShowUploadDialog("lisp")}
+                className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-violet-300 hover:bg-violet-50/30 transition-colors cursor-pointer">
                 <Icon name="Plus" size={24} className="text-gray-300 mx-auto mb-2" />
                 <p className="text-[12px] font-semibold text-gray-500">Загрузить LSP-скрипт</p>
                 <p className="text-[10px] text-gray-400 mt-0.5">Перетащите .lsp-файл или нажмите для выбора</p>
@@ -445,10 +527,12 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-gray-400 flex-1">Лента: <strong>{plugin.ribbon}</strong></span>
                     <Button size="sm" variant={plugin.status === "active" ? "outline" : "default"}
+                      onClick={() => showToast(plugin.status === "active" ? `Плагин «${plugin.name}» отключён` : `Плагин «${plugin.name}» включён`)}
                       className="text-xs h-7" style={plugin.status !== "active" ? { background: plugin.color } : {}}>
                       {plugin.status === "active" ? "Отключить" : "Включить"}
                     </Button>
-                    <Button size="sm" variant="ghost" className="text-xs h-7 px-2">
+                    <Button size="sm" variant="ghost" className="text-xs h-7 px-2"
+                      onClick={() => showToast(`Настройки плагина «${plugin.name}»`)}>
                       <Icon name="Settings" size={12} />
                     </Button>
                   </div>
@@ -474,8 +558,10 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
               Запуск макроса через команду SCRIPT
             </h3>
             <div className="flex gap-2">
-              <Input placeholder="Путь к .scr-файлу или имя макроса..." className="h-8 text-xs font-mono flex-1" />
-              <Button size="sm" className="text-xs h-8 gap-1.5 bg-yellow-500 hover:bg-yellow-600 text-white">
+              <Input placeholder="Путь к .scr-файлу или имя макроса..." className="h-8 text-xs font-mono flex-1"
+                onKeyDown={e => { if (e.key === "Enter" && (e.target as HTMLInputElement).value) showToast(`▶ Макрос ${(e.target as HTMLInputElement).value} запущен`) }}/>
+              <Button size="sm" className="text-xs h-8 gap-1.5 bg-yellow-500 hover:bg-yellow-600 text-white"
+                onClick={() => showToast("▶ Макрос запущен из командной строки")}>
                 <Icon name="Play" size={12} />Запустить
               </Button>
             </div>
@@ -503,10 +589,12 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                   </div>
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" className="text-xs h-7 bg-yellow-500 hover:bg-yellow-600 text-white gap-1">
+                  <Button size="sm" className="text-xs h-7 bg-yellow-500 hover:bg-yellow-600 text-white gap-1"
+                    onClick={() => showToast(`▶ Макрос «${macro.name}» запущен (${macro.steps} шагов, ~${macro.runTime})`)}>
                     <Icon name="Play" size={11} />Запустить
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs h-7 px-2">
+                  <Button size="sm" variant="outline" className="text-xs h-7 px-2"
+                    onClick={() => { onNavigate?.("civilcad"); showToast(`Открыт редактор макроса «${macro.name}»`) }}>
                     <Icon name="Edit3" size={11} />
                   </Button>
                 </div>
@@ -522,8 +610,10 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                 Редактор макроса (.scr)
               </span>
               <div className="flex gap-1.5">
-                <Button size="sm" variant="outline" className="text-xs h-6 px-2">Сохранить</Button>
-                <Button size="sm" className="text-xs h-6 px-2 bg-yellow-500 hover:bg-yellow-600 text-white">Запустить</Button>
+                <Button size="sm" variant="outline" className="text-xs h-6 px-2"
+                  onClick={() => showToast("Макрос сохранён в .scr")}>Сохранить</Button>
+                <Button size="sm" className="text-xs h-6 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+                  onClick={() => showToast("▶ Макрос запущен: пакетная обработка → PDF")}>Запустить</Button>
               </div>
             </div>
             <pre className="bg-[#1e1e2e] text-green-400 text-[11px] font-mono p-4 min-h-32 overflow-auto leading-relaxed">
@@ -578,13 +668,16 @@ _.SAVEAS
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant={palette.active ? "outline" : "default"}
+                    onClick={() => showToast(palette.active ? `Палитра «${palette.name}» скрыта` : `Палитра «${palette.name}» открыта в редакторе`)}
                     className="text-xs h-7 flex-1">
                     {palette.active ? "Скрыть палитру" : "Показать палитру"}
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs h-7 px-2">
+                  <Button size="sm" variant="outline" className="text-xs h-7 px-2"
+                    onClick={() => showToast(`Настройки палитры «${palette.name}»`)}>
                     <Icon name="Settings" size={12} />
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs h-7 px-2">
+                  <Button size="sm" variant="outline" className="text-xs h-7 px-2"
+                    onClick={() => showToast(`Скачивание ${palette.file}…`)}>
                     <Icon name="Download" size={12} />
                   </Button>
                 </div>
@@ -593,31 +686,107 @@ _.SAVEAS
           </div>
 
           {/* Кастомный CUI */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-[13px] font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <Icon name="Plus" size={14} className="text-indigo-600" />
-              Создать пользовательскую палитру
-            </h3>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 block mb-1">Название палитры</label>
-                <Input placeholder="Мои инструменты" className="h-8 text-xs" />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 block mb-1">Файл (.cuix)</label>
-                <Input placeholder="my_tools.cuix" className="h-8 text-xs font-mono" />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 block mb-1">Иконка</label>
-                <Input placeholder="Wrench" className="h-8 text-xs" />
-              </div>
-            </div>
-            <Button className="text-xs h-8 gap-1.5 bg-indigo-600 hover:bg-indigo-700">
-              <Icon name="Plus" size={12} />Создать палитру CUI
-            </Button>
-          </div>
+          <CustomCUI onCreate={(name) => showToast(`Палитра «${name}» создана`)} />
         </TabsContent>
       </Tabs>
+
+      {/* ── Toast ── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl border border-gray-700 flex items-center gap-2">
+            <Icon name="CheckCircle" size={14} className="text-green-400" />
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Диалог загрузки файла ── */}
+      <AnimatePresence>
+        {showUploadDialog && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setShowUploadDialog(null)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden"
+              style={{ maxWidth: "min(500px, 94vw)", maxHeight: "85vh" }}
+              onClick={e => e.stopPropagation()}>
+              <div className="bg-violet-600 px-5 py-3 flex items-center justify-between">
+                <span className="text-white font-bold text-sm flex items-center gap-2">
+                  <Icon name={showUploadDialog === "lisp" ? "Code2" : "Package"} size={14} />
+                  {showUploadDialog === "lisp" ? "Загрузить LSP-скрипт" : "Установить DLL-плагин"}
+                </span>
+                <button onClick={() => setShowUploadDialog(null)} className="text-white hover:bg-violet-700 w-6 h-6 rounded">✕</button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="border-2 border-dashed border-violet-300 rounded-xl p-8 text-center hover:bg-violet-50/30 transition-colors cursor-pointer">
+                  <Icon name="Upload" size={32} className="text-violet-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-gray-700">Перетащите файл {showUploadDialog === "lisp" ? ".lsp" : ".dll"}</p>
+                  <p className="text-xs text-gray-500 mt-1">или нажмите для выбора с компьютера</p>
+                  <input type="file" accept={showUploadDialog === "lisp" ? ".lsp" : ".dll"} className="hidden" id="upload-file" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="text-gray-500 mb-1">Поддерживаемые форматы:</div>
+                    <div className="text-gray-900 font-mono font-semibold">{showUploadDialog === "lisp" ? ".lsp, .vlx, .fas" : ".dll, .arx, .crx"}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="text-gray-500 mb-1">Макс. размер:</div>
+                    <div className="text-gray-900 font-mono font-semibold">10 МБ</div>
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 flex gap-2">
+                  <Icon name="ShieldAlert" size={14} className="text-amber-600 flex-shrink-0 mt-0.5" fallback="AlertTriangle" />
+                  <span>Загружайте только файлы из доверенных источников. ЛАПА проверит файл на безопасность.</span>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowUploadDialog(null)}>Отмена</Button>
+                  <Button size="sm" className="bg-violet-600 hover:bg-violet-700"
+                    onClick={() => {
+                      showToast(showUploadDialog === "lisp" ? "LSP-скрипт загружен в библиотеку" : "DLL-плагин установлен")
+                      setShowUploadDialog(null)
+                    }}>
+                    <Icon name="Upload" size={12} className="mr-1.5" />
+                    {showUploadDialog === "lisp" ? "Загрузить" : "Установить"}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── Кастомный CUI создатель ───────────────────────────────────────────────────
+function CustomCUI({ onCreate }: { onCreate: (name: string) => void }) {
+  const [name, setName] = useState("Мои инструменты")
+  const [file, setFile] = useState("my_tools.cuix")
+  const [icon, setIcon] = useState("Wrench")
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <h3 className="text-[13px] font-bold text-gray-900 mb-3 flex items-center gap-2">
+        <Icon name="Plus" size={14} className="text-indigo-600" />
+        Создать пользовательскую палитру
+      </h3>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="text-[10px] font-semibold text-gray-500 block mb-1">Название палитры</label>
+          <Input value={name} onChange={e => setName(e.target.value)} className="h-8 text-xs" />
+        </div>
+        <div>
+          <label className="text-[10px] font-semibold text-gray-500 block mb-1">Файл (.cuix)</label>
+          <Input value={file} onChange={e => setFile(e.target.value)} className="h-8 text-xs font-mono" />
+        </div>
+        <div>
+          <label className="text-[10px] font-semibold text-gray-500 block mb-1">Иконка</label>
+          <Input value={icon} onChange={e => setIcon(e.target.value)} className="h-8 text-xs" />
+        </div>
+      </div>
+      <Button className="text-xs h-8 gap-1.5 bg-indigo-600 hover:bg-indigo-700" onClick={() => onCreate(name)}>
+        <Icon name="Plus" size={12} />Создать палитру CUI
+      </Button>
     </div>
   )
 }
