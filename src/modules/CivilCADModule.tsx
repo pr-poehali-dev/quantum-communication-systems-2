@@ -5928,6 +5928,692 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GEOTECHNICAL · GRADING · TUNNEL DESIGN · VISIBILITY 3D · PROJECT EXPLORER
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Geotechnical (геология, скважины, стратиграфия) ─────────────────────────
+function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"boreholes"|"strata"|"section"|"params">("boreholes")
+  const boreholes = [
+    {id:"СК-1", x:"5420.1", y:"3817.2", z:"121.34", depth:"18.0", date:"2024-03-15",layers:5},
+    {id:"СК-2", x:"5465.3", y:"3830.8", z:"119.78", depth:"20.0", date:"2024-03-16",layers:6},
+    {id:"СК-3", x:"5510.7", y:"3844.1", z:"122.50", depth:"15.0", date:"2024-03-17",layers:4},
+    {id:"СК-4", x:"5555.2", y:"3858.6", z:"120.90", depth:"22.0", date:"2024-03-18",layers:7},
+  ]
+  const [selBH, setSelBH] = useState("СК-1")
+  const strata: Record<string,{from:number;to:number;name:string;color:string;gtype:string;Е:number;φ:number;c:number}[]> = {
+    "СК-1": [
+      {from:0,  to:0.3, name:"Почвенно-растительный слой",color:"#166534",gtype:"ПРС",Е:0,   φ:0,  c:0},
+      {from:0.3,to:2.0, name:"Суглинок мягкопластичный", color:"#854d0e",gtype:"ИГЭ-1",Е:8,  φ:18, c:12},
+      {from:2.0,to:5.5, name:"Суглинок тугопластичный",  color:"#92400e",gtype:"ИГЭ-2",Е:14, φ:21, c:20},
+      {from:5.5,to:11.0,name:"Супесь пластичная",        color:"#d97706",gtype:"ИГЭ-3",Е:18, φ:24, c:8},
+      {from:11.0,to:18.0,name:"Песок средней крупности", color:"#ca8a04",gtype:"ИГЭ-4",Е:28, φ:30, c:2},
+    ],
+    "СК-2": [
+      {from:0,  to:0.2, name:"Почвенно-растительный слой",color:"#166534",gtype:"ПРС",Е:0,   φ:0,  c:0},
+      {from:0.2,to:1.5, name:"Насыпной грунт",            color:"#4b5563",gtype:"НГ",Е:5,    φ:15, c:5},
+      {from:1.5,to:4.0, name:"Суглинок мягкопластичный",  color:"#854d0e",gtype:"ИГЭ-1",Е:8,  φ:18, c:12},
+      {from:4.0,to:9.0, name:"Суглинок тугопластичный",   color:"#92400e",gtype:"ИГЭ-2",Е:14, φ:21, c:20},
+      {from:9.0,to:15.0,name:"Супесь пластичная",         color:"#d97706",gtype:"ИГЭ-3",Е:18, φ:24, c:8},
+      {from:15.0,to:20.0,name:"Суглинок полутвёрдый",     color:"#7c3aed",gtype:"ИГЭ-5",Е:22, φ:23, c:30},
+    ],
+  }
+  const layers = strata[selBH] || strata["СК-1"]
+  const totalDepth = layers[layers.length-1]?.to || 18
+
+  // SVG колонка скважины
+  const BoreholeColumnSVG = () => {
+    const W = 60, H = 180, scale = H / totalDepth
+    return (
+      <svg width={W+60} height={H+20} viewBox={`0 0 ${W+60} ${H+20}`} style={{background:"#080e18",borderRadius:6,display:"block"}}>
+        {layers.map((l,i) => {
+          const y = l.from * scale, h = (l.to - l.from) * scale
+          return (
+            <g key={i}>
+              <rect x="30" y={y} width={W} height={h} fill={l.color} opacity="0.85" stroke="#374151" strokeWidth="0.5"/>
+              {l.gtype!=="ПРС"&&h>8&&<text x="60" y={y+h/2+3} textAnchor="middle" fill="white" fontSize="6" fontFamily="mono">{l.gtype}</text>}
+              <text x="28" y={y+3} textAnchor="end" fill="#9ca3af" fontSize="5.5">{l.from.toFixed(1)}</text>
+            </g>
+          )
+        })}
+        <text x="28" y={H+3} textAnchor="end" fill="#9ca3af" fontSize="5.5">{totalDepth.toFixed(1)}</text>
+        <line x1="30" y1="0" x2="30" y2={H} stroke="#6b7280" strokeWidth="0.8"/>
+        {/* Уровень воды */}
+        <line x1="25" y1={4.0*scale} x2={W+30} y2={4.0*scale} stroke="#3b82f6" strokeWidth="1" strokeDasharray="3 2"/>
+        <text x="22" y={4.0*scale+3} textAnchor="end" fill="#3b82f6" fontSize="5">УГВ</text>
+      </svg>
+    )
+  }
+
+  // SVG геологический разрез
+  const GeolSectionSVG = () => {
+    const W=300, H=120, bhs=boreholes.slice(0,4)
+    const xStep = W/(bhs.length+1)
+    return (
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{background:"#080e18",borderRadius:6,display:"block"}}>
+        <rect width={W} height={H} fill="#0d1a2e"/>
+        {/* Слои (интерполяция) */}
+        {[
+          {y1:8,y2:12,color:"#166534"},
+          {y1:12,y2:30,color:"#854d0e"},
+          {y1:30,y2:55,color:"#92400e"},
+          {y1:55,y2:80,color:"#d97706"},
+          {y1:80,y2:110,color:"#ca8a04"},
+        ].map((s,i)=>(
+          <rect key={i} x="0" y={s.y1} width={W} height={s.y2-s.y1} fill={s.color} opacity="0.6"/>
+        ))}
+        {/* Скважины */}
+        {bhs.map((bh,i) => {
+          const x = xStep*(i+1)
+          return (
+            <g key={i}>
+              <line x1={x} y1="0" x2={x} y2={H*0.85} stroke="#facc15" strokeWidth="1.5"/>
+              <circle cx={x} cy={6} r="4" fill="#facc15"/>
+              <text x={x} y={H-2} textAnchor="middle" fill="#9ca3af" fontSize="6">{bh.id}</text>
+            </g>
+          )
+        })}
+        {/* Рельеф */}
+        <path d="M 0,10 C 60,6 100,12 150,8 C 200,4 250,14 300,10" fill="none" stroke="#4ade80" strokeWidth="1.5"/>
+        <text x="4" y="6" fill="#4ade80" fontSize="6">Рельеф</text>
+        {/* УГВ */}
+        <path d="M 0,32 C 80,28 160,36 300,30" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="4 2"/>
+        <text x="4" y="28" fill="#3b82f6" fontSize="6">УГВ</text>
+      </svg>
+    )
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:700,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#1a1228] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Layers" size={15} className="text-[#a78bfa]"/>
+            <span className="text-white font-bold text-[13px]">Geotechnical — Геология и скважины</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#15102a] flex-shrink-0">
+          {([["boreholes","Скважины"],["strata","Стратиграфия"],["section","Разрез"],["params","Параметры ИГЭ"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e1a3e] text-white border-b-2 border-b-[#a78bfa]":"text-gray-400 hover:bg-[#1e1a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+            {tab==="boreholes" && (
+              <div className="space-y-3">
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-400">База геологических скважин</span>
+                  <button className="px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded text-[9px]">+ Добавить скважину</button>
+                </div>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead><tr className="bg-[#0d1117]">{["ID","X","Y","Z нач.","Глубина","Дата","Слоёв",""].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                  <tbody>{boreholes.map((b,i)=>(
+                    <tr key={i} className={`hover:bg-[#1e1a3e] cursor-pointer ${selBH===b.id?"bg-[#1e1a3e]":i%2===0?"bg-[#111827]":"bg-[#0d1117]"}`}
+                      onClick={()=>setSelBH(b.id)}>
+                      <td className="px-2 py-1 border border-gray-800 text-[#a78bfa] font-bold">{b.id}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-gray-300">{b.x}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-gray-300">{b.y}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-green-400">{b.z}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-[#f97316]">{b.depth} м</td>
+                      <td className="px-2 py-1 border border-gray-800 text-gray-500">{b.date}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-center text-white">{b.layers}</td>
+                      <td className="px-2 py-1 border border-gray-800"><button className="text-[#a78bfa] text-[9px] hover:underline">Открыть</button></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+                <div className="text-[9px] text-gray-600">Нажмите на строку для просмотра колонки → вкладка «Стратиграфия»</div>
+              </div>
+            )}
+            {tab==="strata" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-400">Скважина:</span>
+                  <select value={selBH} onChange={e=>setSelBH(e.target.value)}
+                    className="bg-[#1e1a3e] border border-gray-600 text-white px-2 py-1 rounded text-[10px]">
+                    {boreholes.map(b=><option key={b.id}>{b.id}</option>)}
+                  </select>
+                  <span className="text-gray-500">Глубина: <span className="text-[#a78bfa] font-bold">{totalDepth} м</span></span>
+                </div>
+                <div className="overflow-auto">
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead><tr className="bg-[#0d1117]">{["Цвет","От, м","До, м","Грунт","ИГЭ","E, МПа","φ°","c, кПа"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                    <tbody>{layers.map((l,i)=>(
+                      <tr key={i} className="hover:bg-[#1e1a3e]">
+                        <td className="px-2 py-1 border border-gray-800"><div className="w-8 h-4 rounded" style={{background:l.color}}/></td>
+                        <td className="px-2 py-1 border border-gray-800 font-mono text-gray-400">{l.from.toFixed(1)}</td>
+                        <td className="px-2 py-1 border border-gray-800 font-mono text-gray-400">{l.to.toFixed(1)}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-white">{l.name}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-[#a78bfa] font-bold">{l.gtype}</td>
+                        <td className="px-2 py-1 border border-gray-800 font-mono text-blue-400">{l.Е||"—"}</td>
+                        <td className="px-2 py-1 border border-gray-800 font-mono text-green-400">{l.φ||"—"}</td>
+                        <td className="px-2 py-1 border border-gray-800 font-mono text-yellow-400">{l.c||"—"}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {tab==="section" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Геологический разрез вдоль трассы</div>
+                <GeolSectionSVG/>
+                <div className="text-[9px] text-gray-500">Вертикальный масштаб 1:200 · Горизонтальный 1:2000 · Интерполяция линейная</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[{name:"ПРС",color:"#166534"},{name:"НГ",color:"#4b5563"},{name:"ИГЭ-1",color:"#854d0e"},{name:"ИГЭ-2",color:"#92400e"},{name:"ИГЭ-3",color:"#d97706"},{name:"ИГЭ-4",color:"#ca8a04"},{name:"ИГЭ-5",color:"#7c3aed"}].map(s=>(
+                    <div key={s.name} className="flex items-center gap-2 text-[10px]">
+                      <div className="w-5 h-3 rounded-sm" style={{background:s.color}}/>
+                      <span className="text-gray-400">{s.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="params" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px] mb-2">Нормативные характеристики ИГЭ (инженерно-геологических элементов)</div>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead><tr className="bg-[#0d1117]">{["ИГЭ","Наименование","E, МПа","φ, °","c, кПа","γ, кН/м³","IL","e"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                  <tbody>{[
+                    {ige:"ИГЭ-1",name:"Суглинок мягкопластичный",E:8,phi:18,c:12,gamma:18.5,IL:0.65,e:0.82},
+                    {ige:"ИГЭ-2",name:"Суглинок тугопластичный",E:14,phi:21,c:20,gamma:19.0,IL:0.42,e:0.72},
+                    {ige:"ИГЭ-3",name:"Супесь пластичная",E:18,phi:24,c:8,gamma:18.8,IL:0.55,e:0.68},
+                    {ige:"ИГЭ-4",name:"Песок средней крупности",E:28,phi:30,c:2,gamma:18.5,IL:0,e:0.62},
+                    {ige:"ИГЭ-5",name:"Суглинок полутвёрдый",E:22,phi:23,c:30,gamma:19.5,IL:0.18,e:0.65},
+                  ].map((r,i)=>(
+                    <tr key={i} className="hover:bg-[#1e1a3e]">
+                      <td className="px-2 py-1 border border-gray-800 text-[#a78bfa] font-bold">{r.ige}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-white">{r.name}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-blue-400">{r.E}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-green-400">{r.phi}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-yellow-400">{r.c}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-gray-300">{r.gamma}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-gray-400">{r.IL}</td>
+                      <td className="px-2 py-1 border border-gray-800 font-mono text-gray-400">{r.e}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {/* Колонка */}
+          <div className="w-36 flex-shrink-0 border-l border-gray-800 p-3 flex flex-col items-center gap-2" style={{background:"#0d1117"}}>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide">Колонка {selBH}</div>
+            <BoreholeColumnSVG/>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#15102a] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#a78bfa] text-[#0d0a1a] hover:bg-[#c4b5fd] rounded text-[11px] font-bold">Применить к поверхности</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Grading (площадки, рабочие отметки, откосы) ─────────────────────────────
+function GradingDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"grade"|"slopes"|"volumes"|"criteria">("grade")
+  const [surfName, setSurfName] = useState("Проектная площадка-1")
+  const [method, setMethod] = useState("Откос от объекта")
+  const [slopeH, setSlopeH] = useState("1.5")
+  const [slopeV, setSlopeV] = useState("1")
+  const [elevation, setElevation] = useState("120.50")
+  const [transOffset, setTransOffset] = useState("2.0")
+
+  // Рабочие отметки (рандомные для демо)
+  const workingElev = Array.from({length:12},(_,i)=>{
+    const st = i*20, natural = 120+Math.sin(i*0.4)*3+Math.cos(i*0.3)*2
+    const design = parseFloat(elevation)
+    const diff = design - natural
+    return {pk:`ПК${Math.floor(st/100)}+${String(st%100).padStart(2,"0")}`, natural:natural.toFixed(2), design:elevation, diff:diff.toFixed(2), type:diff>0?"Насыпь":"Выемка"}
+  })
+
+  // Итого
+  const fill = workingElev.filter(r=>r.type==="Насыпь").length
+  const cut = workingElev.filter(r=>r.type==="Выемка").length
+
+  // Criteria preset
+  const criteria = [
+    {name:"Откос насыпи 1:1.5",  m:"1.5", type:"Насыпь",  surface:"Существующая поверхность"},
+    {name:"Откос выемки 1:1",    m:"1.0", type:"Выемка",   surface:"Существующая поверхность"},
+    {name:"Кювет V-образный",    m:"0.5", type:"Кювет",    surface:"Существующая поверхность"},
+    {name:"Берма шириной 2м",    m:"—",   type:"Берма",    surface:"—"},
+  ]
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#1a1828] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Mountain" size={15} className="text-[#f59e0b]"/>
+            <span className="text-white font-bold text-[13px]">Grading — Площадки и рабочие отметки</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151422] flex-shrink-0">
+          {([["grade","Отметки"],["slopes","Откосы"],["volumes","Объёмы"],["criteria","Критерии"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#f59e0b]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="grade" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                {([
+                  ["Название поверхности",surfName,setSurfName],
+                  ["Метод планировки",method,setMethod],
+                  ["Проектная отметка, м",elevation,setElevation],
+                ] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    {l.includes("Метод")
+                      ? <select value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#f59e0b] text-[10px]">
+                          {["Откос от объекта","Площадка с уклоном","Горизонтальная площадка","Перепланировка рельефа"].map(o=><option key={o}>{o}</option>)}
+                        </select>
+                      : <input value={v} onChange={e=>s(e.target.value)}
+                          className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#f59e0b] font-mono"/>
+                    }
+                  </label>
+                ))}
+              </div>
+              <div className="text-[10px] font-bold text-white mb-1">Рабочие отметки по пикетам</div>
+              <div className="overflow-auto" style={{maxHeight:260}}>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead><tr className="bg-[#0d1117] sticky top-0">{["Пикет","Чёрная отм., м","Красная отм., м","Рабочая отм., м","Зона"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                  <tbody>{workingElev.map((r,i)=>(
+                    <tr key={i} className={`${r.type==="Насыпь"?"bg-blue-900/10":"bg-red-900/10"} hover:bg-[#252535]`}>
+                      <td className="px-2 py-0.5 border border-gray-800 text-[#4fc3f7] font-mono">{r.pk}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-gray-400 font-mono">{r.natural}</td>
+                      <td className="px-2 py-0.5 border border-gray-800 text-gray-300 font-mono">{r.design}</td>
+                      <td className={`px-2 py-0.5 border border-gray-800 font-mono font-bold ${parseFloat(r.diff)>0?"text-blue-400":"text-red-400"}`}>{parseFloat(r.diff)>0?"+":""}{r.diff}</td>
+                      <td className={`px-2 py-0.5 border border-gray-800 text-[9px] font-bold ${r.type==="Насыпь"?"text-blue-400":"text-red-400"}`}>{r.type}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <div className="flex gap-4 text-[10px]">
+                <div className="text-blue-400">Насыпь: <span className="font-bold">{fill}</span> пикетов</div>
+                <div className="text-red-400">Выемка: <span className="font-bold">{cut}</span> пикетов</div>
+              </div>
+            </div>
+          )}
+          {tab==="slopes" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                {([
+                  ["Откос m (гориз.)",slopeH,setSlopeH],
+                  ["Откос (верт.)",slopeV,setSlopeV],
+                  ["Берма, м",transOffset,setTransOffset],
+                ] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    <input type="number" value={v} onChange={e=>s(e.target.value)}
+                      className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#f59e0b] font-mono"/>
+                  </label>
+                ))}
+              </div>
+              {/* SVG поперечника с откосами */}
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#0d1117"}}>
+                <div className="text-[9px] text-gray-500 mb-2 text-center">Типовой поперечник с откосами</div>
+                <svg width="100%" viewBox="-60 -20 120 50" style={{display:"block"}}>
+                  <rect x="-60" y="-20" width="120" height="50" fill="#1a2535"/>
+                  {/* Рельеф */}
+                  <path d="M -60,15 C -30,15 -20,10 -15,8 C -10,6 10,6 15,8 C 20,10 30,15 60,15" fill="#1e3a1e" stroke="#4ade80" strokeWidth="0.8"/>
+                  {/* Насыпь */}
+                  <polygon points={`-15,8 -5,0 5,0 15,8`} fill="rgba(59,130,246,0.3)" stroke="#60a5fa" strokeWidth="0.8"/>
+                  {/* Откосы */}
+                  <line x1="-15" y1="8" x2={-15-parseFloat(slopeH)*8} y2={8+8} stroke="#f97316" strokeWidth="1" strokeDasharray="2 1"/>
+                  <line x1="15" y1="8" x2={15+parseFloat(slopeH)*8} y2={8+8} stroke="#f97316" strokeWidth="1" strokeDasharray="2 1"/>
+                  {/* Проезжая часть */}
+                  <rect x="-5" y="-1" width="10" height="1.5" fill="#374151"/>
+                  <text x="0" y="-4" textAnchor="middle" fill="#9ca3af" fontSize="4">1:{slopeH}</text>
+                  {/* Берма */}
+                  <line x1={-15-parseFloat(slopeH)*8} y1={16} x2={-15-parseFloat(slopeH)*8-parseFloat(transOffset)*2} y2={16} stroke="#facc15" strokeWidth="1"/>
+                  <text x={-15-parseFloat(slopeH)*8-parseFloat(transOffset)} y="14" textAnchor="middle" fill="#facc15" fontSize="3">{transOffset}м</text>
+                </svg>
+              </div>
+            </div>
+          )}
+          {tab==="volumes" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2 text-[10px]">
+                {[
+                  {label:"Объём насыпи",val:"8 240 м³",color:"#60a5fa"},
+                  {label:"Объём выемки",val:"5 180 м³",color:"#f87171"},
+                  {label:"Баланс",val:"+3 060 м³",color:"#4ade80"},
+                  {label:"Откосы насыпи",val:"4 120 м²",color:"#a78bfa"},
+                  {label:"Откосы выемки",val:"2 860 м²",color:"#f97316"},
+                  {label:"Площадь планир.",val:"12 400 м²",color:"#facc15"},
+                ].map(s=>(
+                  <div key={s.label} className="rounded border border-gray-700 px-2 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{s.label}</div>
+                    <div className="font-mono font-bold text-[12px] mt-0.5" style={{color:s.color}}>{s.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tab==="criteria" && (
+            <div className="space-y-2">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-400">Критерии планировки (Grading Criteria)</span>
+                <button className="px-2 py-0.5 bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40 rounded text-[9px]">+ Добавить</button>
+              </div>
+              {criteria.map((c,i)=>(
+                <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-700 hover:bg-[#252535]" style={{background:"#111827"}}>
+                  <Icon name="Mountain" size={14} className="text-[#f59e0b] flex-shrink-0"/>
+                  <div className="flex-1">
+                    <div className="text-white font-semibold">{c.name}</div>
+                    <div className="text-gray-500 text-[9px]">m={c.m} · {c.type} · Поверхность: {c.surface}</div>
+                  </div>
+                  <button className="text-[9px] text-[#f59e0b] hover:underline">Изменить</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#151422] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#f59e0b] text-[#0d0a00] hover:bg-[#fbbf24] rounded text-[11px] font-bold">✓ Применить</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Tunnel Design ─────────────────────────────────────────────────────────────
+function TunnelDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{name:string})=>void }) {
+  const [tab, setTab] = useState<"general"|"profile"|"lining"|"analysis">("general")
+  const [name, setName] = useState("Тоннель №1")
+  const [length, setLength] = useState("420")
+  const [width, setWidth] = useState("10.5")
+  const [height, setHeight] = useState("7.2")
+  const [shape, setShape] = useState("Подковообразный")
+  const [lining, setLining] = useState("Монолитный бетон B30")
+  const [method, setMethod] = useState("НГМ (новоавстрийский)")
+  const [cover, setCover] = useState("15.0")
+  const [alignment, setAlignment] = useState("Трасса ШД-38")
+
+  const Len = parseFloat(length)||420
+  const W = parseFloat(width)||10.5
+  const H = parseFloat(height)||7.2
+  const Cover = parseFloat(cover)||15
+
+  // Нагрузка на обделку
+  const gamma = 18.5  // кН/м³
+  const q = gamma * Cover  // кПа вертикальная
+  const e = q * 0.35       // боковое давление
+  const M = Math.round(q * W**2 / 8)  // момент в своде
+
+  // SVG поперечник тоннеля
+  const TunnelCrossSection = () => {
+    const cx=95, cy=80, rW=W*4, rH=H*4
+    return (
+      <svg width="190" height="130" viewBox="0 0 190 130" style={{background:"#080e18",borderRadius:8,display:"block"}}>
+        <rect width="190" height="130" fill="#1a2535"/>
+        {/* Грунтовый массив */}
+        <ellipse cx={cx} cy={cy} rx={rW+20} ry={rH+15} fill="#2d2014" opacity="0.7"/>
+        {/* Обделка */}
+        <ellipse cx={cx} cy={cy} rx={rW+6} ry={rH+4} fill="#374151"/>
+        {/* Внутреннее сечение */}
+        <ellipse cx={cx} cy={cy} rx={rW} ry={rH} fill="#0d1a2e"/>
+        {/* Дорожное полотно */}
+        <rect x={cx-rW} y={cy+rH-8} width={rW*2} height={5} fill="#374151" rx="1"/>
+        {/* Тротуары */}
+        <rect x={cx-rW} y={cy+rH-12} width={rW*0.2} height={4} fill="#1e293b"/>
+        <rect x={cx+rW*0.8} y={cy+rH-12} width={rW*0.2} height={4} fill="#1e293b"/>
+        {/* Лоток */}
+        <path d={`M ${cx-rW},${cy+rH-2} Q ${cx},${cy+rH+4} ${cx+rW},${cy+rH-2}`} fill="none" stroke="#3b82f6" strokeWidth="1.5"/>
+        {/* Размеры */}
+        <line x1={cx-rW-2} y1={cy+rH-8} x2={cx+rW+2} y2={cy+rH-8} stroke="#f97316" strokeWidth="0.8"/>
+        <text x={cx} y={cy+rH+3} textAnchor="middle" fill="#f97316" fontSize="7">B={W}м</text>
+        <line x1={cx+rW+5} y1={cy-rH} x2={cx+rW+5} y2={cy+rH-8} stroke="#60a5fa" strokeWidth="0.8"/>
+        <text x={cx+rW+14} y={cy} textAnchor="middle" fill="#60a5fa" fontSize="7" transform={`rotate(-90,${cx+rW+14},${cy})`}>H={H}м</text>
+        {/* Нагрузка */}
+        {Array.from({length:7},(_,i)=>(
+          <line key={i} x1={cx-rW+i*rW*2/6} y1={0} x2={cx-rW+i*rW*2/6} y2={cy-rH-5}
+            stroke="#facc15" strokeWidth="0.8" markerEnd="url(#arr3)"/>
+        ))}
+        <defs><marker id="arr3" markerWidth="4" markerHeight="4" refX="2" refY="4" orient="auto">
+          <polygon points="0,0 4,0 2,4" fill="#facc15"/></marker></defs>
+        <text x={cx} y={6} textAnchor="middle" fill="#facc15" fontSize="6">q={q.toFixed(0)} кПа</text>
+        {/* Тип */}
+        <text x={cx} y={cy-rH-8} textAnchor="middle" fill="#9ca3af" fontSize="6">{shape}</text>
+      </svg>
+    )
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:680,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#1a1418] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="CircleDot" size={15} className="text-[#fb923c]" fallback="Circle"/>
+            <span className="text-white font-bold text-[13px]">Tunnel Design — Проектирование тоннеля</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#151214] flex-shrink-0">
+          {([["general","Общие"],["profile","Профиль"],["lining","Обделка"],["analysis","Расчёт"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#fb923c]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+            {tab==="general" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["Название",name,setName],["Трасса",alignment,setAlignment],
+                  ] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                    <label key={l} className="flex flex-col gap-1"><span className="text-gray-500 text-[9px]">{l}</span>
+                    <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#fb923c]"/></label>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    ["Форма сечения",shape,setShape,["Подковообразный","Круговой","Прямоугольный","Арочный","Трапециевидный"]],
+                    ["Метод проходки",method,setMethod,["НГМ (новоавстрийский)","Горный (щитовой)","Открытый котлован","ТПМК (TBM)","Буровзрывной"]],
+                    ["Обделка",lining,setLining,["Монолитный бетон B30","Сборный ЖБ (тюбинги)","Набрызгбетон","Кирпичная кладка"]],
+                  ] as [string,string,(v:string)=>void,string[]][]).map(([l,v,s,opts])=>(
+                    <label key={l} className="flex flex-col gap-1"><span className="text-gray-500 text-[9px]">{l}</span>
+                    <select value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#fb923c] text-[10px]">
+                      {opts.map(o=><option key={o}>{o}</option>)}</select></label>
+                  ))}
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {([["Длина L, м",length,setLength],["Ширина B, м",width,setWidth],["Высота H, м",height,setHeight],["Засыпка h, м",cover,setCover]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                    <label key={l} className="flex flex-col gap-1"><span className="text-gray-500 text-[9px]">{l}</span>
+                    <input type="number" value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#fb923c] font-mono"/></label>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="profile" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Продольный профиль тоннеля</div>
+                <svg width="100%" viewBox="0 0 300 80" style={{background:"#0d1117",borderRadius:6,display:"block"}}>
+                  {/* Рельеф */}
+                  <path d="M 0,20 C 40,18 70,12 100,8 C 130,4 160,5 200,10 C 240,15 270,22 300,20" fill="#1e3a1e" stroke="#4ade80" strokeWidth="1.2"/>
+                  {/* Тоннель */}
+                  <rect x="40" y="35" width="220" height="12" rx="2" fill="#1e2535" stroke="#fb923c" strokeWidth="1"/>
+                  {/* Засыпка */}
+                  <line x1="40" y1="35" x2="260" y2="35" stroke="#facc15" strokeWidth="0.8" strokeDasharray="4 2"/>
+                  <text x="150" y="32" textAnchor="middle" fill="#facc15" fontSize="6">h={cover}м</text>
+                  <text x="150" y="44" textAnchor="middle" fill="#fb923c" fontSize="6">{name} · L={length}м</text>
+                  {/* Порталы */}
+                  <rect x="35" y="30" width="8" height="20" fill="#374151" stroke="#6b7280"/>
+                  <rect x="257" y="30" width="8" height="20" fill="#374151" stroke="#6b7280"/>
+                  <text x="39" y="58" textAnchor="middle" fill="#9ca3af" fontSize="5">Вход</text>
+                  <text x="261" y="58" textAnchor="middle" fill="#9ca3af" fontSize="5">Выход</text>
+                </svg>
+              </div>
+            )}
+            {tab==="lining" && (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+                  <div className="font-bold text-white mb-2">Состав обделки</div>
+                  {[
+                    {elem:"Первичная обделка",val:"Набрызгбетон 5 см + сетка",note:""},
+                    {elem:"Гидроизоляция",val:"ПВХ-мембрана 2 мм",note:"ГОСТ 30547"},
+                    {elem:"Основная обделка",val:lining+" · d=40 см",note:""},
+                    {elem:"Лоток",val:"Монолитный ЖБ B30",note:""},
+                    {elem:"Дорожная плита",val:"АБ тип II · 7 см",note:""},
+                  ].map(e=>(
+                    <div key={e.elem} className="flex items-center gap-2 py-1 border-b border-gray-800">
+                      <span className="text-gray-400 w-36">{e.elem}</span>
+                      <span className="text-white font-mono flex-1">{e.val}</span>
+                      <span className="text-gray-600">{e.note}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="analysis" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Нагрузки на обделку по ГОСТ Р 54257 / СП 122.13330</div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  {[
+                    {label:"Вертикальная нагрузка q",val:`${q.toFixed(1)} кПа`,color:"#ef4444"},
+                    {label:"Горизонтальная нагрузка e",val:`${e.toFixed(1)} кПа`,color:"#f97316"},
+                    {label:"Момент в своде M",val:`${M} кН·м/м`,color:"#facc15"},
+                    {label:"Засыпка h",val:`${cover} м`,color:"#60a5fa"},
+                    {label:"Площадь сечения",val:`${(Math.PI*W*H/4).toFixed(1)} м²`,color:"#4ade80"},
+                    {label:"Периметр обделки",val:`${(Math.PI*(W+H)/2).toFixed(1)} м`,color:"#a78bfa"},
+                  ].map(item=>(
+                    <div key={item.label} className="rounded border border-gray-700 px-2 py-2" style={{background:"#111827"}}>
+                      <div className="text-gray-500 text-[9px]">{item.label}</div>
+                      <div className="font-mono font-bold text-[12px] mt-0.5" style={{color:item.color}}>{item.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="w-52 flex-shrink-0 border-l border-gray-800 p-3 flex flex-col items-center gap-3" style={{background:"#0a0e14"}}>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide text-center">Поперечник тоннеля</div>
+            <TunnelCrossSection/>
+            <div className="text-[9px] text-center space-y-0.5">
+              <div className="text-white font-semibold">{name}</div>
+              <div className="text-gray-500">{shape}</div>
+              <div className="text-[#fb923c] font-mono">L={length}м</div>
+              <div className="text-[#60a5fa] font-mono">B={width}м · H={height}м</div>
+              <div className="text-gray-500">{method}</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#151214] rounded-b-xl">
+          <div className="text-[10px] text-gray-500">q={q.toFixed(0)} кПа · M={M} кН·м/м</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+            <button className="px-3 py-1.5 bg-[#1e2535] text-[#fb923c] border border-[#fb923c]/40 rounded text-[11px]">Экспорт IFC</button>
+            <button onClick={()=>onOK({name})} className="px-4 py-1.5 bg-[#fb923c] text-[#0a0800] hover:bg-[#fdba74] rounded text-[11px] font-bold">✓ Создать тоннель</button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Project Explorer (дерево объектов + фильтрация) ──────────────────────────
+function ProjectExplorerPanel({ onClose, onOpen }: { onClose:()=>void; onOpen:(cmd:string)=>void }) {
+  const [filter, setFilter] = useState("")
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["surfaces","alignments","corridors","networks"]))
+
+  const tree = [
+    {id:"surfaces",   icon:"Triangle",     color:"#4ade80",label:"Поверхности",children:[
+      {id:"s1",icon:"Triangle",color:"#4ade80",label:"Существующая поверхность",info:"TIN · 1847 точек"},
+      {id:"s2",icon:"Triangle",color:"#4ade80",label:"Проектная поверхность",info:"TIN · 342 точки"},
+    ]},
+    {id:"alignments", icon:"Route",        color:"#f97316",label:"Трассы",children:[
+      {id:"a1",icon:"Route",color:"#f97316",label:"Трасса ШД-38",info:"L=2000м"},
+      {id:"a2",icon:"Route",color:"#f97316",label:"Ул. Трумана",info:"L=850м"},
+    ]},
+    {id:"profiles",   icon:"TrendingUp",   color:"#60a5fa",label:"Профили",children:[
+      {id:"p1",icon:"TrendingUp",color:"#60a5fa",label:"Профиль земли [ШД-38]",info:""},
+      {id:"p2",icon:"TrendingUp",color:"#60a5fa",label:"Проект [ШД-38]",info:""},
+    ]},
+    {id:"corridors",  icon:"Navigation",   color:"#a78bfa",label:"Коридоры",children:[
+      {id:"c1",icon:"Navigation",color:"#a78bfa",label:"Дорога и парковочная зона",info:""},
+    ]},
+    {id:"networks",   icon:"Network",      color:"#38bdf8",label:"Трубопроводные сети",children:[
+      {id:"n1",icon:"Network",color:"#38bdf8",label:"Ливневая канализация",info:"12 труб, 8 колодцев"},
+      {id:"n2",icon:"Network",color:"#38bdf8",label:"Водопровод Ø200",info:"L=1840м"},
+    ]},
+    {id:"points",     icon:"MapPin",       color:"#facc15",label:"Группы точек",children:[
+      {id:"pt1",icon:"MapPin",color:"#facc15",label:"Существующие точки",info:"847 точек"},
+      {id:"pt2",icon:"MapPin",color:"#facc15",label:"Тахеометрическая съёмка",info:"1200 точек"},
+    ]},
+    {id:"structures", icon:"Building2",    color:"#f87171",label:"Сооружения",children:[
+      {id:"br1",icon:"Waves",color:"#60a5fa",label:"Мост ПК34+120",info:"3×33м, ЖБ"},
+      {id:"tn1",icon:"Circle",color:"#fb923c",label:"Тоннель №1",info:"L=420м"},
+    ]},
+  ]
+
+  const toggle = (id: string) => setExpanded(s=>{const n=new Set(s); if(n.has(id)) n.delete(id); else n.add(id); return n})
+  const filterTree = (items: typeof tree) => items.filter(n=>!filter||(n.label.toLowerCase().includes(filter.toLowerCase())||(n.children||[]).some(c=>c.label.toLowerCase().includes(filter.toLowerCase()))))
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-end justify-start z-50 p-4" onClick={onClose}>
+      <motion.div initial={{x:-30,opacity:0}} animate={{x:0,opacity:1}} exit={{x:-30,opacity:0}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:320,maxHeight:"85vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a2e] px-4 py-2.5 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="FolderTree" size={13} className="text-[#0078d4]" fallback="Folder"/>
+            <span className="text-white font-bold text-[12px]">Project Explorer</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-sm">✕</button>
+        </div>
+        <div className="px-3 py-2 border-b border-gray-800 flex-shrink-0">
+          <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Фильтр объектов..."
+            className="w-full bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-[#0078d4] placeholder-gray-600"/>
+        </div>
+        <div className="flex-1 overflow-auto py-1 min-h-0">
+          {filterTree(tree).map(node=>(
+            <div key={node.id}>
+              <button onClick={()=>toggle(node.id)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#252535] transition-colors text-left">
+                <Icon name={expanded.has(node.id)?"ChevronDown":"ChevronRight"} size={10} className="text-gray-600 flex-shrink-0" fallback="ChevronRight"/>
+                <Icon name={node.icon} size={13} style={{color:node.color}} fallback="Folder"/>
+                <span className="text-white text-[11px] font-semibold flex-1">{node.label}</span>
+                <span className="text-[9px] text-gray-600">{node.children?.length}</span>
+              </button>
+              {expanded.has(node.id) && node.children?.filter(c=>!filter||c.label.toLowerCase().includes(filter.toLowerCase())).map(child=>(
+                <button key={child.id} onClick={()=>onOpen(child.label)}
+                  className="w-full flex items-center gap-2 px-3 py-1 pl-9 hover:bg-[#0078d4]/10 transition-colors text-left">
+                  <Icon name={child.icon} size={11} style={{color:child.color}} fallback="Circle"/>
+                  <span className="text-gray-300 text-[10px] flex-1 truncate">{child.label}</span>
+                  {child.info && <span className="text-[9px] text-gray-600">{child.info}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="px-3 py-2 border-t border-gray-800 flex gap-2 flex-shrink-0">
+          <button onClick={()=>onOpen("Поверхность")} className="flex-1 py-1 text-[10px] bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded hover:bg-[#0078d4]/30">+ Поверхность</button>
+          <button onClick={()=>onOpen("Трасса")} className="flex-1 py-1 text-[10px] bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/30 rounded hover:bg-[#f97316]/20">+ Трасса</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RAIL TRACK DESIGN + BRIDGE MODELER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -7952,6 +8638,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [showGeotechnical, setShowGeotechnical] = useState(false)
+  const [showGrading, setShowGrading] = useState(false)
+  const [showTunnel, setShowTunnel] = useState(false)
+  const [showProjectExplorer, setShowProjectExplorer] = useState(false)
   const [showRailTrack, setShowRailTrack] = useState(false)
   const [showBridgeModeler, setShowBridgeModeler] = useState(false)
   const [showIntersectionWizard, setShowIntersectionWizard] = useState(false)
@@ -8799,6 +9489,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   else if (c === "ROUNDABOUT" || c === "КОЛЬЦО" || c === "КОЛЬЦЕВОЕ" || c === "RB") setShowRoundabout(true)
   else if (c === "RAIL" || c === "RAILTRACK" || c === "ЖД" || c === "РЕЛЬСЫ" || c === "RT") setShowRailTrack(true)
   else if (c === "BRIDGE" || c === "МОСТ" || c === "BM" || c === "BRIDGE MODELER") setShowBridgeModeler(true)
+  else if (c === "GEO" || c === "ГЕОЛОГИЯ" || c === "GEOTECHNICAL" || c === "СКВАЖИНЫ") setShowGeotechnical(true)
+  else if (c === "GRADING" || c === "ПЛАНИРОВКА" || c === "ПЛОЩАДКА" || c === "GR") setShowGrading(true)
+  else if (c === "TUNNEL" || c === "ТОННЕЛЬ" || c === "TN") setShowTunnel(true)
+  else if (c === "PE" || c === "EXPLORER" || c === "PROJECT EXPLORER" || c === "ДЕРЕВО") setShowProjectExplorer(true)
     else if (c === "INSIGHTS" || c === "ПОДСКАЗКИ") setShowInsights(prev=>!prev)
     else if (c === "ЗЕМЛЯ" || c === "EARTHWORKS" || c === "ВЗР") { setShowEarthworks(true); setStatusMsg("Ведомость земляных работ"); setCommandLine(""); return }
     else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
@@ -8909,6 +9603,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("3d-вьюер") || k.includes("3d вьюер")) { onNavigate?.("viewer3d") }
     else if (k.includes("жд") || k.includes("рельс") || k.includes("rail track") || k.includes("ж/д путь")) { setShowRailTrack(true) }
     else if (k.includes("мост") || k.includes("bridge") || k.includes("путепровод") || k.includes("виадук")) { setShowBridgeModeler(true) }
+    else if (k.includes("геолог") || k.includes("скважин") || k.includes("geotechn") || k.includes("стратиграф")) { setShowGeotechnical(true) }
+    else if (k.includes("планировк") || k.includes("grading") || k.includes("площадк") || k.includes("рабочие отметки")) { setShowGrading(true) }
+    else if (k.includes("тоннель") || k.includes("tunnel") || k.includes("тпмк")) { setShowTunnel(true) }
+    else if (k.includes("explorer") || k.includes("дерево") || k.includes("project explorer")) { setShowProjectExplorer(true) }
     // Всё остальное
     else { setStatusMsg(`Выполнено: ${key}`) }
   }
@@ -8935,7 +9633,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   interface RibbonItem { label: string; icon: string; size: "lg"|"sm"; drop?: string; fallback?: string }
   interface RibbonGroup { label: string; items: RibbonItem[] }
 
-  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Анализ","Вывод","Надстройки"]
+  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Геология","Анализ","Вывод","Надстройки"]
 
   const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     "Главная": [
@@ -9141,6 +9839,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Листы",       icon:"FileStack",    size:"lg", fallback:"Files" },
         { label:"Стили подп.", icon:"Type",         size:"sm" },
         { label:"Параметры",   icon:"Settings",     size:"sm", fallback:"Settings2" },
+      ]},
+    ],
+    "Геология": [
+      { label: "Скважины", items: [
+        { label:"Скважины",    icon:"Layers",       size:"lg" },
+        { label:"Стратигр.",   icon:"AlignJustify", size:"sm", fallback:"List" },
+        { label:"Разрез",      icon:"Minus",        size:"sm" },
+        { label:"ИГЭ",         icon:"Database",     size:"sm", fallback:"Table" },
+      ]},
+      { label: "Площадки", items: [
+        { label:"Grading",     icon:"Mountain",     size:"lg" },
+        { label:"Откосы",      icon:"TrendingDown", size:"sm" },
+        { label:"Рабочие отм.",icon:"BarChart2",    size:"sm", fallback:"BarChart3" },
+      ]},
+      { label: "Тоннели", items: [
+        { label:"Тоннель",     icon:"Circle",       size:"lg", fallback:"CircleDot" },
+        { label:"Обделка",     icon:"Layers",       size:"sm" },
+        { label:"Расчёт",      icon:"Calculator",   size:"sm", fallback:"BarChart3" },
       ]},
     ],
     "Надстройки": [
@@ -10670,6 +11386,21 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             )}
 
             {/* ── Новые диалоги ── */}
+            {showGeotechnical && <GeotechnicalDialog onClose={()=>setShowGeotechnical(false)}/>}
+            {showGrading && <GradingDialog onClose={()=>setShowGrading(false)}/>}
+            {showTunnel && (
+              <TunnelDialog onClose={()=>setShowTunnel(false)} onOK={d=>{
+                setShowTunnel(false)
+                showToast(`Тоннель «${d.name}» создан`)
+                setStatusMsg(`Тоннель «${d.name}» добавлен в проект`)
+              }}/>
+            )}
+            {showProjectExplorer && (
+              <ProjectExplorerPanel onClose={()=>setShowProjectExplorer(false)} onOpen={cmd=>{
+                openDialog(cmd)
+                setShowProjectExplorer(false)
+              }}/>
+            )}
             {showRailTrack && (
               <RailTrackDialog onClose={()=>setShowRailTrack(false)} onOK={d=>{
                 setShowRailTrack(false)

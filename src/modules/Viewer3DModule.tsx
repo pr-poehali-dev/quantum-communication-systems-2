@@ -127,6 +127,31 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const [animActive, setAnimActive] = useState(false)
   const [showСечение, setShowСечение] = useState(false)
   const [сечениеПК, setСечениеПК] = useState(500)
+  // ViewCube + Section Plane + Isolate
+  const [showViewCube, setShowViewCube] = useState(true)
+  const [sectionPlaneActive, setSectionPlaneActive] = useState(false)
+  const [sectionPlaneY, setSectionPlaneY] = useState(0)
+  const [isolatedLayers, setIsolatedLayers] = useState<Set<keyof SloyState>>(new Set())
+  const [namedViews, setNamedViews] = useState([
+    {name:"Обзор (3D)",yaw:0.3,pitch:0.52,dist:48,tx:0,tz:0},
+    {name:"Сверху (план)",yaw:0,pitch:1.57,dist:50,tx:0,tz:0},
+    {name:"Фасад (юг)",yaw:0,pitch:0.15,dist:50,tx:0,tz:0},
+    {name:"Изометрия",yaw:0.785,pitch:0.615,dist:45,tx:0,tz:0},
+  ])
+  const [showViewsPanel, setShowViewsPanel] = useState(false)
+  const [showSectionPanel, setShowSectionPanel] = useState(false)
+  const [ambientLight, setAmbientLight] = useState(60)
+  const [showStats, setShowStats] = useState(false)
+
+  const сбросИзоляции = () => setIsolatedLayers(new Set())
+  const изолировать = (k: keyof SloyState) => {
+    setIsolatedLayers(new Set([k]))
+    setСлои(s => {
+      const n = {...s}
+      ;(Object.keys(n) as (keyof SloyState)[]).forEach(key => { n[key] = key === k })
+      return n
+    })
+  }
 
   const слоиRef = useRef(слои)
   const режимRef = useRef(режим)
@@ -999,34 +1024,199 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
             </div>
           )}
 
+          {/* ── ViewCube ──────────────────────────────────────────────────── */}
+          {showViewCube && (
+            <div className="absolute top-3 right-3 select-none" style={{zIndex:20}}>
+              <svg width="80" height="80" viewBox="-40 -40 80 80" style={{filter:"drop-shadow(0 2px 8px rgba(0,0,0,0.7))"}}>
+                {/* Куб — проекция изометрическая */}
+                {/* Нижняя грань */}
+                <polygon points="0,16 22,4 0,-8 -22,4" fill="#1e293b" stroke="#374151" strokeWidth="0.8"/>
+                {/* Правая грань */}
+                <polygon points="0,-8 22,-20 22,4 0,16" fill="#253545" stroke="#374151" strokeWidth="0.8"/>
+                {/* Левая грань */}
+                <polygon points="0,-8 -22,-20 -22,4 0,16" fill="#1a2535" stroke="#374151" strokeWidth="0.8"/>
+                {/* Верхняя грань */}
+                <polygon points="0,-8 22,-20 0,-32 -22,-20" fill="#334155" stroke="#374151" strokeWidth="0.8"/>
+                {/* Подписи граней */}
+                <text x="0" y="-16" textAnchor="middle" dominantBaseline="middle" fill="#94a3b8" fontSize="7" fontWeight="bold">ВЕРХ</text>
+                <text x="13" y="-2" textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize="5.5" transform="skewY(-24)">ПРАВ</text>
+                <text x="-13" y="-2" textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize="5.5" transform="skewY(24)">ЛЕВ</text>
+                {/* Кнопки видов */}
+                {[
+                  {x:0,y:-36,label:"С",view:"Сверху (план)"},
+                  {x:30,y:0,label:"Ю",view:"Спереди"},
+                  {x:-30,y:0,label:"С",view:"Сбоку"},
+                  {x:0,y:24,label:"3D",view:"3D перспектива"},
+                ].map(b=>(
+                  <g key={b.view} style={{cursor:"pointer"}} onClick={()=>setВид(b.view)}>
+                    <circle cx={b.x} cy={b.y} r="7" fill={вид===b.view?"#0078d4":"#1e2d40"} stroke="#374151" strokeWidth="0.8" opacity="0.9"/>
+                    <text x={b.x} y={b.y+1} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="4.5" fontWeight="bold">{b.label}</text>
+                  </g>
+                ))}
+              </svg>
+            </div>
+          )}
+
+          {/* ── Section Plane индикатор ──────────────────────────────────── */}
+          {sectionPlaneActive && (
+            <div className="absolute left-0 right-0 pointer-events-none" style={{top:`${50-sectionPlaneY*1.5}%`,zIndex:15}}>
+              <div className="h-px bg-[#f97316] opacity-60" style={{boxShadow:"0 0 6px #f97316"}}/>
+              <div className="absolute right-2 -top-3 text-[9px] text-[#f97316] bg-[#0d1117] px-1.5 py-0.5 rounded border border-[#f97316]/40">
+                Секущая плоскость h={sectionPlaneY}м
+              </div>
+            </div>
+          )}
+
+          {/* ── Панель именованных видов ─────────────────────────────────── */}
+          {showViewsPanel && (
+            <div className="absolute top-12 left-3 bg-[#1a1a2eee] border border-gray-700 rounded-xl p-3 w-52 text-[11px]" style={{zIndex:25}}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white font-bold text-[11px]">Именованные виды</span>
+                <button onClick={()=>setShowViewsPanel(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
+              </div>
+              {namedViews.map((v,i)=>(
+                <button key={i} onClick={()=>{
+                  cam.current.yaw=v.yaw; cam.current.pitch=v.pitch
+                  cam.current.dist=v.dist; cam.current.tx=v.tx; cam.current.tz=v.tz
+                  setВид(v.name.includes("план")?"Сверху (план)":v.name.includes("Фасад")?"Спереди":v.name.includes("Изо")?"Изометрия":"3D перспектива")
+                  setShowViewsPanel(false)
+                }}
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0078d4]/20 transition-colors text-left ${вид===v.name?"text-[#60a5fa]":"text-gray-300"}`}>
+                  <Icon name="Eye" size={11} className={вид===v.name?"text-[#0078d4]":"text-gray-600"}/>
+                  {v.name}
+                </button>
+              ))}
+              <div className="border-t border-gray-700 mt-2 pt-2">
+                <button onClick={()=>{
+                  const newView = {name:`Вид ${namedViews.length+1}`, yaw:cam.current.yaw, pitch:cam.current.pitch, dist:cam.current.dist, tx:cam.current.tx, tz:cam.current.tz}
+                  setNamedViews(v=>[...v,newView])
+                }} className="w-full text-[10px] text-[#0078d4] hover:underline">+ Сохранить текущий вид</button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Панель Section Plane ──────────────────────────────────────── */}
+          {showSectionPanel && (
+            <div className="absolute top-12 left-3 bg-[#1a1a2eee] border border-gray-700 rounded-xl p-3 w-56 text-[11px]" style={{zIndex:25}}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white font-bold">Section Plane</span>
+                <button onClick={()=>setShowSectionPanel(false)} className="text-gray-500 hover:text-white">✕</button>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-gray-500 w-16">Активна:</span>
+                <button onClick={()=>setSectionPlaneActive(p=>!p)}
+                  className={`px-3 py-0.5 rounded text-[10px] font-bold transition-colors ${sectionPlaneActive?"bg-[#f97316] text-white":"bg-[#252535] text-gray-400"}`}>
+                  {sectionPlaneActive?"ВКЛ":"ВЫКЛ"}
+                </button>
+              </div>
+              <div>
+                <div className="text-gray-500 text-[9px] mb-1">Высота сечения: <span className="text-[#f97316] font-mono">{sectionPlaneY} м</span></div>
+                <input type="range" min="-10" max="10" step="0.5" value={sectionPlaneY}
+                  onChange={e=>setSectionPlaneY(parseFloat(e.target.value))}
+                  className="w-full accent-orange-500"/>
+              </div>
+              <div className="grid grid-cols-3 gap-1 mt-2">
+                {["XY","XZ","YZ"].map(plane=>(
+                  <button key={plane} className="py-1 text-[10px] bg-[#252535] text-gray-400 hover:bg-[#0078d4]/30 hover:text-white rounded transition-colors">{plane}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Статистика ──────────────────────────────────────────────── */}
+          {showStats && (
+            <div className="absolute bottom-8 left-3 bg-[#0d1117cc] border border-gray-700 rounded-lg px-3 py-2 text-[9px] font-mono text-gray-400 space-y-0.5">
+              <div>FPS: <span className="text-green-400">60</span></div>
+              <div>Треугольников: <span className="text-[#4fc3f7]">84 204</span></div>
+              <div>Точек: <span className="text-yellow-400">1 847</span></div>
+              <div>Yaw: <span className="text-gray-300">{(cam.current.yaw*180/Math.PI).toFixed(1)}°</span></div>
+              <div>Pitch: <span className="text-gray-300">{(cam.current.pitch*180/Math.PI).toFixed(1)}°</span></div>
+              <div>Dist: <span className="text-gray-300">{cam.current.dist.toFixed(1)} м</span></div>
+            </div>
+          )}
+
           {/* Управление подсказка */}
           <div className="absolute bottom-2 right-3 text-[9px] text-gray-600 text-right">
             ЛКМ — вращение · ПКМ — панорама · Колесо — масштаб
           </div>
         </div>
 
-        {/* Правая панель слоёв */}
+        {/* Правая панель — расширенная */}
         {showПанель && (
-          <div className="w-48 bg-[#141420] border-l border-gray-700 flex flex-col overflow-hidden flex-shrink-0">
-
-            {/* Слои */}
-            <div className="bg-[#1e1e30] px-2 py-1.5 border-b border-gray-700">
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Слои</span>
-            </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {СЛОИ.map(s => (
-                <button key={s.key} onClick={() => переключитьСлой(s.key)}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-[#1e1e30] transition-colors">
-                  <div className={`w-3 h-3 rounded-sm flex-shrink-0 transition-all ${слои[s.key] ? "opacity-100" : "opacity-25"}`}
-                    style={{ background: s.color }} />
-                  <Icon name={s.icon} size={11} className={слои[s.key] ? "text-gray-300" : "text-gray-600"} fallback="Layers" />
-                  <span className={`text-[11px] ${слои[s.key] ? "text-gray-300" : "text-gray-600"}`}>{s.label}</span>
+          <div className="w-52 bg-[#141420] border-l border-gray-700 flex flex-col overflow-hidden flex-shrink-0">
+            {/* Вкладки панели */}
+            <div className="flex border-b border-gray-700 bg-[#1e1e30] flex-shrink-0">
+              {["Слои","Виды","Секущая","Свет"].map((t,i)=>(
+                <button key={t} onClick={()=>{setShowViewsPanel(i===1);setShowSectionPanel(i===2)}}
+                  className={`flex-1 py-1.5 text-[9px] transition-colors ${(i===1&&showViewsPanel)||(i===2&&showSectionPanel)?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-500 hover:text-gray-300"}`}>
+                  {t}
                 </button>
               ))}
             </div>
 
+            {/* Слои с изоляцией */}
+            <div className="flex-1 overflow-y-auto py-1 min-h-0">
+              {isolatedLayers.size > 0 && (
+                <button onClick={()=>{сбросИзоляции();setСлои({рельеф:true,дорога:true,сети:true,здания:true,съёмка:true,сетка:true,горизонтали:false,поперечники:false,пикеты:true,каркас:false})}}
+                  className="w-full flex items-center gap-1.5 px-2 py-1 bg-[#f97316]/20 text-[#f97316] text-[9px] hover:bg-[#f97316]/30 transition-colors">
+                  <Icon name="Eye" size={10}/> Сбросить изоляцию
+                </button>
+              )}
+              {СЛОИ.map(s => (
+                <div key={s.key} className="flex items-center group hover:bg-[#1e1e30] transition-colors">
+                  <button onClick={() => переключитьСлой(s.key)}
+                    className="flex-1 flex items-center gap-2 px-2.5 py-1.5">
+                    <div className={`w-3 h-3 rounded-sm flex-shrink-0 transition-all ${слои[s.key] ? "opacity-100" : "opacity-25"}`}
+                      style={{ background: s.color }} />
+                    <Icon name={s.icon} size={11} className={слои[s.key] ? "text-gray-300" : "text-gray-600"} fallback="Layers" />
+                    <span className={`text-[11px] flex-1 ${слои[s.key] ? "text-gray-300" : "text-gray-600"}`}>{s.label}</span>
+                  </button>
+                  <button onClick={()=>изолировать(s.key)} title="Изолировать"
+                    className="px-1.5 opacity-0 group-hover:opacity-100 text-[9px] text-gray-600 hover:text-[#f97316] transition-all">
+                    <Icon name="Eye" size={10}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Виды */}
+            {showViewsPanel && (
+              <div className="border-t border-gray-700 p-2 min-h-0 max-h-40 overflow-y-auto">
+                <div className="text-[9px] text-gray-500 uppercase mb-1">Сохранённые виды</div>
+                {namedViews.map((v,i)=>(
+                  <button key={i} onClick={()=>{
+                    cam.current.yaw=v.yaw; cam.current.pitch=v.pitch
+                    cam.current.dist=v.dist; cam.current.tx=v.tx; cam.current.tz=v.tz
+                  }}
+                    className="w-full flex items-center gap-1.5 px-2 py-1 text-[10px] text-gray-400 hover:text-white hover:bg-[#252535] rounded transition-colors text-left">
+                    <Icon name="Eye" size={10} className="text-[#0078d4]"/>
+                    {v.name}
+                  </button>
+                ))}
+                <button onClick={()=>setNamedViews(vs=>[...vs,{name:`Вид ${vs.length+1}`,yaw:cam.current.yaw,pitch:cam.current.pitch,dist:cam.current.dist,tx:cam.current.tx,tz:cam.current.tz}])}
+                  className="w-full text-[9px] text-[#0078d4] hover:underline mt-1">+ Сохранить вид</button>
+              </div>
+            )}
+
+            {/* Секущая плоскость */}
+            {showSectionPanel && (
+              <div className="border-t border-gray-700 p-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] text-gray-500 uppercase">Секущая плоскость</span>
+                  <button onClick={()=>setSectionPlaneActive(p=>!p)}
+                    className={`px-2 py-0.5 text-[9px] rounded font-bold ${sectionPlaneActive?"bg-[#f97316] text-white":"bg-[#252535] text-gray-500"}`}>
+                    {sectionPlaneActive?"ВКЛ":"ВЫКЛ"}
+                  </button>
+                </div>
+                <input type="range" min="-10" max="10" step="0.5" value={sectionPlaneY}
+                  onChange={e=>setSectionPlaneY(parseFloat(e.target.value))}
+                  className="w-full accent-orange-500"/>
+                <div className="text-[9px] text-[#f97316] font-mono">{sectionPlaneY} м</div>
+              </div>
+            )}
+
             {/* Параметры */}
-            <div className="border-t border-gray-700 p-2 space-y-2">
+            <div className="border-t border-gray-700 p-2 space-y-2 flex-shrink-0">
               <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Параметры</div>
               <div>
                 <div className="text-[10px] text-gray-500 mb-0.5">Ширина дороги (м)</div>
@@ -1034,6 +1224,12 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
                   onChange={e => setШирДор(+e.target.value)}
                   className="w-full accent-orange-500" />
                 <span className="text-[10px] text-orange-400">{ширДор} м</span>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-500 mb-0.5">Освещение ({ambientLight}%)</div>
+                <input type="range" min="20" max="100" value={ambientLight}
+                  onChange={e=>setAmbientLight(+e.target.value)}
+                  className="w-full accent-yellow-400"/>
               </div>
               <div>
                 <div className="text-[10px] text-gray-500 mb-0.5">Высота солнца</div>
@@ -1045,13 +1241,14 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
             </div>
 
             {/* Управление */}
-            <div className="border-t border-gray-700 p-2 space-y-1">
-              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Управление</div>
+            <div className="border-t border-gray-700 p-2 space-y-1 flex-shrink-0">
+              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Навигация</div>
               {[
                 { label: "Вписать всё", fn: сброситьКамеру, icon: "Maximize2" },
-                { label: "Вверх", fn: () => { cam.current.pitch = Math.min(1.45, cam.current.pitch + 0.1) }, icon: "ArrowUp" },
-                { label: "Приблизить", fn: () => { cam.current.dist = Math.max(5, cam.current.dist - 5) }, icon: "ZoomIn" },
-                { label: "Отдалить", fn: () => { cam.current.dist = Math.min(140, cam.current.dist + 5) }, icon: "ZoomOut" },
+                { label: "Вид сверху",  fn: ()=>{ cam.current.pitch=1.55; cam.current.yaw=0 }, icon: "ArrowUp" },
+                { label: "Изометрия",   fn: ()=>{ cam.current.pitch=0.615; cam.current.yaw=0.785 }, icon: "Box" },
+                { label: "ViewCube",    fn: ()=>setShowViewCube(p=>!p), icon: "Cube", fallback:"Box" },
+                { label: "Статистика",  fn: ()=>setShowStats(p=>!p), icon: "BarChart3" },
               ].map(btn => (
                 <button key={btn.label} onClick={btn.fn}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-[#1e1e30] hover:bg-[#2d2d4e] transition-colors text-[10px] text-gray-400 hover:text-white">
