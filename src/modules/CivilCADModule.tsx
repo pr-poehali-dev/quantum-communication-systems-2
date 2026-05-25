@@ -32,7 +32,7 @@ function AdaptationDialog({ onClose }: { onClose: () => void }) {
     "Электрическая сеть": ["Электрические компоненты","Щиты","Розетки"],
   }
   const currentGroups = groups[selectedPalette] || groups["Архитектурные"]
-  const currentGroupLabel = "Элементы конструкций Civil в метрической системе единиц"
+  const currentGroupLabel = "Элементы конструкций ЛАПА в метрической системе единиц"
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/50 flex items-start justify-start z-50 p-16">
@@ -3473,17 +3473,19 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
+    <div className="absolute inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[540px] max-h-[90vh] overflow-y-auto"
-        style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col"
+        style={{ fontFamily: "Arial, sans-serif", fontSize: 12, width: "min(540px, 94vw)", maxHeight: "85vh" }}
+        onClick={e=>e.stopPropagation()}
       >
         {/* title */}
-        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
           <span className="text-white font-bold text-sm">Создать коридор</span>
-          <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center text-xs">✕</button>
+          <button onClick={onClose} className="text-white hover:bg-blue-700 w-6 h-6 flex items-center justify-center text-sm rounded">✕</button>
         </div>
+        <div className="overflow-y-auto flex-1 min-h-0">
 
         <div className="p-3 space-y-2">
           {/* Name */}
@@ -3641,6 +3643,7 @@ function CorridorDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Corr
               Справка
             </button>
           </div>
+        </div>
         </div>
       </motion.div>
     </div>
@@ -10634,6 +10637,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [propsTab, setPropsTab] = useState<"Стиль"|"Метка"|"Слой"|"Данные">("Стиль")
   const [showTransportation, setShowTransportation] = useState(false)
   const [showHydrologyModule, setShowHydrologyModule] = useState(false)
   const [showDaylightFL2, setShowDaylightFL2] = useState(false)
@@ -10711,7 +10715,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const t = new Date().toLocaleTimeString("ru")
     setScriptRunning(true)
     const lines = [
-      `[${t}] ▶ Запуск: ${scriptType === "autolisp" ? "AutoLISP" : scriptType === "dynamo" ? "Dynamo for Civil 3D 4.0" : "ЛАПА AI"} ...`,
+      `[${t}] ▶ Запуск: ${scriptType === "autolisp" ? "AutoLISP" : scriptType === "dynamo" ? "Dynamo для ЛАПА 4.0" : "ЛАПА AI"} ...`,
     ]
     if (scriptType === "autolisp") {
       const match = autoLispSnippet.match(/\(defun c:(\w+)/)
@@ -10843,7 +10847,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [contextMenu, setContextMenu] = useState<{x:number;y:number;wx:number;wy:number}|null>(null)
   const [showAssistant, setShowAssistant] = useState(false)
   const [assistantMessages, setAssistantMessages] = useState<{role:"user"|"bot";text:string}[]>([
-    {role:"bot", text:"Привет! Я ЛАПА-Ассистент. Спросите о Civil 3D 2027 — создании трасс, коридоров, поверхностей, HRA, характерных линиях выхода на рельеф. Готов помочь!"}
+    {role:"bot", text:"Привет! Я ЛАПА-Ассистент. Спросите о ЛАПА 3D — создании трасс, коридоров, поверхностей, HRA, характерных линиях выхода на рельеф. Готов помочь!"}
   ])
   const [assistantInput, setAssistantInput] = useState("")
 
@@ -10862,14 +10866,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (t.includes("экспорт") || t.includes("dwg") || t.includes("pdf")) reply = "Экспорт: лента «Вывод» → «Экспорт» (DWG, LandXML, IFC, PDF, CSV). Команда ЭКСПОРТ."
     else if (t.includes("земляных") || t.includes("объём")) reply = "Объёмы земляных работ: лента «Анализ» → «Объёмы» или команда ЗЕМЛЯ. Поддерживается метод по сечениям и призматоида."
     else if (t.includes("привязк")) reply = "Объектные привязки настраиваются через «Геопозиционирование» в ленте — там панель с галочками всех режимов привязки."
-    else if (t.includes("dynamo")) reply = "Dynamo for Civil 3D 2027 (Core 4.0.2): откройте «Надстройки» → «Редактор скриптов» → вкладка Dynamo. PythonNet3 — механизм по умолчанию."
+    else if (t.includes("dynamo")) reply = "Dynamo для ЛАПА 3D (Core 4.0.2): откройте «Надстройки» → «Редактор скриптов» → вкладка Dynamo. PythonNet3 — механизм по умолчанию."
     else if (t.includes("невязк") || t.includes("теодолит")) reply = "Отчёт о невязке: лента «Съёмка» → «Отчёт о невязке» или команда НЕВЯЗКА."
     else if (t.includes("горизонтальн") || t.includes("регресс") || t.includes("hra")) reply = "Анализ горизонтальной регрессии (HRA, 2026.1+): вписывает проектную трассу в съёмку. Лента «Анализ» → «Трасса» → «Горизонтальная регрессия»."
-    else if (t.includes("характерн") || t.includes("выход на рельеф")) reply = "Характерная линия выхода на рельеф (Civil 3D 2027): автоматизирует профилирование склонов. Лента «Главная» → «Хар. линия» → «Выход на рельеф»."
-    else if (t.includes("дренаж") || t.includes("infodrainage")) reply = "Инструменты дренажа Autodesk 2027: интеграция с InfoDrainage. Лента «Анализ» → «Гидравлика» → «Дренаж InfoDrainage»."
+    else if (t.includes("характерн") || t.includes("выход на рельеф")) reply = "Характерная линия выхода на рельеф (ЛАПА 3D): автоматизирует профилирование склонов. Лента «Главная» → «Хар. линия» → «Выход на рельеф»."
+    else if (t.includes("дренаж") || t.includes("infodrainage")) reply = "Инструменты дренажа ЛАПА: интеграция с InfoDrainage. Лента «Анализ» → «Гидравлика» → «Дренаж InfoDrainage»."
     else if (t.includes("мост")) reply = "Мосты: дерево объектов → «Мосты» → ПКМ → «Создать мост». Требуется трасса и профиль."
     else if (t.includes("каталог труб") || t.includes("forma")) reply = "Каталог труб/напорных труб теперь интегрирован с Forma Data Management. Лента «Вставка» → «Диспетчер источников данных»."
-    else if (t.includes(".net") || t.includes("net 10")) reply = "Civil 3D 2027 поддерживает .NET 10. Старые плагины .NET Framework нужно перекомпилировать под .NET 10."
+    else if (t.includes(".net") || t.includes("net 10")) reply = "ЛАПА 3D поддерживает .NET 10. Старые плагины .NET Framework нужно перекомпилировать под .NET 10."
     setTimeout(() => setAssistantMessages(prev => [...prev, { role: "bot", text: reply }]), 450)
   }
 
@@ -13722,10 +13726,85 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 {/* Быстрые свойства */}
                 <div className="flex-shrink-0 border-t border-gray-700 px-3 py-2 bg-[#252535]">
                   <div className="text-[9px] text-gray-500 mb-1">Быстрые свойства</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {["Стиль","Метка","Слой","Данные"].map(btn=>(
-                      <button key={btn} className="text-[9px] px-2 py-0.5 border border-gray-600 rounded text-gray-400 hover:text-white hover:border-[#0078d4] transition-colors">{btn}</button>
+                  <div className="flex gap-1 flex-wrap mb-2">
+                    {(["Стиль","Метка","Слой","Данные"] as const).map(btn=>(
+                      <button key={btn} onClick={()=>setPropsTab(btn)}
+                        className={`text-[9px] px-2 py-0.5 border rounded transition-colors ${propsTab===btn?"border-[#0078d4] bg-[#0078d4]/20 text-white":"border-gray-600 text-gray-400 hover:text-white hover:border-[#0078d4]"}`}>
+                        {btn}
+                      </button>
                     ))}
+                  </div>
+                  {/* Контент таба */}
+                  <div className="rounded border border-gray-700 p-2 bg-[#1a1a2a] text-[10px] space-y-1">
+                    {propsTab==="Стиль" && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Стиль:</span>
+                          <select className="bg-[#252535] border border-gray-600 text-white text-[9px] px-1 py-0.5 rounded outline-none">
+                            <option>Стандартный</option><option>Основной</option><option>Скрытый</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Цвет:</span>
+                          <input type="color" defaultValue="#4fc3f7" className="w-8 h-4 bg-transparent border border-gray-600 rounded cursor-pointer"/>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Толщина:</span>
+                          <input type="number" defaultValue="0.5" step="0.1" className="w-12 bg-[#252535] border border-gray-600 text-white text-[9px] px-1 py-0.5 rounded outline-none font-mono"/>
+                        </div>
+                      </>
+                    )}
+                    {propsTab==="Метка" && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Подпись:</span>
+                          <input defaultValue={selectedCivilObject.name} className="flex-1 ml-2 bg-[#252535] border border-gray-600 text-white text-[9px] px-1 py-0.5 rounded outline-none"/>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Высота:</span>
+                          <input type="number" defaultValue="2.5" step="0.5" className="w-14 bg-[#252535] border border-gray-600 text-white text-[9px] px-1 py-0.5 rounded outline-none font-mono"/>
+                        </div>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input type="checkbox" defaultChecked className="accent-[#0078d4] w-3 h-3"/>
+                          <span className="text-gray-400">Показывать пикетаж</span>
+                        </label>
+                      </>
+                    )}
+                    {propsTab==="Слой" && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Слой:</span>
+                          <select className="flex-1 ml-2 bg-[#252535] border border-gray-600 text-white text-[9px] px-1 py-0.5 rounded outline-none">
+                            <option>C-ROAD-CNTR</option><option>C-TOPO-SURF</option><option>C-PIPE-WATER</option><option>0</option>
+                          </select>
+                        </div>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input type="checkbox" defaultChecked className="accent-[#0078d4] w-3 h-3"/>
+                          <span className="text-gray-400">Видимый</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input type="checkbox" className="accent-[#0078d4] w-3 h-3"/>
+                          <span className="text-gray-400">Заморозить</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input type="checkbox" className="accent-[#0078d4] w-3 h-3"/>
+                          <span className="text-gray-400">Заблокировать</span>
+                        </label>
+                      </>
+                    )}
+                    {propsTab==="Данные" && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Описание:</span>
+                          <input placeholder="Доп. описание" className="flex-1 ml-2 bg-[#252535] border border-gray-600 text-white text-[9px] px-1 py-0.5 rounded outline-none placeholder-gray-600"/>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">XData:</span>
+                          <span className="text-[#4fc3f7] font-mono">{Object.keys(selectedCivilObject.props).length} ключей</span>
+                        </div>
+                        <button className="w-full mt-1 py-1 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px] hover:bg-[#0078d4]/30">+ Добавить XData</button>
+                      </>
+                    )}
                   </div>
                 </div>
               </motion.div>

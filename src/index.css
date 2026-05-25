@@ -151,13 +151,21 @@
 /* Все диалоги должны влезать в окно и быть прокручиваемы */
 [class*="absolute inset-0 bg-black"] > div,
 [class*="fixed inset-0 bg-black"] > div {
-  max-height: 92vh !important;
-  max-width: 96vw !important;
+  max-height: 88vh !important;
+  max-width: 94vw !important;
 }
 
-/* Контейнеры с конкретной шириной (style={{width:NNNpx}}) — ограничить max-width */
-[style*="width:"] {
-  max-width: min(96vw, var(--w-current, 100%));
+/* Для motion-обёрток внутри диалогов */
+[class*="absolute inset-0 bg-black"] > div > div,
+[class*="fixed inset-0 bg-black"] > div > div {
+  max-height: 88vh;
+  max-width: 94vw;
+}
+
+/* Гарантируем что любой <div style="width:NNNpx"> внутри модалки сжимается */
+[class*="absolute inset-0 bg-black"] [style*="width:"],
+[class*="fixed inset-0 bg-black"] [style*="width:"] {
+  max-width: 94vw !important;
 }
 
 /* Скроллбар внутри диалогов — тонкий и тёмный */
