@@ -5928,6 +5928,767 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// HORIZONTAL REGRESSION ANALYSIS · INFODRAINAGE · FORMA DATA MANAGEMENT
+// TRANSPORTATION MODULE · HYDROLOGY MODULE · DWT TEMPLATES · DYNAMIC MODEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Horizontal Regression Analysis (HRA + ML) ────────────────────────────────
+function HRADialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"survey"|"analysis"|"preview"|"segments">("survey")
+  const [mlMode, setMlMode] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzed, setAnalyzed] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [minR, setMinR] = useState("500")
+  const [minTangent, setMinTangent] = useState("50")
+  const [tolerance, setTolerance] = useState("0.15")
+  const [stationFrom, setStationFrom] = useState("0+000")
+  const [stationTo, setStationTo] = useState("20+000")
+
+  const surveyPts = Array.from({length:18},(_,i)=>({
+    id:i+1,
+    x:(i*110+Math.sin(i*0.4)*45+Math.cos(i*0.7)*30).toFixed(3),
+    y:(i*65+Math.cos(i*0.5)*55+Math.sin(i*0.3)*20).toFixed(3),
+    code:"P",
+  }))
+
+  const segments = [
+    {type:"Прямая",    from:"ПК0+000", to:"ПК2+340", len:"2340", R:"—",    dev:"0.08м", ok:true},
+    {type:"Клотоида",  from:"ПК2+340", to:"ПК2+630", len:"290",  R:"→800", dev:"0.12м", ok:true},
+    {type:"Круговая",  from:"ПК2+630", to:"ПК4+820", len:"2190", R:"800",  dev:"0.19м", ok:false},
+    {type:"Клотоида",  from:"ПК4+820", to:"ПК5+110", len:"290",  R:"800→",dev:"0.09м", ok:true},
+    {type:"Прямая",    from:"ПК5+110", to:"ПК8+750", len:"3640", R:"—",    dev:"0.06м", ok:true},
+    {type:"Клотоида",  from:"ПК8+750", to:"ПК9+020", len:"270",  R:"→1200",dev:"0.11м",ok:true},
+    {type:"Круговая",  from:"ПК9+020", to:"ПК11+340",len:"2320", R:"1200", dev:"0.07м", ok:true},
+  ]
+
+  const startAnalysis = () => {
+    setAnalyzing(true); setProgress(0); setAnalyzed(false)
+    const iv = setInterval(()=>setProgress(p=>{
+      if(p>=100){clearInterval(iv);setAnalyzing(false);setAnalyzed(true);return 100}
+      return p+(mlMode?4:7)
+    }), mlMode?200:120)
+  }
+
+  // SVG план трассы с кривыми
+  const AlignmentPreviewSVG = () => {
+    const W=340, H=180
+    const pts = surveyPts.map((p,i)=>({
+      x:parseFloat(p.x)/220*(W-40)+20,
+      y:H-parseFloat(p.y)/200*(H-40)-20,
+    }))
+    return (
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{background:"#080e18",borderRadius:8,display:"block"}}>
+        <rect width={W} height={H} fill="#0d1a2e"/>
+        {/* Сетка */}
+        {Array.from({length:8},(_,i)=>[
+          <line key={`v${i}`} x1={i*(W/7)+20} y1="10" x2={i*(W/7)+20} y2={H-10} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>,
+          <line key={`h${i}`} x1="10" y1={i*(H/7)+10} x2={W-10} y2={i*(H/7)+10} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5"/>
+        ])}
+        {/* Точки съёмки */}
+        {pts.map((p,i)=>(
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="3" fill="#facc15" opacity="0.8"/>
+            {i%4===0&&<text x={p.x+4} y={p.y-3} fill="#facc15" fontSize="5">P{i+1}</text>}
+          </g>
+        ))}
+        {/* Линия по точкам */}
+        <polyline points={pts.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke="#374151" strokeWidth="0.8" strokeDasharray="3 2"/>
+        {/* Трасса (сглаженная) */}
+        {analyzed && (
+          <path d={`M ${pts[0].x},${pts[0].y} ` + pts.slice(1).map((p,i)=>{
+            const prev=pts[i]; const mx=(prev.x+p.x)/2, my=(prev.y+p.y)/2
+            return `Q ${prev.x},${prev.y} ${mx},${my}`
+          }).join(" ")} fill="none" stroke="#f97316" strokeWidth="2"/>
+        )}
+        {/* ML-подсветка */}
+        {analyzed&&mlMode&&<text x={W/2} y={H-5} textAnchor="middle" fill="#a78bfa" fontSize="6">ML-анализ: {segments.length} сегментов распознано</text>}
+        {!analyzed&&<text x={W/2} y={H/2} textAnchor="middle" fill="#4b5563" fontSize="8">Нажмите «Анализировать» для построения трассы</text>}
+        {/* Легенда */}
+        <circle cx="15" cy="10" r="2.5" fill="#facc15"/><text x="21" y="13" fill="#facc15" fontSize="5.5">Точки съёмки</text>
+        {analyzed&&<><line x1="75" y1="10" x2="85" y2="10" stroke="#f97316" strokeWidth="2"/><text x="88" y="13" fill="#f97316" fontSize="5.5">Трасса</text></>}
+      </svg>
+    )
+  }
+
+  // Кривизна
+  const CurvaturePlotSVG = () => (
+    <svg width="100%" viewBox="0 0 340 60" style={{background:"#080e18",borderRadius:6,display:"block"}}>
+      <rect width="340" height="60" fill="#0d1117"/>
+      <line x1="10" y1="30" x2="330" y2="30" stroke="#374151" strokeWidth="0.8"/>
+      {analyzed&&segments.map((s,i)=>{
+        const x = 10+i*(320/segments.length), w = 320/segments.length-2
+        const h = s.R==="—"?0:s.type==="Клотоида"?8:15
+        return <rect key={i} x={x} y={h?30-h:29.5} width={w} height={h||1}
+          fill={s.type==="Круговая"?"#f97316":s.type==="Клотоида"?"#60a5fa":"#374151"} opacity="0.8" rx="1"/>
+      })}
+      <text x="10" y="8" fill="#4b5563" fontSize="5.5">График кривизны</text>
+    </svg>
+  )
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:720,maxHeight:"93vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="GitBranch" size={15} className="text-[#a78bfa]" fallback="Route"/>
+            <span className="text-white font-bold text-[13px]">Horizontal Regression Analysis — Анализ трассы</span>
+            {mlMode&&<span className="text-[9px] px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded-full font-bold">ML</span>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0 items-center">
+          {([["survey","Точки съёмки"],["analysis","Параметры"],["preview","Alignment Preview"],["segments","Таблица сегментов"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#a78bfa]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+          <div className="ml-auto px-3 flex items-center gap-2">
+            <span className="text-[9px] text-gray-500">ML-режим:</span>
+            <button onClick={()=>setMlMode(p=>!p)}
+              className={`px-2 py-0.5 text-[9px] rounded font-bold transition-colors ${mlMode?"bg-[#a78bfa] text-white":"bg-[#252535] text-gray-500"}`}>
+              {mlMode?"ВКЛ":"ВЫКЛ"}
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+            {tab==="survey" && (
+              <div className="space-y-3">
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-400">{surveyPts.length} точек съёмки</span>
+                  <button className="px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded text-[9px]">Импорт CSV/RW5</button>
+                </div>
+                <div className="overflow-auto" style={{maxHeight:280}}>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead><tr className="bg-[#0d1117] sticky top-0">{["№","X","Y","Код"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                    <tbody>{surveyPts.map((p,i)=>(
+                      <tr key={i} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                        <td className="px-2 py-0.5 border border-gray-800 text-[#a78bfa] font-mono">{p.id}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 font-mono text-gray-300">{p.x}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 font-mono text-gray-300">{p.y}</td>
+                        <td className="px-2 py-0.5 border border-gray-800 text-gray-500">{p.code}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {tab==="analysis" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["От пикета",stationFrom,setStationFrom],["До пикета",stationTo,setStationTo],
+                    ["Мин. радиус, м",minR,setMinR],["Мин. прямая вставка, м",minTangent,setMinTangent],
+                    ["Допуск отклонения, м",tolerance,setTolerance],
+                  ] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                    <label key={l} className="flex flex-col gap-1">
+                      <span className="text-gray-500 text-[9px]">{l}</span>
+                      <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#a78bfa] font-mono text-[10px]"/>
+                    </label>
+                  ))}
+                </div>
+                {mlMode&&(
+                  <div className="rounded-lg border border-[#a78bfa]/30 bg-[#a78bfa]/10 p-3 text-[10px]">
+                    <div className="text-[#a78bfa] font-bold mb-1">🤖 ML-режим активен</div>
+                    <div className="text-gray-400">Предобученная модель распознаёт геометрию сложных участков. Не использует данные клиентов. Повышает точность на ~40% при неоднородных данных.</div>
+                  </div>
+                )}
+                {analyzing||analyzed ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-400">{analyzed?"Анализ завершён":"Обработка точек съёмки..."}</span>
+                      <span className="text-[#a78bfa] font-mono">{Math.round(progress)}%</span>
+                    </div>
+                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#a78bfa] rounded-full transition-all" style={{width:`${progress}%`}}/>
+                    </div>
+                    {analyzed&&<div className="text-green-400 text-[10px]">✓ Найдено {segments.length} сегментов · {segments.filter(s=>!s.ok).length} нарушений норм</div>}
+                  </div>
+                ) : (
+                  <button onClick={startAnalysis}
+                    className="w-full py-2.5 bg-[#a78bfa] text-white font-bold rounded-lg text-[11px] hover:bg-[#c4b5fd] transition-colors">
+                    ▶ Анализировать трассу{mlMode?" (ML)":""}
+                  </button>
+                )}
+              </div>
+            )}
+            {tab==="preview" && (
+              <div className="space-y-3">
+                <div className="text-gray-400 text-[10px]">Alignment Preview — предпросмотр прямо в чертеже</div>
+                <AlignmentPreviewSVG/>
+                <CurvaturePlotSVG/>
+                <div className="flex gap-3 text-[9px]">
+                  <div className="flex items-center gap-1"><div className="w-3 h-1.5 rounded bg-[#f97316]"/><span className="text-gray-400">Круговая кривая</span></div>
+                  <div className="flex items-center gap-1"><div className="w-3 h-1.5 rounded bg-[#60a5fa]"/><span className="text-gray-400">Клотоида</span></div>
+                  <div className="flex items-center gap-1"><div className="w-3 h-1.5 rounded bg-[#374151]"/><span className="text-gray-400">Прямая</span></div>
+                </div>
+              </div>
+            )}
+            {tab==="segments" && (
+              <div>
+                <div className="text-gray-400 text-[10px] mb-2">Таблица элементов трассы</div>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead><tr className="bg-[#0d1117]">{["Тип","От","До","L, м","R, м","Откл.","СП 34"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                  <tbody>{segments.map((s,i)=>(
+                    <tr key={i} className={`${!s.ok?"bg-red-900/10":""}hover:bg-[#1e2a3e]`}>
+                      <td className="px-2 py-1 border border-gray-800 text-white font-semibold">{s.type}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-[#4fc3f7] font-mono">{s.from}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-[#4fc3f7] font-mono">{s.to}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-gray-300 font-mono">{s.len}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-[#f97316] font-mono">{s.R}</td>
+                      <td className="px-2 py-1 border border-gray-800 text-gray-400 font-mono">{s.dev}</td>
+                      <td className={`px-2 py-1 border border-gray-800 font-bold ${s.ok?"text-green-400":"text-red-400"}`}>{s.ok?"✓":"⚠ R<min"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#a78bfa] text-white hover:bg-[#c4b5fd] rounded text-[11px] font-bold">✓ Создать трассу</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── InfoDrainage — Гидрологический расчёт ────────────────────────────────────
+function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"basin"|"time"|"channel"|"pond"|"result">("basin")
+  const [method, setMethod] = useState("Rational (рациональная)")
+  const [area, setArea] = useState("12.5")
+  const [C, setC] = useState("0.75")
+  const [i25, setI25] = useState("85")
+  const [tcMethod, setTcMethod] = useState("Kirpich")
+  const [L, setL] = useState("850")
+  const [slope, setSlope] = useState("0.008")
+  const [n, setN] = useState("0.04")
+  const [chanW, setChanW] = useState("2.0")
+  const [chanSlope, setChanSlope] = useState("0.005")
+  const [pondVol, setPondVol] = useState("2500")
+  const [porosity, setPorosity] = useState("0.35")
+
+  // Расчёт времени концентрации
+  const Lv = parseFloat(L)||850
+  const sv = parseFloat(slope)||0.008
+  const tcKirpich = 0.0195*(Lv**0.77)*(sv**(-0.385))
+  const tcFAA = (11.9*Lv**3/((parseFloat(L)||1)*1000))**0.385*60
+  const tc = tcMethod==="Kirpich" ? tcKirpich : tcFAA
+
+  // Рациональная формула
+  const Av = parseFloat(area)||12.5
+  const Cv = parseFloat(C)||0.75
+  const iv = parseFloat(i25)||85
+  const Q_rational = Cv*iv/1000/3600*(Av*10000)/3.6
+
+  // Мэннинг для канала
+  const chanWv = parseFloat(chanW)||2
+  const chanSv = parseFloat(chanSlope)||0.005
+  const nv = parseFloat(n)||0.04
+  const A_chan = chanWv*chanWv*0.5  // трапеция
+  const P_chan = chanWv+2*chanWv*Math.sqrt(1.25)
+  const R_chan = A_chan/P_chan
+  const V_chan = (1/nv)*Math.pow(R_chan,2/3)*Math.pow(chanSv,0.5)
+  const Q_chan = A_chan*V_chan
+
+  // Пруд
+  const pondVv = parseFloat(pondVol)||2500
+  const porosityV = parseFloat(porosity)||0.35
+  const pondEff = pondVv*(1+porosityV)
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Droplets" size={15} className="text-[#22d3ee]" fallback="CloudRain"/>
+            <span className="text-white font-bold text-[13px]">InfoDrainage — Ливневая канализация и гидрология</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["basin","Водосбор"],["time","Время конц."],["channel","Каналы"],["pond","Пруд-накоп."],["result","Итоги"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#22d3ee]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="basin" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Метод расчёта</span>
+                  <select value={method} onChange={e=>setMethod(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {["Rational (рациональная)","SCS/CN (кривая числа стока)","Manning (гидрав.)","FAA (авиационный)"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Площадь водосбора F, га</span>
+                  <input value={area} onChange={e=>setArea(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Коэф. стока C</span>
+                  <input value={C} onChange={e=>setC(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Интенсивность i₂₅, мм/ч (25 лет)</span>
+                  <input value={i25} onChange={e=>setI25(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                </label>
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3 text-center" style={{background:"#111827"}}>
+                <div className="text-[9px] text-gray-500 mb-1">Q = C·i·F / 3.6 (л/с)</div>
+                <div className="text-[#22d3ee] font-mono font-bold text-[22px]">{Q_rational.toFixed(2)} л/с</div>
+                <div className="text-gray-500 text-[9px]">= {(Q_rational/1000).toFixed(5)} м³/с</div>
+              </div>
+            </div>
+          )}
+          {tab==="time" && (
+            <div className="space-y-4">
+              <div className="flex gap-2 mb-2">
+                {["Kirpich","FAA"].map(m=>(
+                  <button key={m} onClick={()=>setTcMethod(m)}
+                    className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${tcMethod===m?"bg-[#22d3ee] text-[#0d1520]":"bg-[#252535] text-gray-400"}`}>{m}</button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {([["Длина водосбора L, м",L,setL],["Уклон i",slope,setSlope]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                <div className="text-[9px] text-gray-500 mb-2">Формула {tcMethod==="Kirpich"?"Kirpich: tc=0.0195·L^0.77·S^-0.385":"FAA: tc=(11.9·L³/(H·1000))^0.385·60"}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><div className="text-gray-500 text-[9px]">Время концентрации Tc:</div>
+                    <div className="text-[#22d3ee] font-mono font-bold text-[18px]">{tcMethod==="Kirpich"?tcKirpich.toFixed(1):tcFAA.toFixed(1)} мин</div></div>
+                  <div><div className="text-gray-500 text-[9px]">В секундах:</div>
+                    <div className="text-[#60a5fa] font-mono text-[14px]">{(tc*60).toFixed(0)} с</div></div>
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==="channel" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Открытый канал с переменным уклоном (Маннинг)</div>
+              <div className="grid grid-cols-3 gap-3">
+                {([["Ширина по дну b, м",chanW,setChanW],["Уклон i",chanSlope,setChanSlope],["Шероховатость n",n,setN]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    <input type="number" value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                {[
+                  {label:"Скорость V",val:`${V_chan.toFixed(3)} м/с`,ok:V_chan>=0.3&&V_chan<=3,color:V_chan>=0.3&&V_chan<=3?"#4ade80":"#ef4444"},
+                  {label:"Расход Q",val:`${(Q_chan*1000).toFixed(1)} л/с`,ok:true,color:"#22d3ee"},
+                  {label:"Гидрав. радиус R",val:`${R_chan.toFixed(3)} м`,ok:true,color:"#60a5fa"},
+                  {label:"Площадь сечения A",val:`${A_chan.toFixed(2)} м²`,ok:true,color:"#f97316"},
+                ].map(r=>(
+                  <div key={r.label} className="rounded border border-gray-700 px-2 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{r.label}</div>
+                    <div className="font-mono font-bold text-[12px]" style={{color:r.color}}>{r.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tab==="pond" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Пруд-накопитель с учётом пористости грунта</div>
+              <div className="grid grid-cols-2 gap-3">
+                {([["Объём пруда V, м³",pondVol,setPondVol],["Пористость грунта n",porosity,setPorosity]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    <input type="number" value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                {[
+                  {label:"Объём пруда (открытый)",val:`${pondVv.toLocaleString()} м³`,color:"#22d3ee"},
+                  {label:"Подземный объём (пористость)",val:`${(pondVv*porosityV).toFixed(0)} м³`,color:"#60a5fa"},
+                  {label:"Суммарная ёмкость",val:`${pondEff.toFixed(0)} м³`,color:"#4ade80"},
+                  {label:"Время опорожнения (≈)",val:`${(pondEff/Q_rational/3600).toFixed(1)} ч`,color:"#f97316"},
+                ].map(r=>(
+                  <div key={r.label} className="flex justify-between border-b border-gray-800 py-1 text-[10px]">
+                    <span className="text-gray-500">{r.label}</span>
+                    <span className="font-mono font-bold" style={{color:r.color}}>{r.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tab==="result" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px] font-bold">Сводный отчёт (СП 32.13330.2018)</div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                {[
+                  {label:"Расчётный расход Q",val:`${Q_rational.toFixed(2)} л/с`,color:"#22d3ee"},
+                  {label:"Время концентрации tc",val:`${tc.toFixed(1)} мин`,color:"#60a5fa"},
+                  {label:"Скорость в канале V",val:`${V_chan.toFixed(3)} м/с`,color:V_chan>=0.3&&V_chan<=3?"#4ade80":"#ef4444"},
+                  {label:"Ёмкость пруда",val:`${pondEff.toFixed(0)} м³`,color:"#4ade80"},
+                  {label:"Метод tc",val:tcMethod,color:"#facc15"},
+                  {label:"Обеспеченность",val:"P=4% (25 лет)",color:"#a78bfa"},
+                ].map(r=>(
+                  <div key={r.label} className="rounded border border-gray-700 px-2 py-2" style={{background:"#111827"}}>
+                    <div className="text-gray-500 text-[9px]">{r.label}</div>
+                    <div className="font-mono font-bold text-[11px]" style={{color:r.color}}>{r.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#22d3ee] text-[#0d1520] hover:bg-[#67e8f9] rounded text-[11px] font-bold">Применить к сети</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Forma Data Management ────────────────────────────────────────────────────
+function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
+  const [tab, setTab] = useState<"files"|"refs"|"issues"|"versions">("files")
+  const [filter, setFilter] = useState("")
+
+  const files = [
+    {name:"ШД-38_план.dwg",      type:"DWG",     size:"12.4 МБ",  date:"2025-07-01", status:"Актуален",  owner:"Иванов А.П."},
+    {name:"ШД-38_профиль.dwg",   type:"DWG",     size:"8.7 МБ",   date:"2025-07-01", status:"Актуален",  owner:"Иванов А.П."},
+    {name:"ШД-38_сети.dwg",      type:"DWG",     size:"5.2 МБ",   date:"2025-06-28", status:"Устарел",   owner:"Петрова Н.С."},
+    {name:"поверхность_TIN.xml", type:"LandXML", size:"3.1 МБ",   date:"2025-06-30", status:"Актуален",  owner:"Сидоров В.Г."},
+    {name:"геология.pdf",        type:"PDF",     size:"18.5 МБ",  date:"2025-06-25", status:"Актуален",  owner:"ООО ГеоЛаб"},
+    {name:"3D_модель.ifc",       type:"IFC",     size:"45.3 МБ",  date:"2025-07-01", status:"Актуален",  owner:"Иванов А.П."},
+  ]
+  const refs = [
+    {xref:"_подложка_ОСМ.dwg",   path:"C:\\Проекты\\ШД-38\\",  status:"OK",       newpath:""},
+    {xref:"_геология_разрез.dwg", path:"D:\\Архив\\2024\\",     status:"Не найден",newpath:"C:\\Проекты\\ШД-38\\Геология\\"},
+    {xref:"_котлован.dwg",        path:"\\\\server\\projects\\", status:"OK",       newpath:""},
+  ]
+  const issues = [
+    {id:"ISS-001",title:"Пересечение водопровода с коридором ПК12+340",prior:"Высокий",status:"Открыт",date:"2025-06-28"},
+    {id:"ISS-002",title:"Радиус R=650м меньше минимального (800м)",prior:"Средний",status:"На рассмотрении",date:"2025-07-01"},
+    {id:"ISS-003",title:"Отсутствует профиль сети на участке ПК8-ПК10",prior:"Низкий",status:"Закрыт",date:"2025-06-20"},
+  ]
+
+  const filteredFiles = files.filter(f=>!filter||f.name.toLowerCase().includes(filter.toLowerCase()))
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:680,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1428] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Cloud" size={15} className="text-[#60a5fa]" fallback="Database"/>
+            <span className="text-white font-bold text-[13px]">Forma Data Management — Управление проектными данными</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["files","Файлы"],["refs","Connected References"],["issues","Проблемы"],["versions","Версии"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#60a5fa]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="files" && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Поиск файлов..."
+                  className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-[#60a5fa] placeholder-gray-600"/>
+                <button className="px-3 py-1 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[10px]">Загрузить</button>
+              </div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["Файл","Тип","Размер","Дата","Статус","Автор"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{filteredFiles.map((f,i)=>(
+                  <tr key={i} className="hover:bg-[#1e2a3e]">
+                    <td className="px-2 py-1 border border-gray-800 text-white">{f.name}</td>
+                    <td className="px-2 py-1 border border-gray-800 text-[#60a5fa]">{f.type}</td>
+                    <td className="px-2 py-1 border border-gray-800 text-gray-400 font-mono">{f.size}</td>
+                    <td className="px-2 py-1 border border-gray-800 text-gray-500">{f.date}</td>
+                    <td className="px-2 py-1 border border-gray-800">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${f.status==="Актуален"?"bg-green-900/30 text-green-400":"bg-yellow-900/30 text-yellow-400"}`}>{f.status}</span>
+                    </td>
+                    <td className="px-2 py-1 border border-gray-800 text-gray-500">{f.owner}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {tab==="refs" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px] mb-2">Connected References — автоматическое обнаружение переименованных/перемещённых Xref</div>
+              {refs.map((r,i)=>(
+                <div key={i} className={`p-3 rounded-lg border ${r.status==="OK"?"border-green-700/40 bg-green-900/10":"border-yellow-700/40 bg-yellow-900/10"}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name={r.status==="OK"?"Check":"AlertTriangle"} size={12} className={r.status==="OK"?"text-green-400":"text-yellow-400"} fallback="Circle"/>
+                    <span className="text-white font-semibold text-[11px]">{r.xref}</span>
+                    <span className={`ml-auto text-[9px] font-bold ${r.status==="OK"?"text-green-400":"text-yellow-400"}`}>{r.status}</span>
+                  </div>
+                  <div className="text-gray-500 text-[9px]">Путь: {r.path}</div>
+                  {r.newpath&&(
+                    <div className="mt-1 flex items-center gap-2 text-[9px]">
+                      <span className="text-yellow-400">Предложенный путь:</span>
+                      <span className="text-white font-mono">{r.newpath}</span>
+                      <button className="ml-auto text-[#0078d4] hover:underline">Обновить</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {tab==="issues" && (
+            <div className="space-y-2">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-400">Отслеживание проблем (Issue Tracking)</span>
+                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">+ Создать</button>
+              </div>
+              {issues.map((issue,i)=>(
+                <div key={i} className="p-3 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[#60a5fa] font-mono text-[9px]">{issue.id}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${issue.prior==="Высокий"?"bg-red-900/30 text-red-400":issue.prior==="Средний"?"bg-yellow-900/30 text-yellow-400":"bg-gray-800 text-gray-500"}`}>{issue.prior}</span>
+                    <span className={`ml-auto text-[9px] ${issue.status==="Закрыт"?"text-green-400":issue.status==="Открыт"?"text-red-400":"text-yellow-400"}`}>{issue.status}</span>
+                  </div>
+                  <div className="text-white text-[10px]">{issue.title}</div>
+                  <div className="text-gray-600 text-[9px] mt-0.5">{issue.date}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {tab==="versions" && (
+            <div className="space-y-2">
+              <div className="text-gray-400 text-[10px] mb-2">История версий и изменений</div>
+              {[
+                {ver:"v1.3",date:"2025-07-01",author:"Иванов А.П.",changes:"Обновлён профиль ПК8-ПК12, добавлена сеть ливневой канализации"},
+                {ver:"v1.2",date:"2025-06-28",author:"Петрова Н.С.",changes:"Скорректированы виражи на кривой R=800м"},
+                {ver:"v1.1",date:"2025-06-20",author:"Сидоров В.Г.",changes:"Добавлена геологическая подоснова, уточнены ИГЭ"},
+                {ver:"v1.0",date:"2025-06-01",author:"Иванов А.П.",changes:"Первичный вариант трассы, TIN-поверхность"},
+              ].map((v,i)=>(
+                <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
+                  <div className="w-10 text-center">
+                    <div className="text-[#60a5fa] font-bold text-[10px]">{v.ver}</div>
+                    <div className="text-gray-600 text-[8px]">{v.date.slice(5)}</div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-gray-400 text-[9px]">{v.author}</div>
+                    <div className="text-white text-[10px]">{v.changes}</div>
+                  </div>
+                  <button className="text-[9px] text-[#0078d4] hover:underline flex-shrink-0">Восстановить</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#60a5fa] text-[#0d1020] hover:bg-[#93c5fd] rounded text-[11px] font-bold">Синхронизировать</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── DWT Templates Manager ────────────────────────────────────────────────────
+function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: (name: string)=>void }) {
+  const [tab, setTab] = useState<"standard"|"corporate"|"catalogs">("standard")
+  const [selTemplate, setSelTemplate] = useState("")
+
+  const stdTemplates = [
+    {name:"ЛАПА Civil 3D (Метрика)",  desc:"Метры · ГОСТ · МСК-70",        icon:"FileCode",  color:"#0078d4",
+     layers:["Дороги","Поверхности","Сети","Геодезия","Границы"],
+     styles:["Точки ГОСТ-21.1101","TIN насыпь/выемка","Трасса с виражами","Профиль — сетка","Коридор — коды"]},
+    {name:"ЛАПА Civil 3D (Survey)",   desc:"Геодезия · съёмка · кодирование",icon:"MapPin",  color:"#4ade80",
+     layers:["Съёмка","Теодолитные ходы","Пикеты","Границы"],
+     styles:["Точки съёмки ГОСТ","Линии хода","Горизонтали 0.5м","Высотные отметки"]},
+    {name:"ЛАПА Civil 3D (Pipe Networks)", desc:"Инженерные сети · трубопроводы",icon:"Network",color:"#60a5fa",
+     layers:["Водопровод","Канализация","Ливнёвка","Кабели","Газ"],
+     styles:["Труба по диаметру","Колодец Ø1000","Профиль сети","Маркировка глубин"]},
+    {name:"ЛАПА Civil 3D (Corridors)",desc:"Коридоры · поперечники · объёмы",icon:"Navigation",color:"#f97316",
+     layers:["Коридор","Поперечники","Объёмы","Дорожная одежда"],
+     styles:["Коридор насыпь/выемка","Поперечное сечение","Ведомость объёмов","Assembly-коды"]},
+  ]
+  const catalogs = {
+    pipes: [
+      {name:"Ø100 ПНД ГОСТ 18599",mat:"ПНД",d:100,class_:"SDR 17"},
+      {name:"Ø150 ЖБ ГОСТ 6482", mat:"ЖБ", d:150,class_:"БТ"},
+      {name:"Ø200 ПВХ ГОСТ 32415",mat:"ПВХ",d:200,class_:"SN4"},
+      {name:"Ø300 ЖБ ГОСТ 6482", mat:"ЖБ", d:300,class_:"Т"},
+      {name:"Ø400 СТ ГОСТ 8731",  mat:"Сталь",d:400,class_:"10ХСНД"},
+      {name:"Ø500 ЖБ ГОСТ 6482", mat:"ЖБ", d:500,class_:"В"},
+    ],
+    manholes: [
+      {name:"КЦО 1000 ГОСТ 8020", type:"Круглый", d:1000,h:"2.5м"},
+      {name:"КЦО 1500 ГОСТ 8020", type:"Круглый", d:1500,h:"3.0м"},
+      {name:"КЦП 1500×2000",      type:"Прямоугольный",d:"-",h:"2.5м"},
+      {name:"Дождеприёмник ДБ2",  type:"Дождеприёмник",d:"-",h:"0.5м"},
+    ],
+    signs: [
+      {name:"1.1 Опасный поворот", code:"1.1", type:"Предупреждающий"},
+      {name:"2.1 Главная дорога",  code:"2.1", type:"Приоритет"},
+      {name:"3.24 Ограничение скорости",code:"3.24",type:"Запрещающий"},
+      {name:"5.15.1 Направление",  code:"5.15.1",type:"Предписывающий"},
+      {name:"6.22 Пикетный знак",  code:"6.22", type:"Информационный"},
+    ]
+  }
+
+  const tpl = stdTemplates.find(t=>t.name===selTemplate)
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:680,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1428] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="FileStack" size={15} className="text-[#facc15]" fallback="Files"/>
+            <span className="text-white font-bold text-[13px]">Шаблоны DWT + Каталоги (ГОСТ/СП)</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["standard","Шаблоны"],["corporate","Корпоративные"],["catalogs","Каталоги ГОСТ"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#facc15]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+            {tab==="standard" && (
+              <div className="space-y-2">
+                {stdTemplates.map(t=>(
+                  <button key={t.name} onClick={()=>setSelTemplate(t.name)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${selTemplate===t.name?"border-[#facc15] bg-[#facc15]/10":"border-gray-700 hover:border-gray-500"}`}
+                    style={{background:selTemplate===t.name?undefined:"#111827"}}>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:t.color+"20"}}>
+                      <Icon name={t.icon} size={18} style={{color:t.color}} fallback="FileCode"/>
+                    </div>
+                    <div className="flex-1">
+                      <div className={`font-bold text-[12px] ${selTemplate===t.name?"text-[#facc15]":"text-white"}`}>{t.name}</div>
+                      <div className="text-gray-500 text-[10px]">{t.desc}</div>
+                    </div>
+                    {selTemplate===t.name&&<Icon name="Check" size={14} className="text-[#facc15]"/>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {tab==="corporate" && (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-dashed border-gray-600 p-6 text-center" style={{background:"#0d1520"}}>
+                  <Icon name="Building2" size={28} className="text-gray-600 mx-auto mb-2"/>
+                  <div className="text-gray-400 text-[11px]">Добавьте корпоративный шаблон .dwt</div>
+                  <button className="mt-3 px-4 py-1.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[10px]">Загрузить шаблон</button>
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+                  <div className="font-bold text-white mb-2">Рекомендуемая структура корпоративного шаблона</div>
+                  {["Слои по ГОСТ Р 21.1101-2020","Стили объектов с подписями","Штамп чертежа А1/А2","Каталог труб ГОСТ","Шрифт ГОСТ 2.304","Масштабы 1:500, 1:1000, 1:2000"].map(l=>(
+                    <div key={l} className="flex items-center gap-2 py-1 border-b border-gray-800">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#facc15]"/>
+                      <span className="text-gray-300">{l}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="catalogs" && (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] text-gray-400 font-bold mb-2">Трубы (ГОСТ)</div>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead><tr className="bg-[#0d1117]">{["Наименование","Материал","Ø, мм","Класс/тип"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                    <tbody>{catalogs.pipes.map((p,i)=>(
+                      <tr key={i} className="hover:bg-[#1e2a3e]">
+                        <td className="px-2 py-1 border border-gray-800 text-white">{p.name}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-[#60a5fa]">{p.mat}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-[#f97316] font-mono">{p.d}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-gray-400">{p.class_}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <div>
+                  <div className="text-[10px] text-gray-400 font-bold mb-2">Колодцы (ГОСТ 8020)</div>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead><tr className="bg-[#0d1117]">{["Наименование","Тип","Ø, мм","Глубина"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                    <tbody>{catalogs.manholes.map((m,i)=>(
+                      <tr key={i} className="hover:bg-[#1e2a3e]">
+                        <td className="px-2 py-1 border border-gray-800 text-white">{m.name}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-gray-400">{m.type}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-[#f97316] font-mono">{m.d}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-gray-400">{m.h}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <div>
+                  <div className="text-[10px] text-gray-400 font-bold mb-2">Дорожные знаки (ПДД РФ)</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {catalogs.signs.map((s,i)=>(
+                      <div key={i} className="flex items-center gap-2 p-2 rounded border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
+                        <div className="w-8 h-8 rounded flex items-center justify-center text-[10px] font-bold border-2 flex-shrink-0"
+                          style={{borderColor:s.type==="Предупреждающий"?"#f97316":s.type==="Запрещающий"?"#ef4444":s.type==="Приоритет"?"#facc15":"#60a5fa",
+                                  color:s.type==="Предупреждающий"?"#f97316":s.type==="Запрещающий"?"#ef4444":s.type==="Приоритет"?"#facc15":"#60a5fa"}}>
+                          {s.code.split(".")[0]}
+                        </div>
+                        <div><div className="text-white text-[10px]">{s.name}</div>
+                        <div className="text-gray-500 text-[9px]">{s.code} · {s.type}</div></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Детали шаблона */}
+          {tpl&&tab==="standard"&&(
+            <div className="w-52 flex-shrink-0 border-l border-gray-800 p-3" style={{background:"#0d1117"}}>
+              <div className="text-[9px] text-gray-500 uppercase mb-2">Состав шаблона</div>
+              <div className="space-y-3 text-[9px]">
+                <div>
+                  <div className="text-gray-400 font-bold mb-1">Слои:</div>
+                  {tpl.layers.map(l=><div key={l} className="text-gray-500 py-0.5 border-b border-gray-800">· {l}</div>)}
+                </div>
+                <div>
+                  <div className="text-gray-400 font-bold mb-1">Стили объектов:</div>
+                  {tpl.styles.map(s=><div key={s} className="text-gray-500 py-0.5 border-b border-gray-800">· {s}</div>)}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <div className="text-[10px] text-gray-500">{selTemplate?`Выбран: ${selTemplate}`:"Выберите шаблон"}</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+            <button onClick={()=>{ if(selTemplate){onApply(selTemplate); onClose()} }}
+              disabled={!selTemplate}
+              className={`px-4 py-1.5 rounded text-[11px] font-bold transition-colors ${selTemplate?"bg-[#facc15] text-[#0d1020] hover:bg-[#fde047]":"bg-gray-700 text-gray-500 cursor-not-allowed"}`}>
+              Применить шаблон
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // REALITY CAPTURE · GIS INTEGRATION · VOLUME DASHBOARD ·
 // CONSTRUCTION PHASES · REVIT EXCHANGE · DYNAMO CIVIL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -9450,6 +10211,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [showHRA, setShowHRA] = useState(false)
+  const [showInfoDrainage, setShowInfoDrainage] = useState(false)
+  const [showFormaData, setShowFormaData] = useState(false)
+  const [showDWTTemplates, setShowDWTTemplates] = useState(false)
   const [showRealityCapture, setShowRealityCapture] = useState(false)
   const [showGISIntegration, setShowGISIntegration] = useState(false)
   const [showVolumeDashboard, setShowVolumeDashboard] = useState(false)
@@ -10306,6 +11071,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   else if (c === "ROUNDABOUT" || c === "КОЛЬЦО" || c === "КОЛЬЦЕВОЕ" || c === "RB") setShowRoundabout(true)
   else if (c === "RAIL" || c === "RAILTRACK" || c === "ЖД" || c === "РЕЛЬСЫ" || c === "RT") setShowRailTrack(true)
   else if (c === "BRIDGE" || c === "МОСТ" || c === "BM" || c === "BRIDGE MODELER") setShowBridgeModeler(true)
+  else if (c === "HRA" || c === "РЕГРЕССИЯ" || c === "ALIGNMENT ANALYSIS") setShowHRA(true)
+  else if (c === "INFODRAINAGE" || c === "ДРЕНАЖ" || c === "ЛИВНЕВАЯ" || c === "FAA" || c === "KIRPICH") setShowInfoDrainage(true)
+  else if (c === "FORMA" || c === "DM" || c === "DATA MANAGEMENT") setShowFormaData(true)
+  else if (c === "DWT" || c === "ШАБЛОН" || c === "TEMPLATES" || c === "КАТАЛОГ") setShowDWTTemplates(true)
   else if (c === "RC" || c === "LIDAR" || c === "ОБЛАКО" || c === "POINTCLOUD" || c === "REALITY") setShowRealityCapture(true)
   else if (c === "GIS" || c === "ПОДЛОЖКА" || c === "BASEMAP" || c === "КАРТА") setShowGISIntegration(true)
   else if (c === "VD" || c === "DASHBOARD" || c === "ДАШБОРД" || c === "VOLUME DASHBOARD") setShowVolumeDashboard(true)
@@ -10425,6 +11194,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("3d-вьюер") || k.includes("3d вьюер")) { onNavigate?.("viewer3d") }
     else if (k.includes("жд") || k.includes("рельс") || k.includes("rail track") || k.includes("ж/д путь")) { setShowRailTrack(true) }
     else if (k.includes("мост") || k.includes("bridge") || k.includes("путепровод") || k.includes("виадук")) { setShowBridgeModeler(true) }
+    else if (k.includes("hra") || k.includes("регресс") || k.includes("horizontal regression")) { setShowHRA(true) }
+    else if (k.includes("infodrainage") || k.includes("ливнев") || k.includes("kirpich") || k.includes("faa метод") || k.includes("время концентр")) { setShowInfoDrainage(true) }
+    else if (k.includes("forma") || k.includes("data management") || k.includes("connected ref")) { setShowFormaData(true) }
+    else if (k.includes("шаблон") || k.includes("dwt") || k.includes("каталог труб") || k.includes("template")) { setShowDWTTemplates(true) }
     else if (k.includes("облако точек") || k.includes("lidar") || k.includes("reality capture") || k.includes("лидар") || k.includes("фотограмметр")) { setShowRealityCapture(true) }
     else if (k.includes("gis") || k.includes("подложк") || k.includes("basemap") || k.includes("wms") || k.includes("карт") || k.includes("esri")) { setShowGISIntegration(true) }
     else if (k.includes("дашборд") || k.includes("volume dashboard") || k.includes("dashboard")) { setShowVolumeDashboard(true) }
@@ -10460,7 +11233,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   interface RibbonItem { label: string; icon: string; size: "lg"|"sm"; drop?: string; fallback?: string }
   interface RibbonGroup { label: string; items: RibbonItem[] }
 
-  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Геология","Анализ","Вывод","Производство","Надстройки"]
+  const MENU_ITEMS = ["Главная","Вид","Черчение","Съёмка","Поверхности","Трасса","Коридоры","Сети","Сооружения","Геология","Анализ","Инструменты","Вывод","Производство","Надстройки"]
 
   const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
     "Главная": [
@@ -10684,6 +11457,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Тоннель",     icon:"Circle",       size:"lg", fallback:"CircleDot" },
         { label:"Обделка",     icon:"Layers",       size:"sm" },
         { label:"Расчёт",      icon:"Calculator",   size:"sm", fallback:"BarChart3" },
+      ]},
+    ],
+    "Инструменты": [
+      { label: "Анализ трасс", items: [
+        { label:"HRA + ML",    icon:"GitBranch",    size:"lg", fallback:"Route" },
+        { label:"Align Preview",icon:"Eye",         size:"sm" },
+        { label:"Кривизна",    icon:"BarChart2",    size:"sm", fallback:"BarChart3" },
+      ]},
+      { label: "Гидрология", items: [
+        { label:"InfoDrainage",icon:"Droplets",     size:"lg", fallback:"CloudRain" },
+        { label:"Kirpich/FAA", icon:"Clock",        size:"sm" },
+        { label:"Каналы",      icon:"Minus",        size:"sm" },
+        { label:"Пруд",        icon:"Circle",       size:"sm", fallback:"Droplets" },
+      ]},
+      { label: "Данные", items: [
+        { label:"Forma DM",    icon:"Cloud",        size:"lg", fallback:"Database" },
+        { label:"Шаблоны DWT", icon:"FileStack",    size:"lg", fallback:"Files" },
+        { label:"Каталоги",    icon:"Package",      size:"sm", fallback:"Layers" },
       ]},
     ],
     "Производство": [
@@ -12231,6 +13022,15 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             )}
 
             {/* ── Новые диалоги ── */}
+            {showHRA && <HRADialog onClose={()=>setShowHRA(false)}/>}
+            {showInfoDrainage && <InfoDrainageDialog onClose={()=>setShowInfoDrainage(false)}/>}
+            {showFormaData && <FormaDataDialog onClose={()=>setShowFormaData(false)}/>}
+            {showDWTTemplates && (
+              <DWTTemplatesDialog onClose={()=>setShowDWTTemplates(false)} onApply={name=>{
+                showToast(`Шаблон «${name}» применён`)
+                setStatusMsg(`Шаблон: ${name}`)
+              }}/>
+            )}
             {showRealityCapture && <RealityCaptureDialog onClose={()=>setShowRealityCapture(false)}/>}
             {showGISIntegration && <GISIntegrationDialog onClose={()=>setShowGISIntegration(false)}/>}
             {showVolumeDashboard && <VolumeDashboardDialog onClose={()=>setShowVolumeDashboard(false)}/>}
