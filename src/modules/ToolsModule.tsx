@@ -258,6 +258,7 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
   )
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showUploadDialog, setShowUploadDialog] = useState<"lisp" | "plugin" | null>(null)
+  const [showGitHub, setShowGitHub] = useState(false)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -317,6 +318,9 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setShowUploadDialog("lisp")}>
             <Icon name="FolderOpen" size={13} />Загрузить LISP
+          </Button>
+          <Button variant="outline" size="sm" className="text-xs gap-1.5 border-gray-800 hover:bg-gray-100" onClick={() => setShowGitHub(true)}>
+            <Icon name="Github" size={13} fallback="Code2" />GitHub
           </Button>
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onNavigate?.("civilcad")}>
             <Icon name="Monitor" size={13} />Редактор
@@ -602,39 +606,8 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
             </motion.div>
           ))}
 
-          {/* Редактор макроса */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-gray-700 flex items-center gap-2">
-                <Icon name="FileCode" size={13} className="text-gray-500" />
-                Редактор макроса (.scr)
-              </span>
-              <div className="flex gap-1.5">
-                <Button size="sm" variant="outline" className="text-xs h-6 px-2"
-                  onClick={() => showToast("Макрос сохранён в .scr")}>Сохранить</Button>
-                <Button size="sm" className="text-xs h-6 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
-                  onClick={() => showToast("▶ Макрос запущен: пакетная обработка → PDF")}>Запустить</Button>
-              </div>
-            </div>
-            <pre className="bg-[#1e1e2e] text-green-400 text-[11px] font-mono p-4 min-h-32 overflow-auto leading-relaxed">
-{`; Пакетная обработка — сохранение в PDF
-_.OPEN
-"C:/Projects/road_final.dwg"
-
-_.LAYER
-"ON"
-"*"
-
-_.PLOT
-"PDF"
-"A1"
-
-_.SAVEAS
-"C:/Export/road_final.pdf"
-
-; Конец макроса`}
-            </pre>
-          </div>
+          {/* Редактор макроса с подсветкой синтаксиса */}
+          <CodeEditor lang="scr" showToast={showToast} />
         </TabsContent>
 
         {/* Палитры CUI */}
@@ -755,7 +728,358 @@ _.SAVEAS
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── GitHub-импорт скриптов ── */}
+      <AnimatePresence>
+        {showGitHub && (
+          <GitHubImportDialog onClose={() => setShowGitHub(false)}
+            onImport={(name) => { showToast(`✓ Скрипт «${name}» импортирован с GitHub`); setShowGitHub(false) }}/>
+        )}
+      </AnimatePresence>
     </div>
+  )
+}
+
+// ─── CodeEditor с подсветкой синтаксиса LISP / SCR ────────────────────────────
+function highlightCode(code: string, lang: "lisp" | "scr"): string {
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  let html = escape(code)
+
+  // Комментарии (после строк, чтобы не ломались внутри)
+  if (lang === "lisp") {
+    html = html.replace(/(;[^\n]*)/g, '<span style="color:#6b7280;font-style:italic">$1</span>')
+  } else {
+    html = html.replace(/(;[^\n]*)/g, '<span style="color:#6b7280;font-style:italic">$1</span>')
+  }
+
+  // Строки в кавычках
+  html = html.replace(/("[^"]*")/g, '<span style="color:#fbbf24">$1</span>')
+
+  if (lang === "lisp") {
+    // Скобки
+    html = html.replace(/([()])/g, '<span style="color:#94a3b8">$1</span>')
+    // Ключевые слова LISP
+    const keywords = ["defun","setq","if","cond","while","foreach","lambda","let","progn","quote","car","cdr","cons","list","mapcar","princ","prin1","alert","getstring","getreal","getint","getpoint","entsel","entget","entmod","ssget","sslength","ssname","entlast","getvar","setvar","command","load","atoi","itoa","rtos","strcat","substr","strlen","T","nil","not","and","or","eq","equal","<","<=",">",">=","="]
+    keywords.forEach(kw => {
+      const re = new RegExp(`\\b(${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "g")
+      html = html.replace(re, '<span style="color:#60a5fa;font-weight:600">$1</span>')
+    })
+    // Команды c:CMD
+    html = html.replace(/\b(c:\w+)/g, '<span style="color:#f97316;font-weight:700">$1</span>')
+    // Числа
+    html = html.replace(/\b(\d+\.?\d*)\b/g, '<span style="color:#a78bfa">$1</span>')
+  } else {
+    // SCR команды AutoCAD (_.OPEN, _.PLOT и т.д.)
+    html = html.replace(/(_\.[A-Z]+)/g, '<span style="color:#fb923c;font-weight:700">$1</span>')
+    // Слова в верхнем регистре (опции)
+    html = html.replace(/\b(ON|OFF|YES|NO|ALL|CLOSE|OPEN)\b/g, '<span style="color:#60a5fa">$1</span>')
+  }
+
+  return html
+}
+
+const SAMPLE_CODE = {
+  scr: `; Пакетная обработка — сохранение в PDF
+_.OPEN
+"C:/Projects/road_final.dwg"
+
+_.LAYER
+"ON"
+"*"
+
+_.PLOT
+"PDF"
+"A1"
+
+_.SAVEAS
+"C:/Export/road_final.pdf"
+
+; Конец макроса`,
+  lisp: `; GeoPoints Edit — массовое редактирование точек
+(defun c:GPEDIT ( / ss n ent)
+  (princ "\\nВыберите точки съёмки: ")
+  (setq ss (ssget '((0 . "POINT"))))
+  (if ss
+    (progn
+      (setq n 0)
+      (while (< n (sslength ss))
+        (setq ent (ssname ss n))
+        (entmod (subst (cons 8 "TOPO") (assoc 8 (entget ent)) (entget ent)))
+        (setq n (1+ n))
+      )
+      (alert (strcat "Обновлено точек: " (itoa n)))
+    )
+    (princ "\\nНе выбрано точек.")
+  )
+  (princ)
+)`,
+}
+
+function CodeEditor({ lang, showToast }: { lang: "lisp" | "scr"; showToast: (m: string) => void }) {
+  const [code, setCode] = useState(SAMPLE_CODE[lang])
+  const lineCount = code.split("\n").length
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+        <span className="text-[12px] font-semibold text-gray-700 flex items-center gap-2">
+          <Icon name="FileCode" size={13} className="text-gray-500" />
+          Редактор {lang === "lisp" ? "LISP (.lsp)" : "макроса (.scr)"}
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold">
+            {lang.toUpperCase()}
+          </span>
+          <span className="text-[10px] text-gray-400">{lineCount} строк</span>
+        </span>
+        <div className="flex gap-1.5">
+          <Button size="sm" variant="outline" className="text-xs h-6 px-2"
+            onClick={() => { setCode(SAMPLE_CODE[lang]); showToast("Сброшено к примеру") }}>
+            <Icon name="RotateCcw" size={10} className="mr-1" fallback="RefreshCw" />Сброс
+          </Button>
+          <Button size="sm" variant="outline" className="text-xs h-6 px-2"
+            onClick={() => { navigator.clipboard?.writeText(code); showToast("Код скопирован") }}>
+            <Icon name="Copy" size={10} className="mr-1" />Копировать
+          </Button>
+          <Button size="sm" variant="outline" className="text-xs h-6 px-2"
+            onClick={() => showToast(`Файл сохранён в .${lang}`)}>
+            Сохранить
+          </Button>
+          <Button size="sm" className="text-xs h-6 px-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+            onClick={() => showToast(lang === "lisp" ? "▶ LISP-скрипт выполнен" : "▶ Макрос запущен")}>
+            <Icon name="Play" size={10} className="mr-1" />Запустить
+          </Button>
+        </div>
+      </div>
+
+      <div className="relative flex bg-[#1e1e2e]" style={{ minHeight: 240 }}>
+        {/* Нумерация строк */}
+        <div className="bg-[#161620] py-3 px-3 text-right text-[10px] font-mono text-gray-600 select-none border-r border-gray-800">
+          {Array.from({ length: lineCount }, (_, i) => (
+            <div key={i} style={{ lineHeight: "1.6" }}>{i + 1}</div>
+          ))}
+        </div>
+
+        {/* Контейнер редактора + подсветка */}
+        <div className="relative flex-1">
+          {/* Подсветка снизу */}
+          <pre
+            aria-hidden="true"
+            className="absolute inset-0 p-3 text-[11px] font-mono leading-relaxed overflow-auto whitespace-pre-wrap break-words m-0"
+            style={{ color: "#e2e8f0", pointerEvents: "none" }}
+            dangerouslySetInnerHTML={{ __html: highlightCode(code, lang) + "\n" }}
+          />
+          {/* Textarea сверху — прозрачный */}
+          <textarea
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            spellCheck={false}
+            className="absolute inset-0 p-3 text-[11px] font-mono leading-relaxed bg-transparent text-transparent caret-white outline-none resize-none whitespace-pre-wrap break-words"
+            style={{ caretColor: "#22d3ee" }}
+          />
+        </div>
+      </div>
+
+      {/* Подсказки */}
+      <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex items-center gap-4 text-[10px] text-gray-500 flex-wrap">
+        {lang === "lisp" ? (
+          <>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#60a5fa] mr-1"/>Функции</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#f97316] mr-1"/>Команды c:</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#fbbf24] mr-1"/>Строки</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#a78bfa] mr-1"/>Числа</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1"/>Комментарии</span>
+          </>
+        ) : (
+          <>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#fb923c] mr-1"/>Команды AutoCAD</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#60a5fa] mr-1"/>Опции</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-[#fbbf24] mr-1"/>Пути файлов</span>
+          </>
+        )}
+        <span className="ml-auto text-gray-400">Tab — отступ · Ctrl+S — сохранить</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── GitHub-импорт скриптов ────────────────────────────────────────────────────
+const GITHUB_REPOS = [
+  { id: 1, name: "civilcad-lisp/road-tools",  stars: 1240, lang: "AutoLISP", desc: "Автоматизация дорожных проектов: пикеты, виражи, ведомости элементов трассы", files: 24, updated: "3 дня назад" },
+  { id: 2, name: "geocad/survey-toolkit",     stars: 892,  lang: "AutoLISP", desc: "Расширенные инструменты съёмки: импорт RW5, классификация точек, отчёты", files: 18, updated: "1 неделю назад" },
+  { id: 3, name: "ru-civil/network-utils",    stars: 567,  lang: "AutoLISP", desc: "Утилиты для инженерных сетей: нумерация колодцев, профили, гидравлика", files: 12, updated: "2 дня назад" },
+  { id: 4, name: "dynamo-civil/python-nodes", stars: 2104, lang: "Python",   desc: "Кастомные ноды для Dynamo: поверхности TIN, объёмы, коридоры", files: 47, updated: "вчера" },
+  { id: 5, name: "civil-tools/volume-calc",   stars: 423,  lang: "AutoLISP", desc: "Точный расчёт объёмов земляных работ методом Симпсона и средних сечений", files: 8,  updated: "5 дней назад" },
+  { id: 6, name: "openroads/macros-batch",    stars: 678,  lang: "SCR",      desc: "Пакетные макросы для массовой обработки чертежей: PDF/DWG экспорт", files: 31, updated: "1 месяц назад" },
+]
+
+function GitHubImportDialog({ onClose, onImport }: { onClose: () => void; onImport: (name: string) => void }) {
+  const [tab, setTab] = useState<"search" | "url">("search")
+  const [search, setSearch] = useState("")
+  const [url, setUrl] = useState("")
+  const [loading, setLoading] = useState<number | null>(null)
+  const [imported, setImported] = useState<Set<number>>(new Set())
+
+  const filtered = GITHUB_REPOS.filter(r =>
+    !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.desc.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const importRepo = (repo: typeof GITHUB_REPOS[0]) => {
+    setLoading(repo.id)
+    setTimeout(() => {
+      setLoading(null)
+      setImported(s => new Set([...s, repo.id]))
+      onImport(repo.name.split("/")[1])
+    }, 900)
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[150] bg-black/60 flex items-center justify-center p-4"
+      onClick={onClose}>
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
+        style={{ maxWidth: "min(720px, 96vw)", maxHeight: "88vh" }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-5 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Github" size={16} className="text-white" fallback="Code2"/>
+            <span className="text-white font-bold text-sm">Импорт скриптов с GitHub</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/30 text-purple-200 font-bold border border-purple-500/40">BETA</span>
+          </div>
+          <button onClick={onClose} className="text-white hover:bg-gray-700 w-6 h-6 rounded">✕</button>
+        </div>
+
+        {/* Вкладки */}
+        <div className="flex border-b border-gray-200 bg-gray-50 flex-shrink-0">
+          {([["search", "Поиск репозиториев", "Search"], ["url", "Импорт по URL", "Link"]] as const).map(([id, lbl, icon]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`px-4 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 ${tab === id ? "text-violet-700 border-b-2 border-violet-600 bg-white" : "text-gray-500 hover:bg-gray-100"}`}>
+              <Icon name={icon} size={12}/>
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 min-h-0">
+          {tab === "search" && (
+            <div className="space-y-3">
+              <div className="relative">
+                <Icon name="Search" size={13} className="absolute left-2.5 top-2.5 text-gray-400"/>
+                <Input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Поиск: autolisp civil, dynamo civil, scr macro..."
+                  className="h-8 text-xs pl-7"/>
+              </div>
+
+              <div className="flex gap-2 text-[10px] flex-wrap">
+                <span className="text-gray-500 self-center">Популярные:</span>
+                {["autolisp", "dynamo", "scr", "civil 3d", "geo"].map(t => (
+                  <button key={t} onClick={() => setSearch(t)}
+                    className="px-2 py-0.5 rounded-full bg-gray-100 hover:bg-violet-100 hover:text-violet-700 text-gray-600 transition-colors">
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                {filtered.map(repo => {
+                  const isImported = imported.has(repo.id)
+                  const isLoading = loading === repo.id
+                  return (
+                    <div key={repo.id} className="border border-gray-200 rounded-lg p-3 hover:border-violet-300 hover:bg-violet-50/30 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
+                          <Icon name="Github" size={16} className="text-white" fallback="Code2"/>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <span className="text-[12px] font-bold text-gray-900">{repo.name}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-violet-100 text-violet-700">{repo.lang}</span>
+                            <span className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                              <Icon name="Star" size={10} className="text-yellow-500"/>
+                              {repo.stars}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-600 mb-1.5">{repo.desc}</p>
+                          <div className="text-[10px] text-gray-400 flex items-center gap-2">
+                            <span className="flex items-center gap-0.5"><Icon name="FileCode" size={9}/>{repo.files} файлов</span>
+                            <span>·</span>
+                            <span>обновлено {repo.updated}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button size="sm" variant="outline" className="text-xs h-7 px-2" title="Открыть на GitHub">
+                            <Icon name="ExternalLink" size={11}/>
+                          </Button>
+                          {isImported ? (
+                            <Button size="sm" disabled className="text-xs h-7 bg-green-600 hover:bg-green-600 text-white gap-1">
+                              <Icon name="Check" size={11}/>Импорт.
+                            </Button>
+                          ) : (
+                            <Button size="sm" disabled={isLoading} onClick={() => importRepo(repo)}
+                              className="text-xs h-7 bg-violet-600 hover:bg-violet-700 gap-1">
+                              {isLoading ? (
+                                <><Icon name="Loader2" size={11} className="animate-spin" fallback="RefreshCw"/>...</>
+                              ) : (
+                                <><Icon name="Download" size={11}/>Импорт</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                {filtered.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 text-sm">Ничего не найдено</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === "url" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 block mb-1">URL репозитория GitHub</label>
+                <Input value={url} onChange={e => setUrl(e.target.value)}
+                  placeholder="https://github.com/user/repo или user/repo"
+                  className="h-9 text-xs font-mono"/>
+                <p className="text-[10px] text-gray-400 mt-1">Поддерживаются публичные репозитории с .lsp, .scr или .dll файлами</p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-[11px] text-blue-800">
+                <div className="font-bold mb-1 flex items-center gap-1">
+                  <Icon name="Info" size={12}/>
+                  Что произойдёт при импорте:
+                </div>
+                <ol className="space-y-0.5 ml-4 list-decimal">
+                  <li>ЛАПА скачает все .lsp / .scr / .dll файлы из репозитория</li>
+                  <li>Проверит файлы на безопасность и совместимость</li>
+                  <li>Добавит в библиотеку с тегом «GitHub»</li>
+                  <li>Установит автообновление при изменениях в репозитории</li>
+                </ol>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={onClose}>Отмена</Button>
+                <Button size="sm" disabled={!url.trim()}
+                  onClick={() => {
+                    const name = url.split("/").pop() || "GitHub Script"
+                    onImport(name)
+                  }}
+                  className="bg-violet-600 hover:bg-violet-700 gap-1">
+                  <Icon name="Download" size={12}/>Импортировать
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-2 border-t border-gray-200 bg-gray-50 text-[10px] text-gray-500 flex items-center justify-between flex-shrink-0">
+          <span>Все импорты проверяются на безопасность · ЛАПА GitHub Bridge v1.0</span>
+          <span className="text-violet-600 font-semibold">{imported.size} импортировано</span>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
