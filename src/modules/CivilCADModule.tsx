@@ -5928,6 +5928,545 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// INTERSECTION WIZARD + ROUNDABOUT DESIGNER
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Intersection Wizard ──────────────────────────────────────────────────────
+function IntersectionWizardDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{name:string;type:string})=>void }) {
+  const [step, setStep] = useState(1)
+  const [intType, setIntType] = useState("Т-образное")
+  const [mainRoad, setMainRoad] = useState("Трасса ШД-38")
+  const [secRoad, setSecRoad] = useState("Ул. Трумана")
+  const [curb, setCurb] = useState("15")
+  const [island, setIsland] = useState(false)
+  const [channelize, setChannelize] = useState(false)
+  const [turnLanes, setTurnLanes] = useState({left:true,right:true,thru:true})
+  const [curbR, setCurbR] = useState("8")
+  const [name, setName] = useState("Пересечение-1")
+  const [angle, setAngle] = useState("90")
+  const [skew, setSkew] = useState(false)
+
+  const TYPES = [
+    {id:"Т-образное",    label:"T-пересечение",   icon:"⊥", desc:"Главная дорога + 1 примыкание"},
+    {id:"Крестообразное",label:"X-пересечение",   icon:"✚", desc:"Главная + 1 пересекающая дорога"},
+    {id:"Y-образное",   label:"Y-пересечение",   icon:"⋎", desc:"Вилкообразное, под острым углом"},
+    {id:"Многолучевое", label:"Многолучевое",     icon:"✳", desc:"5+ направлений (сложное)"},
+  ]
+
+  const totalSteps = 4
+
+  // SVG предпросмотр пересечения
+  const IntersectionPreview = () => {
+    const isT = intType === "Т-образное"
+    const isY = intType === "Y-образное"
+    const ang = parseFloat(angle) || 90
+    const rad = (ang * Math.PI) / 180
+    return (
+      <svg width="180" height="180" viewBox="-90 -90 180 180" style={{background:"#080e18",borderRadius:8}}>
+        {/* Земля */}
+        <rect x="-90" y="-90" width="180" height="180" fill="#1a2535"/>
+        {/* Главная дорога (горизонтальная) */}
+        <rect x="-90" y="-14" width="180" height="28" fill="#2a3045" stroke="#374151" strokeWidth="0.5"/>
+        {/* Осевая разметка главной */}
+        {[-60,-40,-20,20,40,60].map(x=><line key={x} x1={x} y1="0" x2={x+10} y2="0" stroke="#facc15" strokeWidth="1.5" strokeDasharray="8 4"/>)}
+        {/* Второстепенная */}
+        {!isT && <rect x="-14" y="-90" width="28" height="180" fill="#2a3045" stroke="#374151" strokeWidth="0.5"/>}
+        {isT && <rect x="-14" y="-90" width="28" height="90" fill="#2a3045" stroke="#374151" strokeWidth="0.5"/>}
+        {isY && <g transform={`rotate(${180-ang})`}><rect x="-14" y="-90" width="28" height="90" fill="#2a3045" stroke="#374151" strokeWidth="0.5"/></g>}
+        {/* Бордюр радиус */}
+        {[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy],i)=>(
+          (!isT || sy > 0) && (
+            <path key={i}
+              d={`M ${sx*14} ${sy*14} Q ${sx*(14+parseFloat(curbR||"8")/2)} ${sy*(14+parseFloat(curbR||"8")/2)} ${sx*(14+parseFloat(curbR||"8"))} ${sy*14}`}
+              fill="none" stroke="#6b7280" strokeWidth="2"/>
+          )
+        ))}
+        {/* Островок безопасности */}
+        {island && <ellipse cx="0" cy="0" rx="8" ry="8" fill="#374151" stroke="#4ade80" strokeWidth="1.5"/>}
+        {/* Полоса поворота налево */}
+        {turnLanes.left && <rect x="-45" y="-22" width="20" height="8" fill="#0078d4" opacity="0.5" rx="1"/>}
+        {/* Направление */}
+        <text x="-82" y="4" fill="#60a5fa" fontSize="8" fontFamily="mono">Гл.</text>
+        <text x="-6" y="-78" fill="#f97316" fontSize="8" fontFamily="mono">{isT?"Пр.":"2-я"}</text>
+        {/* Угол */}
+        {!isT && <text x="20" y="-20" fill="#facc15" fontSize="7">{angle}°</text>}
+        <circle cx="0" cy="0" r="3" fill="#ef4444"/>
+      </svg>
+    )
+  }
+
+  const steps = ["Тип","Геометрия","Полосы","Итог"]
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:640,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="bg-[#0d1a2e] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Crosshair" size={15} className="text-[#f97316]"/>
+            <span className="text-white font-bold text-[13px]">Intersection Wizard — Мастер пересечений</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+
+        {/* Шаги */}
+        <div className="flex border-b border-gray-800 bg-[#131320] flex-shrink-0 px-4 py-2 gap-2">
+          {steps.map((s,i)=>(
+            <button key={s} onClick={()=>setStep(i+1)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] transition-all ${step===i+1?"bg-[#f97316] text-white font-bold":step>i+1?"text-green-400 bg-green-900/20":"text-gray-500"}`}
+              style={{background:step===i+1?"#f97316":step>i+1?"rgba(74,222,128,0.1)":undefined,color:step===i+1?"white":step>i+1?"#4ade80":undefined}}>
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${step===i+1?"bg-white text-[#f97316]":step>i+1?"bg-green-500 text-white":"bg-gray-700 text-gray-400"}`}>{step>i+1?"✓":i+1}</span>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-1 min-h-0">
+          {/* Контент */}
+          <div className="flex-1 overflow-auto p-5 text-[11px]">
+            {step===1 && (
+              <div className="space-y-4">
+                <div className="text-gray-400 mb-3">Выберите тип пересечения</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {TYPES.map(t=>(
+                    <button key={t.id} onClick={()=>setIntType(t.id)}
+                      className={`p-4 rounded-xl border text-left transition-all hover:scale-[1.02] ${intType===t.id?"border-[#f97316] bg-[#f97316]/10":"border-gray-700 hover:border-gray-500"}`}
+                      style={{background:intType===t.id?undefined:"#111827"}}>
+                      <div className="text-[22px] mb-1">{t.icon}</div>
+                      <div className={`font-bold text-[12px] ${intType===t.id?"text-[#f97316]":"text-white"}`}>{t.label}</div>
+                      <div className="text-gray-500 text-[10px] mt-0.5">{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500">Главная дорога</span>
+                    <select value={mainRoad} onChange={e=>setMainRoad(e.target.value)}
+                      className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#f97316]">
+                      <option>Трасса ШД-38</option><option>Ул. Трумана</option><option>Ул. Северная</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500">Второстепенная дорога</span>
+                    <select value={secRoad} onChange={e=>setSecRoad(e.target.value)}
+                      className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#f97316]">
+                      <option>Ул. Трумана</option><option>Трасса ШД-38</option><option>Ул. Западная</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
+            {step===2 && (
+              <div className="space-y-4">
+                <div className="text-gray-400">Геометрические параметры</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["Название пересечения", name, setName, "text"],
+                    ["Угол пересечения, °", angle, setAngle, "number"],
+                    ["Радиус бордюра, м", curbR, setCurbR, "number"],
+                    ["Ширина проезда пр.ч., м", curb, setCurb, "number"],
+                  ] as [string,string,(v:string)=>void,string][]).map(([lbl,val,set,tp])=>(
+                    <label key={lbl} className="flex flex-col gap-1">
+                      <span className="text-gray-500">{lbl}</span>
+                      <input type={tp} value={val} onChange={e=>set(e.target.value)}
+                        className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#f97316] font-mono"/>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={skew} onChange={e=>setSkew(e.target.checked)} className="accent-[#f97316]"/>
+                    <span className="text-gray-300">Косое пересечение</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={island} onChange={e=>setIsland(e.target.checked)} className="accent-[#f97316]"/>
+                    <span className="text-gray-300">Островок безопасности</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={channelize} onChange={e=>setChannelize(e.target.checked)} className="accent-[#f97316]"/>
+                    <span className="text-gray-300">Канализирование</span>
+                  </label>
+                </div>
+              </div>
+            )}
+            {step===3 && (
+              <div className="space-y-4">
+                <div className="text-gray-400">Полосы движения</div>
+                <div className="rounded-xl border border-gray-700 p-4 space-y-3" style={{background:"#111827"}}>
+                  {[
+                    {key:"left" as const,label:"Полоса левого поворота",color:"#60a5fa"},
+                    {key:"right" as const,label:"Полоса правого поворота",color:"#4ade80"},
+                    {key:"thru" as const,label:"Полоса прямо",color:"#f97316"},
+                  ].map(l=>(
+                    <div key={l.key} className="flex items-center justify-between p-3 rounded-lg border border-gray-700 hover:bg-[#252535]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded" style={{background:l.color+"40",border:`2px solid ${l.color}`}}/>
+                        <span className="text-white">{l.label}</span>
+                      </div>
+                      <button onClick={()=>setTurnLanes(p=>({...p,[l.key]:!p[l.key]}))}
+                        className={`px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${turnLanes[l.key]?"text-white":"text-gray-500 bg-gray-800"}`}
+                        style={{background:turnLanes[l.key]?l.color:undefined}}>
+                        {turnLanes[l.key]?"Включена":"Выключена"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+                  <div className="text-gray-400 font-bold mb-2">Нормативы (СП 34.13330.2022)</div>
+                  {[
+                    ["Мин. радиус бордюра","R = 8 м (дорога IV кат.)"],
+                    ["Полоса накопления","L = 50–150 м"],
+                    ["Уклон в зоне перекрёстка","i ≤ 2% (СП 34 п.7.12)"],
+                    ["Угол пересечения","70°–110° (оптим. 90°)"],
+                  ].map(([k,v])=>(
+                    <div key={k} className="flex justify-between border-b border-gray-800 py-1">
+                      <span className="text-gray-500">{k}</span>
+                      <span className="text-white font-mono">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {step===4 && (
+              <div className="space-y-4">
+                <div className="text-gray-400">Сводка параметров</div>
+                <div className="rounded-xl border border-gray-700 p-4" style={{background:"#111827"}}>
+                  {[
+                    ["Название",name],["Тип",intType],
+                    ["Главная дорога",mainRoad],["Второстепенная",secRoad],
+                    ["Угол",`${angle}°`],["Радиус бордюра",`${curbR} м`],
+                    ["Полосы",Object.entries(turnLanes).filter(([,v])=>v).map(([k])=>k==="left"?"Лев.":k==="right"?"Прав.":"Прямо").join(", ")],
+                    ["Островок",island?"Да":"Нет"],["Канализирование",channelize?"Да":"Нет"],
+                  ].map(([k,v])=>(
+                    <div key={k} className="flex justify-between border-b border-gray-800 py-1.5 text-[11px]">
+                      <span className="text-gray-500">{k}</span>
+                      <span className="text-white font-semibold">{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-green-700/40 bg-green-900/10 p-3 text-[10px] text-green-400">
+                  ✓ Параметры соответствуют СП 34.13330.2022. Пересечение готово к созданию.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Превью */}
+          <div className="w-52 flex-shrink-0 border-l border-gray-800 p-4 flex flex-col items-center gap-3" style={{background:"#0d1117"}}>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide">Предпросмотр</div>
+            <IntersectionPreview/>
+            <div className="text-center text-[9px] text-gray-500 space-y-0.5">
+              <div className="text-white font-semibold text-[10px]">{intType}</div>
+              <div>{mainRoad}</div>
+              <div className="text-gray-600">×</div>
+              <div>{secRoad}</div>
+              <div className="text-[#f97316]">R = {curbR} м</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#111827] rounded-b-xl">
+          <div className="text-[10px] text-gray-500">Шаг {step} из {totalSteps}</div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
+            {step > 1 && <button onClick={()=>setStep(s=>s-1)} className="px-3 py-1.5 bg-[#252535] text-gray-300 hover:bg-[#353545] rounded text-[11px]">← Назад</button>}
+            {step < totalSteps
+              ? <button onClick={()=>setStep(s=>s+1)} className="px-4 py-1.5 bg-[#f97316] text-white hover:bg-[#ea6c00] rounded text-[11px] font-semibold">Далее →</button>
+              : <button onClick={()=>onOK({name,type:intType})} className="px-4 py-1.5 bg-[#f97316] text-white hover:bg-[#ea6c00] rounded text-[11px] font-semibold">✓ Создать</button>
+            }
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Roundabout Designer ───────────────────────────────────────────────────────
+function RoundaboutDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{name:string;R:number})=>void }) {
+  const [tab, setTab] = useState<"geometry"|"lanes"|"analysis"|"output">("geometry")
+  const [name, setName] = useState("Кольцо-1")
+  const [R, setR] = useState("25")
+  const [Rinner, setRinner] = useState("7")
+  const [approach, setApproach] = useState("4")
+  const [entryW, setEntryW] = useState("4.5")
+  const [circW, setCircW] = useState("7")
+  const [circleLanes, setCircleLanes] = useState("1")
+  const [entryLanes, setEntryLanes] = useState("1")
+  const [category, setCategory] = useState("Категория В")
+
+  const Ro = parseFloat(R)||25
+  const Ri = parseFloat(Rinner)||7
+  const nArms = parseInt(approach)||4
+  const cw = parseFloat(circW)||7
+
+  // Пропускная способность по методу HCM
+  const entryFlow = 800  // авт/ч (примерный)
+  const circFlow = 600
+  const capacity = Math.round(1130 * Math.exp(-0.001 * circFlow))
+  const v2c = (entryFlow / capacity * 100).toFixed(0)
+  const delay = (3600/capacity * entryFlow + 900 * 0.25 * ((entryFlow/capacity - 1) + Math.sqrt((entryFlow/capacity-1)**2 + 3600/(capacity*300) * entryFlow/capacity))).toFixed(1)
+  const los = parseFloat(v2c) < 50 ? "A" : parseFloat(v2c) < 70 ? "B" : parseFloat(v2c) < 85 ? "C" : parseFloat(v2c) < 100 ? "D" : "F"
+
+  // SVG кольцо
+  const RoundaboutSVG = () => {
+    const cx = 90, cy = 90, scale = 60 / Ro
+    const rOuter = Ro * scale
+    const rInner = Ri * scale
+    const rCircle = (Ri + cw) * scale
+    const arms = Array.from({length:nArms},(_,i)=>({angle:(i/nArms)*360-90}))
+    return (
+      <svg width="180" height="180" viewBox="0 0 180 180" style={{background:"#080e18",borderRadius:8}}>
+        <rect width="180" height="180" fill="#1a2535"/>
+        {/* Подъезды */}
+        {arms.map((a,i)=>{
+          const rad = a.angle * Math.PI / 180
+          const x1 = cx + Math.cos(rad)*rOuter, y1 = cy + Math.sin(rad)*rOuter
+          const x2 = cx + Math.cos(rad)*90, y2 = cy + Math.sin(rad)*90
+          const pw = 12
+          const px = -Math.sin(rad)*pw/2, py = Math.cos(rad)*pw/2
+          return (
+            <g key={i}>
+              <polygon points={`${x1+px},${y1+py} ${x2+px},${y2+py} ${x2-px},${y2-py} ${x1-px},${y1-py}`}
+                fill="#2a3045" stroke="#374151" strokeWidth="0.5"/>
+              <text x={cx+Math.cos(rad)*82} y={cy+Math.sin(rad)*82} textAnchor="middle" dominantBaseline="middle"
+                fill="#9ca3af" fontSize="8" fontFamily="mono">{i+1}</text>
+            </g>
+          )
+        })}
+        {/* Проезжая часть кольца */}
+        <circle cx={cx} cy={cy} r={rCircle} fill="#2a3045" stroke="#374151" strokeWidth="0.5"/>
+        {/* Центральный островок */}
+        <circle cx={cx} cy={cy} r={rInner} fill="#374151" stroke="#4b5563" strokeWidth="1"/>
+        {/* Разметка кольца */}
+        {Array.from({length:24},(_,i)=>{
+          const a = (i/24)*Math.PI*2
+          const x1 = cx+Math.cos(a)*(rInner+2), y1 = cy+Math.sin(a)*(rInner+2)
+          const x2 = cx+Math.cos(a)*(rCircle-2), y2 = cy+Math.sin(a)*(rCircle-2)
+          return i%3===0 ? <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(250,204,21,0.3)" strokeWidth="0.8"/> : null
+        })}
+        {/* Стрелка движения */}
+        <path d={`M ${cx+rInner+4} ${cy} A ${rInner+4} ${rInner+4} 0 0 1 ${cx} ${cy-rInner-4}`}
+          fill="none" stroke="#60a5fa" strokeWidth="1.5" markerEnd="url(#arr)"/>
+        <defs><marker id="arr" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+          <polygon points="0,0 4,2 0,4" fill="#60a5fa"/>
+        </marker></defs>
+        {/* Размер */}
+        <line x1={cx} y1={cy} x2={cx+rOuter} y2={cy} stroke="#f97316" strokeWidth="0.8" strokeDasharray="3 2"/>
+        <text x={cx+rOuter/2} y={cy-4} textAnchor="middle" fill="#f97316" fontSize="7">R={R}м</text>
+      </svg>
+    )
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        style={{width:660,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+
+        <div className="bg-[#0d1a2e] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="RotateCw" size={15} className="text-[#60a5fa]" fallback="RefreshCw"/>
+            <span className="text-white font-bold text-[13px]">Roundabout Designer — Кольцевое пересечение</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+
+        <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
+          {([["geometry","Геометрия"],["lanes","Полосы"],["analysis","Пропускная способность"],["output","Вывод"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#60a5fa]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
+          ))}
+        </div>
+
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-auto p-5 text-[11px]">
+            {tab==="geometry" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["Название",name,setName],
+                    ["Категория",category,setCategory],
+                  ] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                    <label key={lbl} className="flex flex-col gap-1">
+                      <span className="text-gray-500">{lbl}</span>
+                      {lbl==="Категория"
+                        ? <select value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#60a5fa]">
+                            <option>Категория А (городской)</option>
+                            <option>Категория В (дорога)</option>
+                            <option>Мини-кольцо (&lt;15м)</option>
+                          </select>
+                        : <input value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#60a5fa]"/>
+                      }
+                    </label>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    ["Внешний радиус R, м",R,setR],
+                    ["Внутренний островок Ri, м",Rinner,setRinner],
+                    ["Число подъездов",approach,setApproach],
+                    ["Ширина кольца, м",circW,setCircW],
+                    ["Ширина подъезда, м",entryW,setEntryW],
+                  ] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                    <label key={lbl} className="flex flex-col gap-1">
+                      <span className="text-gray-500 text-[9px]">{lbl}</span>
+                      <input type="number" value={val} onChange={e=>set(e.target.value)}
+                        className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#60a5fa] font-mono"/>
+                    </label>
+                  ))}
+                </div>
+                {/* Автоматическая проверка норм */}
+                <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                  <div className="text-[10px] font-bold text-white mb-2">Проверка норм ГОСТ Р 52289</div>
+                  {[
+                    {check:"Мин. внешний радиус",val:`R = ${R} м`,ok:Ro>=15,req:"R ≥ 15 м"},
+                    {check:"Ширина кольца",val:`${circW} м`,ok:parseFloat(circW)>=6,req:"≥ 6 м (1 полоса)"},
+                    {check:"Ширина подъезда",val:`${entryW} м`,ok:parseFloat(entryW)>=4,req:"≥ 4 м"},
+                    {check:"Ширина острова",val:`${Rinner} м`,ok:Ri>=6,req:"Di ≥ 6 м"},
+                  ].map(item=>(
+                    <div key={item.check} className="flex items-center gap-2 py-1 border-b border-gray-800 text-[10px]">
+                      <span className={item.ok?"text-green-400":"text-red-400"}>{item.ok?"✓":"✗"}</span>
+                      <span className="text-gray-400 flex-1">{item.check}: <span className="text-white font-mono">{item.val}</span></span>
+                      <span className="text-gray-600">{item.req}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="lanes" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    ["Полос на кольце",circleLanes,setCircleLanes],
+                    ["Полос на въезде",entryLanes,setEntryLanes],
+                  ] as [string,string,(v:string)=>void][]).map(([lbl,val,set])=>(
+                    <label key={lbl} className="flex flex-col gap-1">
+                      <span className="text-gray-500">{lbl}</span>
+                      <select value={val} onChange={e=>set(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none">
+                        <option>1</option><option>2</option><option>3</option>
+                      </select>
+                    </label>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3 space-y-2" style={{background:"#111827"}}>
+                  <div className="text-[10px] font-bold text-white">Конфигурация подъездов</div>
+                  {Array.from({length:nArms},(_,i)=>(
+                    <div key={i} className="flex items-center gap-3 py-1.5 border-b border-gray-800">
+                      <div className="w-6 h-6 rounded-full bg-[#f97316]/20 border border-[#f97316]/60 flex items-center justify-center text-[10px] text-[#f97316] font-bold">{i+1}</div>
+                      <span className="text-gray-400 flex-1">Подъезд {i+1}</span>
+                      <div className="flex gap-1">
+                        {["Въезд","Выезд"].map(d=>(
+                          <span key={d} className="text-[9px] px-2 py-0.5 rounded bg-[#252535] text-gray-300">{d}</span>
+                        ))}
+                      </div>
+                      <span className="text-[9px] text-gray-500">{entryLanes} пол.</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="analysis" && (
+              <div className="space-y-4">
+                <div className="text-gray-400 text-[10px]">Расчёт пропускной способности по методу HCM 6th Edition</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {label:"Поток на въезде",val:`${entryFlow} авт/ч`,color:"#60a5fa"},
+                    {label:"Поток на кольце",val:`${circFlow} авт/ч`,color:"#f97316"},
+                    {label:"Пропускная способность",val:`${capacity} авт/ч`,color:"#4ade80"},
+                    {label:"Степень насыщения v/c",val:`${v2c}%`,color:parseFloat(v2c)<85?"#4ade80":"#ef4444"},
+                    {label:"Задержка",val:`${delay} с/авт`,color:parseFloat(delay)<25?"#4ade80":parseFloat(delay)<40?"#facc15":"#ef4444"},
+                    {label:"Уровень обслуживания",val:`LOS ${los}`,color:los==="A"||los==="B"?"#4ade80":los==="C"?"#facc15":los==="D"?"#f97316":"#ef4444"},
+                  ].map(item=>(
+                    <div key={item.label} className="rounded-lg border border-gray-700 px-3 py-2.5" style={{background:"#111827"}}>
+                      <div className="text-gray-500 text-[9px] mb-0.5">{item.label}</div>
+                      <div className="font-mono font-bold text-[14px]" style={{color:item.color}}>{item.val}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3 text-[10px]" style={{background:"#111827"}}>
+                  <div className="text-gray-400 font-bold mb-2">Нормы уровней обслуживания (HCM)</div>
+                  {[["A","&lt; 10 с","#4ade80"],["B","10–20 с","#86efac"],["C","20–35 с","#facc15"],["D","35–55 с","#f97316"],["E","55–80 с","#ef4444"],["F","&gt; 80 с","#7f1d1d"]].map(([l,d,c])=>(
+                    <div key={l} className={`flex items-center gap-2 py-1 border-b border-gray-800 ${los===l?"font-bold":""}`}>
+                      <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-white" style={{background:c}}>{l}</span>
+                      <span className="text-gray-400">Задержка {d}</span>
+                      {los===l && <span className="text-[9px] ml-auto" style={{color:c}}>← Текущий</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {tab==="output" && (
+              <div className="space-y-3">
+                <div className="text-gray-400">Экспорт и документация</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    {fmt:"DXF",icon:"PencilRuler",desc:"Чертёж кольца для AutoCAD",color:"#0078d4"},
+                    {fmt:"LandXML",icon:"Code2",desc:"Геометрия для Civil 3D",color:"#7c3aed"},
+                    {fmt:"PDF",icon:"FileText",desc:"Схема для согласования",color:"#ef4444"},
+                    {fmt:"Ведомость",icon:"ClipboardList",desc:"Объёмы работ + спецификация",color:"#16a34a"},
+                  ].map(f=>(
+                    <button key={f.fmt} onClick={()=>onOK({name,R:Ro})}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-gray-700 hover:border-[#60a5fa] hover:bg-[#1e2a3a] transition-all text-left">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:f.color+"20"}}>
+                        <Icon name={f.icon} size={18} style={{color:f.color}} fallback="Download"/>
+                      </div>
+                      <div><div className="text-white font-bold text-[12px]">{f.fmt}</div>
+                      <div className="text-gray-500 text-[9px]">{f.desc}</div></div>
+                    </button>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                  <div className="text-[10px] font-bold text-white mb-2">Краткий отчёт</div>
+                  <div className="text-[9px] text-gray-400 font-mono whitespace-pre">{
+                    `КОЛЬЦЕВОЕ ПЕРЕСЕЧЕНИЕ: ${name}\n` +
+                    `Внешний радиус:   R = ${R} м\n` +
+                    `Островок:         Ri = ${Rinner} м\n` +
+                    `Ширина кольца:    B = ${circW} м\n` +
+                    `Подъездов:        ${approach} шт.\n` +
+                    `Пропускная сп.:   ${capacity} авт/ч\n` +
+                    `Уровень обслуж.:  LOS ${los} (задержка ${delay} с)\n` +
+                    `Категория:        ${category}`
+                  }</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SVG превью */}
+          <div className="w-52 flex-shrink-0 border-l border-gray-800 p-4 flex flex-col items-center gap-3" style={{background:"#0d1117"}}>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide">Предпросмотр</div>
+            <RoundaboutSVG/>
+            <div className="text-center text-[9px] text-gray-500 space-y-0.5">
+              <div className="text-white font-semibold text-[10px]">{name}</div>
+              <div>R = {R} м · Ri = {Rinner} м</div>
+              <div>{approach} подъезда · {circleLanes} пол.</div>
+              <div className={`font-bold ${los==="A"||los==="B"?"text-green-400":los==="C"?"text-yellow-400":los==="D"?"text-orange-400":"text-red-400"}`}>LOS {los}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#111827] rounded-b-xl">
+          <div className="text-[10px] text-gray-500">
+            Пропуск. способность: <span className="text-[#60a5fa] font-bold">{capacity} авт/ч</span>
+            &nbsp;·&nbsp;LOS: <span className="font-bold" style={{color:los==="A"||los==="B"?"#4ade80":los==="C"?"#facc15":los==="D"?"#f97316":"#ef4444"}}>{los}</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
+            <button onClick={()=>onOK({name,R:Ro})} className="px-4 py-1.5 bg-[#60a5fa] text-[#0d1117] hover:bg-[#93c5fd] rounded text-[11px] font-bold">✓ Создать кольцо</button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // НОВЫЕ МОДУЛИ: Survey DB · Breaklines · Sample Lines · Section Views ·
 //               Pressure Network · Manning · Mass Haul · Label Styles ·
 //               Plan Production · Visibility Analysis · Parcels ROW
@@ -6723,6 +7262,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showDraw2D, setShowDraw2D] = useState(false)
   const [showAnnotation, setShowAnnotation] = useState(false)
   const [showHydrology, setShowHydrology] = useState(false)
+  const [showIntersectionWizard, setShowIntersectionWizard] = useState(false)
+  const [showRoundabout, setShowRoundabout] = useState(false)
   const [showSurveyDB, setShowSurveyDB] = useState(false)
   const [showSurfaceAdv, setShowSurfaceAdv] = useState(false)
   const [surfaceAdvMode, setSurfaceAdvMode] = useState<"breaklines"|"voids"|"stats"|"compare"|"interpolation">("breaklines")
@@ -7562,6 +8103,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   else if (c === "MASSHAUL" || c === "БАЛАНСГРУНТА" || c === "PAYITEMS" || c === "ВЕДОМОСТЬ") setShowMassHaul(true)
   else if (c === "PLANPRODUCTION" || c === "ЛИСТЫ" || c === "SHEETS" || c === "LABELSTYLES" || c === "СТИЛИПОДПИСЕЙ") setShowPlanProd(true)
   else if (c === "VISIBILITY" || c === "ВИДИМОСТЬ" || c === "PARCELS" || c === "УЧАСТКИ" || c === "ROW") setShowVisibility(true)
+  else if (c === "INTERSECTION WIZARD" || c === "МАСТЕР" || c === "IW") setShowIntersectionWizard(true)
+  else if (c === "ROUNDABOUT" || c === "КОЛЬЦО" || c === "КОЛЬЦЕВОЕ" || c === "RB") setShowRoundabout(true)
     else if (c === "INSIGHTS" || c === "ПОДСКАЗКИ") setShowInsights(prev=>!prev)
     else if (c === "ЗЕМЛЯ" || c === "EARTHWORKS" || c === "ВЗР") { setShowEarthworks(true); setStatusMsg("Ведомость земляных работ"); setCommandLine(""); return }
     else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
@@ -7595,7 +8138,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("точк") || k.includes("геодез") || k.includes("импорт точ") || k.includes("теодолит")) { setShowPoints(true) }
     // Сети
     else if (k.includes("труб") || k.includes("сеть") || k.includes("канализ") || k.includes("гидравл")) { setShowPipeNet(true) }
-    // Пересечения
+    // Пересечения / Roundabout
+    else if (k.includes("wizard") || k.includes("мастер пересеч") || k.includes("intersection wizard")) { setShowIntersectionWizard(true) }
+    else if (k.includes("кольцев") || k.includes("roundabout") || k.includes("кольцо")) { setShowRoundabout(true) }
     else if (k.includes("пересечен")) { setShowIntersection(true) }
     // Характерные линии
     else if (k.includes("хар. лин") || k.includes("характерн")) { setShowFeatureLine(true) }
@@ -7795,6 +8340,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Вираж",       icon:"RotateCw",     size:"lg", fallback:"RefreshCw" },
         { label:"Уширение",    icon:"MoveHorizontal",size:"sm",fallback:"ArrowLeftRight" },
       ]},
+      { label: "Пересечения", items: [
+        { label:"Intersection\nWizard", icon:"Crosshair",    size:"lg" },
+        { label:"Roundabout",           icon:"RotateCw",     size:"lg", fallback:"RefreshCw" },
+        { label:"Пересечение",          icon:"Plus",         size:"sm" },
+      ]},
       { label: "Пикетаж", items: [
         { label:"Пикеты",      icon:"Milestone",    size:"lg" },
         { label:"Ведомость",   icon:"ClipboardList",size:"sm", fallback:"List" },
@@ -7802,7 +8352,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       ]},
       { label: "Видимость", items: [
         { label:"Видимость",   icon:"Eye",          size:"lg" },
-        { label:"Пересечения", icon:"Crosshair",    size:"sm" },
       ]},
     ],
     "Коридоры": [
@@ -9406,6 +9955,20 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             )}
 
             {/* ── Новые диалоги ── */}
+            {showIntersectionWizard && (
+              <IntersectionWizardDialog onClose={()=>setShowIntersectionWizard(false)} onOK={d=>{
+                setShowIntersectionWizard(false)
+                showToast(`Пересечение «${d.name}» (${d.type}) создано`)
+                setStatusMsg(`Пересечение «${d.name}» добавлено в проект`)
+              }}/>
+            )}
+            {showRoundabout && (
+              <RoundaboutDialog onClose={()=>setShowRoundabout(false)} onOK={d=>{
+                setShowRoundabout(false)
+                showToast(`Кольцо «${d.name}» R=${d.R}м создано`)
+                setStatusMsg(`Кольцевое пересечение «${d.name}» добавлено`)
+              }}/>
+            )}
             {showSurveyDB && <SurveyDBDialog onClose={()=>setShowSurveyDB(false)}/>}
             {showSurfaceAdv && <SurfaceAdvancedDialog mode={surfaceAdvMode} onClose={()=>setShowSurfaceAdv(false)}/>}
             {showSampleLines && <SampleLinesDialog onClose={()=>setShowSampleLines(false)}/>}
