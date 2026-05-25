@@ -32,25 +32,10 @@ const plans = [
       "BIM-инструменты",
       "LiDAR и DTM-данные",
       "Интеграция с DWG / IFC / LandXML",
+      "Командная работа и роли",
       "Приоритетная поддержка",
     ],
     cta: "Попробовать 14 дней бесплатно",
-  },
-  {
-    name: "Корпоратив",
-    price: "По запросу",
-    period: "",
-    description: "Для крупных организаций",
-    highlight: false,
-    features: [
-      "Всё из тарифа Профи",
-      "Командная работа и роли",
-      "Локальное развёртывание",
-      "Соответствие региональным нормам",
-      "SLA и выделенный менеджер",
-      "Обучение и внедрение",
-    ],
-    cta: "Обсудить условия",
   },
 ]
 
@@ -76,7 +61,7 @@ export function Pricing() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-4xl mx-auto">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}

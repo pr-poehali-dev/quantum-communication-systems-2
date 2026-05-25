@@ -24,17 +24,6 @@ const Index = () => {
             heading="Проектируй инфраструктуру нового поколения"
             description="Мощный инструмент для проектирования дорог, сетей и гражданской инфраструктуры. Профессиональный CAD/BIM — без подписки и ограничений."
             button={{ text: "Попробовать бесплатно", url: "/login" }}
-            reviews={{
-              count: 1200,
-              rating: 4.9,
-              avatars: [
-                { src: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/avatar-1.webp", alt: "Инженер 1" },
-                { src: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/avatar-2.webp", alt: "Инженер 2" },
-                { src: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/avatar-3.webp", alt: "Инженер 3" },
-                { src: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/avatar-4.webp", alt: "Инженер 4" },
-                { src: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/avatar-5.webp", alt: "Инженер 5" },
-              ],
-            }}
           />
           <Features />
           <DetailedFeatures />
