@@ -6371,7 +6371,10 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
   const [stationFrom, setStationFrom] = useState("0+000")
   const [stationTo, setStationTo] = useState("20+000")
 
-  const surveyPts = Array.from({length:18},(_,i)=>({
+  const [ptCount, setPtCount] = useState(18)
+  const [localToast, setLocalToast] = useState<string|null>(null)
+  const flash = (m:string)=>{ setLocalToast(m); setTimeout(()=>setLocalToast(null), 2200) }
+  const surveyPts = Array.from({length:ptCount},(_,i)=>({
     id:i+1,
     x:(i*110+Math.sin(i*0.4)*45+Math.cos(i*0.7)*30).toFixed(3),
     y:(i*65+Math.cos(i*0.5)*55+Math.sin(i*0.3)*20).toFixed(3),
@@ -6456,7 +6459,7 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
         style={{width:720,maxHeight:"93vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0d1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -6485,7 +6488,8 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
               <div className="space-y-3">
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-400">{surveyPts.length} точек съёмки</span>
-                  <button className="px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded text-[9px]">Импорт CSV/RW5</button>
+                  <button onClick={()=>{ setPtCount(p=>p+12); setAnalyzed(false); flash("✓ Импортировано 12 точек из CSV/RW5") }}
+                    className="px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded text-[9px] hover:bg-[#a78bfa]/30">Импорт CSV/RW5</button>
                 </div>
                 <div className="overflow-auto" style={{maxHeight:280}}>
                   <table className="w-full border-collapse text-[10px]">
@@ -6576,8 +6580,20 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
           <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#a78bfa] text-white hover:bg-[#c4b5fd] rounded text-[11px] font-bold">✓ Создать трассу</button>
+          <button onClick={()=>{
+            if(!analyzed){ setTab("analysis"); flash("Сначала выполните анализ трассы"); return }
+            flash(`✓ Трасса создана: ${segments.length} элементов${mlMode?" (ML)":""}`)
+            setTimeout(onClose, 900)
+          }} className="px-4 py-1.5 bg-[#a78bfa] text-white hover:bg-[#c4b5fd] rounded text-[11px] font-bold">✓ Создать трассу</button>
         </div>
+        <AnimatePresence>
+          {localToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#0d1520] border border-[#a78bfa]/40 text-[#c4b5fd] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10">
+              {localToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
@@ -6585,7 +6601,7 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
 
 // ─── InfoDrainage — Гидрологический расчёт ────────────────────────────────────
 function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
-  const [tab, setTab] = useState<"basin"|"time"|"channel"|"pond"|"result">("basin")
+  const [tab, setTab] = useState<"basin"|"time"|"channel"|"ugs"|"pond"|"pipes"|"result">("basin")
   const [method, setMethod] = useState("Rational (рациональная)")
   const [area, setArea] = useState("12.5")
   const [C, setC] = useState("0.75")
@@ -6598,6 +6614,36 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
   const [chanSlope, setChanSlope] = useState("0.005")
   const [pondVol, setPondVol] = useState("2500")
   const [porosity, setPorosity] = useState("0.35")
+  const [localToast, setLocalToast] = useState<string|null>(null)
+  const flash = (m:string)=>{ setLocalToast(m); setTimeout(()=>setLocalToast(null), 2200) }
+
+  // Каналы — несколько уклонов (2027)
+  const [chanSegs, setChanSegs] = useState([
+    {from:"0+00",  to:"2+50",  slope:"0.0080", type:"Прямая"},
+    {from:"2+50",  to:"4+20",  slope:"0.0050", type:"Кривая"},
+    {from:"4+20",  to:"7+00",  slope:"0.0035", type:"Прямая"},
+  ])
+  const addChanSeg = () => setChanSegs(p=>[...p,{from:p[p.length-1]?.to||"0+00",to:"",slope:"0.0040",type:"Прямая"}])
+  const updChanSeg = (i:number,k:string,v:string)=>setChanSegs(p=>p.map((s,idx)=>idx===i?{...s,[k]:v}:s))
+  const delChanSeg = (i:number)=>setChanSegs(p=>p.filter((_,idx)=>idx!==i))
+  const chanWarnings = chanSegs.filter(s=>parseFloat(s.slope)<=0||!s.to).length
+
+  // Подземное хранилище UGS (2027)
+  const [ugsDepth, setUgsDepth] = useState("3.0")
+  const [ugsArea, setUgsArea] = useState("420")
+  const [ugsPorosity, setUgsPorosity] = useState("0.95")
+  const ugsVol = (parseFloat(ugsDepth)||0)*(parseFloat(ugsArea)||0)*(parseFloat(ugsPorosity)||0)
+
+  // Форма труб (2027)
+  const PIPE_SHAPES = [
+    {id:"circ", label:"Круглая",      icon:"Circle"},
+    {id:"rect", label:"Прямоуг.",     icon:"Square"},
+    {id:"arch", label:"Арочная",      icon:"Umbrella"},
+    {id:"ell",  label:"Эллипс",       icon:"Egg"},
+    {id:"egg",  label:"Яйцевидная",   icon:"Egg"},
+  ]
+  const [pipeShape, setPipeShape] = useState("circ")
+  const [pipeD, setPipeD] = useState("500")
 
   // Расчёт времени концентрации
   const Lv = parseFloat(L)||850
@@ -6631,19 +6677,20 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
-        style={{width:660,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
+        style={{width:680,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0a1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Droplets" size={15} className="text-[#22d3ee]" fallback="CloudRain"/>
             <span className="text-white font-bold text-[13px]">InfoDrainage — Ливневая канализация и гидрология</span>
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#22d3ee]/20 text-[#22d3ee] font-bold">2027</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
         <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
-          {([["basin","Водосбор"],["time","Время конц."],["channel","Каналы"],["pond","Пруд-накоп."],["result","Итоги"]] as const).map(([id,lbl])=>(
+          {([["basin","Водосбор"],["time","Время конц."],["channel","Каналы"],["ugs","Подз. хранилище"],["pond","Пруд-накоп."],["pipes","Трубы"],["result","Итоги"]] as const).map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
-              className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#22d3ee]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+              className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors whitespace-nowrap ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#22d3ee]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
           ))}
         </div>
         <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
@@ -6728,6 +6775,70 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
                   </div>
                 ))}
               </div>
+
+              {/* Несколько уклонов на один канал (Civil 3D 2027) */}
+              <div className="pt-2 border-t border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-300 text-[10px] font-semibold">Несколько уклонов на канал (2027)</span>
+                  <button onClick={addChanSeg} className="px-2 py-0.5 bg-[#22d3ee]/15 text-[#22d3ee] border border-[#22d3ee]/40 rounded text-[9px] hover:bg-[#22d3ee]/25">+ Сегмент</button>
+                </div>
+                <table className="w-full border-collapse text-[9px]">
+                  <thead><tr className="bg-[#0d1117]">{["ПК нач.","ПК кон.","Уклон","Тип","Проверка",""].map(h=><th key={h} className="px-1.5 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                  <tbody>{chanSegs.map((s,i)=>{
+                    const prevTo = i>0?chanSegs[i-1].to:null
+                    const gap = prevTo && s.from!==prevTo
+                    const bad = parseFloat(s.slope)<=0 || !s.to
+                    return (
+                      <tr key={i} className="hover:bg-[#1e2a3e]">
+                        <td className="border border-gray-800"><input value={s.from} onChange={e=>updChanSeg(i,"from",e.target.value)} className="w-full bg-transparent text-white px-1.5 py-1 font-mono outline-none focus:bg-[#252535]"/></td>
+                        <td className="border border-gray-800"><input value={s.to} onChange={e=>updChanSeg(i,"to",e.target.value)} className="w-full bg-transparent text-white px-1.5 py-1 font-mono outline-none focus:bg-[#252535]"/></td>
+                        <td className="border border-gray-800"><input value={s.slope} onChange={e=>updChanSeg(i,"slope",e.target.value)} className="w-full bg-transparent text-white px-1.5 py-1 font-mono outline-none focus:bg-[#252535]"/></td>
+                        <td className="border border-gray-800">
+                          <select value={s.type} onChange={e=>updChanSeg(i,"type",e.target.value)} className="w-full bg-transparent text-gray-300 px-1 py-1 outline-none">
+                            {["Прямая","Кривая"].map(o=><option key={o} className="bg-[#252535]">{o}</option>)}
+                          </select>
+                        </td>
+                        <td className="border border-gray-800 px-1.5 py-1">
+                          {bad ? <span className="text-red-400">⚠ уклон/ПК</span> : gap ? <span className="text-yellow-400">⚠ разрыв</span> : <span className="text-green-400">✓ ОК</span>}
+                        </td>
+                        <td className="border border-gray-800 text-center"><button onClick={()=>delChanSeg(i)} className="text-gray-500 hover:text-red-400 px-1">✕</button></td>
+                      </tr>
+                    )
+                  })}</tbody>
+                </table>
+                <div className="text-[9px] mt-1.5 flex items-center gap-2">
+                  {chanWarnings>0
+                    ? <span className="text-yellow-400">⚠ Предупреждений: {chanWarnings} (проверка направления уклона и наложения станций)</span>
+                    : <span className="text-green-400">✓ Уклоны корректны, разрывов и наложений нет</span>}
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==="ugs" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Подземное хранилище (Underground Storage, UGS) — управляется настройками по умолчанию</div>
+              <div className="grid grid-cols-3 gap-3">
+                {([["Глубина H, м",ugsDepth,setUgsDepth],["Площадь A, м²",ugsArea,setUgsArea],["Пористость заполнителя n",ugsPorosity,setUgsPorosity]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">{l}</span>
+                    <input type="number" value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                {[
+                  {label:"Полезный объём хранения",val:`${ugsVol.toFixed(0)} м³`,color:"#22d3ee"},
+                  {label:"Отметка дна",val:"123.40 м",color:"#60a5fa"},
+                  {label:"Площадь основания",val:`${(parseFloat(ugsArea)||0).toFixed(0)} м²`,color:"#f97316"},
+                  {label:"Двунаправл. связь труб↔UGS",val:"Активна",color:"#4ade80"},
+                ].map(r=>(
+                  <div key={r.label} className="flex justify-between border-b border-gray-800 py-1 text-[10px]">
+                    <span className="text-gray-500">{r.label}</span>
+                    <span className="font-mono font-bold" style={{color:r.color}}>{r.val}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-[9px] text-gray-600">Свойства (глубина, отметка дна, площадь, объём) доступны на панели «Свойства». Экспорт — CSV.</div>
             </div>
           )}
           {tab==="pond" && (
@@ -6756,6 +6867,41 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
               </div>
             </div>
           )}
+          {tab==="pipes" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Форма поперечного сечения трубы (2027) — для Analyze Drainage System</div>
+              <div className="flex gap-2 flex-wrap">
+                {PIPE_SHAPES.map(s=>(
+                  <button key={s.id} onClick={()=>setPipeShape(s.id)}
+                    className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border transition-colors ${pipeShape===s.id?"bg-[#22d3ee]/15 border-[#22d3ee] text-[#22d3ee]":"bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-500"}`}>
+                    <Icon name={s.icon} size={18} fallback="Circle"/>
+                    <span className="text-[9px]">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">{pipeShape==="rect"?"Ширина, мм":"Диаметр/высота D, мм"}</span>
+                  <input type="number" value={pipeD} onChange={e=>setPipeD(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                </label>
+                <div className="rounded border border-gray-700 px-2 py-2 flex flex-col justify-center" style={{background:"#111827"}}>
+                  <div className="text-gray-500 text-[9px]">Площадь сечения (≈)</div>
+                  <div className="font-mono font-bold text-[12px] text-[#22d3ee]">
+                    {(() => {
+                      const d=(parseFloat(pipeD)||500)/1000
+                      const a = pipeShape==="circ"?Math.PI*d*d/4
+                        : pipeShape==="rect"?d*d
+                        : pipeShape==="arch"?d*d*0.785
+                        : pipeShape==="ell"?Math.PI*d*(d*0.66)/4
+                        : Math.PI*d*d/4*0.9
+                      return a.toFixed(3)
+                    })()} м²
+                  </div>
+                </div>
+              </div>
+              <div className="text-[9px] text-gray-600">Маркировка труб теперь показывает подключённые объекты (пруды, UGS) на планах, профилях и разрезах.</div>
+            </div>
+          )}
           {tab==="result" && (
             <div className="space-y-3">
               <div className="text-gray-400 text-[10px] font-bold">Сводный отчёт (СП 32.13330.2018)</div>
@@ -6777,10 +6923,23 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
-          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#22d3ee] text-[#0d1520] hover:bg-[#67e8f9] rounded text-[11px] font-bold">Применить к сети</button>
+        <div className="flex justify-between items-center gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={()=>flash("✓ Результаты экспортированы в CSV")} className="px-3 py-1.5 text-[10px] text-[#22d3ee] hover:underline flex items-center gap-1">
+            <Icon name="Download" size={11}/>Экспорт CSV
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
+            <button onClick={()=>{ flash("✓ Параметры дренажа применены к сети"); setTimeout(onClose, 800) }} className="px-4 py-1.5 bg-[#22d3ee] text-[#0d1520] hover:bg-[#67e8f9] rounded text-[11px] font-bold">Применить к сети</button>
+          </div>
         </div>
+        <AnimatePresence>
+          {localToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#0d1520] border border-[#22d3ee]/40 text-[#67e8f9] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10">
+              {localToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
@@ -6788,47 +6947,116 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
 
 // ─── Forma Data Management ────────────────────────────────────────────────────
 function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
-  const [tab, setTab] = useState<"files"|"refs"|"issues"|"versions">("files")
+  const [tab, setTab] = useState<"files"|"refs"|"catalogs"|"issues"|"insights"|"versions"|"publish">("files")
   const [filter, setFilter] = useState("")
+  const [localToast, setLocalToast] = useState<string|null>(null)
+  const flash = (m:string)=>{ setLocalToast(m); setTimeout(()=>setLocalToast(null), 2200) }
 
-  const files = [
+  const [files, setFiles] = useState([
     {name:"ШД-38_план.dwg",      type:"DWG",     size:"12.4 МБ",  date:"2025-07-01", status:"Актуален",  owner:"Иванов А.П."},
     {name:"ШД-38_профиль.dwg",   type:"DWG",     size:"8.7 МБ",   date:"2025-07-01", status:"Актуален",  owner:"Иванов А.П."},
     {name:"ШД-38_сети.dwg",      type:"DWG",     size:"5.2 МБ",   date:"2025-06-28", status:"Устарел",   owner:"Петрова Н.С."},
     {name:"поверхность_TIN.xml", type:"LandXML", size:"3.1 МБ",   date:"2025-06-30", status:"Актуален",  owner:"Сидоров В.Г."},
     {name:"геология.pdf",        type:"PDF",     size:"18.5 МБ",  date:"2025-06-25", status:"Актуален",  owner:"ООО ГеоЛаб"},
     {name:"3D_модель.ifc",       type:"IFC",     size:"45.3 МБ",  date:"2025-07-01", status:"Актуален",  owner:"Иванов А.П."},
-  ]
-  const refs = [
+  ])
+  const [refs, setRefs] = useState([
     {xref:"_подложка_ОСМ.dwg",   path:"C:\\Проекты\\ШД-38\\",  status:"OK",       newpath:""},
     {xref:"_геология_разрез.dwg", path:"D:\\Архив\\2024\\",     status:"Не найден",newpath:"C:\\Проекты\\ШД-38\\Геология\\"},
     {xref:"_котлован.dwg",        path:"\\\\server\\projects\\", status:"OK",       newpath:""},
-  ]
-  const issues = [
+  ])
+  const [issues, setIssues] = useState([
     {id:"ISS-001",title:"Пересечение водопровода с коридором ПК12+340",prior:"Высокий",status:"Открыт",date:"2025-06-28"},
     {id:"ISS-002",title:"Радиус R=650м меньше минимального (800м)",prior:"Средний",status:"На рассмотрении",date:"2025-07-01"},
     {id:"ISS-003",title:"Отсутствует профиль сети на участке ПК8-ПК10",prior:"Низкий",status:"Закрыт",date:"2025-06-20"},
+  ])
+  const [versions, setVersions] = useState([
+    {ver:"v1.3",date:"2025-07-01",author:"Иванов А.П.",changes:"Обновлён профиль ПК8-ПК12, добавлена сеть ливневой канализации"},
+    {ver:"v1.2",date:"2025-06-28",author:"Петрова Н.С.",changes:"Скорректированы виражи на кривой R=800м"},
+    {ver:"v1.1",date:"2025-06-20",author:"Сидоров В.Г.",changes:"Добавлена геологическая подоснова, уточнены ИГЭ"},
+    {ver:"v1.0",date:"2025-06-01",author:"Иванов А.П.",changes:"Первичный вариант трассы, TIN-поверхность"},
+  ])
+  const [catalogs, setCatalogs] = useState([
+    {name:"Трубы безнапорные ГОСТ 6482",  kind:"Безнапорные", items:48, sync:true,  shared:true},
+    {name:"Трубы напорные ISO 4427 (ПЭ)", kind:"Напорные",   items:36, sync:true,  shared:false},
+    {name:"Колодцы КЛВ / КЛК",            kind:"Структуры",  items:22, sync:false, shared:true},
+    {name:"Дождеприёмники ДБ",            kind:"Структуры",  items:14, sync:true,  shared:true},
+  ])
+  const insights = [
+    {time:"Сегодня 14:32", author:"Иванов А.П.",  action:"Редактирование коридора «ШД-38»", ver:"v1.3", added:128, removed:14},
+    {time:"Сегодня 11:05", author:"Петрова Н.С.",  action:"Правка виражей на кривой R=800м",  ver:"v1.2", added:36,  removed:8},
+    {time:"Вчера 18:40",   author:"Сидоров В.Г.",  action:"Импорт LandXML топосъёмки",        ver:"v1.1", added:412, removed:0},
+    {time:"01.06 09:15",   author:"Иванов А.П.",   action:"Создание проекта, TIN-поверхность",ver:"v1.0", added:980, removed:0},
   ]
 
+  const [uploading, setUploading] = useState(false)
+  const [newIssue, setNewIssue] = useState("")
+  const [publishing, setPublishing] = useState(false)
+  const [published, setPublished] = useState(false)
+  const [pubSheets, setPubSheets] = useState<Record<string,boolean>>({"План ПК0-ПК12":true,"Профиль ПК0-ПК12":true,"Поперечники":true,"Сводный план сетей":false})
+
   const filteredFiles = files.filter(f=>!filter||f.name.toLowerCase().includes(filter.toLowerCase()))
+
+  const doUpload = () => {
+    setUploading(true)
+    setTimeout(()=>{
+      setFiles(p=>[{name:`новый_лист_${p.length+1}.dwg`,type:"DWG",size:"4.2 МБ",date:new Date().toISOString().slice(0,10),status:"Актуален",owner:"Вы"},...p])
+      setUploading(false); flash("✓ Файл загружен в облако Forma")
+    }, 900)
+  }
+  const fixRef = (i:number) => {
+    setRefs(p=>p.map((r,idx)=>idx===i?{...r,path:r.newpath,newpath:"",status:"OK"}:r))
+    flash("✓ Путь Xref обновлён автоматически")
+  }
+  const fixAllRefs = () => {
+    setRefs(p=>p.map(r=>r.newpath?{...r,path:r.newpath,newpath:"",status:"OK"}:r))
+    flash("✓ Все пути Xref исправлены")
+  }
+  const addIssue = () => {
+    if(!newIssue.trim()) return
+    setIssues(p=>[{id:`ISS-${String(p.length+1).padStart(3,"0")}`,title:newIssue.trim(),prior:"Средний",status:"Открыт",date:new Date().toISOString().slice(0,10)},...p])
+    setNewIssue(""); flash("✓ Проблема создана")
+  }
+  const closeIssue = (id:string) => {
+    setIssues(p=>p.map(it=>it.id===id?{...it,status:"Закрыт"}:it)); flash(`✓ ${id} закрыта`)
+  }
+  const restoreVer = (ver:string) => {
+    setVersions(p=>[{ver:`v${(parseFloat(p[0].ver.slice(1))+0.1).toFixed(1)}`,date:new Date().toISOString().slice(0,10),author:"Вы",changes:`Восстановление из ${ver}`},...p])
+    flash(`✓ Восстановлено из ${ver}`)
+  }
+  const toggleCatSync = (i:number) => {
+    setCatalogs(p=>p.map((c,idx)=>idx===i?{...c,sync:!c.sync}:c)); flash("Автосинхронизация изменена")
+  }
+  const doPublish = () => {
+    const n = Object.values(pubSheets).filter(Boolean).length
+    if(!n){ flash("Выберите хотя бы один лист"); return }
+    setPublishing(true)
+    setTimeout(()=>{ setPublishing(false); setPublished(true); flash(`✓ Опубликовано в Forma: ${n} лист(ов) PDF`) }, 1400)
+  }
+
+  const unresolvedRefs = refs.filter(r=>r.status!=="OK").length
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
-        style={{width:680,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
+        style={{width:720,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0a1428] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Cloud" size={15} className="text-[#60a5fa]" fallback="Database"/>
             <span className="text-white font-bold text-[13px]">Forma Data Management — Управление проектными данными</span>
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#60a5fa]/20 text-[#60a5fa] font-bold">2027</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
-        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
-          {([["files","Файлы"],["refs","Connected References"],["issues","Проблемы"],["versions","Версии"]] as const).map(([id,lbl])=>(
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0 overflow-x-auto">
+          {([["files","Файлы"],["refs","Connected References"],["catalogs","Каталоги труб"],["issues","Проблемы"],["insights","Activity Insights"],["versions","Версии"],["publish","Push to Forma"]] as const).map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
-              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#60a5fa]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+              className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors whitespace-nowrap relative ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#60a5fa]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>
+              {lbl}
+              {id==="refs" && unresolvedRefs>0 && <span className="absolute top-0.5 right-1 w-3.5 h-3.5 rounded-full bg-yellow-500 text-[#0d1020] text-[7px] flex items-center justify-center font-bold">{unresolvedRefs}</span>}
+            </button>
           ))}
         </div>
         <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
@@ -6837,7 +7065,10 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
               <div className="flex gap-2">
                 <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Поиск файлов..."
                   className="flex-1 bg-[#252535] border border-gray-600 text-white text-[11px] px-2 py-1 rounded outline-none focus:border-[#60a5fa] placeholder-gray-600"/>
-                <button className="px-3 py-1 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[10px]">Загрузить</button>
+                <button onClick={doUpload} disabled={uploading}
+                  className="px-3 py-1 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[10px] hover:bg-[#0078d4]/30 disabled:opacity-50 flex items-center gap-1">
+                  {uploading ? <><Icon name="Loader2" size={11} className="animate-spin" fallback="RefreshCw"/>Загрузка…</> : <><Icon name="Upload" size={11}/>Загрузить</>}
+                </button>
               </div>
               <table className="w-full border-collapse text-[10px]">
                 <thead><tr className="bg-[#0d1117]">{["Файл","Тип","Размер","Дата","Статус","Автор"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
@@ -6858,11 +7089,14 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
           )}
           {tab==="refs" && (
             <div className="space-y-3">
-              <div className="text-gray-400 text-[10px] mb-2">Connected References — автоматическое обнаружение переименованных/перемещённых Xref</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-gray-400 text-[10px]">Connected References — автообнаружение переименованных/перемещённых Xref</div>
+                {unresolvedRefs>0 && <button onClick={fixAllRefs} className="px-2 py-0.5 bg-yellow-600/20 text-yellow-300 border border-yellow-600/40 rounded text-[9px] hover:bg-yellow-600/30">Исправить все ({unresolvedRefs})</button>}
+              </div>
               {refs.map((r,i)=>(
                 <div key={i} className={`p-3 rounded-lg border ${r.status==="OK"?"border-green-700/40 bg-green-900/10":"border-yellow-700/40 bg-yellow-900/10"}`}>
                   <div className="flex items-center gap-2 mb-1">
-                    <Icon name={r.status==="OK"?"Check":"AlertTriangle"} size={12} className={r.status==="OK"?"text-green-400":"text-yellow-400"} fallback="Circle"/>
+                    <Icon name={r.status==="OK"?"Check":"TriangleAlert"} size={12} className={r.status==="OK"?"text-green-400":"text-yellow-400"} fallback="Circle"/>
                     <span className="text-white font-semibold text-[11px]">{r.xref}</span>
                     <span className={`ml-auto text-[9px] font-bold ${r.status==="OK"?"text-green-400":"text-yellow-400"}`}>{r.status}</span>
                   </div>
@@ -6871,18 +7105,38 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
                     <div className="mt-1 flex items-center gap-2 text-[9px]">
                       <span className="text-yellow-400">Предложенный путь:</span>
                       <span className="text-white font-mono">{r.newpath}</span>
-                      <button className="ml-auto text-[#0078d4] hover:underline">Обновить</button>
+                      <button onClick={()=>fixRef(i)} className="ml-auto text-[#60a5fa] hover:underline font-bold">Обновить</button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
           )}
+          {tab==="catalogs" && (
+            <div className="space-y-2">
+              <div className="text-gray-400 text-[10px] mb-2">Облачные каталоги труб и напорных труб — единый источник, автосинхронизация со всей командой</div>
+              {catalogs.map((c,i)=>(
+                <div key={i} className="p-3 rounded-lg border border-gray-700 flex items-center gap-3" style={{background:"#111827"}}>
+                  <Icon name="Database" size={14} className="text-[#60a5fa] flex-shrink-0"/>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white text-[11px] font-semibold">{c.name}</div>
+                    <div className="text-gray-500 text-[9px]">{c.kind} · {c.items} элементов {c.shared && "· общий для предприятия"}</div>
+                  </div>
+                  <button onClick={()=>toggleCatSync(i)}
+                    className={`text-[9px] px-2 py-1 rounded border flex items-center gap-1 ${c.sync?"bg-green-900/20 text-green-400 border-green-700/40":"bg-gray-800 text-gray-500 border-gray-700"}`}>
+                    <Icon name={c.sync?"RefreshCw":"Pause"} size={9}/>{c.sync?"Авто-синхр.":"Вручную"}
+                  </button>
+                </div>
+              ))}
+              <div className="text-[9px] text-gray-600 pt-1">Изменения каталога мгновенно появляются в Part Lists у всех инженеров проекта.</div>
+            </div>
+          )}
           {tab==="issues" && (
             <div className="space-y-2">
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-400">Отслеживание проблем (Issue Tracking)</span>
-                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">+ Создать</button>
+              <div className="flex gap-2 mb-2">
+                <input value={newIssue} onChange={e=>setNewIssue(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addIssue()}
+                  placeholder="Описание новой проблемы…" className="flex-1 bg-[#252535] border border-gray-600 text-white text-[10px] px-2 py-1 rounded outline-none focus:border-[#60a5fa] placeholder-gray-600"/>
+                <button onClick={addIssue} className="px-2 py-1 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px] hover:bg-[#0078d4]/30">+ Создать</button>
               </div>
               {issues.map((issue,i)=>(
                 <div key={i} className="p-3 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
@@ -6890,6 +7144,7 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
                     <span className="text-[#60a5fa] font-mono text-[9px]">{issue.id}</span>
                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${issue.prior==="Высокий"?"bg-red-900/30 text-red-400":issue.prior==="Средний"?"bg-yellow-900/30 text-yellow-400":"bg-gray-800 text-gray-500"}`}>{issue.prior}</span>
                     <span className={`ml-auto text-[9px] ${issue.status==="Закрыт"?"text-green-400":issue.status==="Открыт"?"text-red-400":"text-yellow-400"}`}>{issue.status}</span>
+                    {issue.status!=="Закрыт" && <button onClick={()=>closeIssue(issue.id)} className="text-[9px] text-gray-400 hover:text-green-400">✓</button>}
                   </div>
                   <div className="text-white text-[10px]">{issue.title}</div>
                   <div className="text-gray-600 text-[9px] mt-0.5">{issue.date}</div>
@@ -6897,15 +7152,27 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
               ))}
             </div>
           )}
+          {tab==="insights" && (
+            <div className="space-y-2">
+              <div className="text-gray-400 text-[10px] mb-2">Activity Insights — единый источник истории правок (замена DWG History)</div>
+              {insights.map((a,i)=>(
+                <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border border-gray-700" style={{background:"#111827"}}>
+                  <div className="w-8 h-8 rounded-full bg-[#0078d4]/20 flex items-center justify-center flex-shrink-0 text-[#60a5fa] text-[10px] font-bold">{a.author.slice(0,2)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white text-[10px]">{a.action}</div>
+                    <div className="text-gray-500 text-[9px]">{a.author} · {a.time} · <span className="text-[#60a5fa]">{a.ver}</span></div>
+                  </div>
+                  <div className="text-[9px] text-right flex-shrink-0">
+                    <span className="text-green-400">+{a.added}</span> <span className="text-red-400">−{a.removed}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {tab==="versions" && (
             <div className="space-y-2">
               <div className="text-gray-400 text-[10px] mb-2">История версий и изменений</div>
-              {[
-                {ver:"v1.3",date:"2025-07-01",author:"Иванов А.П.",changes:"Обновлён профиль ПК8-ПК12, добавлена сеть ливневой канализации"},
-                {ver:"v1.2",date:"2025-06-28",author:"Петрова Н.С.",changes:"Скорректированы виражи на кривой R=800м"},
-                {ver:"v1.1",date:"2025-06-20",author:"Сидоров В.Г.",changes:"Добавлена геологическая подоснова, уточнены ИГЭ"},
-                {ver:"v1.0",date:"2025-06-01",author:"Иванов А.П.",changes:"Первичный вариант трассы, TIN-поверхность"},
-              ].map((v,i)=>(
+              {versions.map((v,i)=>(
                 <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
                   <div className="w-10 text-center">
                     <div className="text-[#60a5fa] font-bold text-[10px]">{v.ver}</div>
@@ -6915,16 +7182,48 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
                     <div className="text-gray-400 text-[9px]">{v.author}</div>
                     <div className="text-white text-[10px]">{v.changes}</div>
                   </div>
-                  <button className="text-[9px] text-[#0078d4] hover:underline flex-shrink-0">Восстановить</button>
+                  <button onClick={()=>restoreVer(v.ver)} className="text-[9px] text-[#60a5fa] hover:underline flex-shrink-0">Восстановить</button>
                 </div>
               ))}
+            </div>
+          )}
+          {tab==="publish" && (
+            <div className="space-y-3">
+              <div className="text-gray-400 text-[10px]">Push to Forma — мгновенная публикация 2D/3D-листов в формате PDF в облако проекта</div>
+              <div className="space-y-1.5">
+                {Object.keys(pubSheets).map(s=>(
+                  <label key={s} className="flex items-center gap-2 p-2 rounded border border-gray-700 cursor-pointer hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
+                    <input type="checkbox" checked={pubSheets[s]} onChange={()=>setPubSheets(p=>({...p,[s]:!p[s]}))} className="accent-[#60a5fa]"/>
+                    <Icon name="FileText" size={12} className="text-[#60a5fa]"/>
+                    <span className="text-white text-[10px]">{s}</span>
+                  </label>
+                ))}
+              </div>
+              <button onClick={doPublish} disabled={publishing}
+                className="w-full py-2 bg-[#60a5fa] text-[#0d1020] rounded text-[11px] font-bold hover:bg-[#93c5fd] disabled:opacity-50 flex items-center justify-center gap-2">
+                {publishing ? <><Icon name="Loader2" size={13} className="animate-spin" fallback="RefreshCw"/>Публикация…</> : <><Icon name="CloudUpload" size={13} fallback="Upload"/>Опубликовать в Forma</>}
+              </button>
+              {published && (
+                <div className="p-2.5 rounded-lg border border-green-700/40 bg-green-900/10 text-[10px] text-green-300 flex items-center gap-2">
+                  <Icon name="CircleCheck" size={13} className="text-green-400" fallback="Check"/>
+                  Листы опубликованы. Доступны в облаке проекта и для просмотра в браузере.
+                </div>
+              )}
             </div>
           )}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
           <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#60a5fa] text-[#0d1020] hover:bg-[#93c5fd] rounded text-[11px] font-bold">Синхронизировать</button>
+          <button onClick={()=>flash("✓ Проект синхронизирован с облаком Forma")} className="px-4 py-1.5 bg-[#60a5fa] text-[#0d1020] hover:bg-[#93c5fd] rounded text-[11px] font-bold">Синхронизировать</button>
         </div>
+        <AnimatePresence>
+          {localToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#0d1520] border border-[#60a5fa]/40 text-[#93c5fd] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10">
+              {localToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
