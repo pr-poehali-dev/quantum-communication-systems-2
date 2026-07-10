@@ -136,6 +136,7 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string, projectId?: n
   const [newDesc, setNewDesc] = useState("")
   const [newType, setNewType] = useState("road")
   const [saving, setSaving] = useState(false)
+  const [createErr, setCreateErr] = useState("")
 
   const load = () => {
     setLoading(true)
@@ -149,24 +150,33 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string, projectId?: n
   useEffect(() => { load() }, [])
 
   const createProject = () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || saving) return
+    const nm = newName.trim()
     setSaving(true)
+    setCreateErr("")
     fetch(PROJECTS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), description: newDesc.trim(), type: newType })
+      body: JSON.stringify({ name: nm, description: newDesc.trim(), type: newType })
     })
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) throw new Error("status " + r.status)
+        return r.json()
+      })
       .then(p => {
+        if (!p || !p.id) throw new Error("no id")
         setProjects(prev => [p, ...prev])
         setCreating(false)
         setNewName("")
         setNewDesc("")
         setNewType("road")
         setSaving(false)
-        onOpen(p.name, p.id)
+        onOpen(nm, p.id)
       })
-      .catch(() => setSaving(false))
+      .catch(() => {
+        setSaving(false)
+        setCreateErr("Не удалось создать проект. Попробуйте ещё раз.")
+      })
   }
 
   const deleteProject = (id: number, e: React.MouseEvent) => {
@@ -231,13 +241,16 @@ function AutodeskProjectsTab({ onOpen }: { onOpen: (name?: string, projectId?: n
             <input value={newDesc} onChange={e=>setNewDesc(e.target.value)} placeholder="Краткое описание"
               className="w-full bg-[#1a1a2a] border border-gray-600 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-[#0078d4]"/>
           </div>
+          {createErr && (
+            <div className="mb-3 text-[11px] text-red-400 bg-red-500/10 border border-red-500/30 rounded px-2 py-1.5">{createErr}</div>
+          )}
           <div className="flex gap-2">
             <button onClick={createProject} disabled={saving || !newName.trim()}
               className="px-4 py-1.5 rounded text-[11px] text-white disabled:opacity-50 transition-colors"
               style={{background:"#0078d4"}}>
               {saving ? "Создание..." : "Создать и открыть"}
             </button>
-            <button onClick={()=>setCreating(false)} className="px-4 py-1.5 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
+            <button onClick={()=>{ setCreating(false); setCreateErr("") }} className="px-4 py-1.5 rounded text-[11px] text-gray-400 border border-gray-600 hover:text-white transition-colors">
               Отмена
             </button>
           </div>
@@ -324,9 +337,9 @@ const СПРАВКА_РАЗДЕЛЫ = [
   { title:"Быстрый старт",         desc:"Создание первого проекта за 15 минут", icon:"Play",         content:"1. Нажмите «Создать» → выберите тип проекта.\n2. Импортируйте данные рельефа (LandXML, TIN, DXF).\n3. Постройте трассу: вкладка «Главная» → «Создать трассу».\n4. Добавьте коридор: вкладка «Коридоры» → «Создать коридор».\n5. Рассчитайте объёмы: «Анализ» → «Объёмы земляных работ»." },
   { title:"Работа с ЦМР",           desc:"LiDAR, GNSS, TIN-поверхности",        icon:"Mountain",     content:"Цифровая модель рельефа (ЦМР):\n• Импорт: Файл → Импорт → LandXML / DXF / CSV-точки\n• Построение TIN: Поверхности → Создать поверхность TIN\n• Горизонтали: Поверхности → Горизонтали → настроить интервал\n• Анализ уклонов: Поверхности → Анализ → Уклоны и водосборы" },
   { title:"Проектирование трассы",  desc:"СП 34, клотоиды, пикетаж",            icon:"Route",        content:"Трасса (горизонтальная ось):\n• Создать: Главная → Трассы → Создать трассу по объектам\n• Типы элементов: прямая, дуга, клотоида (переходная кривая)\n• Пикетаж: задаётся начальный ПК, шаг разбивки\n• Нормы СП 34.13330: радиусы, уклоны, видимость\n• Экспорт разбивки: Вывод → Таблица разбивки трассы" },
-  { title:"Создание коридора",      desc:"Assembly, поперечники, объёмы",        icon:"RoadHorizon",  content:"Коридор = трасса + профиль + поперечное сечение (Assembly):\n1. Создайте Assembly: Коридоры → Assembly → Добавить полосы\n2. Назначьте трассу и профиль: Коридоры → Создать коридор\n3. Укажите Assembly и поверхность рельефа\n4. Вычислите объёмы: Анализ → Сечения → Ведомость объёмов\n5. График масс: Анализ → График масс Брикнера" },
+  { title:"Создание коридора",      desc:"типовое сечение, поперечники, объёмы",        icon:"RoadHorizon",  content:"Коридор = трасса + профиль + типовое поперечное сечение:\n1. Создайте типовое сечение: Коридоры → Сечение → Добавить полосы\n2. Назначьте трассу и профиль: Коридоры → Создать коридор\n3. Укажите типовое сечение и поверхность рельефа\n4. Вычислите объёмы: Анализ → Сечения → Ведомость объёмов\n5. График масс: Анализ → График масс Брикнера" },
   { title:"Инженерные сети",        desc:"Гидравлика, коллизии",                 icon:"Network",      content:"Трассировка инженерных сетей:\n• Водопровод / канализация / ливневая канализация\n• Создание: Главная → Трубопроводные сети → Создать сеть\n• Гидравлический расчёт: Анализ → Гидравлика\n• Проверка коллизий: Анализ → Проверка коллизий\n• Экспорт: LandXML, IFC 2x3, DXF" },
-  { title:"Горячие клавиши",        desc:"Все команды редактора",                icon:"Keyboard",     content:"Основные горячие клавиши:\nCtrl+Z — Отменить    Ctrl+Y — Повторить\nCtrl+S — Сохранить   Ctrl+N — Новый чертёж\nCtrl+O — Открыть     Ctrl+P — Печать\nDelete — Удалить     Esc — Отмена команды\nF2 — Командная строка    F8 — Орто-режим\nF3 — Привязки         F10 — Полярное отслеживание\nMW — Zoom            Shift+MW — Pan\nSS — Быстрый выбор    SP — Редактировать свойства" },
+  { title:"Горячие клавиши",        desc:"Все команды редактора",                icon:"Keyboard",     content:"Основные горячие клавиши:\nCtrl+Z — Отменить    Ctrl+Y — Повторить\nCtrl+S — Сохранить   Ctrl+N — Новый чертёж\nCtrl+O — Открыть     Ctrl+P — Печать\nDelete — Удалить     Esc — Отмена команды\nF2 — Командная строка    F8 — Орто-режим\nF3 — Привязки         F10 — Полярное отслеживание\nMW — Масштаб         Shift+MW — Панорама\nSS — Быстрый выбор    SP — Редактировать свойства" },
 ]
 
 function FeedbackModalInner({ тип, onClose }: { тип: "отзыв"|"ошибка"|"документация"; onClose: ()=>void }) {
@@ -446,7 +459,7 @@ const УРОКИ = [
     id:1, icon:"Play", color:"#0078d4", tag:"Видео · 15 мин", level:"Начинающий",
     title:"Быстрый старт — первый проект",
     desc:"Создайте первый проект с нуля за 15 минут",
-    шаги:["Создайте новый проект: Файл → Создать → Проект дороги","Импортируйте данные рельефа (LandXML или CSV-точки)","Постройте трассу горизонтального выравнивания","Создайте продольный профиль по трассе","Добавьте коридор с Assembly и поверхностью рельефа","Рассчитайте объёмы земляных работ"],
+    шаги:["Создайте новый проект: Файл → Создать → Проект дороги","Импортируйте данные рельефа (LandXML или CSV-точки)","Постройте трассу горизонтального выравнивания","Создайте продольный профиль по трассе","Добавьте коридор с типовым сечением и поверхностью рельефа","Рассчитайте объёмы земляных работ"],
   },
   {
     id:2, icon:"Mountain", color:"#059669", tag:"Урок · 30 мин", level:"Начинающий",
@@ -469,8 +482,8 @@ const УРОКИ = [
   {
     id:5, icon:"RoadHorizon", color:"#be185d", tag:"Урок · 60 мин", level:"Продвинутый",
     title:"Коридоры и объёмы земляных работ",
-    desc:"Assembly, поперечные сечения, ведомость объёмов",
-    шаги:["Коридоры → Assembly → Добавить компонент полосы","Компоненты: проезжая часть, обочина, откос, кювет","Коридоры → Создать коридор: трасса + профиль + Assembly","Привяжите коридор к поверхности рельефа","Сечения: Коридоры → Поперечные сечения (шаг 20м)","Объёмы: Анализ → Ведомость объёмов, График масс Брикнера"],
+    desc:"типовое сечение, поперечные сечения, ведомость объёмов",
+    шаги:["Коридоры → Сечение → Добавить компонент полосы","Компоненты: проезжая часть, обочина, откос, кювет","Коридоры → Создать коридор: трасса + профиль + типовое сечение","Привяжите коридор к поверхности рельефа","Сечения: Коридоры → Поперечные сечения (шаг 20м)","Объёмы: Анализ → Ведомость объёмов, График масс Брикнера"],
   },
   {
     id:6, icon:"Network", color:"#0284c7", tag:"Урок · 40 мин", level:"Средний",
@@ -1282,8 +1295,8 @@ const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
       { label: "Объём работ", icon: "FileSpreadsheet", size: "sm" },
       { label: "Запрос", icon: "Search", size: "lg" },
     ]},
-    { label: "Grading", items: [
-      { label: "Grading...", icon: "Layers2", size: "lg" },
+    { label: "Планировка", items: [
+      { label: "Планировка...", icon: "Layers2", size: "lg" },
     ]},
     { label: "Поверхности", items: [
       { label: "Анализ уклонов", icon: "TrendingUp", size: "sm", drop: "Анализ уклонов ▾" },
@@ -2146,7 +2159,7 @@ function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => voi
         </div>
         <div className="flex justify-end gap-2 px-3 py-2 border-t border-gray-300 flex-shrink-0">
           <button onClick={onClose} className="px-6 py-1 bg-[#0078d4] text-white border border-blue-700 text-xs font-semibold hover:bg-blue-700">Закрыть</button>
-          <button onClick={()=>seFlash("Справка Civil 3D 2027 · Редактирование поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+          <button onClick={()=>seFlash("Справка Лапа · Редактирование поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
         </div>
         <AnimatePresence>
           {seToast && (
@@ -2177,12 +2190,12 @@ function DaylightFeatureLineDialog({ onClose, onOK }: { onClose: () => void; onO
         className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[500px]"
         style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
         <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
-          <span className="text-white font-bold text-sm">Daylight Feature Line — Линия выхода на рельеф</span>
+          <span className="text-white font-bold text-sm">Линия выхода на рельеф</span>
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
         </div>
         <div className="p-4 space-y-3">
           <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-800">
-            Новинка Civil 3D 2027. Автоматически создаёт характерные линии откосов на основе проектного коридора и существующего рельефа.
+            Новинка Лапа. Автоматически создаёт характерные линии откосов на основе проектного коридора и существующего рельефа.
           </div>
           {[
             ["Коридор:", corridor, setCorridor, ["Дорога ШД-38","Коридор Ул. Трумана"]],
@@ -2479,7 +2492,7 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
         <div className="flex justify-end gap-2 px-3 pb-3">
           <button onClick={() => onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
           <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
-          <button onClick={()=>showSurfToast("Справка Civil 3D 2027 · Поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+          <button onClick={()=>showSurfToast("Справка Лапа · Поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
         </div>
       </motion.div>
     </div>
@@ -3224,7 +3237,7 @@ function AssemblyDialog({ onClose, onOK }: {
 
         {/* Title */}
         <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
-          <span className="text-white font-bold text-sm">Создать типовое сечение (Assembly)</span>
+          <span className="text-white font-bold text-sm">Создать типовое сечение</span>
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
         </div>
 
@@ -6369,17 +6382,17 @@ function DaylightFLDialog2({ onClose }: { onClose: ()=>void }) {
         <div className="bg-[#1a1228] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Spline" size={15} className="text-[#a78bfa]"/>
-            <span className="text-white font-bold text-[13px]">Daylight Feature Line</span>
-            <span className="text-[9px] px-2 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 rounded-full font-bold">Tech Preview</span>
+            <span className="text-white font-bold text-[13px]">Линия выхода на рельеф</span>
+            <span className="text-[9px] px-2 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 rounded-full font-bold">Предпросмотр</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
         <div className="flex-1 overflow-auto p-4 text-[11px] space-y-3 min-h-0">
           <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-2 text-[10px] text-orange-300">
-            Tech Preview · Автоматизация daylight-линий вместо хрупких Grading objects
+            Предпросмотр · Автоматизация линий выхода на рельеф вместо хрупких объектов планировки
           </div>
           {([
-            ["Критерий планировки (Grading Criteria)",criteria,setCriteria,["Откос 1:1.5 насыпь","Откос 1:1 выемка","Откос 1:2 пологий","Кювет V-образный","Берма 2м","Пользовательский"]],
+            ["Критерий планировки",criteria,setCriteria,["Откос 1:1.5 насыпь","Откос 1:1 выемка","Откос 1:2 пологий","Кювет V-образный","Берма 2м","Пользовательский"]],
             ["От пикета",from,setFrom,null],
             ["До пикета",to,setTo,null],
             ["Сторона",side,setSide,["Слева","Справа","Обе стороны"]],
@@ -6403,7 +6416,7 @@ function DaylightFLDialog2({ onClose }: { onClose: ()=>void }) {
               "Устойчивость к перемещению — нет «ломки» при правке трассы",
               "Возможность задания диапазонов станций и сторон",
               "Назначение собственных слоёв и стилей",
-              "Замена устаревшего Grading group объекта",
+              "Замена устаревшего объекта группы планировки",
             ].map(t=>(
               <div key={t} className="flex items-start gap-2 py-0.5">
                 <Icon name="Check" size={10} className="text-green-400 mt-0.5"/>
@@ -7119,7 +7132,7 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
         <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0 overflow-x-auto">
-          {([["files","Файлы"],["refs","Connected References"],["catalogs","Каталоги труб"],["issues","Проблемы"],["insights","Activity Insights"],["versions","Версии"],["publish","Push to Forma"]] as const).map(([id,lbl])=>(
+          {([["files","Файлы"],["refs","Связанные ссылки"],["catalogs","Каталоги труб"],["issues","Проблемы"],["insights","История правок"],["versions","Версии"],["publish","Публикация в Forma"]] as const).map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
               className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors whitespace-nowrap relative ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#60a5fa]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>
               {lbl}
@@ -7158,7 +7171,7 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
           {tab==="refs" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-1">
-                <div className="text-gray-400 text-[10px]">Connected References — автообнаружение переименованных/перемещённых Xref</div>
+                <div className="text-gray-400 text-[10px]">Связанные ссылки — автообнаружение переименованных/перемещённых внешних ссылок (Xref)</div>
                 {unresolvedRefs>0 && <button onClick={fixAllRefs} className="px-2 py-0.5 bg-yellow-600/20 text-yellow-300 border border-yellow-600/40 rounded text-[9px] hover:bg-yellow-600/30">Исправить все ({unresolvedRefs})</button>}
               </div>
               {refs.map((r,i)=>(
@@ -7222,7 +7235,7 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
           )}
           {tab==="insights" && (
             <div className="space-y-2">
-              <div className="text-gray-400 text-[10px] mb-2">Activity Insights — единый источник истории правок (замена DWG History)</div>
+              <div className="text-gray-400 text-[10px] mb-2">История правок — единый источник истории изменений (замена журнала DWG History)</div>
               {insights.map((a,i)=>(
                 <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border border-gray-700" style={{background:"#111827"}}>
                   <div className="w-8 h-8 rounded-full bg-[#0078d4]/20 flex items-center justify-center flex-shrink-0 text-[#60a5fa] text-[10px] font-bold">{a.author.slice(0,2)}</div>
@@ -7257,7 +7270,7 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
           )}
           {tab==="publish" && (
             <div className="space-y-3">
-              <div className="text-gray-400 text-[10px]">Push to Forma — мгновенная публикация 2D/3D-листов в формате PDF в облако проекта</div>
+              <div className="text-gray-400 text-[10px]">Публикация в Forma — мгновенная выгрузка 2D/3D-листов в формате PDF в облако проекта</div>
               <div className="space-y-1.5">
                 {Object.keys(pubSheets).map(s=>(
                   <label key={s} className="flex items-center gap-2 p-2 rounded border border-gray-700 cursor-pointer hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
@@ -7303,18 +7316,18 @@ function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: 
   const [selTemplate, setSelTemplate] = useState("")
 
   const stdTemplates = [
-    {name:"ЛАПА Civil 3D (Метрика)",  desc:"Метры · ГОСТ · МСК-70",        icon:"FileCode",  color:"#0078d4",
+    {name:"Лапа (Метрика)",  desc:"Метры · ГОСТ · МСК-70",        icon:"FileCode",  color:"#0078d4",
      layers:["Дороги","Поверхности","Сети","Геодезия","Границы"],
      styles:["Точки ГОСТ-21.1101","TIN насыпь/выемка","Трасса с виражами","Профиль — сетка","Коридор — коды"]},
-    {name:"ЛАПА Civil 3D (Survey)",   desc:"Геодезия · съёмка · кодирование",icon:"MapPin",  color:"#4ade80",
+    {name:"Лапа (Геодезия)",   desc:"Геодезия · съёмка · кодирование",icon:"MapPin",  color:"#4ade80",
      layers:["Съёмка","Теодолитные ходы","Пикеты","Границы"],
      styles:["Точки съёмки ГОСТ","Линии хода","Горизонтали 0.5м","Высотные отметки"]},
-    {name:"ЛАПА Civil 3D (Pipe Networks)", desc:"Инженерные сети · трубопроводы",icon:"Network",color:"#60a5fa",
+    {name:"Лапа (Инж. сети)", desc:"Инженерные сети · трубопроводы",icon:"Network",color:"#60a5fa",
      layers:["Водопровод","Канализация","Ливнёвка","Кабели","Газ"],
      styles:["Труба по диаметру","Колодец Ø1000","Профиль сети","Маркировка глубин"]},
-    {name:"ЛАПА Civil 3D (Corridors)",desc:"Коридоры · поперечники · объёмы",icon:"Navigation",color:"#f97316",
+    {name:"Лапа (Коридоры)",desc:"Коридоры · поперечники · объёмы",icon:"Navigation",color:"#f97316",
      layers:["Коридор","Поперечники","Объёмы","Дорожная одежда"],
-     styles:["Коридор насыпь/выемка","Поперечное сечение","Ведомость объёмов","Assembly-коды"]},
+     styles:["Коридор насыпь/выемка","Поперечное сечение","Ведомость объёмов","Коды сечений"]},
   ]
   const catalogs = {
     pipes: [
@@ -7542,7 +7555,7 @@ function RealityCaptureDialog({ onClose }: { onClose: ()=>void }) {
         <div className="bg-[#0d1a2e] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="ScanLine" size={15} className="text-[#22d3ee]" fallback="Scan"/>
-            <span className="text-white font-bold text-[13px]">Reality Capture — Облака точек и фотограмметрия</span>
+            <span className="text-white font-bold text-[13px]">Облака точек и фотограмметрия</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
@@ -7672,7 +7685,7 @@ function RealityCaptureDialog({ onClose }: { onClose: ()=>void }) {
                   {fmt:"LAZ",icon:"Archive",desc:"Сжатый LAS (lossless)",color:"#60a5fa",fallback:"FileCode"},
                   {fmt:"E57",icon:"Database",desc:"Структурированные данные",color:"#a78bfa",fallback:"Layers"},
                   {fmt:"XYZ/CSV",icon:"Sheet",desc:"Текстовый формат X Y Z",color:"#4ade80"},
-                  {fmt:"TIN (LandXML)",icon:"Code2",desc:"Поверхность для Civil 3D",color:"#f97316"},
+                  {fmt:"TIN (LandXML)",icon:"Code2",desc:"Поверхность для Лапа",color:"#f97316"},
                   {fmt:"OBJ Mesh",icon:"Box",desc:"3D-меш для визуализации",color:"#facc15"},
                 ].map(f=>(
                   <button key={f.fmt} onClick={onClose}
@@ -7770,7 +7783,7 @@ function GISIntegrationDialog({ onClose }: { onClose: ()=>void }) {
         <div className="bg-[#0a1a1a] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Globe" size={15} className="text-[#4ade80]"/>
-            <span className="text-white font-bold text-[13px]">GIS Integration — Карты, WMS и системы координат</span>
+            <span className="text-white font-bold text-[13px]">ГИС-интеграция — Карты, WMS и системы координат</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
@@ -8580,7 +8593,7 @@ function GradingDialog({ onClose }: { onClose: ()=>void }) {
         <div className="bg-[#1a1828] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Mountain" size={15} className="text-[#f59e0b]"/>
-            <span className="text-white font-bold text-[13px]">Grading — Площадки и рабочие отметки</span>
+            <span className="text-white font-bold text-[13px]">Планировка — Площадки и рабочие отметки</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
@@ -8691,7 +8704,7 @@ function GradingDialog({ onClose }: { onClose: ()=>void }) {
           {tab==="criteria" && (
             <div className="space-y-2">
               <div className="flex justify-between mb-2">
-                <span className="text-gray-400">Критерии планировки (Grading Criteria)</span>
+                <span className="text-gray-400">Критерии планировки</span>
                 <button className="px-2 py-0.5 bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40 rounded text-[9px]">+ Добавить</button>
               </div>
               {criteria.map((c,i)=>(
@@ -9456,7 +9469,7 @@ function BridgeModelerDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{n
         <div className="bg-[#0a1428] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Waves" size={15} className="text-[#60a5fa]" fallback="Minus"/>
-            <span className="text-white font-bold text-[13px]">Bridge Modeler — Проектирование моста</span>
+            <span className="text-white font-bold text-[13px]">Проектирование моста</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
@@ -9625,7 +9638,7 @@ function BridgeModelerDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{n
                   {[
                     {fmt:"DXF",icon:"PencilRuler",desc:"Чертёж моста AutoCAD",color:"#0078d4"},
                     {fmt:"IFC",icon:"Building2",desc:"BIM-модель (IFC 2x3)",color:"#7c3aed"},
-                    {fmt:"LandXML",icon:"Code2",desc:"Геометрия для Civil 3D",color:"#059669"},
+                    {fmt:"LandXML",icon:"Code2",desc:"Геометрия для Лапа",color:"#059669"},
                     {fmt:"PDF",icon:"FileText",desc:"Схема для согласования",color:"#ef4444"},
                     {fmt:"Ведомость",icon:"ClipboardList",desc:"Объёмы работ + спецификация",color:"#d97706"},
                     {fmt:"Пояснит. записка",icon:"FileText",desc:"Техническое описание",color:"#6366f1"},
@@ -10169,7 +10182,7 @@ function RoundaboutDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{name
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     {fmt:"DXF",icon:"PencilRuler",desc:"Чертёж кольца для AutoCAD",color:"#0078d4"},
-                    {fmt:"LandXML",icon:"Code2",desc:"Геометрия для Civil 3D",color:"#7c3aed"},
+                    {fmt:"LandXML",icon:"Code2",desc:"Геометрия для Лапа",color:"#7c3aed"},
                     {fmt:"PDF",icon:"FileText",desc:"Схема для согласования",color:"#ef4444"},
                     {fmt:"Ведомость",icon:"ClipboardList",desc:"Объёмы работ + спецификация",color:"#16a34a"},
                   ].map(f=>(
@@ -10497,7 +10510,7 @@ function SampleLinesDialog({ onClose }: { onClose: ()=>void }) {
         style={{width:680,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
           <span className="text-white font-bold text-[12px] flex items-center gap-2">
-            <Icon name="AlignCenter" size={13} className="text-[#f97316]"/>Sample Lines + Section Views
+            <Icon name="AlignCenter" size={13} className="text-[#f97316]"/>Линии сечения и поперечники
           </span>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
@@ -10706,12 +10719,12 @@ function MassHaulDialog({ onClose }: { onClose: ()=>void }) {
         style={{width:620,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
           <span className="text-white font-bold text-[12px] flex items-center gap-2">
-            <Icon name="TrendingUp" size={13} className="text-yellow-400"/>Mass Haul + Pay Items
+            <Icon name="TrendingUp" size={13} className="text-yellow-400"/>Кривая земляных масс и расценки
           </span>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
         <div className="flex border-b border-gray-700 bg-[#151525] flex-shrink-0">
-          {([["masshaul","Баланс грунта"],["payitems","Pay Items (ведомость)"]] as const).map(([id,lbl])=>(
+          {([["masshaul","Баланс грунта"],["payitems","Расценки (ведомость)"]] as const).map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
               className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#0078d4]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
           ))}
@@ -10801,7 +10814,7 @@ function PlanProductionDialog({ onClose }: { onClose: ()=>void }) {
         style={{width:600,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg flex-shrink-0">
           <span className="text-white font-bold text-[12px] flex items-center gap-2">
-            <Icon name="FileStack" size={13} className="text-[#a78bfa]"/>Plan Production + Label Styles
+            <Icon name="FileStack" size={13} className="text-[#a78bfa]"/>Выпуск чертежей и стили подписей
           </span>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
@@ -10826,7 +10839,7 @@ function PlanProductionDialog({ onClose }: { onClose: ()=>void }) {
                   <span className={`text-[9px] px-2 py-0.5 rounded-full ${s.status==="Готов"?"bg-green-900/30 text-green-400":s.status==="В работе"?"bg-yellow-900/30 text-yellow-400":"bg-gray-800 text-gray-500"}`}>{s.status}</span>
                 </div>
               ))}
-              <button className="w-full mt-2 py-2 text-[11px] text-white bg-[#0078d4] hover:bg-[#0066b3] rounded transition-colors">Создать все листы (Publish)</button>
+              <button className="w-full mt-2 py-2 text-[11px] text-white bg-[#0078d4] hover:bg-[#0066b3] rounded transition-colors">Создать все листы</button>
             </div>
           )}
           {tab==="labels" && (
@@ -11108,7 +11121,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       const match = autoLispSnippet.match(/\(defun c:(\w+)/)
       const fnName = match ? match[1] : "SCRIPT"
       lines.push(`[${t}] Парсинг: ${fnName} — OK`)
-      lines.push(`[${t}] Загрузка Civil 3D API...`)
+      lines.push(`[${t}] Загрузка Лапа API...`)
       lines.push(`[${t}] Выполнение c:${fnName}()...`)
       if (autoLispSnippet.includes("ssget") || autoLispSnippet.includes("entsel")) {
         lines.push(`[${t}] Выбрано объектов: ${canvasObjects.length}`)
@@ -11909,8 +11922,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
     else if (c === "ПРОЕКТ" || c === "PROJECT" || c === "ДП") { setShowProjectManager(true); setStatusMsg("Диспетчер проекта"); setCommandLine(""); return }
     else if (c === "SURFACEEDIT" || c === "РЕДАКТИРОВАТЬ ПОВЕРХНОСТЬ" || c === "РПОВ") { setSurfaceEditName("Существующая поверхность"); setShowSurfaceEdit(true); setStatusMsg("Редактор поверхности"); setCommandLine(""); return }
-    else if (c === "DAYLIGHT" || c === "DAYLIGHT FL" || c === "ХАР.ЛИНИЯ" || c === "ВЫХОД НА РЕЛЬЕФ") { setShowDaylightFL(true); setStatusMsg("Daylight Feature Line"); setCommandLine(""); return }
-    else if (c === "SYNCHRONIZEDATA" || c === "SYNCH" || c === "СИНХР" || c === "DATA SHORTCUTS") { setShowDataShortcuts(true); setStatusMsg("Data Shortcuts — синхронизация"); setCommandLine(""); return }
+    else if (c === "DAYLIGHT" || c === "DAYLIGHT FL" || c === "ХАР.ЛИНИЯ" || c === "ВЫХОД НА РЕЛЬЕФ") { setShowDaylightFL(true); setStatusMsg("Линия выхода на рельеф"); setCommandLine(""); return }
+    else if (c === "SYNCHRONIZEDATA" || c === "SYNCH" || c === "СИНХР" || c === "DATA SHORTCUTS") { setShowDataShortcuts(true); setStatusMsg("Ярлыки данных — синхронизация"); setCommandLine(""); return }
     else if (c === "REFRESH" || c === "F5" || c === "ОБНОВИТЬ") { setSyncStatus("ok"); showToast("Данные обновлены"); setCommandLine(""); return }
     else if (c === "FEATURELINEEDIT" || c === "РЕДХАРЛИН") { setShowFeatureLine(true); setStatusMsg("Редактор характерных линий"); setCommandLine(""); return }
     else if (c === "?" || c === "HELP" || c === "СПРАВКА") {
@@ -12065,7 +12078,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Коридор",     icon:"Navigation",   size:"lg", drop:"Коридор" },
         { label:"Поверхность", icon:"Triangle",     size:"lg", drop:"Поверхность" },
         { label:"Профиль",     icon:"TrendingUp",   size:"lg" },
-        { label:"Assembly",    icon:"Layers",       size:"lg" },
+        { label:"Сечение",    icon:"Layers",       size:"lg" },
       ]},
       { label: "Сети", items: [
         { label:"Труба",       icon:"Network",      size:"lg" },
@@ -12134,8 +12147,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     "Поверхности": [
       { label: "Создать", items: [
         { label:"Поверхность", icon:"Triangle",     size:"lg", drop:"Поверхность" },
-        { label:"Breaklines",  icon:"Minus",        size:"lg" },
-        { label:"Voids",       icon:"Square",       size:"lg", fallback:"Eraser" },
+        { label:"Структурные линии",  icon:"Minus",        size:"lg" },
+        { label:"Исключения",       icon:"Square",       size:"lg", fallback:"Eraser" },
       ]},
       { label: "Анализ", items: [
         { label:"Статистика",  icon:"BarChart3",    size:"lg" },
@@ -12146,7 +12159,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       ]},
       { label: "Интерполяция", items: [
         { label:"IDW",         icon:"Grid3x3",      size:"sm" },
-        { label:"Kriging",     icon:"ScatterChart", size:"sm", fallback:"BarChart2" },
+        { label:"Кригинг",     icon:"ScatterChart", size:"sm", fallback:"BarChart2" },
         { label:"Редактировать",icon:"PencilRuler", size:"sm", fallback:"Edit" },
       ]},
     ],
@@ -12158,8 +12171,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Уширение",    icon:"MoveHorizontal",size:"sm",fallback:"ArrowLeftRight" },
       ]},
       { label: "Пересечения", items: [
-        { label:"Intersection\nWizard", icon:"Crosshair",    size:"lg" },
-        { label:"Roundabout",           icon:"RotateCw",     size:"lg", fallback:"RefreshCw" },
+        { label:"Мастер\nразвязок", icon:"Crosshair",    size:"lg" },
+        { label:"Кольцо",           icon:"RotateCw",     size:"lg", fallback:"RefreshCw" },
         { label:"Пересечение",          icon:"Plus",         size:"sm" },
       ]},
       { label: "Пикетаж", items: [
@@ -12174,19 +12187,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     "Коридоры": [
       { label: "Создать", items: [
         { label:"Коридор",     icon:"Navigation",   size:"lg", drop:"Коридор" },
-        { label:"Assembly",    icon:"Layers",       size:"lg" },
-        { label:"Sample Lines",icon:"AlignCenter",  size:"lg", fallback:"Minus" },
+        { label:"Сечение",    icon:"Layers",       size:"lg" },
+        { label:"Линии сечения",icon:"AlignCenter",  size:"lg", fallback:"Minus" },
         { label:"Регионы",     icon:"Columns",      size:"sm", fallback:"Layers" },
       ]},
       { label: "Поперечники", items: [
-        { label:"Section View",icon:"ScanLine",     size:"lg", fallback:"Minus" },
+        { label:"Вид сечения",icon:"ScanLine",     size:"lg", fallback:"Minus" },
         { label:"Поперечники", icon:"AlignCenter",  size:"sm", fallback:"AlignJustify" },
         { label:"Листы попер.", icon:"FileStack",   size:"sm", fallback:"Files" },
       ]},
       { label: "Объёмы", items: [
         { label:"Объёмы",      icon:"BarChart3",    size:"lg" },
-        { label:"Mass Haul",   icon:"TrendingUp",   size:"lg" },
-        { label:"Pay Items",   icon:"ClipboardList",size:"sm", fallback:"List" },
+        { label:"Баланс масс",   icon:"TrendingUp",   size:"lg" },
+        { label:"Расценки",   icon:"ClipboardList",size:"sm", fallback:"List" },
         { label:"Земляные работы",icon:"Layers",    size:"sm" },
       ]},
     ],
@@ -12210,13 +12223,13 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     ],
     "Сооружения": [
       { label: "Ж/Д путь", items: [
-        { label:"Rail Track",  icon:"Train",         size:"lg", fallback:"Route" },
+        { label:"Ж/д путь",  icon:"Train",         size:"lg", fallback:"Route" },
         { label:"Профиль пути",icon:"TrendingUp",    size:"sm" },
         { label:"Кривые пути", icon:"RefreshCw",     size:"sm", fallback:"RotateCw" },
         { label:"Сооружения",  icon:"Layers",        size:"sm" },
       ]},
       { label: "Мосты", items: [
-        { label:"Bridge\nModeler", icon:"Waves",     size:"lg", fallback:"Minus" },
+        { label:"Модель\nмоста", icon:"Waves",     size:"lg", fallback:"Minus" },
         { label:"Путепровод",  icon:"ArrowUp",       size:"sm" },
         { label:"Труба",       icon:"Circle",        size:"sm", fallback:"Minus" },
         { label:"Тоннель",     icon:"Circle",        size:"sm", fallback:"ArrowRight" },
@@ -12272,7 +12285,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"ИГЭ",         icon:"Database",     size:"sm", fallback:"Table" },
       ]},
       { label: "Площадки", items: [
-        { label:"Grading",     icon:"Mountain",     size:"lg" },
+        { label:"Планировка",     icon:"Mountain",     size:"lg" },
         { label:"Откосы",      icon:"TrendingDown", size:"sm" },
         { label:"Рабочие отм.",icon:"BarChart2",    size:"sm", fallback:"BarChart3" },
       ]},
@@ -12293,8 +12306,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Паводки",       icon:"Waves",        size:"sm", fallback:"Droplets" },
         { label:"Эрозия",        icon:"TrendingDown", size:"sm" },
       ]},
-      { label: "Daylight", items: [
-        { label:"Daylight FL",   icon:"Spline",       size:"lg" },
+      { label: "Выход на рельеф", items: [
+        { label:"Линия выхода",   icon:"Spline",       size:"lg" },
         { label:"Критерии",      icon:"Settings",     size:"sm", fallback:"Settings2" },
       ]},
     ],
@@ -12437,7 +12450,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
         <div className="flex items-center gap-1.5">
           {/* ЛАПА логотип — лапа SVG */}
-          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0" title="ЛАПА Civil 3D 2027">
+          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0" title="Лапа">
             <svg viewBox="0 0 32 32" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/>
               <circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/>
@@ -12498,7 +12511,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <Icon name="Bot" size={11} fallback="HelpCircle"/>
             <span>AI</span>
           </button>
-          <button onClick={()=>setShowAbout(true)} title="О программе ЛАПА Civil 3D 2027"
+          <button onClick={()=>setShowAbout(true)} title="О программе Лапа"
             className="ml-0.5 w-6 h-6 flex items-center justify-center text-[11px] font-bold text-gray-500 hover:text-white hover:bg-[#252535] rounded transition-colors border border-transparent hover:border-gray-600">
             ?
           </button>
@@ -12699,10 +12712,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         {/* Вертикальные боковые вкладки (как на скрине справа от дерева) */}
         <div className="bg-[#2d2d3d] border-r border-gray-700 flex flex-col flex-shrink-0 overflow-hidden" style={{width:14}}>
           {([
-            {id:"prospector",label:"Prospector"},
-            {id:"settings",label:"Settings"},
-            {id:"survey",label:"Survey"},
-            {id:"toolbox",label:"Toolbox"},
+            {id:"prospector",label:"Обозреватель"},
+            {id:"settings",label:"Настройки"},
+            {id:"survey",label:"Геодезия"},
+            {id:"toolbox",label:"Инструменты"},
           ] as const).map((t,i) => (
             <button key={t.id} onClick={() => setToolspaceTab(t.id)}
               className={`text-[8px] font-semibold px-0 py-3 border-b border-gray-700 transition-colors select-none
@@ -12718,12 +12731,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         <div className="bg-[#1e1e2e] border-r border-gray-600 flex flex-col overflow-hidden flex-shrink-0" style={{ width: 175 }}>
           {/* TOOL SPACE header */}
           <div className="bg-[#252535] px-2 py-1 flex items-center justify-between border-b border-gray-600 flex-shrink-0">
-            <span className="text-[10px] text-gray-300 font-bold tracking-widest uppercase">TOOLSPACE</span>
+            <span className="text-[10px] text-gray-300 font-bold tracking-widest uppercase">ОБОЗРЕВАТЕЛЬ</span>
             <div className="flex gap-0.5">
               {[
-                { icon: "ClipboardList", title: "Обновить", action: () => setStatusMsg("Toolspace обновлён") },
+                { icon: "ClipboardList", title: "Обновить", action: () => setStatusMsg("Обозреватель обновлён") },
                 { icon: "Search",        title: "Поиск",    action: () => setStatusMsg("Поиск объектов...") },
-                { icon: "HelpCircle",    title: "Справка",  action: () => setStatusMsg("Справка Civil 3D") },
+                { icon: "HelpCircle",    title: "Справка",  action: () => setStatusMsg("Справка Лапа") },
               ].map(({ icon, title, action }) => (
                 <button key={icon} title={title} onClick={action}
                   className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#0078d4] rounded transition-colors">
@@ -13668,7 +13681,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   showToast("✓ Характерные линии выхода на рельеф созданы")
                   setTreeData(prev => {
                     const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n =>
-                      n.id === "featurelines" ? {...n, children:[...(n.children||[]),{id:`dfl_${Date.now()}`,label:"Daylight FL (лев/прав)",icon:"Spline",color:"#a78bfa"}]} : {...n, children: n.children ? add(n.children) : undefined}
+                      n.id === "featurelines" ? {...n, children:[...(n.children||[]),{id:`dfl_${Date.now()}`,label:"Линия выхода (лев/прав)",icon:"Spline",color:"#a78bfa"}]} : {...n, children: n.children ? add(n.children) : undefined}
                     )
                     return add(prev)
                   })
@@ -14422,9 +14435,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             { icon: "Route",         title: "Создать трассу",                action: () => setShowAlignment(true) },
             { icon: "Navigation",    title: "Создать коридор",               action: () => setShowCorridor(true) },
             { icon: "Network",       title: "Создать трубопровод",           action: () => setShowPipeNet(true) },
-            { icon: "Spline",        title: "Daylight Feature Line (2027)",  action: () => setShowDaylightFL(true) },
+            { icon: "Spline",        title: "Линия выхода на рельеф",  action: () => setShowDaylightFL(true) },
             null,
-            { icon: "Share2",        title: "Data Shortcuts — Синхронизация  SYNCHRONIZEDATA", action: () => setShowDataShortcuts(true), fallback: "Link" },
+            { icon: "Share2",        title: "Ярлыки данных — Синхронизация  SYNCHRONIZEDATA", action: () => setShowDataShortcuts(true), fallback: "Link" },
             { icon: "FileBarChart2", title: "Диспетчер отчётов",             action: () => setShowProjectManager(true) },
             { icon: "GitBranch",     title: "Отчёт о невязке",               action: () => setShowSurveyTraverse(true) },
             { icon: "Bot",           title: "ЛАПА-Ассистент",                action: () => setShowAssistant(p => !p) },
@@ -14675,7 +14688,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 <div className="flex flex-col flex-1 min-h-0">
                   {/* Tech Preview badge */}
                   <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center gap-2 flex-shrink-0">
-                    <span className="text-[9px] px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded font-bold border border-orange-500/40">TECH PREVIEW</span>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded font-bold border border-orange-500/40">ПРЕДПРОСМОТР</span>
                     <span className="text-[9.5px] text-orange-200">ЛАПА AI-Ассистент — проектирование инфраструктуры</span>
                   </div>
 
@@ -14718,7 +14731,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     <div className="flex gap-1 flex-wrap mb-1.5">
                       {[
                         "Создать трассу","Коридор по параметрам","Объёмы земляных работ",
-                        "Daylight Feature Line","HRA анализ","Dynamo 4.0","Дренаж InfoDrainage"
+                        "Линия выхода на рельеф","HRA анализ","Dynamo 4.0","Дренаж InfoDrainage"
                       ].map(q => (
                         <button key={q} onClick={() => sendAssistantMessage(q)}
                           className="text-[9px] px-1.5 py-0.5 bg-orange-500/10 text-orange-200 hover:bg-orange-500/25 rounded border border-orange-500/20 transition-colors">
@@ -14733,7 +14746,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     <div className="flex gap-1">
                       <input value={assistantInput} onChange={e=>setAssistantInput(e.target.value)}
                         onKeyDown={e=>e.key==="Enter"&&sendAssistantMessage(assistantInput)}
-                        placeholder="Спросите о Civil 3D 2027, модели, объектах…"
+                        placeholder="Спросите о Лапа, модели, объектах…"
                         className="flex-1 bg-[#1a1a2e] border border-gray-700 text-white text-[11px] px-2 py-1.5 rounded outline-none focus:border-orange-500/50 placeholder-gray-600"/>
                       <button onClick={()=>sendAssistantMessage(assistantInput)}
                         className="px-2.5 py-1.5 rounded text-white flex-shrink-0 transition-colors"
@@ -14741,7 +14754,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                         <Icon name="Send" size={11} fallback="ArrowRight"/>
                       </button>
                     </div>
-                    <div className="text-[9px] text-gray-600 mt-1">Autodesk Assistant · Tech Preview · Powered by ЛАПА AI</div>
+                    <div className="text-[9px] text-gray-600 mt-1">ЛАПА Ассистент · Предпросмотр · на технологии ЛАПА AI</div>
                   </div>
                 </div>
               )}
@@ -14848,7 +14861,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" strokeWidth="1.5"/><circle cx="6" cy="6" r="1.5"/></svg>
           </button>
           {/* Рабочее пространство */}
-          <button onClick={()=>showToast("Рабочие пространства: ЛАПА Civil 3D")}
+          <button onClick={()=>showToast("Рабочие пространства: Лапа")}
             title="Переключение рабочего пространства"
             className="text-[9px] px-2 py-0.5 border-r border-gray-800 text-gray-500 hover:text-white transition-colors whitespace-nowrap flex items-center gap-0.5">
             <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="7" y="1" width="4" height="4" rx="0.5"/><rect x="1" y="7" width="4" height="4" rx="0.5"/><rect x="7" y="7" width="4" height="4" rx="0.5"/></svg>
@@ -14879,7 +14892,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M3.2 3.2l1.4 1.4M9.4 9.4l1.4 1.4M9.4 4.6L8 6M4.6 9.4L3.2 10.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
           </button>
           {/* Лого ЛАПА */}
-          <div className="flex items-center gap-1 px-1.5 py-0.5 border-l border-gray-800" title="ЛАПА Civil 3D 2027">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 border-l border-gray-800" title="Лапа">
             <svg viewBox="0 0 32 32" width="11" height="11" fill="none"><circle cx="12" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="20" cy="7" r="3.2" fill="#4fc3f7"/><circle cx="7" cy="13" r="2.6" fill="#4fc3f7"/><circle cx="25" cy="13" r="2.6" fill="#4fc3f7"/><path d="M16 28C10 28 6 22.5 7 17.5C7.8 13.5 11 12 16 12C21 12 24.2 13.5 25 17.5C26 22.5 22 28 16 28Z" fill="#4fc3f7"/></svg>
           </div>
         </div>
@@ -14907,7 +14920,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   </svg>
                   <div>
                     <div className="text-white text-[15px] font-bold">ЛАПА — Инфраструктурный редактор</div>
-                    <div className="text-[#4fc3f7] text-[10px]">Powered by ЛАПА Platform · poehali.dev</div>
+                    <div className="text-[#4fc3f7] text-[10px]">На платформе Лапа · poehali.dev</div>
                   </div>
                 </div>
                 <button onClick={()=>setShowAbout(false)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
@@ -14918,8 +14931,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 <div className="flex flex-wrap gap-3">
                   {[
                     ["Версия", "ЛАПА Редактор v2.0"],
-                    ["Сборка", `Build ${new Date().toISOString().slice(0,10)}`],
-                    ["Платформа", "ЛАПА Platform · poehali.dev"],
+                    ["Сборка", `Сборка ${new Date().toISOString().slice(0,10)}`],
+                    ["Платформа", "Лапа · poehali.dev"],
                     [".NET", ".NET 10 / React 18"],
                     ["Dynamo Core", "4.0.2 (PythonNet3)"],
                     ["Лицензия", "Активна · Бессрочная"],
@@ -14957,11 +14970,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 </div>
                 {/* Действия */}
                 <div className="flex items-center gap-3 pt-1 border-t border-gray-800">
-                  <button onClick={()=>{ setShowAbout(false); setShowFeedback("документация") }}
+                  <button onClick={()=>{ setShowAbout(false); showToast("Справка Лапа открыта") }}
                     className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer">
                     <Icon name="HelpCircle" size={11} fallback="Link"/> Справка
                   </button>
-                  <button onClick={()=>{ setShowAbout(false); setShowFeedback("ошибка") }}
+                  <button onClick={()=>{ setShowAbout(false); showToast("Запрос в техподдержку отправлен") }}
                     className="text-[11px] text-[#4fc3f7] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer">
                     <Icon name="Users" size={11} fallback="Link"/> Техподдержка
                   </button>
