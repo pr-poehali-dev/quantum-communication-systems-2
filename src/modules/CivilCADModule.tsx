@@ -624,6 +624,8 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
 }) {
   const [tab, setTab] = useState<"recent"|"autodesk"|"learning">("recent")
   const [showFeedback, setShowFeedback] = useState<"отзыв"|"ошибка"|"документация"|null>(null)
+  const [scrToast, setScrToast] = useState<string|null>(null)
+  const scrFlash = (m:string)=>{ setScrToast(m); setTimeout(()=>setScrToast(null), 2000) }
   const [search, setSearch] = useState("")
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [newTabName, setNewTabName] = useState("")
@@ -643,7 +645,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
         <div className="flex items-center gap-3 px-4 py-2 border-b border-blue-800/40 flex-shrink-0" style={{background:"#1a2a3a"}}>
           <Icon name="Info" size={14} className="text-[#0078d4] flex-shrink-0"/>
           <span className="text-[11px] text-gray-300 flex-1">Настройте параметры графики компьютера для повышения производительности.</span>
-          <button className="text-[11px] text-white px-3 py-0.5 rounded transition-colors flex-shrink-0" style={{background:"#0078d4"}}>Настроить</button>
+          <button onClick={()=>scrFlash("Параметры графики оптимизированы")} className="text-[11px] text-white px-3 py-0.5 rounded transition-colors flex-shrink-0 hover:opacity-90" style={{background:"#0078d4"}}>Настроить</button>
           <button onClick={()=>setShowGraphicsBanner(false)} className="text-gray-400 hover:text-white ml-1 text-sm flex-shrink-0">✕</button>
         </div>
       )}
@@ -876,6 +878,14 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
       {showFeedback && (
         <FeedbackModalInner тип={showFeedback} onClose={()=>setShowFeedback(null)}/>
       )}
+      <AnimatePresence>
+        {scrToast && (
+          <motion.div initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#0d1a2e] border border-[#0078d4]/50 text-[#60a5fa] text-[12px] px-4 py-2 rounded-lg shadow-2xl z-[100]">
+            {scrToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -1886,6 +1896,8 @@ function drawCanvas(
 
 function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => void }) {
   const [tab, setTab] = useState<"triangles"|"boundaries"|"edit_pts"|"smoothing"|"update">("triangles")
+  const [seToast, setSeToast] = useState<string|null>(null)
+  const seFlash = (m:string)=>{ setSeToast(m); setTimeout(()=>setSeToast(null), 2000) }
   const [triangles, setTriangles] = useState([
     { id: "T-001", v1: "П.1001", v2: "П.1002", v3: "П.1003", area: "48.2", deleted: false },
     { id: "T-002", v1: "П.1002", v2: "П.1004", v3: "П.1003", area: "52.7", deleted: false },
@@ -1910,7 +1922,7 @@ function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => voi
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)" }}>
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col"
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col relative"
         style={{ width: 640, maxHeight: "92vh", fontFamily: "Arial, sans-serif", fontSize: 12 }}>
         <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
           <span className="text-white font-bold text-sm">Редактировать поверхность — {name}</span>
@@ -1970,8 +1982,8 @@ function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => voi
                 </table>
               </div>
               <div className="flex gap-2">
-                <button className="px-3 py-1 bg-[#0078d4] text-white text-xs hover:bg-blue-700 border border-blue-700">Добавить ребро</button>
-                <button className="px-3 py-1 bg-[#e0e0e0] text-gray-700 text-xs hover:bg-gray-300 border border-gray-400">Сбросить изменения</button>
+                <button onClick={()=>seFlash("✓ Ребро TIN добавлено")} className="px-3 py-1 bg-[#0078d4] text-white text-xs hover:bg-blue-700 border border-blue-700">Добавить ребро</button>
+                <button onClick={()=>seFlash("✓ Изменения TIN сброшены")} className="px-3 py-1 bg-[#e0e0e0] text-gray-700 text-xs hover:bg-gray-300 border border-gray-400">Сбросить изменения</button>
               </div>
             </div>
           )}
@@ -1983,7 +1995,7 @@ function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => voi
               <div className="border border-gray-400 bg-white">
                 <div className="bg-[#d0d0d0] px-2 py-1 font-bold text-xs border-b border-gray-400 flex items-center gap-2">
                   <span className="text-blue-600">▼</span> Границы
-                  <button className="ml-auto px-2 py-0.5 bg-[#0078d4] text-white text-[10px] hover:bg-blue-700">+ Добавить</button>
+                  <button onClick={()=>seFlash("✓ Граница добавлена")} className="ml-auto px-2 py-0.5 bg-[#0078d4] text-white text-[10px] hover:bg-blue-700">+ Добавить</button>
                 </div>
                 <table className="w-full text-xs">
                   <thead className="bg-[#e8e8e8] border-b border-gray-300">
@@ -2091,7 +2103,7 @@ function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => voi
                   <option>Выбранной области</option>
                 </select>
               </div>
-              <button className="px-4 py-1 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 border border-blue-700">Применить сглаживание</button>
+              <button onClick={()=>seFlash("✓ Сглаживание применено")} className="px-4 py-1 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 border border-blue-700">Применить сглаживание</button>
             </div>
           )}
 
@@ -2134,8 +2146,16 @@ function SurfaceEditDialog({ name, onClose }: { name: string; onClose: () => voi
         </div>
         <div className="flex justify-end gap-2 px-3 py-2 border-t border-gray-300 flex-shrink-0">
           <button onClick={onClose} className="px-6 py-1 bg-[#0078d4] text-white border border-blue-700 text-xs font-semibold hover:bg-blue-700">Закрыть</button>
-          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+          <button onClick={()=>seFlash("Справка Civil 3D 2027 · Редактирование поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
         </div>
+        <AnimatePresence>
+          {seToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-[#0078d4] text-white text-[11px] px-3 py-1.5 rounded shadow-lg z-10 whitespace-nowrap">
+              {seToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   )
@@ -2402,17 +2422,17 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
               <div className="border border-gray-300 bg-white rounded">
                 <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Редактирование треугольников</div>
                 <div className="p-2 flex gap-2">
-                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить ребро</button>
-                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить ребро</button>
-                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Поменять ребро</button>
+                  <button onClick={()=>showSurfToast("✓ Ребро добавлено")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить ребро</button>
+                  <button onClick={()=>showSurfToast("✓ Ребро удалено")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить ребро</button>
+                  <button onClick={()=>showSurfToast("✓ Ребро перестроено")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Поменять ребро</button>
                 </div>
               </div>
               <div className="border border-gray-300 bg-white rounded">
                 <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Структурные линии</div>
                 <div className="p-2 flex gap-2">
-                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
-                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить</button>
-                  <button className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Редактировать</button>
+                  <button onClick={()=>showSurfToast("✓ Структурная линия добавлена")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
+                  <button onClick={()=>showSurfToast("✓ Структурная линия удалена")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить</button>
+                  <button onClick={()=>showSurfToast("✓ Структурная линия изменена")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Редактировать</button>
                 </div>
               </div>
               <div className="border border-gray-300 bg-white rounded">
@@ -2421,7 +2441,7 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
                   {["Внешняя граница","Обрезающая граница","Восстанавливающая граница"].map(label => (
                     <div key={label} className="flex items-center justify-between">
                       <span className="text-xs text-gray-600">{label}</span>
-                      <button className="px-3 py-0.5 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
+                      <button onClick={()=>showSurfToast(`✓ ${label} добавлена`)} className="px-3 py-0.5 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
                     </div>
                   ))}
                 </div>
@@ -2459,7 +2479,7 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
         <div className="flex justify-end gap-2 px-3 pb-3">
           <button onClick={() => onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
           <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
-          <button className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+          <button onClick={()=>showSurfToast("Справка Civil 3D 2027 · Поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
         </div>
       </motion.div>
     </div>
@@ -3795,20 +3815,30 @@ function PipeNetDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{name:
 function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () => void }) {
   const [pipeTab, setPipeTab] = useState<"manholes"|"pipes"|"collisions"|"profile">("manholes")
   const [collisionChecked, setCollisionChecked] = useState(false)
-  const manholes = [
+  const [pnToast, setPnToast] = useState<string|null>(null)
+  const pnFlash = (m:string)=>{ setPnToast(m); setTimeout(()=>setPnToast(null), 2000) }
+  const [manholes, setManholes] = useState([
     { name: "КК-1", type: "Смотровой", diam: "1000", elev: "118.40" },
     { name: "КК-2", type: "Смотровой", diam: "1000", elev: "117.85" },
     { name: "КК-3", type: "Перепадный", diam: "1250", elev: "117.20" },
     { name: "КК-4", type: "Смотровой", diam: "1000", elev: "116.60" },
-  ]
-  const pipes = [
+  ])
+  const [pipes, setPipes] = useState([
     { name: "Т-1", from: "КК-1", to: "КК-2", diam: "300", mat: "Железобетон", slope: "2.85" },
     { name: "Т-2", from: "КК-2", to: "КК-3", diam: "300", mat: "Железобетон", slope: "3.10" },
     { name: "Т-3", from: "КК-3", to: "КК-4", diam: "400", mat: "Полиэтилен",  slope: "2.40" },
-  ]
+  ])
+  const [selMh, setSelMh] = useState<number|null>(null)
+  const [selPipe, setSelPipe] = useState<number|null>(null)
+  const DIAMS=["200","300","400","500","600","800","1000"]
+  const MATS=["Железобетон","Полиэтилен","ПВХ","Чугун","Керамика"]
+  const addManhole = () => { const n=manholes.length+1; setManholes(p=>[...p,{name:`КК-${n}`,type:"Смотровой",diam:"1000",elev:(116-n*0.4).toFixed(2)}]); pnFlash(`✓ Добавлен колодец КК-${n}`) }
+  const delManhole = () => { if(selMh===null){pnFlash("Выберите колодец");return} const nm=manholes[selMh].name; setManholes(p=>p.filter((_,i)=>i!==selMh)); setSelMh(null); pnFlash(`✓ Удалён ${nm}`) }
+  const changeDiam = () => { if(selPipe===null){pnFlash("Выберите трубу");return} setPipes(p=>p.map((pp,i)=>i!==selPipe?pp:{...pp,diam:DIAMS[(DIAMS.indexOf(pp.diam)+1)%DIAMS.length]})); pnFlash("✓ Диаметр изменён") }
+  const changeMat = () => { if(selPipe===null){pnFlash("Выберите трубу");return} setPipes(p=>p.map((pp,i)=>i!==selPipe?pp:{...pp,mat:MATS[(MATS.indexOf(pp.mat)+1)%MATS.length]})); pnFlash("✓ Материал изменён") }
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[620px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#2d2d3d] border border-gray-600 rounded shadow-2xl w-[620px] max-h-[90vh] overflow-y-auto relative">
         <div className="bg-[#1a1a2e] px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
           <span className="text-[11px] font-bold text-white">Редактор трубопроводной сети</span>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xs">✕</button>
@@ -3832,7 +3862,7 @@ function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () =>
                   ))}
                 </tr></thead>
                 <tbody>{manholes.map((m,i)=>(
-                  <tr key={i} className={i%2===0?"bg-[#252535]":"bg-[#2d2d3d]"}>
+                  <tr key={i} onClick={()=>setSelMh(i)} className={`cursor-pointer ${selMh===i?"bg-[#0078d4]/30":i%2===0?"bg-[#252535]":"bg-[#2d2d3d]"} hover:bg-[#0078d4]/20`}>
                     <td className="px-2 py-1 border border-gray-700 text-white font-semibold">{m.name}</td>
                     <td className="px-2 py-1 border border-gray-700 text-gray-300">{m.type}</td>
                     <td className="px-2 py-1 border border-gray-700 text-gray-300 font-mono">{m.diam}</td>
@@ -3841,8 +3871,8 @@ function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () =>
                 ))}</tbody>
               </table>
               <div className="flex gap-2">
-                <button className="px-3 py-1 bg-[#0078d4] text-white text-[11px] rounded hover:bg-[#0066b3]">Добавить колодец</button>
-                <button className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Удалить</button>
+                <button onClick={addManhole} className="px-3 py-1 bg-[#0078d4] text-white text-[11px] rounded hover:bg-[#0066b3]">Добавить колодец</button>
+                <button onClick={delManhole} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Удалить</button>
               </div>
               <p className="text-[10px] text-gray-500">Перетащите колодец на план для изменения положения</p>
             </div>
@@ -3856,7 +3886,7 @@ function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () =>
                   ))}
                 </tr></thead>
                 <tbody>{pipes.map((p,i)=>(
-                  <tr key={i} className={i%2===0?"bg-[#252535]":"bg-[#2d2d3d]"}>
+                  <tr key={i} onClick={()=>setSelPipe(i)} className={`cursor-pointer ${selPipe===i?"bg-[#0078d4]/30":i%2===0?"bg-[#252535]":"bg-[#2d2d3d]"} hover:bg-[#0078d4]/20`}>
                     <td className="px-2 py-1 border border-gray-700 text-white font-semibold">{p.name}</td>
                     <td className="px-2 py-1 border border-gray-700 text-gray-300">{p.from}</td>
                     <td className="px-2 py-1 border border-gray-700 text-gray-300">{p.to}</td>
@@ -3867,8 +3897,8 @@ function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () =>
                 ))}</tbody>
               </table>
               <div className="flex gap-2">
-                <button className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Изменить диаметр</button>
-                <button className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Изменить материал</button>
+                <button onClick={changeDiam} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Изменить диаметр</button>
+                <button onClick={changeMat} className="px-3 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Изменить материал</button>
               </div>
             </div>
           )}
@@ -3922,6 +3952,14 @@ function PipeNetworkDialog({ onClose, onOK }: { onClose: () => void; onOK: () =>
           <button onClick={onOK} className="px-4 py-1 bg-[#0078d4] text-white text-[11px] rounded hover:bg-[#0066b3]">ОК</button>
           <button onClick={onClose} className="px-4 py-1 bg-[#3a3a4e] text-gray-300 text-[11px] rounded hover:bg-[#4a4a5e]">Отмена</button>
         </div>
+        <AnimatePresence>
+          {pnToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-[#1a1a2e] border border-[#0078d4]/50 text-[#60a5fa] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10 whitespace-nowrap">
+              {pnToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   )
@@ -5679,6 +5717,8 @@ function LiveCrossSectionPanel({ alignments, onClose, selectedAlignment }: {
 
 // ─── Superelevation Dialog ───────────────────────────────────────────────────
 function SuperelevationDialog({ onClose }: { onClose: () => void }) {
+  const [supToast, setSupToast] = useState<string|null>(null)
+  const supFlash = (m:string)=>{ setSupToast(m); setTimeout(()=>setSupToast(null), 2000) }
   const stations = [
     { sta: "0+700.00", left: -4.00, right: 4.00, status: "OK" },
     { sta: "0+712.19", left: -4.00, right: 2.00, status: "OK" },
@@ -5696,7 +5736,7 @@ function SuperelevationDialog({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col" style={{ fontFamily: "Arial, sans-serif", fontSize: 12, width: 560, maxHeight: "85vh" }}>
+      <div className="bg-[#f0f0f0] border border-gray-400 shadow-2xl flex flex-col relative" style={{ fontFamily: "Arial, sans-serif", fontSize: 12, width: 560, maxHeight: "85vh" }}>
         <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
           <span className="text-white font-bold text-sm">Поперечный уклон трассы</span>
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center text-xs">✕</button>
@@ -5739,9 +5779,17 @@ function SuperelevationDialog({ onClose }: { onClose: () => void }) {
           </table>
         </div>
         <div className="p-2 border-t border-gray-300 flex justify-end gap-2 flex-shrink-0 bg-[#e8e8e8]">
-          <button onClick={onClose} className="px-4 py-1 bg-[#0078d4] text-white text-xs hover:bg-[#0066b3]">Применить</button>
+          <button onClick={()=>{ supFlash("✓ Виражи применены к трассе"); setTimeout(onClose, 800) }} className="px-4 py-1 bg-[#0078d4] text-white text-xs hover:bg-[#0066b3]">Применить</button>
           <button onClick={onClose} className="px-4 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-gray-300">Закрыть</button>
         </div>
+        <AnimatePresence>
+          {supToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-[#0078d4] text-white text-[11px] px-3 py-1.5 rounded shadow-lg z-10 whitespace-nowrap">
+              {supToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   )
@@ -5751,6 +5799,8 @@ function SuperelevationDialog({ onClose }: { onClose: () => void }) {
 
 function ProjectManagerDialog({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"files"|"versions"|"team">("files")
+  const [pmToast, setPmToast] = useState<string|null>(null)
+  const pmFlash = (m:string)=>{ setPmToast(m); setTimeout(()=>setPmToast(null), 2000) }
   const files = [
     { name: "Align-Superelevation-5.dwg", type: "DWG", size: "31 МБ",  date: "20.05.2026 14:32", status: "Активен" },
     { name: "ЦМР_Съёмка_2024.tin",        type: "TIN", size: "8 МБ",   date: "19.05.2026 18:10", status: "Связан" },
@@ -5769,7 +5819,7 @@ function ProjectManagerDialog({ onClose }: { onClose: () => void }) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
       <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col relative"
         style={{width:580,height:440}} onClick={e=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535]">
           <span className="text-white text-[13px] font-bold flex items-center gap-2">
@@ -5847,9 +5897,17 @@ function ProjectManagerDialog({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <div className="px-3 py-2 border-t border-gray-700 flex justify-between items-center">
-          <button className="text-[11px] text-white px-3 py-1 rounded" style={{background:"#0078d4"}}>Добавить файл</button>
+          <button onClick={()=>pmFlash("✓ Файл добавлен в проект")} className="text-[11px] text-white px-3 py-1 rounded hover:opacity-90" style={{background:"#0078d4"}}>Добавить файл</button>
           <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Закрыть</button>
         </div>
+        <AnimatePresence>
+          {pmToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-[#252535] border border-[#0078d4]/50 text-[#60a5fa] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10 whitespace-nowrap">
+              {pmToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
@@ -5858,6 +5916,8 @@ function ProjectManagerDialog({ onClose }: { onClose: () => void }) {
 // ─── SurveyTraverseDialog ─────────────────────────────────────────────────────
 
 function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
+  const [stToast, setStToast] = useState<string|null>(null)
+  const stFlash = (m:string)=>{ setStToast(m); setTimeout(()=>setStToast(null), 2000) }
   const rows = [
     { pt: "ПП-1", ang: "0°00'00\"",   dist: "—",      dx: "—",       dy: "—",       x: "5420.145", y: "3817.234" },
     { pt: "ПП-2", ang: "42°18'36\"",  dist: "125.340", dx: "+92.418", dy: "+84.126", x: "5512.563", y: "3901.360" },
@@ -5870,7 +5930,7 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
       <motion.div initial={{scale:0.93,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:0.93,opacity:0}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col"
+        className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col relative"
         style={{width:640,maxHeight:"80vh"}} onClick={e=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-[#252535]">
           <span className="text-white text-[13px] font-bold flex items-center gap-2">
@@ -5920,11 +5980,19 @@ function SurveyTraverseDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="px-3 py-2 border-t border-gray-700 flex justify-between">
           <div className="flex gap-2">
-            <button className="text-[11px] text-white px-3 py-1 rounded" style={{background:"#0078d4"}}>Экспорт</button>
-            <button className="text-[11px] text-gray-300 px-3 py-1 rounded border border-gray-600">Уравнять</button>
+            <button onClick={()=>stFlash("✓ Ведомость хода экспортирована в CSV")} className="text-[11px] text-white px-3 py-1 rounded hover:opacity-90" style={{background:"#0078d4"}}>Экспорт</button>
+            <button onClick={()=>stFlash("✓ Ход уравнён (метод Болотова)")} className="text-[11px] text-gray-300 px-3 py-1 rounded border border-gray-600 hover:bg-[#2f2f42]">Уравнять</button>
           </div>
           <button onClick={onClose} className="text-[11px] text-gray-400 hover:text-white px-3 py-1">Закрыть</button>
         </div>
+        <AnimatePresence>
+          {stToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-[#252535] border border-green-500/50 text-green-400 text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10 whitespace-nowrap">
+              {stToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
@@ -8104,6 +8172,8 @@ function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
   const [progress, setProgress] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const [synced, setSynced] = useState(false)
+  const [reToast, setReToast] = useState<string|null>(null)
+  const reFlash = (m:string)=>{ setReToast(m); setTimeout(()=>setReToast(null), 2000) }
 
   const doSync = () => {
     setSyncing(true); setProgress(0); setSynced(false)
@@ -8120,7 +8190,7 @@ function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
         style={{width:580,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#0a1428] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -8196,7 +8266,7 @@ function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
             <div className="space-y-2">
               <div className="flex justify-between mb-2">
                 <span className="text-gray-400 text-[10px]">Связанные BIM-файлы</span>
-                <button className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px]">+ Добавить ссылку</button>
+                <button onClick={()=>reFlash("✓ BIM-ссылка добавлена")} className="px-2 py-0.5 bg-[#0078d4]/20 text-[#60a5fa] border border-[#0078d4]/40 rounded text-[9px] hover:bg-[#0078d4]/30">+ Добавить ссылку</button>
               </div>
               {links.map((l,i)=>(
                 <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-gray-700 hover:bg-[#1e2a3e]" style={{background:"#111827"}}>
@@ -8209,7 +8279,7 @@ function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-[9px] px-2 py-0.5 rounded-full ${l.status==="Синхронизирован"?"bg-green-900/30 text-green-400":"bg-yellow-900/30 text-yellow-400"}`}>{l.status}</span>
-                    <button className="text-[#0078d4] text-[9px] hover:underline">Обновить</button>
+                    <button onClick={()=>reFlash(`✓ ${l.name} обновлён`)} className="text-[#0078d4] text-[9px] hover:underline">Обновить</button>
                   </div>
                 </div>
               ))}
@@ -8218,8 +8288,16 @@ function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0a1428] rounded-b-xl">
           <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px] font-bold">Применить</button>
+          <button onClick={()=>{ reFlash("✓ Обмен данными применён"); setTimeout(onClose, 800) }} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px] font-bold">Применить</button>
         </div>
+        <AnimatePresence>
+          {reToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#0a1428] border border-[#0078d4]/50 text-[#60a5fa] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10 whitespace-nowrap">
+              {reToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
@@ -8232,6 +8310,8 @@ function RevitExchangeDialog({ onClose }: { onClose: ()=>void }) {
 // ─── Geotechnical (геология, скважины, стратиграфия) ─────────────────────────
 function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
   const [tab, setTab] = useState<"boreholes"|"strata"|"section"|"params">("boreholes")
+  const [geoToast, setGeoToast] = useState<string|null>(null)
+  const geoFlash = (m:string)=>{ setGeoToast(m); setTimeout(()=>setGeoToast(null), 2000) }
   const boreholes = [
     {id:"СК-1", x:"5420.1", y:"3817.2", z:"121.34", depth:"18.0", date:"2024-03-15",layers:5},
     {id:"СК-2", x:"5465.3", y:"3830.8", z:"119.78", depth:"20.0", date:"2024-03-16",layers:6},
@@ -8325,7 +8405,7 @@ function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
         style={{width:700,maxHeight:"92vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#1a1228] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -8346,7 +8426,7 @@ function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
               <div className="space-y-3">
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-400">База геологических скважин</span>
-                  <button className="px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded text-[9px]">+ Добавить скважину</button>
+                  <button onClick={()=>geoFlash("✓ Скважина добавлена")} className="px-2 py-0.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/40 rounded text-[9px] hover:bg-[#a78bfa]/30">+ Добавить скважину</button>
                 </div>
                 <table className="w-full border-collapse text-[10px]">
                   <thead><tr className="bg-[#0d1117]">{["ID","X","Y","Z нач.","Глубина","Дата","Слоёв",""].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
@@ -8446,8 +8526,16 @@ function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#15102a] rounded-b-xl">
           <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Закрыть</button>
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#a78bfa] text-[#0d0a1a] hover:bg-[#c4b5fd] rounded text-[11px] font-bold">Применить к поверхности</button>
+          <button onClick={()=>{ geoFlash("✓ ИГЭ применены к модели грунта"); setTimeout(onClose, 800) }} className="px-4 py-1.5 bg-[#a78bfa] text-[#0d0a1a] hover:bg-[#c4b5fd] rounded text-[11px] font-bold">Применить к поверхности</button>
         </div>
+        <AnimatePresence>
+          {geoToast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#15102a] border border-[#a78bfa]/50 text-[#a78bfa] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10 whitespace-nowrap">
+              {geoToast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   )
