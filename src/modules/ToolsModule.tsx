@@ -268,8 +268,27 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
   const [deletedScripts, setDeletedScripts] = useState<string[]>([])
   const [customPalettes, setCustomPalettes] = useState<{ id: string; name: string }[]>([])
   const [uploadFileName, setUploadFileName] = useState<string>("")
+  const [macroRun, setMacroRun] = useState<{ id: string; step: number; total: number } | null>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  const runMacro = (id: string, name: string, steps: number) => {
+    if (macroRun) return
+    const total = Math.max(1, steps)
+    setMacroRun({ id, step: 0, total })
+    let current = 0
+    const timer = setInterval(() => {
+      current += 1
+      if (current >= total) {
+        clearInterval(timer)
+        setMacroRun({ id, step: total, total })
+        showToast(`✓ Макрос «${name}» выполнен (${total} шагов)`)
+        setTimeout(() => setMacroRun(null), 900)
+      } else {
+        setMacroRun({ id, step: current, total })
+      }
+    }, 320)
+  }
 
   const runCommand = (cmd?: string) => {
     const c = (cmd ?? command).trim().toUpperCase()
@@ -621,11 +640,28 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                     <span className="flex items-center gap-1"><Icon name="GitCommit" size={10} />{macro.steps} шагов</span>
                     <span className="flex items-center gap-1"><Icon name="Clock" size={10} />{macro.runTime}</span>
                   </div>
+                  {macroRun?.id === macro.id && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between text-[10px] mb-1">
+                        <span className="text-yellow-700 font-semibold flex items-center gap-1">
+                          <Icon name="Loader" size={10} className="animate-spin" />
+                          {macroRun.step >= macroRun.total ? "Готово" : `Шаг ${macroRun.step} из ${macroRun.total}`}
+                        </span>
+                        <span className="text-gray-400">{Math.round((macroRun.step / macroRun.total) * 100)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div className="h-full bg-yellow-500 rounded-full"
+                          animate={{ width: `${(macroRun.step / macroRun.total) * 100}%` }}
+                          transition={{ duration: 0.25 }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" className="text-xs h-7 bg-yellow-500 hover:bg-yellow-600 text-white gap-1"
-                    onClick={() => showToast(`▶ Макрос «${macro.name}» запущен (${macro.steps} шагов, ~${macro.runTime})`)}>
-                    <Icon name="Play" size={11} />Запустить
+                  <Button size="sm" disabled={!!macroRun} className="text-xs h-7 bg-yellow-500 hover:bg-yellow-600 text-white gap-1 disabled:opacity-60"
+                    onClick={() => runMacro(macro.id, macro.name, macro.steps)}>
+                    <Icon name={macroRun?.id === macro.id ? "Loader" : "Play"} size={11} className={macroRun?.id === macro.id ? "animate-spin" : ""} />
+                    {macroRun?.id === macro.id ? "Выполняется" : "Запустить"}
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-7 px-2"
                     onClick={() => { onNavigate?.("civilcad"); showToast(`Открыт редактор макроса «${macro.name}»`) }}>
