@@ -69,6 +69,48 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
   const [mates, setMates] = useState<Mate[]>([])
   const [mateForm, setMateForm] = useState<{ kind: MateKind; a: number; b: number; value: string }>({ kind: "concentric", a: 1, b: 2, value: "10" })
   const [explode, setExplode] = useState(0)   // коэффициент разнесённого вида 0..1
+  const [playing, setPlaying] = useState(false)
+  const animRef = useRef<number | null>(null)
+
+  const stopAnim = () => { if (animRef.current) cancelAnimationFrame(animRef.current); animRef.current = null; setPlaying(false) }
+
+  // Плавная анимация explode: разборка (0→1) или сборка (1→0)
+  const animateExplode = (target: number) => {
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    setPlaying(true)
+    const start = performance.now()
+    const from = explode
+    const dur = 1100
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / dur)
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2  // ease-in-out
+      setExplode(+(from + (target - from) * ease).toFixed(3))
+      if (t < 1) { animRef.current = requestAnimationFrame(step) }
+      else { animRef.current = null; setPlaying(false) }
+    }
+    animRef.current = requestAnimationFrame(step)
+  }
+  // Полный цикл: разобрать → пауза → собрать
+  const playCycle = () => {
+    if (playing) { stopAnim(); return }
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    setPlaying(true)
+    const t0 = performance.now()
+    const dur = 1100, hold = 500
+    const step = (now: number) => {
+      const el = now - t0
+      let v: number
+      if (el < dur) { const t = el / dur; v = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2 }
+      else if (el < dur + hold) { v = 1 }
+      else if (el < dur * 2 + hold) { const t = (el - dur - hold) / dur; const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; v = 1 - e }
+      else { setExplode(0); animRef.current = null; setPlaying(false); return }
+      setExplode(+v.toFixed(3))
+      animRef.current = requestAnimationFrame(step)
+    }
+    animRef.current = requestAnimationFrame(step)
+  }
+
+  useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current) }, [])
 
   const sel = features.find(f => f.id === selected) ?? features[0]
   const mp = massProps(features)
@@ -398,7 +440,11 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                 <div className="px-2 py-1 rounded bg-white/90 border border-gray-200 flex items-center gap-1.5">
                   <Icon name="Combine" size={11} className="text-emerald-600" fallback="Move" />
                   <span className="text-[11px] text-gray-600">Разнести</span>
-                  <input type="range" min={0} max={100} value={explode * 100} onChange={e => setExplode(+e.target.value / 100)} className="w-20 accent-emerald-600" />
+                  <input type="range" min={0} max={100} value={explode * 100} onChange={e => { stopAnim(); setExplode(+e.target.value / 100) }} className="w-20 accent-emerald-600" />
+                  <button onClick={playCycle} title="Проиграть сборку/разборку"
+                    className={`ml-0.5 w-6 h-6 rounded flex items-center justify-center ${playing ? "bg-red-500 text-white" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+                    <Icon name={playing ? "Square" : "Play"} size={11} />
+                  </button>
                 </div>
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -423,16 +469,22 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                     <div className="text-[12px] font-semibold text-gray-700 flex items-center gap-1.5"><Icon name="Combine" size={14} className="text-emerald-600" fallback="Move" />Разнесённый вид</div>
                     <span className="text-[11px] font-mono text-gray-500">{Math.round(explode * 100)}%</span>
                   </div>
-                  <input type="range" min={0} max={100} value={explode * 100} onChange={e => setExplode(+e.target.value / 100)} className="w-full accent-emerald-600" />
-                  <div className="flex gap-1.5">
+                  <input type="range" min={0} max={100} value={explode * 100} onChange={e => { stopAnim(); setExplode(+e.target.value / 100) }} className="w-full accent-emerald-600" />
+                  <div className="flex gap-1.5 flex-wrap">
                     {[["Собрать", 0], ["25%", 0.25], ["50%", 0.5], ["Полностью", 1]].map(([l, v]) => (
-                      <button key={l as string} onClick={() => setExplode(v as number)}
+                      <button key={l as string} onClick={() => { stopAnim(); setExplode(v as number) }}
                         className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${Math.abs(explode - (v as number)) < 0.01 ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
                         {l}
                       </button>
                     ))}
+                    <div className="w-px bg-gray-200 mx-0.5" />
+                    <button onClick={() => animateExplode(1)} className="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1"><Icon name="Maximize2" size={11} />Разобрать</button>
+                    <button onClick={() => animateExplode(0)} className="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1"><Icon name="Minimize2" size={11} />Собрать</button>
+                    <button onClick={playCycle} className={`text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 text-white ${playing ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"}`}>
+                      <Icon name={playing ? "Square" : "Play"} size={11} />{playing ? "Стоп" : "Проиграть цикл"}
+                    </button>
                   </div>
-                  <p className="text-[11px] text-gray-400">Раздвигает компоненты от центра сборки для наглядного показа устройства узла. Открывается на вкладке «3D-модель».</p>
+                  <p className="text-[11px] text-gray-400">Раздвигает компоненты от центра сборки для наглядного показа устройства узла. Анимация проигрывается и в 3D-модели.</p>
                 </div>
 
                 {/* Наложение сопряжения */}
