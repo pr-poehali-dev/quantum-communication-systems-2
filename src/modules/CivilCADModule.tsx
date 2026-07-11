@@ -1695,7 +1695,7 @@ const DROPDOWN_ITEMS: Record<string, string[]> = {
 function drawCanvas(
   ctx: CanvasRenderingContext2D, W: number, H: number,
   visLayers: Record<string, boolean>, zoom: number,
-  panX: number, panY: number, viewMode: string
+  panX: number, panY: number, viewMode: string, showDemo: boolean = true
 ) {
   ctx.clearRect(0, 0, W, H)
   const bg = viewMode === "wireframe" ? "#1a1a2e" : "#f0ede8"
@@ -1718,7 +1718,7 @@ function drawCanvas(
   }
 
   // terrain contours
-  if (visLayers.surfaces) {
+  if (showDemo && visLayers.surfaces) {
     const contourColors = viewMode === "wireframe"
       ? ["rgba(100,200,100,0.3)","rgba(120,220,120,0.4)","rgba(80,180,80,0.3)"]
       : ["rgba(160,140,100,0.35)","rgba(140,120,80,0.3)","rgba(180,160,120,0.25)"]
@@ -1738,7 +1738,7 @@ function drawCanvas(
   }
 
   // alignments
-  if (visLayers.alignments) {
+  if (showDemo && visLayers.alignments) {
     ALIGNMENTS.forEach(al => {
       if (al.pts.length < 2) return
       ctx.beginPath()
@@ -1761,7 +1761,7 @@ function drawCanvas(
   }
 
   // corridors / hatching
-  if (visLayers.corridors) {
+  if (showDemo && visLayers.corridors) {
     ctx.save()
     ctx.globalAlpha = 0.18
     const grad = ctx.createLinearGradient(80, 60, 880, 100)
@@ -1779,7 +1779,7 @@ function drawCanvas(
   }
 
   // parking lot outline
-  if (visLayers.sites) {
+  if (showDemo && visLayers.sites) {
     ctx.strokeStyle = viewMode === "wireframe" ? "#facc15" : "#ca8a04"
     ctx.lineWidth = 1.5 / zoom; ctx.setLineDash([6 / zoom, 3 / zoom])
     ctx.beginPath()
@@ -1798,7 +1798,7 @@ function drawCanvas(
   }
 
   // pipe network
-  if (visLayers.pipenet) {
+  if (showDemo && visLayers.pipenet) {
     ctx.strokeStyle = "#6366f1"; ctx.lineWidth = 2 / zoom
     const pipePts: [number,number][] = [[120,280],[180,275],[240,268],[300,260],[360,255],[420,258],[480,265]]
     ctx.beginPath(); ctx.moveTo(pipePts[0][0], pipePts[0][1])
@@ -1810,7 +1810,7 @@ function drawCanvas(
   }
 
   // points
-  if (visLayers.points) {
+  if (showDemo && visLayers.points) {
     const pts: [number,number,string][] = [[95,55,"1001"],[305,108,"1002"],[485,78,"1003"],[680,92,"1004"],[870,68,"1005"]]
     pts.forEach(([x,y,lbl]) => {
       ctx.beginPath(); ctx.arc(x, y, 4/zoom, 0, Math.PI*2)
@@ -1831,6 +1831,7 @@ function drawCanvas(
   ctx.restore()
 
   // ── Profile View (top-right panel, like Civil 3D) ──────────────────────────
+  if (showDemo) {
   const pvX = W * 0.53, pvY = 12, pvW = W * 0.44, pvH = 90
   // outer border
   ctx.fillStyle = viewMode === "wireframe" ? "#111122" : "#fafaf5"
@@ -1907,6 +1908,7 @@ function drawCanvas(
   dp2.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke()
   ctx.fillStyle = viewMode==="wireframe"?"#818cf8":"#4f46e5"; ctx.font="bold 8px Arial"
   ctx.fillText("Ул. Трумана  ВП  0+000 м ... 640 м", pvX + 4, pv2Y + 9)
+  } // showDemo (профили)
 
   ctx.restore()
 }
@@ -11290,6 +11292,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   // Редактор всегда открывается с чистым холстом.
   // Сохранённый чертёж активного проекта подгружается отдельным эффектом ниже.
   const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>([])
+  // Демонстрационный фон (сетка-подложка с примерными трассами/точками/профилями).
+  // По умолчанию выключен — холст чистый. Включается кнопкой «Загрузить пример».
+  const [showDemo, setShowDemo] = useState(false)
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
   const [drawingPts, setDrawingPts] = useState<[number,number][]>([])
   const [cursorCanvasPos, setCursorCanvasPos] = useState<[number,number] | null>(null)
@@ -11304,11 +11309,13 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   const очиститьХолст = () => {
-    if (canvasObjects.length === 0) { showToast("Холст уже пуст"); return }
-    if (!window.confirm(`Очистить холст? Будет удалено объектов: ${canvasObjects.length}`)) return
-    pushUndo(`Очистка холста (${canvasObjects.length})`)
+    if (canvasObjects.length === 0 && !showDemo) { showToast("Холст уже пуст"); return }
+    const кол = canvasObjects.length
+    if (!window.confirm(`Очистить холст? Будет удалено объектов: ${кол}${showDemo ? " (+ демо-подложка)" : ""}`)) return
+    pushUndo(`Очистка холста (${кол})`)
     canvasObjects.forEach(o => deleteCanvasObject(o.id))
     setCanvasObjects([])
+    setShowDemo(false)
     setSelectedObjId(null)
     setDrawingPts([])
     showToast("Холст очищен")
@@ -11317,12 +11324,21 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   const загрузитьПример = () => {
     setCanvasObjects(INITIAL_CANVAS_OBJECTS)
+    setShowDemo(true)
     setSelectedObjId(null)
     showToast("Загружен демо-чертёж")
     setStatusMsg("Демо-чертёж загружен")
   }
 
   const [сохраняется, setСохраняется] = useState(false)
+  const [естьИзменения, setЕстьИзменения] = useState(false)
+  const skipDirtyRef = useRef(true) // первый рендер и программные загрузки не считаем изменением
+
+  useEffect(() => {
+    if (skipDirtyRef.current) { skipDirtyRef.current = false; return }
+    setЕстьИзменения(true)
+  }, [canvasObjects])
+
   const сохранитьЧертёж = async () => {
     if (сохраняется) return
     const имяПроекта = store?.activeProject?.name || "проект"
@@ -11353,6 +11369,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       store?.notify(`Чертёж сохранён в «${имяПроекта}» (${canvasObjects.length} об.)`, "success")
       showToast(`Чертёж сохранён (${canvasObjects.length} об.)`)
       setStatusMsg(`Чертёж сохранён в проект «${имяПроекта}»`)
+      setЕстьИзменения(false)
     } finally {
       setСохраняется(false)
     }
@@ -11456,7 +11473,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               properties: d.properties ?? {},
             }
           })
+        skipDirtyRef.current = true
         setCanvasObjects(restored)
+        setЕстьИзменения(false)
       })
       .catch(() => {})
   }, [активныйProjectId])
@@ -11643,9 +11662,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const draw = useCallback(() => {
     const c = canvasRef.current; if (!c || c.width < 10) return
     const ctx = c.getContext("2d")!
-    drawCanvas(ctx, c.width, c.height, visLayers, zoom, pan.x, pan.y, viewMode)
+    drawCanvas(ctx, c.width, c.height, visLayers, zoom, pan.x, pan.y, viewMode, showDemo)
     drawObjects(ctx)
-  }, [visLayers, zoom, pan, viewMode, drawObjects])
+  }, [visLayers, zoom, pan, viewMode, drawObjects, showDemo])
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return
@@ -14918,7 +14937,13 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
       {/* ── Command line ── */}
       <div className="bg-[#0f0f1e] border-t border-gray-700 flex flex-col flex-shrink-0">
-        <div className="px-3 py-0.5 text-[10px] text-gray-400 font-mono border-b border-gray-800">{statusMsg}</div>
+        <div className="px-3 py-0.5 text-[10px] text-gray-400 font-mono border-b border-gray-800 flex items-center justify-between gap-2">
+          <span className="truncate">{statusMsg}</span>
+          <span className={`flex items-center gap-1 flex-shrink-0 px-1.5 py-0.5 rounded ${естьИзменения ? "text-amber-400 bg-amber-500/10" : "text-green-400 bg-green-500/10"}`}>
+            <Icon name={естьИзменения ? "CircleDot" : "CheckCircle2"} size={10} fallback="Circle" />
+            {естьИзменения ? "Есть несохранённые изменения" : "Сохранено"}
+          </span>
+        </div>
         <div className="flex items-center gap-1 px-2 py-0.5">
           <span className="text-[10px] text-gray-600 font-mono select-none">⚡</span>
           <input
