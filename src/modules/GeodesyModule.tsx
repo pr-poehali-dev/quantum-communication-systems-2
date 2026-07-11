@@ -345,6 +345,7 @@ export default function GeodesyModule() {
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
               <Icon name="Upload" size={16} className="text-indigo-600" />Импорт точек COGO
             </h3>
+            <p className="text-xs text-gray-500 -mt-1">Выберите формат — откроется выбор файла на компьютере</p>
             <div className="grid grid-cols-3 gap-3">
               {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)"].map(f => (
                 <button key={f} onClick={() => importFromFile(f)} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">
