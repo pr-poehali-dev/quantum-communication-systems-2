@@ -11287,14 +11287,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   // ── Edit state ───────────────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<EditTool>("select")
-  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(() => {
-    // Новый проект открывается с пустым холстом (без демо-объектов)
-    if (typeof window !== "undefined" && localStorage.getItem("civilpro_new_project") === "1") {
-      localStorage.removeItem("civilpro_new_project")
-      return []
-    }
-    return INITIAL_CANVAS_OBJECTS
-  })
+  // Редактор всегда открывается с чистым холстом.
+  // Сохранённый чертёж активного проекта подгружается отдельным эффектом ниже.
+  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>([])
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
   const [drawingPts, setDrawingPts] = useState<[number,number][]>([])
   const [cursorCanvasPos, setCursorCanvasPos] = useState<[number,number] | null>(null)
@@ -11307,6 +11302,26 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setUndoStack(prev => [...prev, label])
     setRedoStack([])
   }
+
+  const очиститьХолст = () => {
+    if (canvasObjects.length === 0) { showToast("Холст уже пуст"); return }
+    if (!window.confirm(`Очистить холст? Будет удалено объектов: ${canvasObjects.length}`)) return
+    pushUndo(`Очистка холста (${canvasObjects.length})`)
+    canvasObjects.forEach(o => deleteCanvasObject(o.id))
+    setCanvasObjects([])
+    setSelectedObjId(null)
+    setDrawingPts([])
+    showToast("Холст очищен")
+    setStatusMsg("Холст очищен — можно чертить с нуля")
+  }
+
+  const загрузитьПример = () => {
+    setCanvasObjects(INITIAL_CANVAS_OBJECTS)
+    setSelectedObjId(null)
+    showToast("Загружен демо-чертёж")
+    setStatusMsg("Демо-чертёж загружен")
+  }
+
   const doUndo = () => {
     setUndoStack(prev => {
       if (prev.length <= 1) return prev
@@ -11902,6 +11917,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
+    if (c === "ОЧИСТИТЬ" || c === "CLEAR" || c === "ERASE ALL") { очиститьХолст(); setCommandLine(""); return }
+    else if (c === "ПРИМЕР" || c === "DEMO" || c === "SAMPLE") { загрузитьПример(); setCommandLine(""); return }
     if (c === "КОРИДОР" || c === "CORRIDOR") setShowCorridor(true)
     else if (c === "ПОВЕРХНОСТЬ" || c === "SURFACE" || c === "TIN" || c === "GRID") setShowSurface(true)
     else if (c === "ТРАССА" || c === "ALIGNMENT" || c === "AL") setShowAlignment(true)
@@ -12769,6 +12786,17 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             onClick={() => setShowProperties(p => !p)}
             className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${showProperties ? "bg-[#0078d4] text-white" : "text-gray-400 hover:text-white hover:bg-[#3a3a4e]"}`}>
             <Icon name="ListFilter" size={12} fallback="List" />
+          </button>
+          <div className="w-full border-t border-gray-700 my-0.5"/>
+          <button title="Очистить холст"
+            onClick={очиститьХолст}
+            className="w-6 h-6 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-white hover:bg-red-600">
+            <Icon name="Eraser" size={12} fallback="Trash2" />
+          </button>
+          <button title="Загрузить демо-пример"
+            onClick={загрузитьПример}
+            className="w-6 h-6 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-white hover:bg-[#3a3a4e]">
+            <Icon name="FileStack" size={12} fallback="Files" />
           </button>
         </div>
 
