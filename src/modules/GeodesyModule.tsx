@@ -8,6 +8,7 @@ import Icon from "@/components/ui/icon"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
+import { импортФайл, импортLandXML } from "@/utils/exportImport"
 
 interface Point {
   id: number
@@ -95,6 +96,46 @@ export default function GeodesyModule() {
       }
     })
     setPoints(prev => [...prev, ...newPts])
+  }
+
+  // Парсинг точек по формату; для CSV/TXT/Тахеометр — разбор строк, для LandXML — извлечение CgPoint
+  const parsePointsByFormat = (format: string, text: string): Point[] => {
+    if (format.startsWith("LandXML")) {
+      const { точки } = импортLandXML(text)
+      return точки.map((p, i) => ({ id: Date.now() + i, name: p.name || `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z, code: "TOPO" }))
+    }
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'))
+    // пропускаем строку-заголовок, если она не числовая (например "Имя,X,Y,Z,Код")
+    const dataLines = lines.filter((l, idx) => {
+      if (idx > 0) return true
+      const cells = l.split(/[,;\t\s]+/)
+      return cells.some(c => !isNaN(parseFloat(c)))
+    })
+    return dataLines.map((line, i) => {
+      const parts = line.split(/[,;\t]+|\s{1,}/).map(s => s.trim()).filter(Boolean)
+      if (format.startsWith("TXT")) {
+        // Формат "X Y Z" — имя генерируется
+        return { id: Date.now() + i, name: `ТЧК-${i + 1}`, x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0, z: parseFloat(parts[2]) || 0, code: "TOPO" }
+      }
+      if (format.startsWith("Тахеометр")) {
+        // Формат тахеометра: Имя X Y Z [Код]
+        return { id: Date.now() + i, name: parts[0] || `ТЧК-${i + 1}`, x: parseFloat(parts[1]) || 0, y: parseFloat(parts[2]) || 0, z: parseFloat(parts[3]) || 0, code: parts[4] || "TOPO" }
+      }
+      // CSV / Excel: Имя,X,Y,Z,Код
+      return { id: Date.now() + i, name: parts[0] || `ТЧК-${i + 1}`, x: parseFloat(parts[1]) || 0, y: parseFloat(parts[2]) || 0, z: parseFloat(parts[3]) || 0, code: parts[4] || "TOPO" }
+    })
+  }
+
+  const importFromFile = (format: string) => {
+    const accept = format.startsWith("LandXML") ? ".xml,.landxml"
+      : format.startsWith("Excel") ? ".csv,.txt,.xls,.xlsx"
+      : format.startsWith("TXT") || format.startsWith("Тахеометр") ? ".txt,.csv"
+      : ".csv,.txt"
+    импортФайл(accept, (содержимое) => {
+      const newPts = parsePointsByFormat(format, содержимое)
+      if (newPts.length === 0) { alert("Не удалось прочитать точки из файла. Проверьте формат данных."); return }
+      setPoints(prev => [...prev, ...newPts])
+    })
   }
 
   const loadDemoPoints = () => importCSV(
@@ -306,7 +347,7 @@ export default function GeodesyModule() {
             </h3>
             <div className="grid grid-cols-3 gap-3">
               {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)"].map(f => (
-                <button key={f} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">
+                <button key={f} onClick={() => importFromFile(f)} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">
                   <Icon name="FileText" size={14} className="text-indigo-600 mb-1" />
                   <div>{f}</div>
                 </button>
