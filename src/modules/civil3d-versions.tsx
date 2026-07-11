@@ -360,8 +360,8 @@ export function ModelViewer3DDialog({ onClose }: Close) {
             ))}
           </div>
         </div>
-        <div className="flex-1 min-w-0 rounded-lg border border-gray-700 overflow-hidden relative"
-          style={{ background: "#0a0f14", height: 260, cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
+        <div className="rounded-lg border border-gray-700 overflow-hidden relative flex-shrink-0"
+          style={{ background: "#0a0f14", width: 484, height: 260, cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
           onMouseDown={e => startDrag(e.clientX)}
           onMouseMove={e => dragging && moveDrag(e.clientX)}
           onMouseUp={endDrag}
@@ -369,8 +369,8 @@ export function ModelViewer3DDialog({ onClose }: Close) {
           onTouchStart={e => startDrag(e.touches[0].clientX)}
           onTouchMove={e => moveDrag(e.touches[0].clientX)}
           onTouchEnd={endDrag}>
-          <svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid meet"
-            style={{ display: "block", position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+          <svg viewBox="0 0 300 220" width={484} height={260} preserveAspectRatio="xMidYMid meet"
+            style={{ display: "block", pointerEvents: "none" }}>
             <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
             <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
             <g transform={`rotate(${(rot - 24) * 0.15} 150 150)`}>
