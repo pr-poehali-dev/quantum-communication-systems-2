@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts"
-import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV } from "@/utils/exportImport"
+import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV, импортLandXML } from "@/utils/exportImport"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -346,20 +346,51 @@ export default function SurfacesModule() {
   }
 
   const doИмпорт = () => {
-    импортФайл(".csv,.txt,.xml,.las", (содержимое, имя) => {
-      if (имя.endsWith(".csv") || имя.endsWith(".txt")) {
-        const rows = импортCSV(содержимое)
-        const newPts = rows.map((r, i) => ({
-          id: Date.now() + i,
-          name: r["Имя"] || r["name"] || `ТЧК-${i + 1}`,
-          x: parseFloat(r["X"] || r["x"] || r["E"] || "0"),
-          y: parseFloat(r["Y"] || r["y"] || r["N"] || "0"),
-          z: parseFloat(r["Z"] || r["z"] || r["Отм"] || "0"),
-          code: r["Код"] || r["code"] || "TOPO",
-          group: "Импорт",
+    импортФайл(".csv,.txt,.xml,.landxml,.las", (содержимое, имя) => {
+      const low = имя.toLowerCase()
+      let newPts: SurfPoint[] = []
+
+      if (low.endsWith(".xml") || low.endsWith(".landxml")) {
+        // LandXML — извлекаем точки CgPoint
+        const { точки } = импортLandXML(содержимое)
+        newPts = точки.map((p, i) => ({
+          id: Date.now() + i, name: p.name || `ТЧК-${i + 1}`,
+          x: p.x, y: p.y, z: p.z, code: "TOPO", group: "Импорт LandXML",
         }))
-        setPoints(prev => [...prev, ...newPts])
+      } else {
+        // CSV / TXT. Определяем: есть ли строка-заголовок
+        const firstLine = содержимое.trim().split(/\r?\n/)[0] || ""
+        const hasHeader = /имя|name|x|y|z|код|code/i.test(firstLine) && isNaN(parseFloat(firstLine.split(/[,;\t\s]+/)[0]))
+        if (hasHeader) {
+          const rows = импортCSV(содержимое)
+          newPts = rows.map((r, i) => ({
+            id: Date.now() + i,
+            name: r["Имя"] || r["name"] || `ТЧК-${i + 1}`,
+            x: parseFloat(r["X"] || r["x"] || r["E"] || "0"),
+            y: parseFloat(r["Y"] || r["y"] || r["N"] || "0"),
+            z: parseFloat(r["Z"] || r["z"] || r["Отм"] || "0"),
+            code: r["Код"] || r["code"] || "TOPO",
+            group: "Импорт",
+          }))
+        } else {
+          // Без заголовка: пытаемся распознать "Имя X Y Z Код" или "X Y Z"
+          const lines = содержимое.trim().split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith("#"))
+          newPts = lines.map((line, i) => {
+            const parts = line.split(/[,;\t]+|\s{1,}/).map(s => s.trim()).filter(Boolean)
+            const nums = parts.map(p => parseFloat(p))
+            // Если первый столбец не число — это имя (формат Имя X Y Z [Код])
+            if (isNaN(nums[0])) {
+              return { id: Date.now() + i, name: parts[0] || `ТЧК-${i + 1}`, x: nums[1] || 0, y: nums[2] || 0, z: nums[3] || 0, code: parts[4] || "TOPO", group: "Импорт" }
+            }
+            // Формат X Y Z
+            return { id: Date.now() + i, name: `ТЧК-${i + 1}`, x: nums[0] || 0, y: nums[1] || 0, z: nums[2] || 0, code: "TOPO", group: "Импорт" }
+          })
+        }
       }
+
+      if (newPts.length === 0) { alert("Не удалось прочитать точки из файла. Проверьте формат данных."); return }
+      setPoints(prev => [...prev, ...newPts])
+      updateSurf({ sources: [...surf.sources, { id: Date.now(), name: имя, format: low.endsWith(".xml") || low.endsWith(".landxml") ? "LandXML" : low.endsWith(".txt") ? "TXT (X,Y,Z)" : "CSV (N,E,Z,Desc)", count: newPts.length }] })
     })
   }
 
