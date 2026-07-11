@@ -11336,12 +11336,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   const API = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
 
+  const activeProjectId = () => store?.activeProject?.id ?? currentProjectId ?? 1
+
   const saveObject = (type: string, name: string, data: Record<string, unknown> = {}) => {
     pushUndo(`Создан ${type}: ${name}`)
     fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: 1, object_type: type, name, data }),
+      body: JSON.stringify({ project_id: activeProjectId(), object_type: type, name, data }),
     }).catch(() => {})
   }
 
@@ -11350,7 +11352,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        project_id: 1,
+        project_id: activeProjectId(),
         object_type: obj.type,
         name: obj.label,
         data: { canvas_id: obj.id, pts: obj.pts, color: obj.color, lineWidth: obj.lineWidth, layer: obj.layer ?? "0", properties: obj.properties ?? {} }
@@ -11376,6 +11378,37 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       }),
     }).catch(() => {})
   }
+
+  // ── Автозагрузка сохранённого чертежа активного проекта ──────────────────
+  const активныйProjectId = store?.activeProject?.id
+  useEffect(() => {
+    if (!активныйProjectId) return
+    setCurrentProjectId(активныйProjectId)
+    setCurrentProjectName(store?.activeProject?.name || "")
+    fetch(`${API}?project_id=${активныйProjectId}`)
+      .then(r => r.json())
+      .then((raw: unknown) => {
+        const rows: { object_type: string; name: string; data?: Record<string, unknown> }[] =
+          Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
+        const restored: CanvasObject[] = rows
+          .filter(r => r.data && Array.isArray((r.data as { pts?: unknown }).pts))
+          .map(r => {
+            const d = r.data as { canvas_id?: string; pts: [number, number][]; color?: string; lineWidth?: number; layer?: string; properties?: Record<string, string> }
+            return {
+              id: d.canvas_id || `obj_${Math.random().toString(36).slice(2)}`,
+              type: r.object_type as CanvasObjType,
+              label: r.name,
+              pts: d.pts,
+              color: d.color || "#22d3ee",
+              lineWidth: d.lineWidth,
+              layer: d.layer ?? "0",
+              properties: d.properties ?? {},
+            }
+          })
+        setCanvasObjects(restored)
+      })
+      .catch(() => {})
+  }, [активныйProjectId])
 
   const openProjectDialog = () => {
     setShowOpenProject(true)

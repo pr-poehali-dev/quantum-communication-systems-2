@@ -3,7 +3,17 @@ import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import Icon from "@/components/ui/icon"
-import { ProjectContext } from "@/hooks/useProjectStore"
+import { ProjectContext, type CivilProject } from "@/hooks/useProjectStore"
+
+interface BackendProject {
+  id: number; name: string; description?: string; type?: string; status?: string
+  updated_at?: string; objects_count?: number
+}
+
+interface RecentProject {
+  id: string; projectId: number; name: string; ext: string; date: string; size: string
+  color: string; preview: string; type: CivilProject["type"]; description: string; status: CivilProject["status"]
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean; msg: string }> {
   state = { error: false, msg: "" }
@@ -320,8 +330,33 @@ export default function Dashboard() {
   const [showПоискРез, setShowПоискРез] = useState(false)
   const [новыйПроект, setНовыйПроект] = useState({ name: "", template: "Автодорога (СП 34)" })
   const [создаётся, setСоздаётся] = useState(false)
+  const [недавниеПроекты, setНедавниеПроекты] = useState<RecentProject[]>([])
 
   const PROJECTS_URL = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
+
+  const загрузитьПроекты = () => {
+    fetch(PROJECTS_URL)
+      .then(r => r.json())
+      .then((data: unknown) => {
+        const list: BackendProject[] = Array.isArray(data) ? data : []
+        setНедавниеПроекты(list.map(p => ({
+          id: `db_${p.id}`,
+          projectId: p.id,
+          name: p.name,
+          ext: "dwg",
+          date: p.updated_at ? new Date(p.updated_at).toLocaleDateString("ru", { day: "numeric", month: "long", year: "numeric" }) : "",
+          size: `${p.objects_count ?? 0} об.`,
+          color: "#0078d4",
+          preview: "corridor",
+          type: (p.type as CivilProject["type"]) || "road",
+          description: p.description || "",
+          status: (p.status as CivilProject["status"]) || "active",
+        })))
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => { загрузитьПроекты() }, [])
 
   const typeByTemplate: Record<string, "road" | "network" | "railway" | "area" | "bim"> = {
     civilcad: "road", networks: "network", geodesy: "road", areas: "area", railway: "railway", bim: "bim",
@@ -355,6 +390,7 @@ export default function Dashboard() {
     })
     localStorage.setItem("civilpro_new_project", "1")
     store?.notify(`Проект «${имя}» создан`, "success")
+    загрузитьПроекты()
     setСоздаётся(false)
     setShowНовыйПроект(false)
     setНовыйПроект({ name: "", template: "Автодорога (СП 34)" })
@@ -382,7 +418,19 @@ export default function Dashboard() {
   const profile = JSON.parse(localStorage.getItem("civilpro_profile") || "{}")
   const initials = (profile.name || "").trim().split(" ").slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("") || "П"
 
-  const отфильтрованныеФайлы = ПОСЛЕДНИЕ_ФАЙЛЫ.filter(f =>
+  const открытьПроект = (rp: RecentProject) => {
+    store?.setActiveProject({
+      id: rp.projectId, name: rp.name, description: rp.description,
+      type: rp.type, status: rp.status,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      objects_count: 0,
+    })
+    localStorage.removeItem("civilpro_new_project")
+    setActiveModule("civilcad")
+  }
+
+  const всеФайлы = [...недавниеПроекты, ...ПОСЛЕДНИЕ_ФАЙЛЫ]
+  const отфильтрованныеФайлы = всеФайлы.filter(f =>
     f.name.toLowerCase().includes(поиск.toLowerCase())
   )
 
@@ -642,7 +690,7 @@ export default function Dashboard() {
                           {отфильтрованныеФайлы.map((f, i) => (
                             <motion.button key={f.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: i * 0.04 }}
-                              onClick={() => setActiveModule(f.id)}
+                              onClick={() => "projectId" in f ? открытьПроект(f as RecentProject) : setActiveModule(f.id)}
                               className="text-left rounded-lg overflow-hidden border border-gray-700 hover:border-[#0078d4] transition-all group"
                               style={{ background: "#111827" }}>
                               {/* Превью */}
@@ -673,7 +721,7 @@ export default function Dashboard() {
                           {отфильтрованныеФайлы.map((f, i) => (
                             <motion.button key={f.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: i * 0.03 }}
-                              onClick={() => setActiveModule(f.id)}
+                              onClick={() => "projectId" in f ? открытьПроект(f as RecentProject) : setActiveModule(f.id)}
                               className="w-full flex items-center gap-4 p-3 rounded-lg text-left hover:bg-[#252535] transition-colors border border-transparent hover:border-gray-700">
                               <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
                                 <ПревьюФайла тип={f.preview} цвет={f.color} />
