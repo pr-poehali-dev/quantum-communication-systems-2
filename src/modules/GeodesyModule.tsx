@@ -133,18 +133,20 @@ export default function GeodesyModule() {
     )
   }
 
+  const pointsCADОбъекты = () =>
+    points.map(p => ({
+      тип: "TEXT" as const,
+      данные: [p.x, p.y],
+      текст: `${p.name || p.id} ${p.z.toFixed(2)}`,
+      слой: "COGO_POINTS",
+    }))
+
   const exportPointsDXF = () => {
-    import("@/utils/exportImport").then(({ экспортDXF }) => {
-      экспортDXF(
-        points.map(p => ({
-          тип: "TEXT" as const,
-          данные: [p.x, p.y],
-          текст: `${p.name || p.id} ${p.z.toFixed(2)}`,
-          слой: "COGO_POINTS",
-        })),
-        "points.dxf"
-      )
-    })
+    import("@/utils/exportImport").then(({ экспортDXF }) => экспортDXF(pointsCADОбъекты(), "points.dxf"))
+  }
+
+  const exportPointsDWG = () => {
+    import("@/utils/exportImport").then(({ экспортDWG }) => экспортDWG(pointsCADОбъекты(), "points.dwg"))
   }
 
   const addGroup = () => {
@@ -401,6 +403,7 @@ export default function GeodesyModule() {
                 { fmt: "CSV", desc: "Excel, таблицы, расчёты", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: exportPointsCSV },
                 { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsTXT },
                 { fmt: "DXF", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsDXF },
+                { fmt: "DWG", desc: "AutoCAD, nanoCAD, КОМПАС", color: "bg-indigo-50 border-indigo-200", btn: "bg-indigo-600", fn: exportPointsDWG },
               ].map(f => (
                 <div key={f.fmt} className={`rounded-xl border p-4 ${f.color} space-y-2`}>
                   <div className="font-bold text-gray-900">{f.fmt}</div>

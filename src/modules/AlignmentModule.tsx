@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
-import { экспортCSV, экспортLandXML, экспортТекст, экспортDXF } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортТекст, экспортDXF, экспортDWG } from "@/utils/exportImport"
 
 interface VPI { id: number; pk: number; elev: number; vcl: number }
 interface HorzCurve { id: number; pk: number; radius: number; delta: number; type: "right" | "left" }
@@ -125,12 +125,11 @@ export default function AlignmentModule() {
     )
   }
 
-  const doExportDXF = () => {
-    экспортDXF(
-      horzCurves.map(c => ({ тип: "ARC" as const, данные: [0, 0, c.radius, 0, c.delta], слой: "ALIGNMENT" })),
-      "alignment.dxf"
-    )
-  }
+  const dxfОбъекты = () =>
+    horzCurves.map(c => ({ тип: "ARC" as const, данные: [0, 0, c.radius, 0, c.delta], слой: "ALIGNMENT" }))
+
+  const doExportDXF = () => экспортDXF(dxfОбъекты(), "alignment.dxf")
+  const doExportDWG = () => экспортDWG(dxfОбъекты(), "alignment.dwg")
 
   const doExportReport = () => {
     экспортТекст([
@@ -381,6 +380,9 @@ export default function AlignmentModule() {
               </Button>
               <Button onClick={doExportDXF} variant="outline" className="gap-2 justify-start">
                 <Icon name="Download" size={16} /> DXF — геометрия (AutoCAD)
+              </Button>
+              <Button onClick={doExportDWG} variant="outline" className="gap-2 justify-start">
+                <Icon name="FileDown" size={16} /> DWG — чертёж (AutoCAD)
               </Button>
               <Button onClick={doExportReport} variant="outline" className="gap-2 justify-start">
                 <Icon name="Download" size={16} /> TXT — отчёт по трассе

@@ -3,7 +3,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
-import { экспортCSV, экспортLandXML, экспортDXF, экспортIFC, экспортТекст, импортФайл, импортLandXML } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст, импортФайл, импортLandXML } from "@/utils/exportImport"
 
 interface FormatItem {
   ext: string; name: string; app: string; icon: string
@@ -83,11 +83,13 @@ export default function IntegrationModule() {
     if (формат === "LandXML") {
       экспортLandXML({ имя: "Проект ЛАПА 3D" }, "export.xml")
     } else if (формат === "DWG" || формат === "DXF") {
-      экспортDXF([
-        { тип: "LINE", данные: [0, 0, 0, 100, 0, 0], слой: "ROADS" },
-        { тип: "LINE", данные: [0, 0, 0, 0, 100, 0], слой: "ROADS" },
-        { тип: "TEXT", данные: [50, 50], текст: "ЛАПА 3D Export", слой: "TEXT" },
-      ], "export.dxf")
+      const объекты = [
+        { тип: "LINE" as const, данные: [0, 0, 0, 100, 0, 0], слой: "ROADS" },
+        { тип: "LINE" as const, данные: [0, 0, 0, 0, 100, 0], слой: "ROADS" },
+        { тип: "TEXT" as const, данные: [50, 50], текст: "ЛАПА 3D Export", слой: "TEXT" },
+      ]
+      if (формат === "DWG") экспортDWG(объекты, "export.dwg")
+      else экспортDXF(объекты, "export.dxf")
     } else if (формат === "IFC") {
       экспортIFC([
         { тип: "IfcRoad", имя: "Дорога", guid: "road-001", описание: "Экспорт из ЛАПА 3D" },

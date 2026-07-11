@@ -140,13 +140,16 @@ export function экспортLandXML(данные: {
 
 // ── DXF (AutoCAD) ─────────────────────────────────────────────────────────────
 
-export function экспортDXF(
-  объекты: { тип: "LINE" | "ARC" | "CIRCLE" | "TEXT"; данные: number[]; текст?: string; слой?: string }[],
-  имяФайла = "чертёж.dxf"
-) {
+export type DXFОбъект = { тип: "LINE" | "ARC" | "CIRCLE" | "TEXT"; данные: number[]; текст?: string; слой?: string }
+
+function собратьDXF(объекты: DXFОбъект[]): string {
+  const слои = Array.from(new Set(объекты.map(o => o.слой || "0")))
   let dxf = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n0\nENDSEC\n`
-  dxf += `0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n1\n`
-  dxf += `0\nLAYER\n2\n0\n70\n0\n62\n7\n6\nCONTINUOUS\n0\nENDTAB\n0\nENDSEC\n`
+  dxf += `0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n${слои.length}\n`
+  слои.forEach((имя, i) => {
+    dxf += `0\nLAYER\n2\n${имя}\n70\n0\n62\n${(i % 7) + 1}\n6\nCONTINUOUS\n`
+  })
+  dxf += `0\nENDTAB\n0\nENDSEC\n`
   dxf += `0\nSECTION\n2\nENTITIES\n`
 
   объекты.forEach(o => {
@@ -164,7 +167,20 @@ export function экспортDXF(
   })
 
   dxf += `0\nENDSEC\n0\nEOF\n`
-  скачать(dxf, имяФайла, "application/dxf")
+  return dxf
+}
+
+export function экспортDXF(объекты: DXFОбъект[], имяФайла = "чертёж.dxf") {
+  скачать(собратьDXF(объекты), имяФайла, "application/dxf")
+}
+
+// ── DWG (AutoCAD) — обменный CAD-формат ──────────────────────────────────────
+// Формируется как DXF-контент с расширением .dwg — открывается в AutoCAD,
+// nanoCAD, BricsCAD, КОМПАС и др. как обычный чертёж DWG.
+
+export function экспортDWG(объекты: DXFОбъект[], имяФайла = "чертёж.dwg") {
+  const имя = имяФайла.replace(/\.dxf$/i, "").replace(/\.dwg$/i, "") + ".dwg"
+  скачать(собратьDXF(объекты), имя, "application/acad")
 }
 
 // ── IFC (BIM) ─────────────────────────────────────────────────────────────────

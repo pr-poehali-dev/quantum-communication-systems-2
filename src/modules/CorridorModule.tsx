@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts"
-import { экспортCSV, экспортLandXML, экспортDXF, экспортIFC } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC } from "@/utils/exportImport"
 
 interface CorridorStation {
   pk: number
@@ -149,16 +149,15 @@ export default function CorridorModule() {
     )
   }
 
-  const exportCorridorDWG = () => {
-    экспортDXF(
-      stations.filter((_, i) => i % 5 === 0).map(s => ({
-        тип: "LINE" as const,
-        данные: [s.pk / 10, s.groundElev, 0, s.pk / 10, s.designElev, 0],
-        слой: "CORRIDOR",
-      })),
-      "corridor.dxf"
-    )
-  }
+  const corridorDXFОбъекты = () =>
+    stations.filter((_, i) => i % 5 === 0).map(s => ({
+      тип: "LINE" as const,
+      данные: [s.pk / 10, s.groundElev, 0, s.pk / 10, s.designElev, 0],
+      слой: "CORRIDOR",
+    }))
+
+  const exportCorridorDXF = () => экспортDXF(corridorDXFОбъекты(), "corridor.dxf")
+  const exportCorridorDWG = () => экспортDWG(corridorDXFОбъекты(), "corridor.dwg")
 
   const exportCorridorIFC = () => {
     экспортIFC(
@@ -338,8 +337,11 @@ export default function CorridorModule() {
               <Button onClick={exportCrossSections} variant="outline" className="gap-2 justify-start" disabled={!computed}>
                 <Icon name="Download" size={16} /> CSV — поперечные сечения
               </Button>
-              <Button onClick={exportCorridorDWG} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+              <Button onClick={exportCorridorDXF} variant="outline" className="gap-2 justify-start" disabled={!computed}>
                 <Icon name="Download" size={16} /> DXF — профиль (AutoCAD)
+              </Button>
+              <Button onClick={exportCorridorDWG} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="FileDown" size={16} /> DWG — профиль (AutoCAD)
               </Button>
               <Button onClick={exportCorridorIFC} variant="outline" className="gap-2 justify-start" disabled={!computed}>
                 <Icon name="Download" size={16} /> IFC — BIM-модель

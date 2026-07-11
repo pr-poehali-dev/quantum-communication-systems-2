@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { экспортLandXML, экспортDXF, экспортIFC, экспортТекст, экспортCSV } from "@/utils/exportImport"
+import { экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст, экспортCSV, type DXFОбъект } from "@/utils/exportImport"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,8 +98,8 @@ export default function RoadsModule() {
     }, `road_cat${category}.xml`)
   }
 
-  const doExportDWG = () => {
-    const линии = profile.flatMap((s, i) => {
+  const roadCADЛинии = () => {
+    const линии: DXFОбъект[] = profile.flatMap((s, i) => {
       if (i === 0) return []
       const prev = profile[i - 1]
       return [
@@ -112,8 +112,11 @@ export default function RoadsModule() {
       { тип: "LINE" as const, данные: [0, cat.width, 0, length / 10, cat.width, 0], слой: "ROAD_EDGE" },
       { тип: "TEXT" as const, данные: [length / 20, cat.width + 2], текст: `Категория ${category.toUpperCase()}, L=${length}м, V=${cat.speed}км/ч`, слой: "TEXT" },
     )
-    экспортDXF(линии, `road_cat${category}.dxf`)
+    return линии
   }
+
+  const doExportDXF = () => экспортDXF(roadCADЛинии(), `road_cat${category}.dxf`)
+  const doExportDWG = () => экспортDWG(roadCADЛинии(), `road_cat${category}.dwg`)
 
   const doExportIFC = () => {
     экспортIFC([
@@ -451,12 +454,20 @@ export default function RoadsModule() {
                   fn: doExportLandXML,
                 },
                 {
-                  fmt: "DWG / DXF",
+                  fmt: "DWG",
                   icon: "PenTool",
-                  desc: "Чертёж плана и профиля в формате DXF/DWG",
+                  desc: "Чертёж плана и профиля для AutoCAD / nanoCAD",
                   color: "bg-orange-50 border-orange-200",
                   btn: "bg-orange-600 hover:bg-orange-700",
                   fn: doExportDWG,
+                },
+                {
+                  fmt: "DXF",
+                  icon: "PenTool",
+                  desc: "Обменный чертёж плана и профиля",
+                  color: "bg-amber-50 border-amber-200",
+                  btn: "bg-amber-600 hover:bg-amber-700",
+                  fn: doExportDXF,
                 },
                 {
                   fmt: "IFC",
