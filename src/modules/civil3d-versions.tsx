@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 
@@ -324,8 +324,20 @@ export function ModelViewer3DDialog({ onClose }: Close) {
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000) }
   const [mode, setMode] = useState("Реалистичный")
   const [rot, setRot] = useState(24)
+  const [dragging, setDragging] = useState(false)
+  const dragRef = useRef<{ x: number; rot: number } | null>(null)
   const layers = ["Рельеф (TIN)", "Коридор дороги", "Трубопроводные сети", "Мост", "Проектная площадка"]
   const [on, setOn] = useState<Record<string, boolean>>(Object.fromEntries(layers.map(l => [l, true])))
+
+  const startDrag = (clientX: number) => { dragRef.current = { x: clientX, rot }; setDragging(true) }
+  const moveDrag = (clientX: number) => {
+    if (!dragRef.current) return
+    const delta = clientX - dragRef.current.x
+    let next = dragRef.current.rot + delta * 0.6
+    next = ((next % 360) + 360) % 360
+    setRot(Math.round(next))
+  }
+  const endDrag = () => { dragRef.current = null; setDragging(false) }
   return (
     <Modal title="3D-просмотр модели" icon="Box" color="#34d399" badge="2026" width={700} onClose={onClose}
       footer={<>
@@ -348,8 +360,16 @@ export function ModelViewer3DDialog({ onClose }: Close) {
             ))}
           </div>
         </div>
-        <div className="flex-1 rounded-lg border border-gray-700 overflow-hidden" style={{ background: "#0a0f14" }}>
-          <svg viewBox="0 0 300 220" width="100%" height="260" style={{ display: "block" }}>
+        <div className="flex-1 rounded-lg border border-gray-700 overflow-hidden relative"
+          style={{ background: "#0a0f14", cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
+          onMouseDown={e => startDrag(e.clientX)}
+          onMouseMove={e => dragging && moveDrag(e.clientX)}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          onTouchStart={e => startDrag(e.touches[0].clientX)}
+          onTouchMove={e => moveDrag(e.touches[0].clientX)}
+          onTouchEnd={endDrag}>
+          <svg viewBox="0 0 300 220" width="100%" height="260" style={{ display: "block", pointerEvents: "none" }}>
             <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
             <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
             <g transform={`rotate(${(rot - 24) * 0.15} 150 150)`}>
@@ -364,6 +384,9 @@ export function ModelViewer3DDialog({ onClose }: Close) {
             <g stroke="#6b7280" strokeWidth="1"><line x1="20" y1="205" x2="40" y2="205" /><line x1="20" y1="205" x2="20" y2="188" /></g>
             <text x="42" y="207" fill="#ef4444" fontSize="6">X</text><text x="14" y="186" fill="#4ade80" fontSize="6">Z</text>
           </svg>
+          <div className="absolute bottom-1.5 right-2 text-[9px] text-gray-500 pointer-events-none select-none flex items-center gap-1">
+            <Icon name="Move" size={9} fallback="MoveHorizontal" /> Перетащите для вращения
+          </div>
         </div>
       </div>
       <Toast msg={toast} />
