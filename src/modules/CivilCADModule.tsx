@@ -7,6 +7,12 @@ import {
   computeTraverse, computePrismatoidVolumes,
   type CivilScene, type ProfilePoint, type CrossSection,
 } from "./civil3d-engine"
+import {
+  WhatsNewVersionsDialog, CorridorExtractionDialog, OffsetProfileDialog,
+  GradingOptimizationDialog, PropertySetsDialog, CorridorTransitionsDialog,
+  ProfileViewPlusDialog, ModelViewer3DDialog, CoordinateTransformDialog,
+  DrainageDesignDialog, SurfaceAOIDialog, type VersionFeatureId,
+} from "./civil3d-versions"
 
 // ─── Recent files data ────────────────────────────────────────────────────────
 
@@ -11067,6 +11073,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showPlanProd, setShowPlanProd] = useState(false)
   const [showVisibility, setShowVisibility] = useState(false)
   const [showInsights, setShowInsights] = useState(false)
+  const [showWhatsNewVer, setShowWhatsNewVer] = useState(false)
+  const [verFeature, setVerFeature] = useState<VersionFeatureId | null>(null)
   const [showScriptEditor, setShowScriptEditor] = useState(false)
   const [scriptType, setScriptType] = useState<"autolisp" | "dynamo" | "assistant">("autolisp")
   const [scriptOutput, setScriptOutput] = useState<string[]>([])
@@ -11920,6 +11928,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (c === "INSIGHTS" || c === "ПОДСКАЗКИ") setShowInsights(prev=>!prev)
     else if (c === "ЗЕМЛЯ" || c === "EARTHWORKS" || c === "ВЗР") { setShowEarthworks(true); setStatusMsg("Ведомость земляных работ"); setCommandLine(""); return }
     else if (c === "НЕВЯЗКА" || c === "TRAVERSE" || c === "ТХ") { setShowSurveyTraverse(true); setStatusMsg("Отчёт о невязке"); setCommandLine(""); return }
+    else if (c === "WHATSNEW" || c === "НОВОЕ" || c === "ВЕРСИИ" || c === "2026") { setShowWhatsNewVer(true); setStatusMsg("Что нового · 2023–2026"); setCommandLine(""); return }
+    else if (c === "MODELVIEWER" || c === "3D" || c === "3Д") { setVerFeature("modelViewer3D"); setStatusMsg("3D-просмотр модели"); setCommandLine(""); return }
+    else if (c === "GRADINGOPT" || c === "ОПТИМИЗАЦИЯ") { setVerFeature("gradingOpt"); setStatusMsg("Оптимизация планировки"); setCommandLine(""); return }
+    else if (c === "TRANSFORM" || c === "ПРЕОБРАЗОВАНИЕ СК" || c === "СК") { setVerFeature("coordTransform"); setStatusMsg("Преобразование систем координат"); setCommandLine(""); return }
+    else if (c === "DRAINAGE" || c === "ДРЕНАЖ") { setVerFeature("drainageDesign"); setStatusMsg("Проектирование дренажа"); setCommandLine(""); return }
     else if (c === "ПРОЕКТ" || c === "PROJECT" || c === "ДП") { setShowProjectManager(true); setStatusMsg("Диспетчер проекта"); setCommandLine(""); return }
     else if (c === "SURFACEEDIT" || c === "РЕДАКТИРОВАТЬ ПОВЕРХНОСТЬ" || c === "РПОВ") { setSurfaceEditName("Существующая поверхность"); setShowSurfaceEdit(true); setStatusMsg("Редактор поверхности"); setCommandLine(""); return }
     else if (c === "DAYLIGHT" || c === "DAYLIGHT FL" || c === "ХАР.ЛИНИЯ" || c === "ВЫХОД НА РЕЛЬЕФ") { setShowDaylightFL(true); setStatusMsg("Линия выхода на рельеф"); setCommandLine(""); return }
@@ -13942,6 +13955,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showPlanProd && <PlanProductionDialog onClose={()=>setShowPlanProd(false)}/>}
             {showVisibility && <VisibilityAnalysisDialog onClose={()=>setShowVisibility(false)}/>}
 
+            {/* ── Функции версий 2023–2026 ── */}
+            {showWhatsNewVer && <WhatsNewVersionsDialog onClose={()=>setShowWhatsNewVer(false)} onOpen={(id)=>{ setShowWhatsNewVer(false); setVerFeature(id) }}/>}
+            {verFeature==="corridorExtraction" && <CorridorExtractionDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="offsetProfile" && <OffsetProfileDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="gradingOpt" && <GradingOptimizationDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="propertySets" && <PropertySetsDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="corridorTransitions" && <CorridorTransitionsDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="profileViewPlus" && <ProfileViewPlusDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="modelViewer3D" && <ModelViewer3DDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="coordTransform" && <CoordinateTransformDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="drainageDesign" && <DrainageDesignDialog onClose={()=>setVerFeature(null)}/>}
+            {verFeature==="surfaceAOI" && <SurfaceAOIDialog onClose={()=>setVerFeature(null)}/>}
+
             {/* Диалог сохранения в проект */}
             {showSaveDialog && (
               <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
@@ -14440,6 +14466,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             { icon: "Share2",        title: "Ярлыки данных — Синхронизация  SYNCHRONIZEDATA", action: () => setShowDataShortcuts(true), fallback: "Link" },
             { icon: "FileBarChart2", title: "Диспетчер отчётов",             action: () => setShowProjectManager(true) },
             { icon: "GitBranch",     title: "Отчёт о невязке",               action: () => setShowSurveyTraverse(true) },
+            { icon: "Sparkles",      title: "Что нового · 2023–2026",        action: () => setShowWhatsNewVer(true) },
             { icon: "Bot",           title: "ЛАПА-Ассистент",                action: () => setShowAssistant(p => !p) },
             null,
             { icon: "SplitSquareVertical", title: "Разделить экран", action: () => setSplitView(p => !p), fallback: "Columns" },
