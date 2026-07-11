@@ -349,11 +349,9 @@ export function ModelViewer3DDialog({ onClose }: Close) {
           </div>
         </div>
         <div className="flex-1 rounded-lg border border-gray-700 overflow-hidden" style={{ background: "#0a0f14" }}>
-          <svg viewBox="0 0 300 220" width="100%" height="260">
-            <defs>
-              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0f1b2e" /><stop offset="1" stopColor="#0a0f14" /></linearGradient>
-            </defs>
-            <rect x="0" y="0" width="300" height="220" fill="url(#sky)" />
+          <svg viewBox="0 0 300 220" width="100%" height="260" style={{ display: "block" }}>
+            <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
+            <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
             <g transform={`rotate(${(rot - 24) * 0.15} 150 150)`}>
               {on["Рельеф (TIN)"] && <polygon points="30,170 150,120 270,175 150,205" fill="#166534" opacity="0.6" stroke="#22c55e" strokeWidth="0.5" />}
               {on["Проектная площадка"] && <polygon points="90,158 150,138 210,160 150,178" fill="#a16207" opacity="0.7" stroke="#facc15" strokeWidth="0.5" />}
