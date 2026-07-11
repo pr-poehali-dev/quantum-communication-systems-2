@@ -369,22 +369,24 @@ export function ModelViewer3DDialog({ onClose }: Close) {
           onTouchStart={e => startDrag(e.touches[0].clientX)}
           onTouchMove={e => moveDrag(e.touches[0].clientX)}
           onTouchEnd={endDrag}>
-          <svg viewBox="0 0 300 220" width={484} height={260} preserveAspectRatio="xMidYMid meet"
+          <motion.svg viewBox="0 0 300 220" width={484} height={260} preserveAspectRatio="xMidYMid meet"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
             style={{ display: "block", pointerEvents: "none" }}>
             <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
             <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
-            <g transform={`rotate(${(rot - 24) * 0.15} 150 150)`}>
+            <motion.g animate={{ rotate: (rot - 24) * 0.15 }} transition={{ type: "tween", duration: 0.15 }}
+              style={{ originX: "150px", originY: "150px" }}>
               {on["Рельеф (TIN)"] && <polygon points="30,170 150,120 270,175 150,205" fill="#166534" opacity="0.6" stroke="#22c55e" strokeWidth="0.5" />}
               {on["Проектная площадка"] && <polygon points="90,158 150,138 210,160 150,178" fill="#a16207" opacity="0.7" stroke="#facc15" strokeWidth="0.5" />}
               {on["Коридор дороги"] && <polygon points="40,168 150,124 152,127 44,172" fill="#334155" stroke="#94a3b8" strokeWidth="0.6" />}
               {on["Коридор дороги"] && <polygon points="150,124 260,172 256,175 148,127" fill="#475569" stroke="#94a3b8" strokeWidth="0.6" />}
               {on["Трубопроводные сети"] && <line x1="60" y1="176" x2="240" y2="168" stroke="#60a5fa" strokeWidth="1.4" strokeDasharray="4 2" />}
               {on["Мост"] && <g stroke="#e5e7eb" strokeWidth="0.8" fill="none"><path d="M120,150 L180,150 M126,150 L126,140 M174,150 L174,140 M120,140 L180,140" /></g>}
-            </g>
+            </motion.g>
             <text x="8" y="14" fill="#34d399" fontSize="7">3D · {mode} · {rot}°</text>
             <g stroke="#6b7280" strokeWidth="1"><line x1="20" y1="205" x2="40" y2="205" /><line x1="20" y1="205" x2="20" y2="188" /></g>
             <text x="42" y="207" fill="#ef4444" fontSize="6">X</text><text x="14" y="186" fill="#4ade80" fontSize="6">Z</text>
-          </svg>
+          </motion.svg>
           <div className="absolute bottom-1.5 right-2 text-[9px] text-gray-500 pointer-events-none select-none flex items-center gap-1">
             <Icon name="Move" size={9} fallback="MoveHorizontal" /> Перетащите для вращения
           </div>
