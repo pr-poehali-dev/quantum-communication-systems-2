@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 
@@ -328,12 +328,6 @@ export function ModelViewer3DDialog({ onClose }: Close) {
   const dragRef = useRef<{ x: number; rot: number } | null>(null)
   const layers = ["Рельеф (TIN)", "Коридор дороги", "Трубопроводные сети", "Мост", "Проектная площадка"]
   const [on, setOn] = useState<Record<string, boolean>>(Object.fromEntries(layers.map(l => [l, true])))
-  // Форсируем отрисовку SVG после появления окна (анимация scale ломает первый repaint)
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)))
-    return () => cancelAnimationFrame(id)
-  }, [])
 
   const startDrag = (clientX: number) => { dragRef.current = { x: clientX, rot }; setDragging(true) }
   const moveDrag = (clientX: number) => {
@@ -366,8 +360,8 @@ export function ModelViewer3DDialog({ onClose }: Close) {
             ))}
           </div>
         </div>
-        <div className="flex-1 rounded-lg border border-gray-700 overflow-hidden relative"
-          style={{ background: "#0a0f14", cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
+        <div className="flex-1 min-w-0 rounded-lg border border-gray-700 overflow-hidden relative"
+          style={{ background: "#0a0f14", height: 260, cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
           onMouseDown={e => startDrag(e.clientX)}
           onMouseMove={e => dragging && moveDrag(e.clientX)}
           onMouseUp={endDrag}
@@ -375,7 +369,8 @@ export function ModelViewer3DDialog({ onClose }: Close) {
           onTouchStart={e => startDrag(e.touches[0].clientX)}
           onTouchMove={e => moveDrag(e.touches[0].clientX)}
           onTouchEnd={endDrag}>
-          <svg key={ready ? "svg-ready" : "svg-init"} viewBox="0 0 300 220" width="100%" height="260" style={{ display: "block", pointerEvents: "none" }}>
+          <svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid meet"
+            style={{ display: "block", position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
             <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
             <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
             <g transform={`rotate(${(rot - 24) * 0.15} 150 150)`}>
