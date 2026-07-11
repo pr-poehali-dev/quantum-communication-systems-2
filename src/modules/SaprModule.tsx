@@ -9,6 +9,7 @@ import {
   EXCHANGE_3D, EXCHANGE_2D, CAD_IMPORT, Vec3,
 } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
+import GIF from "gif.js.optimized"
 
 type Tab = "model" | "assembly" | "draw" | "analysis" | "spec" | "exchange"
 
@@ -116,6 +117,63 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
   const mp = massProps(features)
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2200) }
+
+  // ── Запись анимации разборки в GIF ─────────────────────────────────────────
+  const [recording, setRecording] = useState(false)
+  const [recProgress, setRecProgress] = useState(0)
+  const nextFrame = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
+  const recordGif = async () => {
+    const cv = canvasRef.current
+    if (!cv || recording) return
+    stopAnim()
+    setRecording(true); setRecProgress(0)
+    const savedExplode = explode
+    const frames = 44        // разборка + пауза + сборка
+    const gif = new GIF({ workers: 2, quality: 12, width: cv.width, height: cv.height, workerScript: "/gif.worker.js", repeat: 0 })
+    try {
+      const ease = (t: number) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+      for (let i = 0; i < frames; i++) {
+        let v: number
+        if (i < 18) v = ease(i / 18)              // разборка 0→1
+        else if (i < 24) v = 1                     // пауза
+        else if (i < 42) v = 1 - ease((i - 24) / 18) // сборка 1→0
+        else v = 0
+        setExplode(+v.toFixed(3))
+        await nextFrame()
+        gif.addFrame(cv, { copy: true, delay: 60 })
+        setRecProgress(Math.round(((i + 1) / frames) * 60))
+      }
+      gif.on("progress", (p: number) => setRecProgress(60 + Math.round(p * 40)))
+      gif.on("finished", (blob: Blob) => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url; a.download = "сборка-разборка.gif"; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 2000)
+        setRecording(false); setRecProgress(0)
+        setExplode(savedExplode)
+        showToast("GIF анимации сохранён")
+      })
+      gif.render()
+    } catch {
+      setRecording(false); setRecProgress(0); setExplode(savedExplode)
+      showToast("Не удалось записать GIF")
+    }
+  }
+
+  // Сохранить текущий кадр 3D-сцены как PNG
+  const saveFramePng = () => {
+    const cv = canvasRef.current
+    if (!cv) return
+    cv.toBlob(blob => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = `кадр-${Math.round(explode * 100)}.png`; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 2000)
+      showToast("Кадр сохранён (PNG)")
+    }, "image/png")
+  }
 
   // ── Сборка: применить сопряжение (перемещает деталь B относительно A) ──────
   const applyMate = () => {
@@ -445,6 +503,10 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                     className={`ml-0.5 w-6 h-6 rounded flex items-center justify-center ${playing ? "bg-red-500 text-white" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
                     <Icon name={playing ? "Square" : "Play"} size={11} />
                   </button>
+                  <button onClick={recordGif} disabled={recording} title="Записать анимацию в GIF"
+                    className="w-6 h-6 rounded flex items-center justify-center bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60">
+                    <Icon name={recording ? "Loader" : "Video"} size={11} className={recording ? "animate-spin" : ""} fallback="Circle" />
+                  </button>
                 </div>
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -484,7 +546,23 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                       <Icon name={playing ? "Square" : "Play"} size={11} />{playing ? "Стоп" : "Проиграть цикл"}
                     </button>
                   </div>
-                  <p className="text-[11px] text-gray-400">Раздвигает компоненты от центра сборки для наглядного показа устройства узла. Анимация проигрывается и в 3D-модели.</p>
+                  <div className="flex gap-1.5 flex-wrap items-center pt-1 border-t border-gray-100">
+                    <button onClick={recordGif} disabled={recording}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white flex items-center gap-1">
+                      <Icon name={recording ? "Loader" : "Video"} size={11} className={recording ? "animate-spin" : ""} fallback="Circle" />
+                      {recording ? `Запись… ${recProgress}%` : "Записать GIF"}
+                    </button>
+                    <button onClick={saveFramePng} disabled={recording}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1">
+                      <Icon name="Image" size={11} />Кадр PNG
+                    </button>
+                    {recording && (
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[80px]">
+                        <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${recProgress}%` }} />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400">Раздвигает компоненты от центра сборки для наглядного показа устройства узла. Анимацию можно записать в GIF или сохранить кадр PNG для презентации.</p>
                 </div>
 
                 {/* Наложение сопряжения */}
