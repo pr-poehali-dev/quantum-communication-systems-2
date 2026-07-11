@@ -259,6 +259,15 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showUploadDialog, setShowUploadDialog] = useState<"lisp" | "plugin" | null>(null)
   const [showGitHub, setShowGitHub] = useState(false)
+  const [pluginStatuses, setPluginStatuses] = useState<Record<string, string>>(
+    Object.fromEntries(DLL_PLUGINS.map(p => [p.id, p.status]))
+  )
+  const [paletteActive, setPaletteActive] = useState<Record<string, boolean>>(
+    Object.fromEntries(PALETTES.map(p => [p.id, p.active]))
+  )
+  const [deletedScripts, setDeletedScripts] = useState<string[]>([])
+  const [customPalettes, setCustomPalettes] = useState<{ id: string; name: string }[]>([])
+  const [uploadFileName, setUploadFileName] = useState<string>("")
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -297,10 +306,26 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
   }
 
   const filteredLsp = LSP_SCRIPTS.filter(s => {
+    if (deletedScripts.includes(s.id)) return false
     const matchCat = catFilter === "all" || s.category === catFilter
     const matchSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.desc.toLowerCase().includes(search.toLowerCase())
     return matchCat && matchSearch
   })
+
+  const reallyDeleteScript = (id: string, name: string) => {
+    if (!window.confirm(`Удалить скрипт «${name}» из библиотеки?`)) return
+    setDeletedScripts(prev => [...prev, id])
+    showToast(`Скрипт «${name}» удалён из библиотеки`)
+  }
+
+  const downloadText = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  }
 
   return (
     <div className="flex flex-col h-full bg-[#f8f9fa] overflow-hidden">
@@ -457,14 +482,14 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                                 { icon: "Edit",       label: "Редактировать",      action: () => { onNavigate?.("civilcad"); showToast("Открыт редактор скриптов") } },
                                 { icon: "Settings",   label: "Настройки скрипта",  action: () => showToast("Настройки скрипта открыты") },
                                 { icon: "FileText",   label: "Документация",       action: () => showToast(`Документация ${script.name}`) },
-                                { icon: "Download",   label: "Скачать .lsp",       action: () => showToast(`Скачивание ${script.file}…`) },
+                                { icon: "Download",   label: "Скачать .lsp",       action: () => { downloadText(script.file, `;;; ${script.name}\n;;; ${script.desc}\n;;; Команды: ${script.commands.join(", ")}\n(princ "\\n${script.name} загружен")\n(princ)`); showToast(`Скачивание ${script.file}…`) } },
                                 { icon: "Power",      label: currentStatus === "loaded" ? "Выгрузить" : "Загрузить",
                                   action: () => {
                                     setScriptStatuses(s => ({ ...s, [script.id]: currentStatus === "loaded" ? "not_loaded" : "loaded" }))
                                     showToast(currentStatus === "loaded" ? `Скрипт выгружен` : `Скрипт загружен`)
                                   }
                                 },
-                                { icon: "Trash2",     label: "Удалить",            action: () => showToast(`Скрипт удалён из библиотеки`), danger: true },
+                                { icon: "Trash2",     label: "Удалить",            action: () => reallyDeleteScript(script.id, script.name), danger: true },
                               ].map(item => (
                                 <button key={item.label}
                                   onClick={() => { item.action(); setOpenMenu(null) }}
@@ -497,7 +522,8 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
         <TabsContent value="dll" className="flex-1 overflow-auto m-0 p-4">
           <div className="grid grid-cols-2 gap-4">
             {DLL_PLUGINS.map(plugin => {
-              const st = STATUS_STYLE[plugin.status]
+              const pluginStatus = pluginStatuses[plugin.id]
+              const st = STATUS_STYLE[pluginStatus]
               return (
                 <motion.div key={plugin.id} whileHover={{ y: -1 }}
                   className="bg-white rounded-xl border border-gray-200 p-5">
@@ -530,10 +556,14 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-gray-400 flex-1">Лента: <strong>{plugin.ribbon}</strong></span>
-                    <Button size="sm" variant={plugin.status === "active" ? "outline" : "default"}
-                      onClick={() => showToast(plugin.status === "active" ? `Плагин «${plugin.name}» отключён` : `Плагин «${plugin.name}» включён`)}
-                      className="text-xs h-7" style={plugin.status !== "active" ? { background: plugin.color } : {}}>
-                      {plugin.status === "active" ? "Отключить" : "Включить"}
+                    <Button size="sm" variant={pluginStatus === "active" ? "outline" : "default"}
+                      onClick={() => {
+                        const next = pluginStatus === "active" ? "inactive" : "active"
+                        setPluginStatuses(s => ({ ...s, [plugin.id]: next }))
+                        showToast(next === "active" ? `Плагин «${plugin.name}» включён` : `Плагин «${plugin.name}» отключён`)
+                      }}
+                      className="text-xs h-7" style={pluginStatus !== "active" ? { background: plugin.color } : {}}>
+                      {pluginStatus === "active" ? "Отключить" : "Включить"}
                     </Button>
                     <Button size="sm" variant="ghost" className="text-xs h-7 px-2"
                       onClick={() => showToast(`Настройки плагина «${plugin.name}»`)}>
@@ -613,7 +643,9 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
         {/* Палитры CUI */}
         <TabsContent value="palettes" className="flex-1 overflow-auto m-0 p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            {PALETTES.map(palette => (
+            {PALETTES.map(palette => {
+              const isActive = paletteActive[palette.id]
+              return (
               <motion.div key={palette.id} whileHover={{ y: -1 }}
                 className="bg-white rounded-xl border border-gray-200 p-5">
                 <div className="flex items-start gap-3 mb-3">
@@ -623,8 +655,8 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[13px] font-bold text-gray-900">{palette.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${palette.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                        {palette.active ? "Активна" : "Отключена"}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        {isActive ? "Активна" : "Отключена"}
                       </span>
                     </div>
                     <code className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{palette.file}</code>
@@ -640,26 +672,57 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant={palette.active ? "outline" : "default"}
-                    onClick={() => showToast(palette.active ? `Палитра «${palette.name}» скрыта` : `Палитра «${palette.name}» открыта в редакторе`)}
+                  <Button size="sm" variant={isActive ? "outline" : "default"}
+                    onClick={() => {
+                      setPaletteActive(s => ({ ...s, [palette.id]: !isActive }))
+                      showToast(isActive ? `Палитра «${palette.name}» скрыта` : `Палитра «${palette.name}» открыта в редакторе`)
+                    }}
                     className="text-xs h-7 flex-1">
-                    {palette.active ? "Скрыть палитру" : "Показать палитру"}
+                    {isActive ? "Скрыть палитру" : "Показать палитру"}
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-7 px-2"
-                    onClick={() => showToast(`Настройки палитры «${palette.name}»`)}>
+                    onClick={() => { onNavigate?.("civilcad"); showToast(`Настройки палитры «${palette.name}»`) }}>
                     <Icon name="Settings" size={12} />
                   </Button>
                   <Button size="sm" variant="outline" className="text-xs h-7 px-2"
-                    onClick={() => showToast(`Скачивание ${palette.file}…`)}>
+                    onClick={() => { downloadText(palette.file, `<?xml version="1.0"?>\n<CUI name="${palette.name}">\n  <!-- ${palette.desc} -->\n${palette.groups.map(g => `  <Group name="${g}"/>`).join("\n")}\n</CUI>`); showToast(`Скачивание ${palette.file}…`) }}>
                     <Icon name="Download" size={12} />
                   </Button>
                 </div>
               </motion.div>
-            ))}
+              )
+            })}
           </div>
 
+          {/* Созданные пользователем палитры */}
+          {customPalettes.length > 0 && (
+            <div className="grid grid-cols-2 gap-4">
+              {customPalettes.map(cp => (
+                <div key={cp.id} className="bg-white rounded-xl border border-green-200 p-5 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                    <Icon name="LayoutGrid" size={18} className="text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-bold text-gray-900">{cp.name}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">Создана</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500">Пользовательская палитра CUI</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="text-xs h-7 px-2 text-red-600"
+                    onClick={() => setCustomPalettes(prev => prev.filter(p => p.id !== cp.id))}>
+                    <Icon name="Trash2" size={12} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Кастомный CUI */}
-          <CustomCUI onCreate={(name) => showToast(`Палитра «${name}» создана`)} />
+          <CustomCUI onCreate={(name) => {
+            setCustomPalettes(prev => [...prev, { id: `cp_${Date.now()}`, name }])
+            showToast(`Палитра «${name}» создана`)
+          }} />
         </TabsContent>
       </Tabs>
 
@@ -692,12 +755,20 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                 <button onClick={() => setShowUploadDialog(null)} className="text-white hover:bg-violet-700 w-6 h-6 rounded">✕</button>
               </div>
               <div className="p-5 space-y-4">
-                <div className="border-2 border-dashed border-violet-300 rounded-xl p-8 text-center hover:bg-violet-50/30 transition-colors cursor-pointer">
-                  <Icon name="Upload" size={32} className="text-violet-400 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-gray-700">Перетащите файл {showUploadDialog === "lisp" ? ".lsp" : ".dll"}</p>
-                  <p className="text-xs text-gray-500 mt-1">или нажмите для выбора с компьютера</p>
-                  <input type="file" accept={showUploadDialog === "lisp" ? ".lsp" : ".dll"} className="hidden" id="upload-file" />
-                </div>
+                <label htmlFor="upload-file"
+                  className="block border-2 border-dashed border-violet-300 rounded-xl p-8 text-center hover:bg-violet-50/30 transition-colors cursor-pointer">
+                  <Icon name={uploadFileName ? "FileCheck" : "Upload"} size={32} className={`mx-auto mb-2 ${uploadFileName ? "text-green-500" : "text-violet-400"}`} fallback="Upload" />
+                  {uploadFileName ? (
+                    <p className="text-sm font-semibold text-green-700">Выбран файл: {uploadFileName}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-gray-700">Перетащите файл {showUploadDialog === "lisp" ? ".lsp" : ".dll"}</p>
+                      <p className="text-xs text-gray-500 mt-1">или нажмите для выбора с компьютера</p>
+                    </>
+                  )}
+                  <input type="file" accept={showUploadDialog === "lisp" ? ".lsp,.vlx,.fas" : ".dll,.arx,.crx"} className="hidden" id="upload-file"
+                    onChange={e => setUploadFileName(e.target.files?.[0]?.name || "")} />
+                </label>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-gray-50 rounded-lg p-3">
                     <div className="text-gray-500 mb-1">Поддерживаемые форматы:</div>
@@ -713,11 +784,12 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                   <span>Загружайте только файлы из доверенных источников. ЛАПА проверит файл на безопасность.</span>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowUploadDialog(null)}>Отмена</Button>
-                  <Button size="sm" className="bg-violet-600 hover:bg-violet-700"
+                  <Button variant="outline" size="sm" onClick={() => { setShowUploadDialog(null); setUploadFileName("") }}>Отмена</Button>
+                  <Button size="sm" className="bg-violet-600 hover:bg-violet-700" disabled={!uploadFileName}
                     onClick={() => {
-                      showToast(showUploadDialog === "lisp" ? "LSP-скрипт загружен в библиотеку" : "DLL-плагин установлен")
+                      showToast(showUploadDialog === "lisp" ? `LSP-скрипт «${uploadFileName}» загружен в библиотеку` : `DLL-плагин «${uploadFileName}» установлен`)
                       setShowUploadDialog(null)
+                      setUploadFileName("")
                     }}>
                     <Icon name="Upload" size={12} className="mr-1.5" />
                     {showUploadDialog === "lisp" ? "Загрузить" : "Установить"}
