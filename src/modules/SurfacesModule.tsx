@@ -610,7 +610,7 @@ export default function SurfacesModule() {
                     Далее — редактирование <Icon name="ChevronRight" size={16} />
                   </Button>
                   <Button variant="outline" onClick={doИмпорт} className="gap-2">
-                    <Icon name="Upload" size={15} /> Импорт из CSV
+                    <Icon name="Upload" size={15} /> Импорт точек (CSV / TXT / LandXML)
                   </Button>
                   <Button variant="outline" onClick={() => setStep(1)}>Назад</Button>
                 </div>
