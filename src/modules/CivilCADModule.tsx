@@ -11322,6 +11322,42 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setStatusMsg("Демо-чертёж загружен")
   }
 
+  const [сохраняется, setСохраняется] = useState(false)
+  const сохранитьЧертёж = async () => {
+    if (сохраняется) return
+    const имяПроекта = store?.activeProject?.name || "проект"
+    if (canvasObjects.length === 0) {
+      if (!window.confirm(`Холст пуст. Сохранить пустой чертёж в «${имяПроекта}»?`)) return
+    }
+    setСохраняется(true)
+    setStatusMsg("Сохранение чертежа…")
+    try {
+      // Пересохраняем все объекты, избегая дублей: сначала удаляем по canvas_id, затем пишем заново
+      for (const o of canvasObjects) {
+        await fetch(API, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ canvas_id: o.id }),
+        }).catch(() => {})
+        await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: activeProjectId(),
+            object_type: o.type,
+            name: o.label,
+            data: { canvas_id: o.id, pts: o.pts, color: o.color, lineWidth: o.lineWidth, layer: o.layer ?? "0", properties: o.properties ?? {} },
+          }),
+        }).catch(() => {})
+      }
+      store?.notify(`Чертёж сохранён в «${имяПроекта}» (${canvasObjects.length} об.)`, "success")
+      showToast(`Чертёж сохранён (${canvasObjects.length} об.)`)
+      setStatusMsg(`Чертёж сохранён в проект «${имяПроекта}»`)
+    } finally {
+      setСохраняется(false)
+    }
+  }
+
   const doUndo = () => {
     setUndoStack(prev => {
       if (prev.length <= 1) return prev
@@ -11634,6 +11670,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); deleteCanvasObject(selectedObjId); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
       }
       if (e.key === "Escape") { setDrawingPts([]); setActiveTool("select"); setSelectedObjId(null) }
+      if ((e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault()
+        сохранитьЧертёж()
+        return
+      }
       // Extended hotkeys
       if (!isInput) {
         if (e.key === "a" || e.key === "A") {
@@ -11917,7 +11958,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
-    if (c === "ОЧИСТИТЬ" || c === "CLEAR" || c === "ERASE ALL") { очиститьХолст(); setCommandLine(""); return }
+    if (c === "СОХРАНИТЬ" || c === "SAVE" || c === "QSAVE") { сохранитьЧертёж(); setCommandLine(""); return }
+    else if (c === "ОЧИСТИТЬ" || c === "CLEAR" || c === "ERASE ALL") { очиститьХолст(); setCommandLine(""); return }
     else if (c === "ПРИМЕР" || c === "DEMO" || c === "SAMPLE") { загрузитьПример(); setCommandLine(""); return }
     if (c === "КОРИДОР" || c === "CORRIDOR") setShowCorridor(true)
     else if (c === "ПОВЕРХНОСТЬ" || c === "SURFACE" || c === "TIN" || c === "GRID") setShowSurface(true)
@@ -12788,6 +12830,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <Icon name="ListFilter" size={12} fallback="List" />
           </button>
           <div className="w-full border-t border-gray-700 my-0.5"/>
+          <button title="Сохранить чертёж в проект"
+            onClick={сохранитьЧертёж} disabled={сохраняется}
+            className="w-6 h-6 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-white hover:bg-green-600 disabled:opacity-50">
+            <Icon name={сохраняется ? "Loader" : "Save"} size={12} fallback="Check" />
+          </button>
           <button title="Очистить холст"
             onClick={очиститьХолст}
             className="w-6 h-6 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-white hover:bg-red-600">
