@@ -429,6 +429,36 @@ export default function Dashboard() {
     setActiveModule("civilcad")
   }
 
+  const удалитьПроект = async (rp: RecentProject) => {
+    if (!confirm(`Удалить проект «${rp.name}»? Действие необратимо.`)) return
+    setНедавниеПроекты(prev => prev.filter(p => p.id !== rp.id))
+    try {
+      await fetch(PROJECTS_URL, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: rp.projectId }),
+      })
+    } catch { /* уже убрали из списка локально */ }
+    store?.notify(`Проект «${rp.name}» удалён`, "success")
+    загрузитьПроекты()
+  }
+
+  const переименоватьПроект = async (rp: RecentProject) => {
+    const имя = prompt("Новое название проекта:", rp.name)
+    if (!имя || !имя.trim() || имя.trim() === rp.name) return
+    const новоеИмя = имя.trim()
+    setНедавниеПроекты(prev => prev.map(p => p.id === rp.id ? { ...p, name: новоеИмя } : p))
+    try {
+      await fetch(PROJECTS_URL, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rp.projectId, name: новоеИмя, description: rp.description, type: rp.type, status: rp.status }),
+      })
+    } catch { /* локально уже переименовали */ }
+    store?.notify(`Проект переименован в «${новоеИмя}»`, "success")
+    загрузитьПроекты()
+  }
+
   const всеФайлы = [...недавниеПроекты, ...ПОСЛЕДНИЕ_ФАЙЛЫ]
   const отфильтрованныеФайлы = всеФайлы.filter(f =>
     f.name.toLowerCase().includes(поиск.toLowerCase())
@@ -688,16 +718,29 @@ export default function Dashboard() {
                       {viewGrid ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                           {отфильтрованныеФайлы.map((f, i) => (
-                            <motion.button key={f.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                            <motion.div key={f.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: i * 0.04 }}
                               onClick={() => "projectId" in f ? открытьПроект(f as RecentProject) : setActiveModule(f.id)}
-                              className="text-left rounded-lg overflow-hidden border border-gray-700 hover:border-[#0078d4] transition-all group"
+                              className="text-left rounded-lg overflow-hidden border border-gray-700 hover:border-[#0078d4] transition-all group cursor-pointer"
                               style={{ background: "#111827" }}>
                               {/* Превью */}
                               <div className="relative" style={{ height: 110 }}>
                                 <ПревьюФайла тип={f.preview} цвет={f.color} />
-                                <div className="absolute top-2 right-2 flex gap-1">
-                                  <button className="w-5 h-5 flex items-center justify-center rounded bg-black/50 text-gray-400 hover:text-white text-[10px]">★</button>
+                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {"projectId" in f && (
+                                    <>
+                                      <button title="Переименовать"
+                                        onClick={e => { e.stopPropagation(); переименоватьПроект(f as RecentProject) }}
+                                        className="w-6 h-6 flex items-center justify-center rounded bg-black/60 text-gray-300 hover:text-white hover:bg-[#0078d4]">
+                                        <Icon name="Pencil" size={12} />
+                                      </button>
+                                      <button title="Удалить"
+                                        onClick={e => { e.stopPropagation(); удалитьПроект(f as RecentProject) }}
+                                        className="w-6 h-6 flex items-center justify-center rounded bg-black/60 text-gray-300 hover:text-white hover:bg-red-600">
+                                        <Icon name="Trash2" size={12} />
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                                 <div className="absolute bottom-1 left-1">
                                   <Icon name="Monitor" size={12} className="text-gray-600" />
@@ -712,17 +755,17 @@ export default function Dashboard() {
                                   <span className="text-[9px] text-gray-600">{f.ext.toUpperCase()} · {f.size}</span>
                                 </div>
                               </div>
-                            </motion.button>
+                            </motion.div>
                           ))}
                         </div>
                       ) : (
                         /* Файлы — List */
                         <div className="space-y-1">
                           {отфильтрованныеФайлы.map((f, i) => (
-                            <motion.button key={f.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                            <motion.div key={f.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: i * 0.03 }}
                               onClick={() => "projectId" in f ? открытьПроект(f as RecentProject) : setActiveModule(f.id)}
-                              className="w-full flex items-center gap-4 p-3 rounded-lg text-left hover:bg-[#252535] transition-colors border border-transparent hover:border-gray-700">
+                              className="w-full flex items-center gap-4 p-3 rounded-lg text-left hover:bg-[#252535] transition-colors border border-transparent hover:border-gray-700 group cursor-pointer">
                               <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
                                 <ПревьюФайла тип={f.preview} цвет={f.color} />
                               </div>
@@ -730,8 +773,22 @@ export default function Dashboard() {
                                 <div className="text-white text-[13px] font-semibold truncate">{f.name}.{f.ext}</div>
                                 <div className="text-gray-500 text-[11px]">{f.date} · {f.size}</div>
                               </div>
+                              {"projectId" in f && (
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                  <button title="Переименовать"
+                                    onClick={e => { e.stopPropagation(); переименоватьПроект(f as RecentProject) }}
+                                    className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-[#0078d4]">
+                                    <Icon name="Pencil" size={13} />
+                                  </button>
+                                  <button title="Удалить"
+                                    onClick={e => { e.stopPropagation(); удалитьПроект(f as RecentProject) }}
+                                    className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-red-600">
+                                    <Icon name="Trash2" size={13} />
+                                  </button>
+                                </div>
+                              )}
                               <Icon name="Monitor" size={14} className="text-gray-600 flex-shrink-0" />
-                            </motion.button>
+                            </motion.div>
                           ))}
                         </div>
                       )}

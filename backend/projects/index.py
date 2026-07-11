@@ -95,11 +95,19 @@ def handler(event: dict, context) -> dict:
             conn.close()
             return {"statusCode": 201, "headers": cors, "body": json.dumps(row, ensure_ascii=False)}
 
-        # DELETE — удалить объект по canvas_id или id
+        # DELETE — удалить проект целиком (с объектами) или объект
         if method == "DELETE":
             body = json.loads(event.get("body") or "{}")
+            project_id = body.get("project_id")
             canvas_id = body.get("canvas_id")
             obj_id = body.get("id")
+            if project_id is not None and not canvas_id and not obj_id:
+                cur.execute("DELETE FROM project_objects WHERE project_id = %s", (project_id,))
+                cur.execute("DELETE FROM projects WHERE id = %s AND user_id = 'default' RETURNING id", (project_id,))
+                deleted = cur.fetchone()
+                conn.commit()
+                conn.close()
+                return {"statusCode": 200, "headers": cors, "body": json.dumps({"deleted": bool(deleted)}, ensure_ascii=False)}
             if canvas_id:
                 cur.execute("""
                     DELETE FROM project_objects
