@@ -20,6 +20,14 @@ interface Pipe {
   slope: number
 }
 
+interface NetNode {
+  id: number
+  name: string          // имя колодца/узла
+  ground: number        // отметка земли (устья), м
+  invert: number        // отметка лотка / дна, м
+  kind: string          // тип узла (колодец, камера, ЩР…)
+}
+
 type NetType = "water" | "sewer" | "heat" | "power"
 
 interface NetConfig {
@@ -34,6 +42,8 @@ interface NetConfig {
   vLabel: string             // что показываем в колонке скорости
   norm: string               // строка нормативов
   isElectric?: boolean       // электросети считаем иначе (ток вместо скорости)
+  nodeName: string           // как называется узел (Колодец / Камера / Щит)
+  nodeKinds: string[]        // варианты типов узлов
 }
 
 const NET_CONFIG: Record<NetType, NetConfig> = {
@@ -43,6 +53,7 @@ const NET_CONFIG: Record<NetType, NetConfig> = {
     flowLabel: "Расход", flowUnit: "л/с",
     vMin: 0.7, vMax: 3.0, vLabel: "v (м/с)",
     norm: "Норма скорости: 0.7–3.0 м/с (СП 31.13330)",
+    nodeName: "Колодец", nodeKinds: ["Водопроводный", "Пожарный гидрант", "Водомерный узел", "Задвижка"],
   },
   sewer: {
     label: "Канализация", icon: "ArrowDownToLine", color: "#7c3aed",
@@ -50,6 +61,7 @@ const NET_CONFIG: Record<NetType, NetConfig> = {
     flowLabel: "Расход", flowUnit: "л/с",
     vMin: 0.7, vMax: 4.0, vLabel: "v (м/с)",
     norm: "Самотёчная: v ≥ 0.7 м/с, наполнение ≤ 0.6, мин. уклон i (СП 32.13330)",
+    nodeName: "Колодец", nodeKinds: ["Смотровой", "Перепадный", "Поворотный", "КНС"],
   },
   heat: {
     label: "Теплосеть", icon: "Flame", color: "#ea580c",
@@ -57,6 +69,7 @@ const NET_CONFIG: Record<NetType, NetConfig> = {
     flowLabel: "Расход теплоносителя", flowUnit: "т/ч",
     vMin: 0.5, vMax: 3.5, vLabel: "v (м/с)",
     norm: "Скорость воды: 0.5–3.5 м/с. Тепловые потери учитывают изоляцию (СП 124.13330)",
+    nodeName: "Камера", nodeKinds: ["Тепловая камера", "Неподвижная опора", "ИТП", "Дренажный колодец"],
   },
   power: {
     label: "Электросети", icon: "Zap", color: "#ca8a04",
@@ -65,7 +78,33 @@ const NET_CONFIG: Record<NetType, NetConfig> = {
     vMin: 0, vMax: 100, vLabel: "I (А)",
     norm: "Ток нагрузки не должен превышать допустимый для сечения кабеля (ПУЭ гл. 1.3)",
     isElectric: true,
+    nodeName: "Узел", nodeKinds: ["Трансформаторная ТП", "Распределит. щит ЩР", "Вводное устройство ВРУ", "Кабельный колодец"],
   },
+}
+
+const DEFAULT_NODES: Record<NetType, NetNode[]> = {
+  water: [
+    { id: 1, name: "У-1", ground: 122.4, invert: 120.6, kind: "Водомерный узел" },
+    { id: 2, name: "У-2", ground: 122.1, invert: 120.2, kind: "Задвижка" },
+    { id: 3, name: "У-3", ground: 121.7, invert: 119.7, kind: "Водопроводный" },
+    { id: 4, name: "У-4", ground: 121.2, invert: 119.1, kind: "Пожарный гидрант" },
+  ],
+  sewer: [
+    { id: 1, name: "КК-1", ground: 122.4, invert: 119.8, kind: "Смотровой" },
+    { id: 2, name: "КК-2", ground: 122.0, invert: 119.1, kind: "Поворотный" },
+    { id: 3, name: "КК-3", ground: 121.5, invert: 118.4, kind: "Перепадный" },
+    { id: 4, name: "ГКНС", ground: 121.0, invert: 117.6, kind: "КНС" },
+  ],
+  heat: [
+    { id: 1, name: "ТК-1", ground: 122.4, invert: 120.9, kind: "Тепловая камера" },
+    { id: 2, name: "ТК-2", ground: 122.0, invert: 120.5, kind: "Неподвижная опора" },
+    { id: 3, name: "ИТП-1", ground: 121.6, invert: 118.8, kind: "ИТП" },
+  ],
+  power: [
+    { id: 1, name: "ТП-1", ground: 122.4, invert: 120.9, kind: "Трансформаторная ТП" },
+    { id: 2, name: "ЩР-1", ground: 122.0, invert: 121.2, kind: "Распределит. щит ЩР" },
+    { id: 3, name: "ЩР-2", ground: 121.6, invert: 120.8, kind: "Распределит. щит ЩР" },
+  ],
 }
 
 const DEFAULT_DATA: Record<NetType, Pipe[]> = {
@@ -127,14 +166,39 @@ export default function NetworksModule() {
     power: { from: "", to: "", length: "", diameter: "", material: NET_CONFIG.power.materials[0], flow: "", slope: "" },
   })
 
+  const [nodesByType, setNodesByType] = useState<Record<NetType, NetNode[]>>(DEFAULT_NODES)
+  const [nodeForm, setNodeForm] = useState({ name: "", ground: "", invert: "", kind: NET_CONFIG.water.nodeKinds[0] })
+
   const cfg = NET_CONFIG[networkType]
   const pipes = dataByType[networkType]
   const form = formByType[networkType]
+  const nodes = nodesByType[networkType]
 
   const setPipes = (updater: (prev: Pipe[]) => Pipe[]) =>
     setDataByType(d => ({ ...d, [networkType]: updater(d[networkType]) }))
   const setForm = (updater: (prev: typeof form) => typeof form) =>
     setFormByType(f => ({ ...f, [networkType]: updater(f[networkType]) }))
+  const setNodes = (updater: (prev: NetNode[]) => NetNode[]) =>
+    setNodesByType(n => ({ ...n, [networkType]: updater(n[networkType]) }))
+
+  const addNode = () => {
+    if (!nodeForm.name || !nodeForm.ground) return
+    const ground = +nodeForm.ground
+    const invert = nodeForm.invert ? +nodeForm.invert : +(ground - 2).toFixed(2)
+    setNodes(prev => [...prev, { id: Date.now(), name: nodeForm.name, ground, invert, kind: nodeForm.kind }])
+    setNodeForm({ name: "", ground: "", invert: "", kind: cfg.nodeKinds[0] })
+  }
+  const removeNode = (id: number) => setNodes(prev => prev.filter(n => n.id !== id))
+
+  // Автосоздание узлов из участков, которых ещё нет в списке
+  const syncNodesFromPipes = () => {
+    const existing = new Set(nodes.map(n => n.name))
+    const newNames: string[] = []
+    pipes.forEach(p => { [p.from, p.to].forEach(nm => { if (nm && !existing.has(nm) && !newNames.includes(nm)) newNames.push(nm) }) })
+    if (!newNames.length) return
+    const base = nodes.length ? nodes[0].ground : 122
+    setNodes(prev => [...prev, ...newNames.map((nm, i) => ({ id: Date.now() + i, name: nm, ground: +(base - i * 0.3).toFixed(2), invert: +(base - i * 0.3 - 2).toFixed(2), kind: cfg.nodeKinds[0] }))])
+  }
 
   const metric = (p: Pipe) => cfg.isElectric ? calcCurrent(p.flow) : calcVelocity(p.flow, p.diameter)
   const secondary = (p: Pipe) => cfg.isElectric ? calcVoltDrop(p) : calcHeadLoss(p)
@@ -188,6 +252,14 @@ export default function NetworksModule() {
     )
   }
 
+  const exportNodesCSV = () => {
+    экспортCSV(
+      ["Имя", "Тип", "Отм. земли м", "Отм. лотка м", "Глубина м"],
+      nodes.map(n => [n.name, n.kind, n.ground.toFixed(2), n.invert.toFixed(2), (n.ground - n.invert).toFixed(2)]),
+      `${networkType}_nodes.csv`
+    )
+  }
+
   const exportNetworkLandXML = () => {
     экспортLandXML({
       имя: `Инженерные сети — ${cfg.label}`,
@@ -217,6 +289,7 @@ export default function NetworksModule() {
         <TabsList className="mb-4">
           <TabsTrigger value="pipes">{cfg.isElectric ? "Кабели" : "Трубопроводы"}</TabsTrigger>
           <TabsTrigger value="hydraulics">{cfg.isElectric ? "Расчёт нагрузок" : "Гидравлика"}</TabsTrigger>
+          <TabsTrigger value="nodes">{cfg.nodeName === "Узел" ? "Узлы" : `${cfg.nodeName}ы и узлы`}</TabsTrigger>
           <TabsTrigger value="schema">Схема сети</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
         </TabsList>
@@ -321,6 +394,80 @@ export default function NetworksModule() {
           </div>
         </TabsContent>
 
+        {/* NODES */}
+        <TabsContent value="nodes" className="space-y-4">
+          <div className="rounded-lg px-3 py-2 text-sm font-semibold flex items-center justify-between" style={{ background: cfg.color + "14", color: cfg.color }}>
+            <span><Icon name="CircleDot" size={14} fallback="Circle" className="inline mr-1.5 -mt-0.5" />{cfg.nodeName === "Узел" ? "Узлы сети" : `${cfg.nodeName}ы и узлы`}: {cfg.label}</span>
+            <button onClick={syncNodesFromPipes} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white/60 hover:bg-white flex items-center gap-1" style={{ color: cfg.color }}>
+              <Icon name="RefreshCw" size={12} />Создать из участков
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+            <div><Label>Имя</Label><Input placeholder={cfg.isElectric ? "ТП-1" : "КК-1"} value={nodeForm.name} onChange={e => setNodeForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div><Label>Отм. земли (м)</Label><Input type="number" step="0.01" placeholder="122.40" value={nodeForm.ground} onChange={e => setNodeForm(f => ({ ...f, ground: e.target.value }))} /></div>
+            <div><Label>Отм. лотка (м)</Label><Input type="number" step="0.01" placeholder="120.00" value={nodeForm.invert} onChange={e => setNodeForm(f => ({ ...f, invert: e.target.value }))} /></div>
+            <div>
+              <Label>Тип</Label>
+              <Select value={nodeForm.kind} onValueChange={v => setNodeForm(f => ({ ...f, kind: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{cfg.nodeKinds.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <Button onClick={addNode} className="text-white gap-2" style={{ background: cfg.color }}><Icon name="Plus" size={16} />Добавить</Button>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 overflow-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="bg-gray-50 text-gray-500 font-semibold">
+                <tr>
+                  <th className="px-4 py-2 text-left">{cfg.nodeName}</th>
+                  <th className="px-4 py-2 text-left">Тип</th>
+                  <th className="px-4 py-2 text-right">Отм. земли, м</th>
+                  <th className="px-4 py-2 text-right">Отм. лотка, м</th>
+                  <th className="px-4 py-2 text-right">Глубина, м</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {nodes.map(n => {
+                  const depth = +(n.ground - n.invert).toFixed(2)
+                  const deep = depth > 3
+                  return (
+                    <tr key={n.id} className="border-t border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-2 font-semibold" style={{ color: cfg.color }}>{n.name}</td>
+                      <td className="px-4 py-2 text-gray-600">{n.kind}</td>
+                      <td className="px-4 py-2 text-right font-mono">{n.ground.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right font-mono">{n.invert.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right">
+                        <span className={`font-mono text-xs px-2 py-0.5 rounded-full ${deep ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>{depth} м</span>
+                      </td>
+                      <td className="px-4 py-2 text-right"><button onClick={() => removeNode(n.id)} className="text-gray-300 hover:text-red-500"><Icon name="X" size={14} /></button></td>
+                    </tr>
+                  )
+                })}
+                {nodes.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">Нет узлов. Добавьте вручную или нажмите «Создать из участков».</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: `Всего ${cfg.nodeName.toLowerCase()}ов`, value: nodes.length },
+              { label: "Макс. глубина", value: `${nodes.length ? Math.max(...nodes.map(n => +(n.ground - n.invert).toFixed(2))) : 0} м` },
+              { label: "Ср. глубина", value: `${nodes.length ? (nodes.reduce((s, n) => s + (n.ground - n.invert), 0) / nodes.length).toFixed(2) : 0} м` },
+              { label: "Перепад отметок", value: `${nodes.length ? (Math.max(...nodes.map(n => n.ground)) - Math.min(...nodes.map(n => n.ground))).toFixed(2) : 0} м` },
+            ].map(c => (
+              <div key={c.label} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="text-xs text-muted-foreground mb-1">{c.label}</div>
+                <div className="text-xl font-extrabold text-gray-900">{c.value}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Глубина = отметка земли − отметка лотка. Оранжевым отмечены узлы глубже 3 м (требуют усиленной конструкции).</p>
+        </TabsContent>
+
         {/* SCHEMA */}
         <TabsContent value="schema">
           <div className="rounded-xl border border-gray-200 bg-white p-6">
@@ -366,6 +513,9 @@ export default function NetworksModule() {
               </Button>
               <Button onClick={exportSpecsCSV} variant="outline" className="gap-2 justify-start">
                 <Icon name="Download" size={16} /> CSV — спецификация материалов
+              </Button>
+              <Button onClick={exportNodesCSV} variant="outline" className="gap-2 justify-start">
+                <Icon name="Download" size={16} /> CSV — {cfg.nodeName.toLowerCase()}ы и отметки
               </Button>
               <Button onClick={exportNetworkLandXML} variant="outline" className="gap-2 justify-start">
                 <Icon name="Download" size={16} /> LandXML — {cfg.label}
