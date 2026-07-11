@@ -55,12 +55,14 @@ import FileManagerModule from "@/modules/FileManagerModule"
 import ToolsModule from "@/modules/ToolsModule"
 import PublishModule from "@/modules/PublishModule"
 import SaprModule from "@/modules/SaprModule"
+import SaprProModule from "@/modules/SaprProModule"
 
 
 const MODULES = [
   { id: "civilcad", icon: "Monitor", label: "ЛАПА — Редактор", desc: "Полноценный редактор инфраструктурных проектов", component: CivilCADModule },
   { id: "viewer3d", icon: "Box", label: "3D-вьюер", desc: "Рельеф, дорога, сети, здания в 3D", component: Viewer3DModule },
   { id: "sapr", icon: "Cuboid", label: "САПР (3D-моделирование)", desc: "Параметрические детали, чертежи, спецификации, обмен STEP/STL/DXF", component: SaprModule },
+  { id: "saprpro", icon: "Boxes", label: "САПР Про (Premium)", desc: "SolidWorks-аналог: элементы, эскизы, листовой металл, Simulation, Flow, CAM, PDM", component: SaprProModule },
   { id: "dtm", icon: "ScanLine", label: "ЦМР / Облако точек", desc: "LiDAR, GNSS, тахеометр, фотограмметрия", component: DTMModule },
   { id: "projects", icon: "FolderKanban", label: "Управление проектами", desc: "Проекты, версии, команда, отчёты", component: ProjectsModule },
   { id: "geodesy", icon: "Mountain", label: "Геодезия и рельеф", desc: "Точки, DTM, профиль, объёмы", component: GeodesyModule },
@@ -466,7 +468,7 @@ export default function Dashboard() {
     f.name.toLowerCase().includes(поиск.toLowerCase())
   )
 
-  const FULLSCREEN_MODULES = ["civilcad", "viewer3d", "sapr"]
+  const FULLSCREEN_MODULES = ["civilcad", "viewer3d", "sapr", "saprpro"]
 
   return (
     <div className="flex flex-col" style={{ height: "100vh", background: "#1a1a2e", fontFamily: "Arial, sans-serif" }}>
