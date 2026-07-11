@@ -189,6 +189,34 @@ export function massProps(features: Feature[]): MassProps {
   }
 }
 
+// ── Габаритный параллелепипед (AABB) детали в мировых координатах ───────────
+export function aabbOf(f: Feature): { min: Vec3; max: Vec3 } {
+  const m = buildMesh(f)
+  const min: Vec3 = [Infinity, Infinity, Infinity]
+  const max: Vec3 = [-Infinity, -Infinity, -Infinity]
+  m.vertices.forEach(v => {
+    for (let i = 0; i < 3; i++) {
+      const c = v[i] + f.pos[i]
+      if (c < min[i]) min[i] = c
+      if (c > max[i]) max[i] = c
+    }
+  })
+  return { min, max }
+}
+
+// Проверка пересечения двух деталей по AABB. Возвращает объём перекрытия, мм³
+export function overlapVolume(a: Feature, b: Feature): number {
+  const A = aabbOf(a), B = aabbOf(b)
+  let vol = 1
+  for (let i = 0; i < 3; i++) {
+    const lo = Math.max(A.min[i], B.min[i])
+    const hi = Math.min(A.max[i], B.max[i])
+    if (hi <= lo) return 0
+    vol *= (hi - lo)
+  }
+  return vol
+}
+
 // ── Проекция 3D → 2D (орбитальная камера) ──────────────────────────────────
 export function project(
   p: Vec3, offset: Vec3, yaw: number, pitch: number, scale: number, W: number, H: number

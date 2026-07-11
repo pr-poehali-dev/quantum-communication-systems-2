@@ -5,12 +5,27 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import {
-  Feature, SolidKind, MATERIALS, buildMesh, massProps, project, volumeOf,
+  Feature, SolidKind, MATERIALS, buildMesh, massProps, project, volumeOf, overlapVolume,
   EXCHANGE_3D, EXCHANGE_2D, CAD_IMPORT, Vec3,
 } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
 
-type Tab = "model" | "draw" | "analysis" | "spec" | "exchange"
+type Tab = "model" | "assembly" | "draw" | "analysis" | "spec" | "exchange"
+
+type MateKind = "coincident" | "concentric" | "distance" | "parallel"
+interface Mate {
+  id: number
+  kind: MateKind
+  a: number          // id детали A
+  b: number          // id детали B
+  value: number      // расстояние для "distance"
+}
+const MATE_INFO: Record<MateKind, { name: string; icon: string; hint: string }> = {
+  coincident: { name: "Совмещение", icon: "AlignHorizontalSpaceAround", hint: "Совмещает грани/центры двух деталей" },
+  concentric: { name: "Соосность", icon: "CircleDot", hint: "Выравнивает оси деталей на одну линию" },
+  distance: { name: "На расстоянии", icon: "Ruler", hint: "Фиксирует зазор между деталями, мм" },
+  parallel: { name: "Параллельность", icon: "AlignVerticalJustifyCenter", hint: "Делает грани параллельными" },
+}
 
 const PRIMITIVES: { kind: SolidKind; name: string; icon: string; op: Feature["op"] }[] = [
   { kind: "box", name: "Параллелепипед", icon: "Box", op: "Выдавливание" },
@@ -51,10 +66,47 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
   const [scale, setScale] = useState(2.2)
   const drag = useRef<{ x: number; y: number } | null>(null)
 
+  const [mates, setMates] = useState<Mate[]>([])
+  const [mateForm, setMateForm] = useState<{ kind: MateKind; a: number; b: number; value: string }>({ kind: "concentric", a: 1, b: 2, value: "10" })
+
   const sel = features.find(f => f.id === selected) ?? features[0]
   const mp = massProps(features)
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2200) }
+
+  // ── Сборка: применить сопряжение (перемещает деталь B относительно A) ──────
+  const applyMate = () => {
+    const A = features.find(f => f.id === mateForm.a)
+    const B = features.find(f => f.id === mateForm.b)
+    if (!A || !B || A.id === B.id) { showToast("Выберите две разные детали"); return }
+    const id = ++uid
+    const value = +mateForm.value || 0
+    setMates(prev => [...prev, { id, kind: mateForm.kind, a: A.id, b: B.id, value }])
+    // Реально двигаем деталь B, чтобы сопряжение выполнилось
+    setFeatures(prev => prev.map(f => {
+      if (f.id !== B.id) return f
+      const np: Vec3 = [...f.pos]
+      if (mateForm.kind === "concentric") { np[0] = A.pos[0]; np[1] = A.pos[1] }
+      else if (mateForm.kind === "coincident") { np[0] = A.pos[0]; np[1] = A.pos[1]; np[2] = A.pos[2] }
+      else if (mateForm.kind === "distance") { np[0] = A.pos[0]; np[1] = A.pos[1]; np[2] = A.pos[2] + (A.h / 2 + f.h / 2 + value) }
+      else if (mateForm.kind === "parallel") { np[0] = A.pos[0] + A.w / 2 + f.w / 2 + 10 }
+      return { ...f, pos: np }
+    }))
+    showToast(`Наложено сопряжение: ${MATE_INFO[mateForm.kind].name} (${A.name} ↔ ${B.name})`)
+  }
+  const removeMate = (id: number) => setMates(prev => prev.filter(m => m.id !== id))
+
+  // Проверка пересечений (коллизий) между всеми парами деталей
+  const collisions = (() => {
+    const vis = features.filter(f => f.visible)
+    const res: { a: Feature; b: Feature; vol: number }[] = []
+    for (let i = 0; i < vis.length; i++)
+      for (let j = i + 1; j < vis.length; j++) {
+        const v = overlapVolume(vis[i], vis[j])
+        if (v > 1) res.push({ a: vis[i], b: vis[j], vol: +(v / 1000).toFixed(1) })
+      }
+    return res
+  })()
 
   const addFeature = (kind: SolidKind, op: Feature["op"], preset?: Partial<Feature>) => {
     const id = ++uid
@@ -237,7 +289,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
           </div>
         </div>
         <div className="h-6 w-px bg-gray-200" />
-        {([["model", "3D-модель", "Box"], ["draw", "2D-чертёж", "PenTool"], ["analysis", "Анализ", "Gauge"], ["spec", "Спецификация", "ClipboardList"], ["exchange", "Обмен", "ArrowLeftRight"]] as [Tab, string, string][]).map(([id, l, ic]) => (
+        {([["model", "3D-модель", "Box"], ["assembly", "Сборка", "Combine"], ["draw", "2D-чертёж", "PenTool"], ["analysis", "Анализ", "Gauge"], ["spec", "Спецификация", "ClipboardList"], ["exchange", "Обмен", "ArrowLeftRight"]] as [Tab, string, string][]).map(([id, l, ic]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === id ? "bg-emerald-600 text-white" : "text-gray-500 hover:bg-gray-100"}`}>
             <Icon name={ic} size={13} fallback="Square" />{l}
@@ -315,6 +367,109 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                 <div className="absolute bottom-2 left-2 text-[10px] text-gray-400 bg-white/70 px-2 py-0.5 rounded">ЛКМ — орбита · колесо — масштаб · тел: {features.filter(f => f.visible).length}</div>
               </div>
             </>
+          )}
+
+          {tab === "assembly" && (
+            <div className="flex-1 overflow-auto p-4">
+              <div className="max-w-4xl mx-auto space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800">Сборочная единица — сопряжения компонентов</h3>
+                  <span className="text-[11px] text-gray-400">Детали из дерева соединяются связями и проверяются на пересечения</span>
+                </div>
+
+                {/* Наложение сопряжения */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                  <div className="text-[12px] font-semibold text-gray-700 flex items-center gap-1.5"><Icon name="Link2" size={14} className="text-emerald-600" />Наложить сопряжение</div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+                    <div>
+                      <Label className="text-[11px]">Тип</Label>
+                      <Select value={mateForm.kind} onValueChange={v => setMateForm(f => ({ ...f, kind: v as MateKind }))}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>{(Object.keys(MATE_INFO) as MateKind[]).map(k => <SelectItem key={k} value={k}>{MATE_INFO[k].name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px]">Деталь A</Label>
+                      <Select value={String(mateForm.a)} onValueChange={v => setMateForm(f => ({ ...f, a: +v }))}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>{features.map(f => <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px]">Деталь B</Label>
+                      <Select value={String(mateForm.b)} onValueChange={v => setMateForm(f => ({ ...f, b: +v }))}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>{features.map(f => <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px]">Зазор, мм</Label>
+                      <Input type="number" value={mateForm.value} disabled={mateForm.kind !== "distance"} onChange={e => setMateForm(f => ({ ...f, value: e.target.value }))} className="h-8 text-xs" />
+                    </div>
+                    <Button onClick={applyMate} className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Icon name="Plus" size={14} />Наложить</Button>
+                  </div>
+                  <div className="text-[11px] text-gray-400 flex items-center gap-1"><Icon name={MATE_INFO[mateForm.kind].icon} size={12} fallback="Link" />{MATE_INFO[mateForm.kind].hint}</div>
+                </div>
+
+                {/* Список сопряжений */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="text-[12px] font-semibold text-gray-700 mb-2">Наложенные сопряжения ({mates.length})</div>
+                  {mates.length === 0 ? (
+                    <div className="text-[12px] text-gray-400 py-2">Пока нет связей. Добавьте сопряжение выше — деталь B встанет в нужное положение.</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {mates.map(m => {
+                        const A = features.find(f => f.id === m.a), B = features.find(f => f.id === m.b)
+                        return (
+                          <div key={m.id} className="flex items-center gap-2 text-[12px] py-1.5 px-2 rounded hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                            <Icon name={MATE_INFO[m.kind].icon} size={13} className="text-emerald-600" fallback="Link" />
+                            <span className="font-semibold text-gray-700">{MATE_INFO[m.kind].name}</span>
+                            <span className="text-gray-500">{A?.name} ↔ {B?.name}</span>
+                            {m.kind === "distance" && <span className="text-gray-400 font-mono">{m.value} мм</span>}
+                            <button onClick={() => removeMate(m.id)} className="ml-auto text-gray-300 hover:text-red-500"><Icon name="X" size={12} /></button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Проверка пересечений */}
+                <div className={`rounded-xl border p-4 ${collisions.length ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon name={collisions.length ? "AlertTriangle" : "ShieldCheck"} size={16} className={collisions.length ? "text-red-500" : "text-green-600"} />
+                    <span className="font-bold text-gray-800 text-[13px]">Контроль пересечений (коллизии)</span>
+                    <span className={`ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full ${collisions.length ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                      {collisions.length ? `Найдено: ${collisions.length}` : "Пересечений нет"}
+                    </span>
+                  </div>
+                  {collisions.length > 0 && (
+                    <div className="space-y-1">
+                      {collisions.map((c, i) => (
+                        <div key={i} className="text-[12px] text-red-700 flex items-center gap-2">
+                          <Icon name="Zap" size={12} />
+                          <span className="font-medium">{c.a.name} ⨉ {c.b.name}</span>
+                          <span className="text-red-500">объём пересечения ≈ {c.vol} см³</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { l: "Компонентов", v: features.length },
+                    { l: "Сопряжений", v: mates.length },
+                    { l: "Степеней свободы", v: Math.max(0, features.length * 6 - mates.length * 3) },
+                  ].map(c => (
+                    <div key={c.l} className="rounded-xl border border-gray-200 bg-white p-3 text-center">
+                      <div className="text-[11px] text-gray-400">{c.l}</div>
+                      <div className="text-lg font-extrabold text-gray-800">{c.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {tab === "draw" && (
