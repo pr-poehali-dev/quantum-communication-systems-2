@@ -68,6 +68,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
 
   const [mates, setMates] = useState<Mate[]>([])
   const [mateForm, setMateForm] = useState<{ kind: MateKind; a: number; b: number; value: string }>({ kind: "concentric", a: 1, b: 2, value: "10" })
+  const [explode, setExplode] = useState(0)   // коэффициент разнесённого вида 0..1
 
   const sel = features.find(f => f.id === selected) ?? features[0]
   const mp = massProps(features)
@@ -128,6 +129,28 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
   const toggleVisible = (id: number) =>
     setFeatures(prev => prev.map(f => f.id === id ? { ...f, visible: !f.visible } : f))
 
+  // Центр сборки (для разнесённого вида)
+  const assemblyCenter = (() => {
+    const vis = features.filter(f => f.visible)
+    if (!vis.length) return [0, 0, 0] as Vec3
+    const s = vis.reduce((a, f) => [a[0] + f.pos[0], a[1] + f.pos[1], a[2] + f.pos[2]] as Vec3, [0, 0, 0] as Vec3)
+    return [s[0] / vis.length, s[1] / vis.length, s[2] / vis.length] as Vec3
+  })()
+
+  // Позиция детали с учётом разнесённого вида
+  const explodedPos = useCallback((f: Feature): Vec3 => {
+    if (explode <= 0) return f.pos
+    const dir: Vec3 = [f.pos[0] - assemblyCenter[0], f.pos[1] - assemblyCenter[1], f.pos[2] - assemblyCenter[2]]
+    const len = Math.hypot(dir[0], dir[1], dir[2]) || 1
+    // основное разнесение вдоль Z + радиальное в плоскости
+    const k = explode * 140
+    return [
+      f.pos[0] + (dir[0] / len) * k * 0.6,
+      f.pos[1] + (dir[1] / len) * k * 0.6,
+      f.pos[2] + (dir[2] / len) * k + explode * (f.pos[2] - assemblyCenter[2] >= 0 ? 60 : -60),
+    ]
+  }, [explode, assemblyCenter])
+
   // ── Рендер 3D ─────────────────────────────────────────────────────────────
   const render = useCallback(() => {
     const cv = canvasRef.current
@@ -160,9 +183,21 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
     // собрать все грани со всех тел, отсортировать по глубине
     type FaceDraw = { pts: { x: number; y: number }[]; z: number; color: string; sel: boolean; nz: number }
     const draws: FaceDraw[] = []
+    // линии разнесения (пунктир от исходной позиции к разнесённой)
+    if (explode > 0) {
+      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
+      features.filter(f => f.visible).forEach(f => {
+        const from = project(f.pos, [0, 0, 0], yaw, pitch, scale, W, H)
+        const to = project(explodedPos(f), [0, 0, 0], yaw, pitch, scale, W, H)
+        ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke()
+      })
+      ctx.setLineDash([])
+    }
+
     features.filter(f => f.visible).forEach(f => {
       const mesh = buildMesh(f)
-      const projected = mesh.vertices.map(v => project([v[0] + f.pos[0], v[1] + f.pos[1], v[2] + f.pos[2]], [0, 0, 0], yaw, pitch, scale, W, H))
+      const ep = explodedPos(f)
+      const projected = mesh.vertices.map(v => project([v[0] + ep[0], v[1] + ep[1], v[2] + ep[2]], [0, 0, 0], yaw, pitch, scale, W, H))
       mesh.faces.forEach(face => {
         const pts = face.map(idx => projected[idx])
         const z = face.reduce((s, idx) => s + projected[idx].z, 0) / face.length
@@ -191,7 +226,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
         ctx.stroke()
       }
     })
-  }, [features, selected, yaw, pitch, scale, shading, showEdges])
+  }, [features, selected, yaw, pitch, scale, shading, showEdges, explode, explodedPos])
 
   useEffect(() => { render() }, [render])
   useEffect(() => {
@@ -360,6 +395,11 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                 <ViewToggle active={shading} onClick={() => setShading(s => !s)} icon="Palette" label="Тонирование" />
                 <ViewToggle active={showEdges} onClick={() => setShowEdges(s => !s)} icon="Grid2x2" label="Рёбра" />
                 <button onClick={() => { setYaw(-0.7); setPitch(-1.1); setScale(2.2) }} className="px-2 py-1 rounded bg-white/90 border border-gray-200 text-[11px] flex items-center gap-1 text-gray-600 hover:bg-white"><Icon name="Home" size={11} />Изометрия</button>
+                <div className="px-2 py-1 rounded bg-white/90 border border-gray-200 flex items-center gap-1.5">
+                  <Icon name="Combine" size={11} className="text-emerald-600" fallback="Move" />
+                  <span className="text-[11px] text-gray-600">Разнести</span>
+                  <input type="range" min={0} max={100} value={explode * 100} onChange={e => setExplode(+e.target.value / 100)} className="w-20 accent-emerald-600" />
+                </div>
               </div>
               <div className="flex-1 min-h-0 relative">
                 <canvas ref={canvasRef} className="w-full h-full cursor-grab active:cursor-grabbing"
@@ -375,6 +415,24 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-gray-800">Сборочная единица — сопряжения компонентов</h3>
                   <span className="text-[11px] text-gray-400">Детали из дерева соединяются связями и проверяются на пересечения</span>
+                </div>
+
+                {/* Разнесённый вид (explode) */}
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[12px] font-semibold text-gray-700 flex items-center gap-1.5"><Icon name="Combine" size={14} className="text-emerald-600" fallback="Move" />Разнесённый вид</div>
+                    <span className="text-[11px] font-mono text-gray-500">{Math.round(explode * 100)}%</span>
+                  </div>
+                  <input type="range" min={0} max={100} value={explode * 100} onChange={e => setExplode(+e.target.value / 100)} className="w-full accent-emerald-600" />
+                  <div className="flex gap-1.5">
+                    {[["Собрать", 0], ["25%", 0.25], ["50%", 0.5], ["Полностью", 1]].map(([l, v]) => (
+                      <button key={l as string} onClick={() => setExplode(v as number)}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${Math.abs(explode - (v as number)) < 0.01 ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400">Раздвигает компоненты от центра сборки для наглядного показа устройства узла. Открывается на вкладке «3D-модель».</p>
                 </div>
 
                 {/* Наложение сопряжения */}
