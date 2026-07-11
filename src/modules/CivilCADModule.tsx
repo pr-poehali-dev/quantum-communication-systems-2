@@ -11287,7 +11287,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   // ── Edit state ───────────────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<EditTool>("select")
-  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(INITIAL_CANVAS_OBJECTS)
+  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(() => {
+    // Новый проект открывается с пустым холстом (без демо-объектов)
+    if (typeof window !== "undefined" && localStorage.getItem("civilpro_new_project") === "1") {
+      localStorage.removeItem("civilpro_new_project")
+      return []
+    }
+    return INITIAL_CANVAS_OBJECTS
+  })
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null)
   const [drawingPts, setDrawingPts] = useState<[number,number][]>([])
   const [cursorCanvasPos, setCursorCanvasPos] = useState<[number,number] | null>(null)
@@ -11950,9 +11957,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   const toggleLayer = (key: keyof typeof visLayers) => setVisLayers(v => ({ ...v, [key]: !v[key] }))
 
+  const активироватьИнструмент = (tool: EditTool, подсказка: string) => {
+    setActiveTool(tool)
+    setDrawingPts([])
+    setSelectedObjId(null)
+    setStatusMsg(подсказка)
+    showToast(подсказка)
+  }
+
   const openDialog = (key: string) => {
     setOpenDropdown(null)
     const k = key.toLowerCase()
+    // ── Черчение: активируем реальный инструмент на холсте ──────────────────
+    if (k.includes("полилиния") || k.includes("полилин") || k.includes("сплайн")) { активироватьИнструмент("polyline", "Полилиния: укажите первую точку (Esc — завершить)"); return }
+    else if ((k.includes("линия") || k.includes("отрезок")) && !k.includes("характерн") && !k.includes("харлиния") && !k.includes("хар.") && !k.includes("выносн")) { активироватьИнструмент("line", "Линия: укажите первую точку"); return }
+    else if (k.includes("дуга")) { активироватьИнструмент("arc", "Дуга: укажите начальную точку"); return }
+    else if (k.includes("окружность") || k.includes("круг")) { активироватьИнструмент("circle", "Окружность: укажите центр"); return }
+    else if (k.includes("прямоугольник")) { активироватьИнструмент("rect", "Прямоугольник: укажите первый угол"); return }
+    else if (k.includes("точка") && !k.includes("точками")) { активироватьИнструмент("point", "Точка: укажите положение"); return }
     // Основные объекты
     if (k.includes("коридор")) { setShowCorridor(true) }
     else if (k.includes("поверхност") || k.includes("tin") || k.includes("grid") || k.includes("рельеф")) { setShowSurface(true) }
@@ -12002,15 +12024,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (["перенести","копировать","повернуть","зеркало","обрезать","растянуть","масштаб","массив","сопряжение","разбить","соединить"].some(w=>k.includes(w))) {
       showToast(`Активен инструмент: ${key} — укажите объекты на чертеже`)
     }
-    // Черчение
-    else if (["полилиния","отрезок","дуга","окружность","прямоугольник","текст","штриховка"].some(w=>k.includes(w))) {
-      showToast(`Черчение: ${key} — укажите первую точку`)
-    }
-    // 2D Геометрия
-    else if (k.includes("линия") && !k.includes("характерн") && !k.includes("харлиния") && !k.includes("хар.")) { setShowDraw2D(true) }
-    else if (k.includes("полилин") || k.includes("дуга") || k.includes("круг") || k.includes("черч") || k.includes("2d геометр")) { setShowDraw2D(true) }
+    // Штриховка / 2D Геометрия (диалоги)
+    else if (k.includes("штриховка")) { showToast(`Черчение: ${key} — выберите замкнутый контур`) }
+    else if (k.includes("черч") || k.includes("2d геометр")) { setShowDraw2D(true) }
     // Аннотации
-    else if (k.includes("аннотац") || k.includes("размер") || k.includes("выноск") || k.includes("таблиц")) { setShowAnnotation(true) }
+    else if (k.includes("аннотац") || k.includes("размер") || k.includes("выноск") || k.includes("таблиц") || (k.includes("текст") && !k.includes("контекст"))) { setShowAnnotation(true) }
     // Поперечный уклон
     else if (k.includes("поперечный уклон") || k.includes("superelevation") || k.includes("отгон")) { setShowSuperelevation(true) }
     // Гидрология

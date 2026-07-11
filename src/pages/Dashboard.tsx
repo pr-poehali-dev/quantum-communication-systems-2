@@ -319,6 +319,47 @@ export default function Dashboard() {
   const [поискГлоб, setПоискГлоб] = useState("")
   const [showПоискРез, setShowПоискРез] = useState(false)
   const [новыйПроект, setНовыйПроект] = useState({ name: "", template: "Автодорога (СП 34)" })
+  const [создаётся, setСоздаётся] = useState(false)
+
+  const PROJECTS_URL = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
+
+  const typeByTemplate: Record<string, "road" | "network" | "railway" | "area" | "bim"> = {
+    civilcad: "road", networks: "network", geodesy: "road", areas: "area", railway: "railway", bim: "bim",
+  }
+
+  const создатьПроект = async () => {
+    if (создаётся) return
+    const шаблон = ШАБЛОНЫ.find(ш => ш.name === новыйПроект.template) || ШАБЛОНЫ[0]
+    const имя = новыйПроект.name.trim() || "Новый проект"
+    const type = typeByTemplate[шаблон.id] || "road"
+    setСоздаётся(true)
+    let созданный: { id: number; name: string } | null = null
+    try {
+      const resp = await fetch(PROJECTS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: имя, description: шаблон.desc, type, status: "active" }),
+      })
+      if (resp.ok) созданный = await resp.json()
+    } catch { /* работаем офлайн — проект всё равно откроется */ }
+
+    store?.setActiveProject({
+      id: созданный?.id ?? Date.now(),
+      name: созданный?.name ?? имя,
+      description: шаблон.desc,
+      type,
+      status: "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      objects_count: 0,
+    })
+    localStorage.setItem("civilpro_new_project", "1")
+    store?.notify(`Проект «${имя}» создан`, "success")
+    setСоздаётся(false)
+    setShowНовыйПроект(false)
+    setНовыйПроект({ name: "", template: "Автодорога (СП 34)" })
+    setActiveModule("civilcad")
+  }
 
   useEffect(() => {
     if (!localStorage.getItem("civilpro_auth")) navigate("/login")
@@ -882,10 +923,10 @@ export default function Dashboard() {
                   className="px-4 py-2 text-[12px] text-gray-400 hover:text-white border border-gray-700 rounded transition-colors">
                   Отмена
                 </button>
-                <button onClick={() => { setShowНовыйПроект(false); setActiveModule("civilcad") }}
-                  className="px-4 py-2 text-[12px] text-white rounded transition-colors"
+                <button onClick={создатьПроект} disabled={создаётся}
+                  className="px-4 py-2 text-[12px] text-white rounded transition-colors disabled:opacity-60"
                   style={{ background: "#0078d4" }}>
-                  Создать
+                  {создаётся ? "Создаём…" : "Создать"}
                 </button>
               </div>
             </motion.div>
