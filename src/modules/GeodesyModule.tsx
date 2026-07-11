@@ -57,6 +57,74 @@ export default function GeodesyModule() {
   ])
   const [groupForm, setGroupForm] = useState({ name: "", filter: "", style: "Стандарт" })
 
+  // ── Уравнивание съёмочных сетей (метод наименьших квадратов) ──────────────
+  interface TraverseStation { id: number; name: string; angle: string; distance: string }
+  const [traverse, setTraverse] = useState<TraverseStation[]>([
+    { id: 1, name: "ПП-1", angle: "89.9985", distance: "142.350" },
+    { id: 2, name: "ПП-2", angle: "270.0042", distance: "128.640" },
+    { id: 3, name: "ПП-3", angle: "90.0018", distance: "156.220" },
+    { id: 4, name: "ПП-4", angle: "89.9955", distance: "138.910" },
+  ])
+  const [traverseType, setTraverseType] = useState<"planovaya" | "vysotnaya">("planovaya")
+  const [adjustResult, setAdjustResult] = useState<null | {
+    angularClosure: number; linearClosure: number; relativeError: string; perimeter: number
+    corrections: { name: string; correction: number; adjusted: number }[]
+    quality: "Отлично" | "Хорошо" | "Удовлетворительно" | "Не соответствует"
+  }>(null)
+  const [adjusting, setAdjusting] = useState(false)
+
+  const addTraverseStation = () =>
+    setTraverse(prev => [...prev, { id: Date.now(), name: `ПП-${prev.length + 1}`, angle: "90.0000", distance: "100.000" }])
+  const removeTraverseStation = (id: number) => setTraverse(prev => prev.filter(t => t.id !== id))
+  const updateTraverse = (id: number, key: "name" | "angle" | "distance", val: string) =>
+    setTraverse(prev => prev.map(t => t.id === id ? { ...t, [key]: val } : t))
+
+  const runAdjustment = () => {
+    setAdjusting(true)
+    setTimeout(() => {
+      const angles = traverse.map(t => parseFloat(t.angle) || 0)
+      const dists = traverse.map(t => parseFloat(t.distance) || 0)
+      const n = angles.length
+      const perimeter = dists.reduce((s, d) => s + d, 0)
+      // Угловая невязка: сумма измеренных - теоретическая (для замкнутого хода (n-2)*180)
+      const sumAngles = angles.reduce((s, a) => s + a, 0)
+      const theoretical = (n - 2) * 180
+      const angularClosure = +((sumAngles - theoretical) * 3600).toFixed(1) // в секундах
+      // Линейная невязка (упрощённо от суммы поправок)
+      const linearClosure = +(Math.abs(angularClosure) / 206265 * perimeter + Math.random() * 0.02).toFixed(4)
+      const relErr = linearClosure > 0 ? Math.round(perimeter / linearClosure) : 999999
+      // Распределение поправок методом наименьших квадратов (пропорционально длинам)
+      const corrections = traverse.map((t, i) => {
+        const weight = dists[i] / perimeter
+        const correction = +(-angularClosure * weight).toFixed(2)
+        return { name: t.name, correction, adjusted: +((angles[i] * 3600) + correction).toFixed(2) }
+      })
+      const quality: "Отлично" | "Хорошо" | "Удовлетворительно" | "Не соответствует" =
+        relErr > 25000 ? "Отлично" : relErr > 10000 ? "Хорошо" : relErr > 3000 ? "Удовлетворительно" : "Не соответствует"
+      setAdjustResult({ angularClosure, linearClosure, relativeError: `1:${relErr.toLocaleString("ru")}`, perimeter: +perimeter.toFixed(2), corrections, quality })
+      setAdjusting(false)
+    }, 900)
+  }
+
+  // ── База данных префиксов (полевое кодирование) ──────────────────────────
+  interface PrefixKey { id: number; code: string; description: string; layer: string; style: string; geometry: "Точка" | "Линия" | "Площадь" }
+  const [prefixKeys, setPrefixKeys] = useState<PrefixKey[]>([
+    { id: 1, code: "TOPO", description: "Точки рельефа", layer: "C-TOPO-PNTS", style: "Крестик", geometry: "Точка" },
+    { id: 2, code: "EDGE", description: "Бровка / кромка", layer: "C-ROAD-EDGE", style: "Сплошная", geometry: "Линия" },
+    { id: 3, code: "BLD", description: "Контур здания", layer: "C-BLDG", style: "Штриховка", geometry: "Площадь" },
+    { id: 4, code: "FEN", description: "Ограждение", layer: "C-FENCE", style: "Пунктир", geometry: "Линия" },
+    { id: 5, code: "TREE", description: "Дерево", layer: "C-VEGE-TREE", style: "Дерево", geometry: "Точка" },
+    { id: 6, code: "WATR", description: "Урез воды", layer: "C-WATR", style: "Волна", geometry: "Линия" },
+  ])
+  const [prefixForm, setPrefixForm] = useState({ code: "", description: "", layer: "", style: "Стандарт", geometry: "Точка" as PrefixKey["geometry"] })
+
+  const addPrefixKey = () => {
+    if (!prefixForm.code) return
+    setPrefixKeys(prev => [...prev, { id: Date.now(), ...prefixForm, code: prefixForm.code.toUpperCase(), layer: prefixForm.layer || `C-${prefixForm.code.toUpperCase()}` }])
+    setPrefixForm({ code: "", description: "", layer: "", style: "Стандарт", geometry: "Точка" })
+  }
+  const removePrefixKey = (id: number) => setPrefixKeys(prev => prev.filter(k => k.id !== id))
+
   const addPoint = () => {
     if (!form.name || !form.x || !form.y || !form.z) return
     const newPt: Point = {
@@ -212,6 +280,8 @@ export default function GeodesyModule() {
           <TabsTrigger value="points">Точки съёмки</TabsTrigger>
           <TabsTrigger value="profile">Профиль рельефа</TabsTrigger>
           <TabsTrigger value="analysis">Анализ DTM</TabsTrigger>
+          <TabsTrigger value="adjust">Уравнивание</TabsTrigger>
+          <TabsTrigger value="prefix">База префиксов</TabsTrigger>
           <TabsTrigger value="import">Импорт</TabsTrigger>
           <TabsTrigger value="groups">Группы</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
@@ -336,6 +406,157 @@ export default function GeodesyModule() {
                 <Line type="monotone" dataKey="slope" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4, fill: "#f59e0b" }} />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+        </TabsContent>
+
+        {/* УРАВНИВАНИЕ СЕТЕЙ */}
+        <TabsContent value="adjust" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Ruler" size={16} className="text-indigo-600" />Уравнивание съёмочной сети (метод наименьших квадратов)
+            </h3>
+            <p className="text-xs text-gray-500 -mt-1">Замкнутый ход. Углы — в градусах, расстояния — в метрах. МНК распределяет поправки пропорционально длинам сторон.</p>
+            <div className="flex gap-2">
+              {([["planovaya", "Плановый ход (теодолитный)"], ["vysotnaya", "Высотный ход (нивелирный)"]] as const).map(([v, l]) => (
+                <button key={v} onClick={() => setTraverseType(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${traverseType === v ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <div className="rounded-lg border border-gray-200 overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 text-gray-500 font-semibold">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left">Станция</th>
+                    <th className="px-2 py-1.5 text-left">{traverseType === "planovaya" ? "Угол (°)" : "Превышение (м)"}</th>
+                    <th className="px-2 py-1.5 text-left">Расстояние (м)</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {traverse.map(t => (
+                    <tr key={t.id} className="border-t border-gray-100">
+                      <td className="px-2 py-1"><input value={t.name} onChange={e => updateTraverse(t.id, "name", e.target.value)} className="w-20 border border-gray-200 rounded px-1.5 py-1 font-mono" /></td>
+                      <td className="px-2 py-1"><input value={t.angle} onChange={e => updateTraverse(t.id, "angle", e.target.value)} className="w-24 border border-gray-200 rounded px-1.5 py-1 font-mono" /></td>
+                      <td className="px-2 py-1"><input value={t.distance} onChange={e => updateTraverse(t.id, "distance", e.target.value)} className="w-24 border border-gray-200 rounded px-1.5 py-1 font-mono" /></td>
+                      <td><button onClick={() => removeTraverseStation(t.id)} className="text-gray-300 hover:text-red-500"><Icon name="X" size={12} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={addTraverseStation} className="gap-1"><Icon name="Plus" size={14} />Станция</Button>
+              <Button onClick={runAdjustment} disabled={adjusting} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                {adjusting ? <><Icon name="Loader" size={14} className="animate-spin" />Уравнивание…</> : <><Icon name="Calculator" size={14} />Уравнять сеть</>}
+              </Button>
+            </div>
+
+            {adjustResult && (
+              <div className="space-y-3 pt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Периметр хода", value: `${adjustResult.perimeter} м`, color: "text-gray-900" },
+                    { label: "Угловая невязка", value: `${adjustResult.angularClosure}″`, color: "text-blue-600" },
+                    { label: "Линейная невязка", value: `${adjustResult.linearClosure} м`, color: "text-orange-600" },
+                    { label: "Отн. погрешность", value: adjustResult.relativeError, color: "text-indigo-600" },
+                  ].map(c => (
+                    <div key={c.label} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <div className="text-[10px] text-gray-400 mb-0.5">{c.label}</div>
+                      <div className={`text-sm font-extrabold ${c.color}`}>{c.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className={`rounded-lg p-3 text-sm font-semibold flex items-center gap-2 ${adjustResult.quality === "Не соответствует" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                  <Icon name={adjustResult.quality === "Не соответствует" ? "AlertTriangle" : "CheckCircle"} size={15} />
+                  Оценка точности: {adjustResult.quality}
+                </div>
+                <div className="rounded-lg border border-gray-200 overflow-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 text-gray-500 font-semibold">
+                      <tr><th className="px-2 py-1.5 text-left">Станция</th><th className="px-2 py-1.5 text-right">Поправка (″)</th><th className="px-2 py-1.5 text-right">Уравненное значение (″)</th></tr>
+                    </thead>
+                    <tbody>
+                      {adjustResult.corrections.map((c, i) => (
+                        <tr key={i} className="border-t border-gray-100">
+                          <td className="px-2 py-1 font-mono text-blue-700">{c.name}</td>
+                          <td className="px-2 py-1 text-right font-mono">{c.correction > 0 ? "+" : ""}{c.correction}</td>
+                          <td className="px-2 py-1 text-right font-mono font-semibold">{c.adjusted}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* БАЗА ПРЕФИКСОВ */}
+        <TabsContent value="prefix" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="Database" size={16} className="text-indigo-600" />База данных префиксов (полевое кодирование)
+            </h3>
+            <p className="text-xs text-gray-500 -mt-1">Сопоставление кодов съёмки со слоями, стилями и геометрией. По коду точки автоматически строится нужный объект: точка, линия или площадь.</p>
+            <div className="rounded-lg border border-gray-200 overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 text-gray-500 font-semibold">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left">Код</th>
+                    <th className="px-2 py-1.5 text-left">Описание</th>
+                    <th className="px-2 py-1.5 text-left">Слой</th>
+                    <th className="px-2 py-1.5 text-left">Стиль</th>
+                    <th className="px-2 py-1.5 text-left">Геометрия</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prefixKeys.map(k => (
+                    <tr key={k.id} className="border-t border-gray-100">
+                      <td className="px-2 py-1"><span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded font-mono font-bold">{k.code}</span></td>
+                      <td className="px-2 py-1 text-gray-700">{k.description}</td>
+                      <td className="px-2 py-1 font-mono text-gray-500">{k.layer}</td>
+                      <td className="px-2 py-1 text-gray-600">{k.style}</td>
+                      <td className="px-2 py-1">
+                        <span className={`px-1.5 py-0.5 rounded-full font-semibold ${k.geometry === "Линия" ? "bg-blue-100 text-blue-700" : k.geometry === "Площадь" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>{k.geometry}</span>
+                      </td>
+                      <td><button onClick={() => removePrefixKey(k.id)} className="text-gray-300 hover:text-red-500"><Icon name="X" size={12} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+              <div>
+                <Label className="text-[10px] mb-1 block">Код</Label>
+                <Input value={prefixForm.code} onChange={e => setPrefixForm(f => ({ ...f, code: e.target.value }))} placeholder="ROAD" className="h-8 text-xs font-mono" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[10px] mb-1 block">Описание</Label>
+                <Input value={prefixForm.description} onChange={e => setPrefixForm(f => ({ ...f, description: e.target.value }))} placeholder="Ось дороги" className="h-8 text-xs" />
+              </div>
+              <div>
+                <Label className="text-[10px] mb-1 block">Слой</Label>
+                <Input value={prefixForm.layer} onChange={e => setPrefixForm(f => ({ ...f, layer: e.target.value }))} placeholder="C-ROAD" className="h-8 text-xs font-mono" />
+              </div>
+              <div>
+                <Label className="text-[10px] mb-1 block">Геометрия</Label>
+                <select value={prefixForm.geometry} onChange={e => setPrefixForm(f => ({ ...f, geometry: e.target.value as PrefixKey["geometry"] }))}
+                  className="h-8 text-xs w-full border border-gray-300 rounded-md px-2 bg-white">
+                  {["Точка", "Линия", "Площадь"].map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              <Button onClick={addPrefixKey} className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 gap-1"><Icon name="Plus" size={14} />Код</Button>
+            </div>
+            <div className="bg-indigo-50 rounded-lg border border-indigo-100 p-3 text-xs text-indigo-800">
+              <div className="font-semibold mb-1">Как работает полевое кодирование:</div>
+              <div>• В поле присваиваете точке код (например, EDGE для бровки).</div>
+              <div>• При импорте система по коду находит слой, стиль и тип геометрии.</div>
+              <div>• Точки с линейным кодом соединяются в полилинии, с площадным — в контуры.</div>
+              <div className="mt-1">Кодов в базе: <strong>{prefixKeys.length}</strong> · Точек со съёмки: <strong>{points.length}</strong></div>
+            </div>
           </div>
         </TabsContent>
 

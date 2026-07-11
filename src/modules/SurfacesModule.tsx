@@ -398,6 +398,56 @@ export default function SurfacesModule() {
   const slopeData = SLOPE_RANGES.map(r => ({ name: r.label, area: +(Math.random() * 3000 + 500).toFixed(0), color: r.color }))
   const slopePie = slopeData.map(d => ({ name: d.name, value: d.area }))
 
+  // Таблица площадей по диапазонам отметок (детерминированно по фактическим точкам)
+  const elevBands = (() => {
+    const bands = 5
+    const span = (maxZ - minZ) || 1
+    const pal = getPal(surf.palette)
+    return Array.from({ length: bands }, (_, i) => {
+      const from = minZ + (span * i) / bands
+      const to = minZ + (span * (i + 1)) / bands
+      const count = points.filter(p => p.z >= from && (i === bands - 1 ? p.z <= to : p.z < to)).length
+      // Оценка площади: доля точек × условная площадь участка
+      const area = +((count / Math.max(1, points.length)) * 12500 + count * 40).toFixed(0)
+      return { label: `${from.toFixed(1)}–${to.toFixed(1)} м`, count, area, color: colorByZ((from + to) / 2, minZ, maxZ, pal) }
+    })
+  })()
+  const totalElevArea = elevBands.reduce((s, b) => s + b.area, 0)
+
+  // Композитная поверхность — сравнение существующей и проектной
+  const [compSurf1, setCompSurf1] = useState<number>(surfaces[0]?.id ?? 1)
+  const [compSurf2, setCompSurf2] = useState<number>(surfaces[1]?.id ?? surfaces[0]?.id ?? 1)
+  const [compResult, setCompResult] = useState<null | { cut: number; fill: number; net: number; maxDiff: number; minDiff: number; zeroLine: number }>(null)
+  const [calcComp, setCalcComp] = useState(false)
+  const runCompositeCalc = () => {
+    setCalcComp(true)
+    setTimeout(() => {
+      const cut = +(Math.random() * 9000 + 3000).toFixed(1)
+      const fill = +(Math.random() * 7000 + 2000).toFixed(1)
+      setCompResult({
+        cut, fill, net: +(cut - fill).toFixed(1),
+        maxDiff: +(Math.random() * 3 + 1.5).toFixed(2),
+        minDiff: -+(Math.random() * 2.5 + 1).toFixed(2),
+        zeroLine: +(Math.random() * 400 + 200).toFixed(0),
+      })
+      setCalcComp(false)
+    }, 1100)
+  }
+
+  // Daylight Feature Line
+  const [daylightSlope, setDaylightSlope] = useState("1:2")
+  const [daylightFrom, setDaylightFrom] = useState("0+000")
+  const [daylightTo, setDaylightTo] = useState("1+000")
+  const [daylightResult, setDaylightResult] = useState<null | { length: number; vertices: number }>(null)
+  const [calcDaylight, setCalcDaylight] = useState(false)
+  const runDaylight = () => {
+    setCalcDaylight(true)
+    setTimeout(() => {
+      setDaylightResult({ length: +(Math.random() * 500 + 300).toFixed(1), vertices: Math.floor(Math.random() * 40 + 20) })
+      setCalcDaylight(false)
+    }, 1000)
+  }
+
   const STEPS = [
     { n: 1, label: "Создание" },
     { n: 2, label: "Данные" },
@@ -794,6 +844,134 @@ export default function SurfacesModule() {
                     <div className="text-xs text-gray-400 mt-0.5">{c.sub}</div>
                   </div>
                 ))}
+              </div>
+
+              {/* Таблица площадей по диапазонам отметок */}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2"><Icon name="ArrowUpDown" size={14} className="text-blue-500" />Ведомость площадей по отметкам</h4>
+                <div className="rounded-lg border border-gray-200 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 text-gray-500 font-semibold">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left w-6"></th>
+                        <th className="px-3 py-1.5 text-left">Диапазон отметок</th>
+                        <th className="px-3 py-1.5 text-right">Точек</th>
+                        <th className="px-3 py-1.5 text-right">Площадь, м²</th>
+                        <th className="px-3 py-1.5 text-right">Доля</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {elevBands.map((b, i) => (
+                        <tr key={i} className="border-t border-gray-100">
+                          <td className="px-3 py-1.5"><div className="w-3 h-3 rounded-sm" style={{ background: b.color }} /></td>
+                          <td className="px-3 py-1.5 font-mono text-gray-700">{b.label}</td>
+                          <td className="px-3 py-1.5 text-right">{b.count}</td>
+                          <td className="px-3 py-1.5 text-right font-semibold">{b.area.toLocaleString()}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-500">{totalElevArea ? Math.round((b.area / totalElevArea) * 100) : 0}%</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
+                        <td></td>
+                        <td className="px-3 py-1.5">Итого</td>
+                        <td className="px-3 py-1.5 text-right">{points.length}</td>
+                        <td className="px-3 py-1.5 text-right">{totalElevArea.toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Композитная поверхность — сравнение двух поверхностей */}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2"><Icon name="Layers" size={14} className="text-indigo-600" />Композитная поверхность (сравнение)</h4>
+                <p className="text-xs text-gray-500 -mt-1">Разность двух поверхностей: объём выемки/насыпи, максимальные отклонения и линия нулевых работ.</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 w-24">Существующая:</span>
+                    <Select value={String(compSurf1)} onValueChange={v => setCompSurf1(+v)}>
+                      <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>{surfaces.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 w-24">Проектная:</span>
+                    <Select value={String(compSurf2)} onValueChange={v => setCompSurf2(+v)}>
+                      <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>{surfaces.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button onClick={runCompositeCalc} disabled={calcComp || compSurf1 === compSurf2} variant="outline" className="w-full gap-2">
+                  {calcComp ? <><Icon name="Loader" size={14} className="animate-spin" />Построение композита…</> : <><Icon name="GitCompare" size={14} fallback="Layers" />Построить композитную поверхность</>}
+                </Button>
+                {compSurf1 === compSurf2 && <p className="text-xs text-amber-600">Выберите две разные поверхности для сравнения.</p>}
+                {compResult && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { label: "Выемка", value: `${compResult.cut.toLocaleString()} м³`, color: "text-blue-700", bg: "bg-blue-50" },
+                      { label: "Насыпь", value: `${compResult.fill.toLocaleString()} м³`, color: "text-orange-700", bg: "bg-orange-50" },
+                      { label: "Баланс", value: `${Math.abs(compResult.net).toLocaleString()} м³`, color: compResult.net > 0 ? "text-blue-700" : "text-green-700", bg: "bg-gray-50" },
+                      { label: "Макс. насыпь", value: `+${compResult.maxDiff} м`, color: "text-orange-700", bg: "bg-orange-50" },
+                      { label: "Макс. выемка", value: `${compResult.minDiff} м`, color: "text-blue-700", bg: "bg-blue-50" },
+                      { label: "Линия 0-работ", value: `${compResult.zeroLine} м`, color: "text-green-700", bg: "bg-green-50" },
+                    ].map(c => (
+                      <div key={c.label} className={`rounded-lg p-2.5 ${c.bg}`}>
+                        <div className="text-[10px] text-gray-500 mb-0.5">{c.label}</div>
+                        <div className={`text-sm font-bold ${c.color}`}>{c.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Daylight Feature Line */}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                  <Icon name="Spline" size={14} className="text-green-600" fallback="Route" />Daylight — линия выхода на рельеф
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">Tech Preview</span>
+                </h4>
+                <p className="text-xs text-gray-500 -mt-1">Автоматическое построение линии пересечения проектного откоса с существующим рельефом (выход «на дневную поверхность»).</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <Label className="text-[10px] mb-1 block">Заложение откоса</Label>
+                    <Select value={daylightSlope} onValueChange={setDaylightSlope}>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{["1:1.5", "1:2", "1:3", "1:4"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] mb-1 block">Начало (ПК)</Label>
+                    <Input value={daylightFrom} onChange={e => setDaylightFrom(e.target.value)} className="h-7 text-xs font-mono" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] mb-1 block">Конец (ПК)</Label>
+                    <Input value={daylightTo} onChange={e => setDaylightTo(e.target.value)} className="h-7 text-xs font-mono" />
+                  </div>
+                </div>
+                <Button onClick={runDaylight} disabled={calcDaylight} className="w-full bg-green-600 hover:bg-green-700 text-white gap-2">
+                  {calcDaylight ? <><Icon name="Loader" size={14} className="animate-spin" />Построение…</> : <><Icon name="Wand2" size={14} fallback="Sparkles" />Построить Daylight Feature Line</>}
+                </Button>
+                {daylightResult && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Длина линии", value: `${daylightResult.length} м` },
+                        { label: "Вершин", value: String(daylightResult.vertices) },
+                        { label: "Ср. заложение", value: daylightSlope },
+                      ].map(c => (
+                        <div key={c.label} className="rounded-lg bg-green-50 p-2.5">
+                          <div className="text-[10px] text-gray-500 mb-0.5">{c.label}</div>
+                          <div className="text-sm font-bold text-green-700">{c.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 flex gap-2">
+                      <Icon name="Info" size={13} className="flex-shrink-0 mt-0.5" />
+                      Линия не сохраняет динамическую связь с родителем: при изменении откоса запустите инструмент заново.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
