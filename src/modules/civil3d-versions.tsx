@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 
@@ -328,6 +328,12 @@ export function ModelViewer3DDialog({ onClose }: Close) {
   const dragRef = useRef<{ x: number; rot: number } | null>(null)
   const layers = ["Рельеф (TIN)", "Коридор дороги", "Трубопроводные сети", "Мост", "Проектная площадка"]
   const [on, setOn] = useState<Record<string, boolean>>(Object.fromEntries(layers.map(l => [l, true])))
+  // Форсируем отрисовку SVG после появления окна (анимация scale ломает первый repaint)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   const startDrag = (clientX: number) => { dragRef.current = { x: clientX, rot }; setDragging(true) }
   const moveDrag = (clientX: number) => {
@@ -369,7 +375,7 @@ export function ModelViewer3DDialog({ onClose }: Close) {
           onTouchStart={e => startDrag(e.touches[0].clientX)}
           onTouchMove={e => moveDrag(e.touches[0].clientX)}
           onTouchEnd={endDrag}>
-          <svg viewBox="0 0 300 220" width="100%" height="260" style={{ display: "block", pointerEvents: "none" }}>
+          <svg key={ready ? "svg-ready" : "svg-init"} viewBox="0 0 300 220" width="100%" height="260" style={{ display: "block", pointerEvents: "none" }}>
             <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
             <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
             <g transform={`rotate(${(rot - 24) * 0.15} 150 150)`}>
