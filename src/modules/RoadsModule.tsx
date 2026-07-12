@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from "recharts"
@@ -187,7 +187,7 @@ export default function RoadsModule() {
           <TabsTrigger value="animation">Анимация проезда</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
           <TabsTrigger value="report">Отчёт</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-corridor">Трассы</TabsTrigger>
         </TabsList>
 
         {/* PARAMS */}
@@ -624,7 +624,7 @@ export default function RoadsModule() {
             )}
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["corridor"]} /></TabsContent>
+        <TabsContent value="cat-corridor"><CategoryFeaturesGrid category="corridor" /></TabsContent>
       </Tabs>
     </motion.div>
   )

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 
 interface BIMElement {
   id: number
@@ -98,7 +98,8 @@ export default function BIMModule() {
           <TabsTrigger value="export">Экспорт</TabsTrigger>
           <TabsTrigger value="coordination">BIM-координация</TabsTrigger>
           <TabsTrigger value="cloud">BIM 360 Cloud</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-bim">BIM/IFC</TabsTrigger>
+          <TabsTrigger value="cat-modeling3d">3D-модели</TabsTrigger>
         </TabsList>
 
         {/* MODEL */}
@@ -458,7 +459,8 @@ export default function BIMModule() {
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["bim", "modeling3d"]} /></TabsContent>
+        <TabsContent value="cat-bim"><CategoryFeaturesGrid category="bim" /></TabsContent>
+        <TabsContent value="cat-modeling3d"><CategoryFeaturesGrid category="modeling3d" /></TabsContent>
       </Tabs>
     </motion.div>
   )

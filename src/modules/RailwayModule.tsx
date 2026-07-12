@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { экспортТекст, экспортCSV } from "@/utils/exportImport"
 
@@ -109,7 +109,7 @@ export default function RailwayModule() {
           <TabsTrigger value="profile">Профиль трассы</TabsTrigger>
           <TabsTrigger value="cross">Поперечный профиль</TabsTrigger>
           <TabsTrigger value="calcs">Тяговые расчёты</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-corridor">Трассы</TabsTrigger>
         </TabsList>
 
         <TabsContent value="params" className="space-y-5">
@@ -233,7 +233,7 @@ export default function RailwayModule() {
         <TabsContent value="calcs">
           <TractionCalc speed={cls.speed} grade={grade} />
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["corridor"]} /></TabsContent>
+        <TabsContent value="cat-corridor"><CategoryFeaturesGrid category="corridor" /></TabsContent>
       </Tabs>
     </motion.div>
   )

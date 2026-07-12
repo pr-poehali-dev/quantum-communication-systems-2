@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
 
 interface Project {
@@ -294,7 +294,8 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                 <TabsTrigger value="versions">Версии ({current.versions.length})</TabsTrigger>
                 <TabsTrigger value="team">Команда</TabsTrigger>
                 <TabsTrigger value="reports">Отчёты</TabsTrigger>
-                <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+                <TabsTrigger value="cat-collab">Совместная работа</TabsTrigger>
+                <TabsTrigger value="cat-platform">Платформа</TabsTrigger>
               </TabsList>
 
               <TabsContent value="info" className="space-y-4 mt-4">
@@ -376,7 +377,8 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                 </div>
               </TabsContent>
 
-              <TabsContent value="v2027" className="mt-4"><VersionFeaturesInline categories={["collab", "platform"]} /></TabsContent>
+              <TabsContent value="cat-collab" className="mt-4"><CategoryFeaturesGrid category="collab" /></TabsContent>
+              <TabsContent value="cat-platform" className="mt-4"><CategoryFeaturesGrid category="platform" /></TabsContent>
             </Tabs>
           </motion.div>
         ) : null}

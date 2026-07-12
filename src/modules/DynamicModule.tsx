@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 interface NodeParam {
@@ -150,7 +150,8 @@ export default function DynamicModule() {
           <TabsTrigger value="chart">Параметрический анализ</TabsTrigger>
           <TabsTrigger value="log">Журнал изменений</TabsTrigger>
           <TabsTrigger value="associativity">Ассоциативность</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-modify">Правка</TabsTrigger>
+          <TabsTrigger value="cat-draw">Черчение</TabsTrigger>
         </TabsList>
 
         <TabsContent value="live">
@@ -362,7 +363,8 @@ export default function DynamicModule() {
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["modify", "draw"]} /></TabsContent>
+        <TabsContent value="cat-modify"><CategoryFeaturesGrid category="modify" /></TabsContent>
+        <TabsContent value="cat-draw"><CategoryFeaturesGrid category="draw" /></TabsContent>
       </Tabs>
     </motion.div>
   )

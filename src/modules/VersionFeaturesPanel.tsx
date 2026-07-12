@@ -105,6 +105,64 @@ export function VersionFeaturesInline({ dir, categories }: { dir?: DirId; catego
   return <FeaturesGrid dir={dir} categories={categories} />
 }
 
+// ─── Метаданные категорий (label/icon/color) для построения вкладок модуля ─────
+export const categoryMeta = (id: CategoryId) => CATEGORIES.find(c => c.id === id)!
+export const categoryFeatureCount = (id: CategoryId) => FEATURES.filter(f => f.category === id).length
+
+// ─── Рабочая сетка функций ОДНОЙ категории — как содержимое обычной вкладки ────
+export function CategoryFeaturesGrid({ category }: { category: CategoryId }) {
+  const [active, setActive] = useState<VersionFeatureFull | null>(null)
+  const [q, setQ] = useState("")
+  const meta = CATEGORIES.find(c => c.id === category)!
+
+  const items = useMemo(() => {
+    const query = q.trim().toLowerCase()
+    return FEATURES.filter(f =>
+      f.category === category &&
+      (!query || f.name.toLowerCase().includes(query) || f.desc.toLowerCase().includes(query) || (f.command || "").toLowerCase().includes(query))
+    )
+  }, [category, q])
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Icon name={meta.icon} size={16} style={{ color: meta.color }} />
+          <h3 className="font-bold text-gray-900">{meta.label}</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: meta.color + "18", color: meta.color }}>{items.length}</span>
+        </div>
+        <div className="relative w-full max-w-[220px]">
+          <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск функции…"
+            className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-[12px] pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-[#0078d4]" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {items.map(f => {
+          const p = PRODUCTS.find(x => x.id === f.product)!
+          return (
+            <button key={f.id} onClick={() => setActive(f)}
+              className="text-left bg-white border border-gray-200 rounded-lg p-2.5 hover:border-[#0078d4] hover:shadow-sm transition-all group">
+              <div className="flex items-center gap-2 mb-1">
+                <Icon name={f.icon} size={14} style={{ color: p.color }} fallback="Square" />
+                <span className="text-[11.5px] font-semibold text-gray-900 leading-tight flex-1 group-hover:text-[#0078d4]">{f.name}</span>
+                <span className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
+              </div>
+              <div className="text-[10px] text-gray-500 leading-snug line-clamp-2">{f.desc}</div>
+            </button>
+          )
+        })}
+      </div>
+      {items.length === 0 && <div className="text-gray-400 text-[12px] py-4 text-center">Функции не найдены</div>}
+
+      <AnimatePresence>
+        {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ─── Внутренняя сетка функций (поиск + группировка + диалог) ──────────────────
 function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryId[] }) {
   const [active, setActive] = useState<VersionFeatureFull | null>(null)

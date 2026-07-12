@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { экспортCSV, экспортLandXML, экспортТекст, экспортDXF, экспортDWG } from "@/utils/exportImport"
 
@@ -165,7 +165,8 @@ export default function AlignmentModule() {
           <TabsTrigger value="clothoids">Переходные кривые</TabsTrigger>
           <TabsTrigger value="stakeout">Разбивочные данные</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-corridor">Трассы</TabsTrigger>
+          <TabsTrigger value="cat-draw">Черчение</TabsTrigger>
         </TabsList>
 
         {/* VERTICAL */}
@@ -396,7 +397,8 @@ export default function AlignmentModule() {
             <p className="text-xs text-muted-foreground">Все файлы формируются в браузере без сервера и сохраняются локально.</p>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["corridor", "draw"]} /></TabsContent>
+        <TabsContent value="cat-corridor"><CategoryFeaturesGrid category="corridor" /></TabsContent>
+        <TabsContent value="cat-draw"><CategoryFeaturesGrid category="draw" /></TabsContent>
       </Tabs>
     </motion.div>
   )

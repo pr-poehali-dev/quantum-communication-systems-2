@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 
 interface AreaObject {
   id: number
@@ -117,7 +117,8 @@ export default function AreasModule() {
           <TabsTrigger value="teo">ТЭП участка</TabsTrigger>
           <TabsTrigger value="tep">ТЭП по СП 42</TabsTrigger>
           <TabsTrigger value="3d">3D-вид</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-annotation">Аннотации</TabsTrigger>
+          <TabsTrigger value="cat-surface">Рельеф</TabsTrigger>
         </TabsList>
 
         <TabsContent value="plan">
@@ -434,7 +435,8 @@ export default function AreasModule() {
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["annotation", "surface"]} /></TabsContent>
+        <TabsContent value="cat-annotation"><CategoryFeaturesGrid category="annotation" /></TabsContent>
+        <TabsContent value="cat-surface"><CategoryFeaturesGrid category="surface" /></TabsContent>
       </Tabs>
     </motion.div>
   )

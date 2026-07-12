@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 
 // ─── LSP-скрипты ──────────────────────────────────────────────────────────────
 
@@ -414,10 +414,30 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                 <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-bold">{t.count}</span>
               </TabsTrigger>
             ))}
-            <TabsTrigger value="v2027"
+            <TabsTrigger value="cat-layers"
               className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:text-violet-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
               <Icon name="Sparkles" size={13} />
-              Функции 2022–2027
+              Слои
+            </TabsTrigger>
+            <TabsTrigger value="cat-blocks"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:text-violet-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              Блоки
+            </TabsTrigger>
+            <TabsTrigger value="cat-xref"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:text-violet-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              Xref
+            </TabsTrigger>
+            <TabsTrigger value="cat-ai"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:text-violet-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              ИИ
+            </TabsTrigger>
+            <TabsTrigger value="cat-collab"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:text-violet-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              Совместная работа
             </TabsTrigger>
           </TabsList>
         </div>
@@ -767,7 +787,11 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
           }} />
         </TabsContent>
 
-        <TabsContent value="v2027" className="p-6 overflow-auto"><VersionFeaturesInline categories={["layers", "blocks", "xref", "ai", "collab"]} /></TabsContent>
+        <TabsContent value="cat-layers" className="p-6 overflow-auto"><CategoryFeaturesGrid category="layers" /></TabsContent>
+        <TabsContent value="cat-blocks" className="p-6 overflow-auto"><CategoryFeaturesGrid category="blocks" /></TabsContent>
+        <TabsContent value="cat-xref" className="p-6 overflow-auto"><CategoryFeaturesGrid category="xref" /></TabsContent>
+        <TabsContent value="cat-ai" className="p-6 overflow-auto"><CategoryFeaturesGrid category="ai" /></TabsContent>
+        <TabsContent value="cat-collab" className="p-6 overflow-auto"><CategoryFeaturesGrid category="collab" /></TabsContent>
       </Tabs>
 
       {/* ── Toast ── */}

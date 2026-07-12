@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { экспортCSV, экспортLandXML } from "@/utils/exportImport"
 
@@ -293,7 +293,7 @@ export default function NetworksModule() {
           <TabsTrigger value="nodes">{cfg.nodeName === "Узел" ? "Узлы" : `${cfg.nodeName}ы и узлы`}</TabsTrigger>
           <TabsTrigger value="schema">Схема сети</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-network">Инженерные сети</TabsTrigger>
         </TabsList>
 
         {/* PIPES */}
@@ -526,7 +526,7 @@ export default function NetworksModule() {
             <p className="text-xs text-muted-foreground">Экспортируется текущая сеть ({cfg.label}, {pipes.length} участков). Все файлы формируются в браузере без сервера.</p>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["network"]} /></TabsContent>
+        <TabsContent value="cat-network"><CategoryFeaturesGrid category="network" /></TabsContent>
       </Tabs>
     </motion.div>
   )

@@ -3,7 +3,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст, импортФайл, импортLandXML } from "@/utils/exportImport"
 
 interface FormatItem {
@@ -128,7 +128,7 @@ export default function IntegrationModule() {
           <TabsTrigger value="workflow">Сценарии интеграции</TabsTrigger>
           <TabsTrigger value="geodesy">Геодезия</TabsTrigger>
           <TabsTrigger value="gis">ГИС-интеграция</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-interop">Обмен форматами</TabsTrigger>
         </TabsList>
 
         {/* FORMATS */}
@@ -364,7 +364,7 @@ export default function IntegrationModule() {
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["interop"]} /></TabsContent>
+        <TabsContent value="cat-interop"><CategoryFeaturesGrid category="interop" /></TabsContent>
       </Tabs>
     </motion.div>
   )

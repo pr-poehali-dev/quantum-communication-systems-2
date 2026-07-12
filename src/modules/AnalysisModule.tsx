@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
 import { экспортТекст, экспортCSV } from "@/utils/exportImport"
 
@@ -138,7 +138,8 @@ export default function AnalysisModule() {
           <TabsTrigger value="drainage">Дренаж и сток</TabsTrigger>
           <TabsTrigger value="norms">Нормы СП 34</TabsTrigger>
           <TabsTrigger value="report">Отчёт</TabsTrigger>
-          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
+          <TabsTrigger value="cat-corridor">Трассы</TabsTrigger>
+          <TabsTrigger value="cat-surface">Рельеф</TabsTrigger>
         </TabsList>
 
         {/* EARTH */}
@@ -393,7 +394,8 @@ export default function AnalysisModule() {
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="v2027"><VersionFeaturesInline categories={["corridor", "surface"]} /></TabsContent>
+        <TabsContent value="cat-corridor"><CategoryFeaturesGrid category="corridor" /></TabsContent>
+        <TabsContent value="cat-surface"><CategoryFeaturesGrid category="surface" /></TabsContent>
       </Tabs>
     </motion.div>
   )

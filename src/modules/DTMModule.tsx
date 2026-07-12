@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { экспортCSV, экспортLandXML, экспортТекст } from "@/utils/exportImport"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
@@ -930,12 +931,14 @@ export default function DTMModule() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="mt-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-          <span className="text-[13px] font-bold text-gray-900">Функции 2022–2027</span>
-        </div>
-        <VersionFeaturesInline categories={["surface", "survey"]} />
-      </div>
+      <Tabs defaultValue="cat-surface" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="cat-surface">Рельеф</TabsTrigger>
+          <TabsTrigger value="cat-survey">Съёмка COGO</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cat-surface"><CategoryFeaturesGrid category="surface" /></TabsContent>
+        <TabsContent value="cat-survey"><CategoryFeaturesGrid category="survey" /></TabsContent>
+      </Tabs>
     </motion.div>
   )
 }
