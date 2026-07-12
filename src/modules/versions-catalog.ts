@@ -433,6 +433,251 @@ export const FEATURES: VersionFeatureFull[] = [
     ],
     compute: v => [{ label: "Маршрут построен", value: `${v.start} → ${v.end}` }],
   },
+
+  // ═══════════════ AutoCAD — ЧЕРЧЕНИЕ (2022–2027) ═══════════════
+  {
+    id: "acad-draw-line", product: "acad", version: "2022", dir: "docs",
+    name: "Отрезок (Line)", command: "LINE",
+    desc: "Построение отрезков по координатам с расчётом длины и угла.",
+    icon: "Minus", outputLabel: "Отрезок",
+    fields: [
+      { key: "x1", label: "X начала", type: "number", default: "0" },
+      { key: "y1", label: "Y начала", type: "number", default: "0" },
+      { key: "x2", label: "X конца", type: "number", default: "100" },
+      { key: "y2", label: "Y конца", type: "number", default: "50" },
+    ],
+    compute: v => {
+      const dx = num(v.x2) - num(v.x1), dy = num(v.y2) - num(v.y1)
+      return [
+        { label: "Длина", value: `${Math.hypot(dx, dy).toFixed(3)} мм` },
+        { label: "Угол", value: `${((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360).toFixed(2)}°` },
+      ]
+    },
+  },
+  {
+    id: "acad-draw-pline", product: "acad", version: "2022", dir: "docs",
+    name: "Полилиния (Polyline)", command: "PLINE",
+    desc: "Замкнутая полилиния: расчёт периметра и площади по числу вершин.",
+    icon: "Spline", outputLabel: "Полилиния",
+    fields: [
+      { key: "n", label: "Вершин", type: "number", default: "6" },
+      { key: "side", label: "Средняя сторона", type: "number", default: "40", suffix: "мм" },
+    ],
+    compute: v => {
+      const n = Math.max(3, num(v.n)), s = num(v.side)
+      const area = (n * s * s) / (4 * Math.tan(Math.PI / n))
+      return [{ label: "Периметр", value: `${(n * s).toFixed(1)} мм` }, { label: "Площадь", value: `${area.toFixed(1)} мм²` }]
+    },
+  },
+  {
+    id: "acad-draw-circle", product: "acad", version: "2022", dir: "docs",
+    name: "Круг (Circle)", command: "CIRCLE",
+    desc: "Построение окружности с расчётом длины и площади.",
+    icon: "Circle", outputLabel: "Круг",
+    fields: [{ key: "r", label: "Радиус", type: "number", default: "25", suffix: "мм" }],
+    compute: v => {
+      const r = num(v.r)
+      return [{ label: "Длина окружности", value: `${(2 * Math.PI * r).toFixed(2)} мм` }, { label: "Площадь", value: `${(Math.PI * r * r).toFixed(2)} мм²` }]
+    },
+  },
+  {
+    id: "acad-draw-arc", product: "acad", version: "2022", dir: "docs",
+    name: "Дуга (Arc)", command: "ARC",
+    desc: "Дуга по радиусу и углу: длина дуги и площадь сектора.",
+    icon: "Spline", outputLabel: "Дуга",
+    fields: [
+      { key: "r", label: "Радиус", type: "number", default: "30", suffix: "мм" },
+      { key: "ang", label: "Угол", type: "number", default: "90", suffix: "°" },
+    ],
+    compute: v => {
+      const r = num(v.r), a = num(v.ang) * Math.PI / 180
+      return [{ label: "Длина дуги", value: `${(r * a).toFixed(2)} мм` }, { label: "Площадь сектора", value: `${(0.5 * r * r * a).toFixed(2)} мм²` }]
+    },
+  },
+  {
+    id: "acad-draw-rectangle", product: "acad", version: "2022", dir: "docs",
+    name: "Прямоугольник (Rectangle)", command: "RECTANG",
+    desc: "Прямоугольник по сторонам: периметр, площадь, диагональ.",
+    icon: "Square", outputLabel: "Прямоугольник",
+    fields: [
+      { key: "w", label: "Ширина", type: "number", default: "120", suffix: "мм" },
+      { key: "h", label: "Высота", type: "number", default: "80", suffix: "мм" },
+    ],
+    compute: v => {
+      const w = num(v.w), h = num(v.h)
+      return [{ label: "Площадь", value: `${(w * h).toFixed(1)} мм²` }, { label: "Периметр", value: `${(2 * (w + h)).toFixed(1)} мм` }, { label: "Диагональ", value: `${Math.hypot(w, h).toFixed(2)} мм` }]
+    },
+  },
+  {
+    id: "acad-draw-polygon", product: "acad", version: "2022", dir: "docs",
+    name: "Многоугольник (Polygon)", command: "POLYGON",
+    desc: "Правильный многоугольник по вписанной окружности.",
+    icon: "Hexagon", outputLabel: "Многоугольник",
+    fields: [
+      { key: "n", label: "Сторон", type: "number", default: "6" },
+      { key: "r", label: "Радиус вписанной", type: "number", default: "50", suffix: "мм" },
+    ],
+    compute: v => {
+      const n = Math.max(3, num(v.n)), r = num(v.r)
+      const side = 2 * r * Math.tan(Math.PI / n)
+      const area = n * r * side / 2
+      return [{ label: "Сторона", value: `${side.toFixed(2)} мм` }, { label: "Площадь", value: `${area.toFixed(1)} мм²` }]
+    },
+  },
+  {
+    id: "acad-draw-offset", product: "acad", version: "2023", dir: "docs",
+    name: "Подобие (Offset)", command: "OFFSET",
+    desc: "Создание параллельной копии на заданном расстоянии.",
+    icon: "Copy", outputLabel: "Подобие",
+    fields: [
+      { key: "dist", label: "Расстояние", type: "number", default: "10", suffix: "мм" },
+      { key: "n", label: "Число копий", type: "number", default: "3" },
+    ],
+    compute: v => [{ label: "Создано копий", value: `${v.n}` }, { label: "Общее смещение", value: `${num(v.dist) * num(v.n)} мм` }],
+  },
+  {
+    id: "acad-draw-array", product: "acad", version: "2023", dir: "docs",
+    name: "Массив (Array)", command: "ARRAY",
+    desc: "Прямоугольный массив объектов: строки × столбцы.",
+    icon: "Grid3x3", outputLabel: "Массив",
+    fields: [
+      { key: "rows", label: "Строк", type: "number", default: "4" },
+      { key: "cols", label: "Столбцов", type: "number", default: "6" },
+      { key: "dr", label: "Шаг по строке", type: "number", default: "20", suffix: "мм" },
+      { key: "dc", label: "Шаг по столбцу", type: "number", default: "20", suffix: "мм" },
+    ],
+    compute: v => [
+      { label: "Всего копий", value: `${num(v.rows) * num(v.cols)}` },
+      { label: "Габарит", value: `${(num(v.cols) - 1) * num(v.dc)} × ${(num(v.rows) - 1) * num(v.dr)} мм` },
+    ],
+  },
+  {
+    id: "acad-draw-fillet", product: "acad", version: "2024", dir: "docs",
+    name: "Сопряжение (Fillet)", command: "FILLET",
+    desc: "Скругление угла дугой заданного радиуса.",
+    icon: "Spline", outputLabel: "Сопряжение",
+    fields: [{ key: "r", label: "Радиус", type: "number", default: "8", suffix: "мм" }],
+    compute: v => [{ label: "Длина дуги (90°)", value: `${(num(v.r) * Math.PI / 2).toFixed(2)} мм` }],
+  },
+  {
+    id: "acad-draw-chamfer", product: "acad", version: "2024", dir: "docs",
+    name: "Фаска (Chamfer)", command: "CHAMFER",
+    desc: "Снятие фаски по двум катетам.",
+    icon: "Scissors", outputLabel: "Фаска",
+    fields: [
+      { key: "a", label: "Катет 1", type: "number", default: "5", suffix: "мм" },
+      { key: "b", label: "Катет 2", type: "number", default: "5", suffix: "мм" },
+    ],
+    compute: v => [{ label: "Длина фаски", value: `${Math.hypot(num(v.a), num(v.b)).toFixed(2)} мм` }],
+  },
+  {
+    id: "acad-draw-spline", product: "acad", version: "2025", dir: "docs",
+    name: "Сплайн (Spline)", command: "SPLINE",
+    desc: "Гладкая NURBS-кривая по контрольным точкам.",
+    icon: "Spline", outputLabel: "Сплайн",
+    fields: [{ key: "pts", label: "Точек", type: "number", default: "8" }],
+    compute: v => [{ label: "Сегментов", value: `${Math.max(1, num(v.pts) - 1)}` }, { label: "Степень", value: "3 (кубический)" }],
+  },
+  {
+    id: "acad-draw-region", product: "acad", version: "2026", dir: "docs",
+    name: "Область (Region)", command: "REGION",
+    desc: "Преобразование замкнутого контура в область для булевых операций.",
+    icon: "SquareDashedBottom", outputLabel: "Область",
+    fields: [{ key: "loops", label: "Замкнутых контуров", type: "number", default: "2" }],
+    compute: v => [{ label: "Создано областей", value: `${v.loops}` }],
+  },
+
+  // ═══════════════ AutoCAD — АННОТАЦИИ (2022–2027) ═══════════════
+  {
+    id: "acad-anno-dimlinear", product: "acad", version: "2022", dir: "docs",
+    name: "Линейный размер (Dimlinear)", command: "DIMLINEAR",
+    desc: "Линейный размер с округлением до точности и масштабом аннотаций.",
+    icon: "Ruler", outputLabel: "Размер",
+    fields: [
+      { key: "val", label: "Измеренное", type: "number", default: "1247.6", suffix: "мм" },
+      { key: "prec", label: "Точность", type: "select", default: "0", options: ["0", "0.0", "0.00", "0.000"] },
+    ],
+    compute: v => {
+      const d = (v.prec.split(".")[1] || "").length
+      return [{ label: "Размерное число", value: `${num(v.val).toFixed(d)}` }]
+    },
+  },
+  {
+    id: "acad-anno-dimangular", product: "acad", version: "2022", dir: "docs",
+    name: "Угловой размер (Dimangular)", command: "DIMANGULAR",
+    desc: "Угловой размер между двумя линиями.",
+    icon: "Triangle", outputLabel: "Угол",
+    fields: [
+      { key: "a1", label: "Направление 1", type: "number", default: "0", suffix: "°" },
+      { key: "a2", label: "Направление 2", type: "number", default: "63.5", suffix: "°" },
+    ],
+    compute: v => [{ label: "Угол", value: `${Math.abs(num(v.a2) - num(v.a1)).toFixed(2)}°` }],
+  },
+  {
+    id: "acad-anno-mtext", product: "acad", version: "2023", dir: "docs",
+    name: "Многострочный текст (Mtext)", command: "MTEXT",
+    desc: "Текстовый блок с расчётом высоты в бумаге под масштаб.",
+    icon: "Type", outputLabel: "Текст",
+    fields: [
+      { key: "h", label: "Высота текста", type: "number", default: "2.5", suffix: "мм" },
+      { key: "scale", label: "Масштаб чертежа 1:", type: "number", default: "100" },
+    ],
+    compute: v => [{ label: "Высота в модели", value: `${(num(v.h) * num(v.scale)).toFixed(1)} мм` }],
+  },
+  {
+    id: "acad-anno-leader", product: "acad", version: "2023", dir: "docs",
+    name: "Мультивыноска (Mleader)", command: "MLEADER",
+    desc: "Выноска с полкой и текстовым содержимым.",
+    icon: "MessageSquare", outputLabel: "Выноска",
+    fields: [{ key: "txt", label: "Текст выноски", type: "text", default: "Отм. чистого пола" }],
+    compute: v => [{ label: "Выноска создана", value: v.txt }],
+  },
+  {
+    id: "acad-anno-table", product: "acad", version: "2024", dir: "docs",
+    name: "Таблица (Table)", command: "TABLE",
+    desc: "Таблица данных с расчётом числа ячеек.",
+    icon: "Table", outputLabel: "Таблица",
+    fields: [
+      { key: "rows", label: "Строк", type: "number", default: "10" },
+      { key: "cols", label: "Столбцов", type: "number", default: "5" },
+    ],
+    compute: v => [{ label: "Ячеек", value: `${num(v.rows) * num(v.cols)}` }],
+  },
+  {
+    id: "acad-anno-field", product: "acad", version: "2024", dir: "docs",
+    name: "Поле (Field)", command: "FIELD",
+    desc: "Динамическое поле, автоматически обновляющее значение.",
+    icon: "Braces", outputLabel: "Поле",
+    fields: [{ key: "type", label: "Тип поля", type: "select", default: "Площадь", options: ["Площадь", "Периметр", "Дата", "Имя файла", "Автор"] }],
+    compute: v => [{ label: "Поле вставлено", value: v.type }],
+  },
+  {
+    id: "acad-anno-dimscale", product: "acad", version: "2025", dir: "docs",
+    name: "Аннотативность (Annotative)", command: "OBJECTSCALE",
+    desc: "Расчёт видимого размера аннотации при нескольких масштабах.",
+    icon: "Scaling", outputLabel: "Масштабы",
+    fields: [
+      { key: "h", label: "Высота в бумаге", type: "number", default: "3", suffix: "мм" },
+      { key: "scale", label: "Масштаб вида 1:", type: "number", default: "50" },
+    ],
+    compute: v => [{ label: "Размер в модели", value: `${num(v.h) * num(v.scale)} мм` }],
+  },
+  {
+    id: "acad-anno-revcloud", product: "acad", version: "2026", dir: "docs",
+    name: "Облако пометок (Revcloud)", command: "REVCLOUD",
+    desc: "Облако пометок для указания правок на чертеже.",
+    icon: "Cloud", outputLabel: "Облако",
+    fields: [{ key: "arc", label: "Длина дуги", type: "number", default: "15", suffix: "мм" }],
+    compute: v => [{ label: "Облако создано", value: `дуга ${v.arc} мм` }],
+  },
+  {
+    id: "acad-anno-dimstyle", product: "acad", version: "2027", dir: "docs",
+    name: "Стиль размеров (Dimstyle)", command: "DIMSTYLE",
+    desc: "Настройка размерного стиля по ГОСТ/ISO.",
+    icon: "Settings2", outputLabel: "Стиль",
+    fields: [{ key: "std", label: "Стандарт", type: "select", default: "ГОСТ 2.307", options: ["ГОСТ 2.307", "ISO-25", "ANSI", "DIN"] }],
+    compute: v => [{ label: "Стиль применён", value: v.std }],
+  },
 ]
 
 // Утилиты
