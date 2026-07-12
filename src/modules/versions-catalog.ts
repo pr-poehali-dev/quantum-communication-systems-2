@@ -1963,6 +1963,269 @@ const RAW_FEATURES: RawFeature[] = [
     fields: [{ key: "faces", label: "Скрыть деталей", type: "number", default: "40" }],
     compute: v => [{ label: "Нейтрализовано", value: `${num(v.faces)} элементов` }],
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOLIDWORKS — линейка программной платформы (по каталогу решений IDT).
+  // Simulation, Flow, Electrical, Plastics, Composer, Inspection, MBD, Routing,
+  // CAM, Machinist, PDM, Manage, Visualize, DriveWorks, Sustainability.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── SOLIDWORKS Simulation (МКЭ) ──
+  {
+    id: "sw-sim-static", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Simulation: статика (МКЭ)", command: "SIMSTATIC",
+    desc: "Линейный статический расчёт деталей и сборок: перемещения, деформации, напряжения, коэффициент запаса прочности.",
+    icon: "Activity", isNew: true, outputLabel: "Статический расчёт",
+    fields: [
+      { key: "force", label: "Нагрузка", type: "number", default: "3000", suffix: "Н" },
+      { key: "area", label: "Сечение", type: "number", default: "200", suffix: "мм²" },
+      { key: "yield", label: "Предел текучести", type: "number", default: "250", suffix: "МПа" },
+    ],
+    compute: v => {
+      const s = num(v.force) / num(v.area), sf = num(v.yield) / s
+      return [
+        { label: "Напряжение по Мизесу", value: `${s.toFixed(1)} МПа` },
+        { label: "Коэф. запаса", value: `${sf.toFixed(2)}× ${sf >= 1.5 ? "✓" : "⚠"}` },
+      ]
+    },
+  },
+  {
+    id: "sw-sim-fatigue", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Simulation: усталость", command: "SIMFATIGUE",
+    desc: "Прогнозирование усталостного разрушения при высокоцикличном нагружении (кривые S-N).",
+    icon: "Waves", outputLabel: "Ресурс",
+    fields: [
+      { key: "amp", label: "Амплитуда напряжений", type: "number", default: "120", suffix: "МПа" },
+      { key: "limit", label: "Предел выносливости", type: "number", default: "180", suffix: "МПа" },
+    ],
+    compute: v => {
+      const life = num(v.amp) < num(v.limit) ? "> 10⁷ (неогранич.)" : `${Math.round(1e6 * Math.pow(num(v.limit) / num(v.amp), 3)).toLocaleString("ru")} циклов`
+      return [{ label: "Долговечность", value: life }]
+    },
+  },
+  {
+    id: "sw-sim-modal", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Simulation: частоты и формы", command: "SIMMODAL",
+    desc: "Расчёт собственных частот и форм колебаний, нагрузок потери устойчивости (Professional/Premium).",
+    icon: "AudioWaveform", outputLabel: "Модальный анализ",
+    fields: [
+      { key: "k", label: "Жёсткость", type: "number", default: "50000", suffix: "Н/м" },
+      { key: "m", label: "Масса", type: "number", default: "12", suffix: "кг" },
+    ],
+    compute: v => [{ label: "1-я собств. частота", value: `${(Math.sqrt(num(v.k) / num(v.m)) / (2 * Math.PI)).toFixed(1)} Гц` }],
+  },
+  {
+    id: "sw-sim-topology", product: "solidworks", version: "sw", dir: "mechanical", category: "ai",
+    name: "Simulation: топ-оптимизация", command: "SIMTOPO",
+    desc: "Параметрическая и топологическая оптимизация конструкции — снижение массы при сохранении прочности.",
+    icon: "Sparkles", isNew: true, outputLabel: "Оптимизация",
+    fields: [
+      { key: "mass", label: "Исходная масса", type: "number", default: "10", suffix: "кг" },
+      { key: "reduce", label: "Целевое снижение", type: "number", default: "35", suffix: "%" },
+    ],
+    compute: v => [{ label: "Масса после", value: `${(num(v.mass) * (1 - num(v.reduce) / 100)).toFixed(2)} кг` }],
+  },
+  {
+    id: "sw-sim-nonlinear", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Simulation Premium: нелинейка", command: "SIMNONLIN",
+    desc: "Нелинейная статика и динамика, линейная динамика, расчёт сосудов давления, имитация падения.",
+    icon: "TrendingUp", outputLabel: "Нелинейный расчёт",
+    fields: [{ key: "type", label: "Тип", type: "select", default: "Нелинейная статика", options: ["Нелинейная статика", "Падение", "Сосуд давления", "Случайные колебания"] }],
+    compute: v => [{ label: "Исследование", value: v.type }],
+  },
+
+  // ── SOLIDWORKS Flow Simulation (CFD) ──
+  {
+    id: "sw-flow", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Flow Simulation (CFD)", command: "FLOWSIM",
+    desc: "Газо-гидродинамический и тепловой анализ: течение среды, потери давления, теплообмен.",
+    icon: "Wind", isNew: true, outputLabel: "CFD-расчёт",
+    fields: [
+      { key: "v", label: "Скорость", type: "number", default: "10", suffix: "м/с" },
+      { key: "d", label: "Диаметр канала", type: "number", default: "50", suffix: "мм" },
+    ],
+    compute: v => {
+      const re = num(v.v) * (num(v.d) / 1000) / 1.5e-5
+      return [{ label: "Re", value: Math.round(re).toLocaleString("ru") }, { label: "Режим", value: re > 2300 ? "Турбулентный" : "Ламинарный" }]
+    },
+  },
+  {
+    id: "sw-flow-electronics", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Flow: охлаждение электроники", command: "FLOWECM",
+    desc: "Electronic Cooling Module: тепловой расчёт печатных плат, радиаторов, компонентов.",
+    icon: "Cpu", outputLabel: "Тепловой расчёт",
+    fields: [
+      { key: "power", label: "Тепловыделение", type: "number", default: "45", suffix: "Вт" },
+      { key: "area", label: "Радиатор", type: "number", default: "0.02", suffix: "м²" },
+    ],
+    compute: v => [{ label: "Перегрев (оценка)", value: `${(num(v.power) / (num(v.area) * 15)).toFixed(1)} °C` }],
+  },
+  {
+    id: "sw-flow-hvac", product: "solidworks", version: "sw", dir: "networks", category: "network",
+    name: "Flow: HVAC (микроклимат)", command: "FLOWHVAC",
+    desc: "HVAC Module: расчёт вентиляции, отопления и микроклимата помещений, комфортных параметров.",
+    icon: "Fan", outputLabel: "HVAC-расчёт",
+    fields: [
+      { key: "vol", label: "Объём помещения", type: "number", default: "120", suffix: "м³" },
+      { key: "ach", label: "Кратность обмена", type: "number", default: "3", suffix: "1/ч" },
+    ],
+    compute: v => [{ label: "Расход воздуха", value: `${(num(v.vol) * num(v.ach)).toFixed(0)} м³/ч` }],
+  },
+
+  // ── SOLIDWORKS Electrical ──
+  {
+    id: "sw-electrical-schematic", product: "solidworks", version: "sw", dir: "networks", category: "network",
+    name: "Electrical: 2D-схемы", command: "ELECSCHEM",
+    desc: "САПР электрических принципиальных схем: обозначения, кабели, автонумерация, перечни элементов.",
+    icon: "CircuitBoard", isNew: true, outputLabel: "Схема",
+    fields: [{ key: "wires", label: "Цепей", type: "number", default: "64" }],
+    compute: v => [{ label: "Автонумерация", value: `${num(v.wires)} цепей` }],
+  },
+  {
+    id: "sw-electrical-3d", product: "solidworks", version: "sw", dir: "networks", category: "modeling3d",
+    name: "Electrical 3D: шкафы", command: "ELEC3D",
+    desc: "3D-компоновка электрических шкафов на базе 2D-схем, автотрассировка проводов, длины кабелей.",
+    icon: "Server", outputLabel: "Компоновка",
+    fields: [{ key: "comp", label: "Аппаратов", type: "number", default: "38" }],
+    compute: v => [{ label: "3D-шкаф", value: `${num(v.comp)} аппаратов размещено` }],
+  },
+
+  // ── SOLIDWORKS Plastics ──
+  {
+    id: "sw-plastics", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Plastics: анализ литья", command: "PLASTICS",
+    desc: "Анализ проливаемости пресс-форм: заполнение, линии спая, коробление, подбор точек впуска.",
+    icon: "Droplet", isNew: true, outputLabel: "Анализ литья",
+    fields: [
+      { key: "wall", label: "Толщина стенки", type: "number", default: "2.5", suffix: "мм" },
+      { key: "mat", label: "Полимер", type: "select", default: "ABS", options: ["ABS", "PP", "PA6", "PC", "POM"] },
+    ],
+    compute: v => [{ label: "Время заполнения (оценка)", value: `${(num(v.wall) * 0.6).toFixed(1)} с` }, { label: "Материал", value: v.mat }],
+  },
+
+  // ── SOLIDWORKS Composer (ИЭТР) ──
+  {
+    id: "sw-composer", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Composer (ИЭТР)", command: "COMPOSER",
+    desc: "Электронный контент для интерактивных руководств: разнесённые виды, анимация сборки, техиллюстрации.",
+    icon: "BookOpen", outputLabel: "ИЭТР",
+    fields: [{ key: "steps", label: "Шагов сборки", type: "number", default: "24" }],
+    compute: v => [{ label: "Анимация", value: `${num(v.steps)} шагов` }],
+  },
+
+  // ── SOLIDWORKS Inspection ──
+  {
+    id: "sw-inspection", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Inspection: контрольные карты", command: "INSPECTION",
+    desc: "Автоматическое создание маркированных чертежей и отчётов первого изделия (FAI) по AS9102, PPAP.",
+    icon: "ClipboardCheck", isNew: true, outputLabel: "Контроль",
+    fields: [{ key: "dims", label: "Контролируемых размеров", type: "number", default: "56" }],
+    compute: v => [{ label: "Маркировка (баллунинг)", value: `${num(v.dims)} размеров` }],
+  },
+
+  // ── SOLIDWORKS MBD ──
+  {
+    id: "sw-mbd-std", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "MBD: бесчертёжка", command: "MBD",
+    desc: "Бесчертёжные технологии: PMI-аннотации на 3D-модели, публикация в 3D PDF и eDrawings.",
+    icon: "Ruler", outputLabel: "MBD",
+    fields: [{ key: "pmi", label: "Аннотаций PMI", type: "number", default: "40" }],
+    compute: v => [{ label: "3D-модель с PMI", value: `${num(v.pmi)} аннотаций → 3D PDF` }],
+  },
+
+  // ── SOLIDWORKS Routing ──
+  {
+    id: "sw-routing", product: "solidworks", version: "sw", dir: "networks", category: "network",
+    name: "Routing: трубопроводы/кабели", command: "ROUTING",
+    desc: "Проектирование трубопроводов, трубок и электрожгутов: авто-маршрут, отводы, ведомость материалов.",
+    icon: "Cable", isNew: true, outputLabel: "Маршрут",
+    fields: [
+      { key: "type", label: "Тип", type: "select", default: "Трубопровод", options: ["Трубопровод", "Трубки", "Электрожгут"] },
+      { key: "len", label: "Длина", type: "number", default: "18", suffix: "м" },
+    ],
+    compute: v => [{ label: v.type, value: `${num(v.len)} м проложено` }],
+  },
+
+  // ── CAMWorks / SOLIDWORKS CAM ──
+  {
+    id: "sw-cam", product: "solidworks", version: "sw", dir: "docs", category: "interop",
+    name: "CAM: программы ЧПУ", command: "SWCAM",
+    desc: "Разработка УП для станков с ЧПУ (фрезерные, токарные, электроэрозионные) на базе распознавания элементов.",
+    icon: "Router", isNew: true, outputLabel: "УП ЧПУ",
+    fields: [
+      { key: "op", label: "Обработка", type: "select", default: "Фрезерная", options: ["Фрезерная", "Токарная", "Токарно-фрезерная", "Электроэрозионная"] },
+      { key: "feat", label: "Элементов", type: "number", default: "18" },
+    ],
+    compute: v => [{ label: v.op, value: `${num(v.feat)} элементов → G-код` }],
+  },
+  {
+    id: "sw-cam-nesting", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "NestingWorks: раскрой", command: "NESTINGWORKS",
+    desc: "Раскрой и оптимизация раскроя листового металла: карты, коэффициент использования, отходы.",
+    icon: "LayoutGrid", outputLabel: "Раскрой",
+    fields: [{ key: "parts", label: "Деталей", type: "number", default: "60" }],
+    compute: v => [{ label: "Коэф. раскроя", value: `${Math.min(96, 72 + num(v.parts) / 5).toFixed(1)} %` }],
+  },
+
+  // ── SOLIDWORKS PDM ──
+  {
+    id: "sw-pdm", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "PDM: управление данными", command: "PDM",
+    desc: "Хранилище проектных данных: версии, права, рабочие процессы согласования, поиск, повторное использование.",
+    icon: "Database", isNew: true, outputLabel: "PDM",
+    fields: [
+      { key: "docs", label: "Документов", type: "number", default: "1240" },
+      { key: "stage", label: "Статус", type: "select", default: "В работе", options: ["В работе", "На проверке", "Утверждён", "В архиве"] },
+    ],
+    compute: v => [{ label: "Хранилище", value: `${num(v.docs)} документов` }, { label: "Статус", value: v.stage }],
+  },
+  {
+    id: "sw-manage", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "Manage: проекты и процессы", command: "MANAGE",
+    desc: "Управление проектами, задачами, процессами и элементами (Item Management) поверх PDM.",
+    icon: "FolderKanban", outputLabel: "Проекты",
+    fields: [{ key: "tasks", label: "Задач", type: "number", default: "85" }],
+    compute: v => [{ label: "Портфель проектов", value: `${num(v.tasks)} задач` }],
+  },
+
+  // ── SOLIDWORKS Visualize ──
+  {
+    id: "sw-visualize", product: "solidworks", version: "sw", dir: "bim", category: "modeling3d",
+    name: "Visualize: рендеринг", command: "VISUALIZE",
+    desc: "Фотореалистичный рендеринг и анимация (трассировка лучей), сетевой рендер Visualize Boost.",
+    icon: "Image", isNew: true, outputLabel: "Рендер",
+    fields: [
+      { key: "res", label: "Разрешение", type: "select", default: "4K", options: ["Full HD", "2K", "4K", "8K"] },
+      { key: "samples", label: "Сэмплов", type: "number", default: "512" },
+    ],
+    compute: v => [{ label: "Кадр", value: `${v.res}, ${num(v.samples)} сэмплов` }],
+  },
+
+  // ── DriveWorks ──
+  {
+    id: "sw-driveworks", product: "solidworks", version: "sw", dir: "mechanical", category: "ai",
+    name: "DriveWorks: автоматизация", command: "DRIVEWORKS",
+    desc: "Автоматизация проектирования по правилам и онлайн-конфигураторы изделий (KBE): вариант по прототипу.",
+    icon: "Wand2", outputLabel: "Конфигуратор",
+    fields: [{ key: "rules", label: "Правил", type: "number", default: "120" }],
+    compute: v => [{ label: "Автогенерация", value: `${num(v.rules)} правил конфигурации` }],
+  },
+
+  // ── SOLIDWORKS Sustainability ──
+  {
+    id: "sw-sustain-cat", product: "solidworks", version: "sw", dir: "mechanical", category: "platform",
+    name: "Sustainability: эко-экспертиза", command: "SUSTAINABILITY",
+    desc: "Экологическая экспертиза проекта: углеродный след, энергозатраты, влияние материала и логистики.",
+    icon: "Leaf", outputLabel: "Эко-оценка",
+    fields: [
+      { key: "mass", label: "Масса", type: "number", default: "2.5", suffix: "кг" },
+      { key: "mat", label: "Материал", type: "select", default: "Сталь", options: ["Сталь", "Алюминий", "Пластик", "Титан"] },
+    ],
+    compute: v => {
+      const k: Record<string, number> = { "Сталь": 1.9, "Алюминий": 8.2, "Пластик": 3.1, "Титан": 24 }
+      return [{ label: "Углеродный след", value: `${(num(v.mass) * (k[v.mat] || 2)).toFixed(1)} кг CO₂` }]
+    },
+  },
 ]
 
 // Нормализация: достраиваем category (явную или автоопределённую)

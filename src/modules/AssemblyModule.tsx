@@ -91,12 +91,36 @@ export default function AssemblyModule() {
   const [showDiag, setShowDiag] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [nextId, setNextId] = useState(100)
+  const [animating, setAnimating] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null)
   const undoStack = useRef<Comp[][]>([])
   const redoStack = useRef<Comp[][]>([])
+  const animRaf = useRef<number>(0)
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 1600) }
+
+  // Плавная анимация разнесения/сборки (ease-in-out)
+  const animateExplode = (to: number, label: string) => {
+    cancelAnimationFrame(animRaf.current)
+    setAnimating(true)
+    const from = explode
+    const dur = 750
+    const t0 = performance.now()
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur)
+      setExplode(from + (to - from) * ease(k))
+      if (k < 1) { animRaf.current = requestAnimationFrame(step) }
+      else { setExplode(to); setAnimating(false); flash(label) }
+    }
+    animRaf.current = requestAnimationFrame(step)
+  }
+  const toggleExplode = () => {
+    if (explode > 0.1) animateExplode(0, "Сборка собрана")
+    else animateExplode(0.9, "Сборка разнесена")
+  }
+  useEffect(() => () => cancelAnimationFrame(animRaf.current), [])
 
   const pushHistory = (next: Comp[]) => {
     undoStack.current.push(comps)
@@ -147,7 +171,7 @@ export default function AssemblyModule() {
       case "Redo2": redo(); break
       case "PackagePlus": addComponent(); break
       case "Boxes": setView("iso"); break
-      case "Percent": setExplode(e => (e > 0.1 ? 0 : 0.9)); flash("Переключено разнесение"); break
+      case "Percent": toggleExplode(); break
       case "Move3D": flash("Переместить компонент"); break
       case "RotateCw": setAutoSpin(s => !s); break
       case "Magnet": flash("Сопряжение: авто"); break
@@ -561,12 +585,18 @@ export default function AssemblyModule() {
 
           {/* Панель разнесения */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#1f232b]/90 border border-[#3a3f4b] rounded-lg px-4 py-2 backdrop-blur">
+            <button onClick={toggleExplode} disabled={animating}
+              className={`flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded transition-colors ${explode > 0.1 ? "bg-[#3a7bd5] text-white hover:bg-[#4a8be5]" : "bg-[#2b3038] text-gray-200 hover:bg-[#3a3f4b]"} disabled:opacity-60`}>
+              <Icon name={explode > 0.1 ? "Shrink" : "Expand"} size={14} />
+              {explode > 0.1 ? "Собрать" : "Разнести"}
+            </button>
+            <div className="w-px h-5 bg-[#3a3f4b]" />
             <Icon name="Shrink" size={15} className="text-gray-400" />
             <input type="range" min={0} max={1.6} step={0.02} value={explode}
               onChange={e => setExplode(parseFloat(e.target.value))}
-              className="w-56 accent-[#3a7bd5]" />
+              className="w-48 accent-[#3a7bd5]" />
             <Icon name="Expand" size={15} className="text-gray-400" />
-            <span className="text-[12px] text-gray-300 w-28">Разнесение сборки</span>
+            <span className="text-[12px] text-gray-300 w-24">Разнесение</span>
             <div className="w-px h-5 bg-[#3a3f4b]" />
             <button onClick={() => { setYaw(-0.62); setPitch(0.38); setScale(1.15) }}
               className="flex items-center gap-1 text-[12px] text-gray-300 hover:text-white">
