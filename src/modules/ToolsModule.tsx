@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 
 // ─── LSP-скрипты ──────────────────────────────────────────────────────────────
 
@@ -1187,6 +1188,7 @@ function GitHubImportDialog({ onClose, onImport }: { onClose: () => void; onImpo
           <span className="text-violet-600 font-semibold">{imported.size} импортировано</span>
         </div>
       </motion.div>
+      <VersionFeaturesPanel categories={["layers", "blocks", "xref", "ai", "collab"]} title="Функции AutoCAD: слои, блоки, Xref, автоматизация" />
     </motion.div>
   )
 }

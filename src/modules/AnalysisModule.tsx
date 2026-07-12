@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
 import { экспортТекст, экспортCSV } from "@/utils/exportImport"
 
@@ -392,6 +393,7 @@ export default function AnalysisModule() {
           </div>
         </TabsContent>
       </Tabs>
+      <VersionFeaturesPanel dir="infra" />
     </motion.div>
   )
 }

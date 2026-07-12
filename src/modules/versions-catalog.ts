@@ -10,12 +10,16 @@ export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027"
 export type CategoryId =
   | "draw" | "modify" | "modeling3d" | "annotation" | "collab"
   | "corridor" | "surface" | "network" | "coords" | "bim" | "ai" | "platform"
+  | "layers" | "blocks" | "xref"
 
 export interface CategoryMeta { id: CategoryId; label: string; icon: string; color: string }
 
 export const CATEGORIES: CategoryMeta[] = [
   { id: "draw", label: "Черчение", icon: "PenLine", color: "#0078d4" },
   { id: "modify", label: "Редактирование", icon: "Move", color: "#7c3aed" },
+  { id: "layers", label: "Слои и свойства", icon: "Layers3", color: "#0ea5e9" },
+  { id: "blocks", label: "Блоки и атрибуты", icon: "Boxes", color: "#f59e0b" },
+  { id: "xref", label: "Внешние ссылки (Xref)", icon: "Link2", color: "#6366f1" },
   { id: "modeling3d", label: "3D-моделирование", icon: "Box", color: "#0891b2" },
   { id: "annotation", label: "Аннотации и оформление", icon: "Type", color: "#059669" },
   { id: "collab", label: "Совместная работа", icon: "Users", color: "#d97706" },
@@ -89,6 +93,10 @@ const detectCategory = (id: string): CategoryId => {
   if (/pressure|drainage|network|parts/.test(s)) return "network"
   if (/coord|transform/.test(s)) return "coords"
   if (/property-set|solids|-bim|viewer|model-viewer|ifc/.test(s)) return "bim"
+  // Слои / блоки / внешние ссылки
+  if (/xref|external-ref|underlay|clip|overlay|attach/.test(s)) return "xref"
+  if (/layer|laymrg|laydel|layiso|layfrz|layon|layoff|l-props|property-paint/.test(s)) return "layers"
+  if (/block|-attrib|battman|attdef|attext|wblock|dynblock/.test(s)) return "blocks"
   // Аннотации раньше черчения (dimlinear содержит "line")
   if (/anno|dim|mtext|leader|table|field|revcloud|-text|count/.test(s)) return "annotation"
   // Редактирование раньше черчения (offset/array/fillet/chamfer — команды правки)
@@ -896,6 +904,189 @@ const RAW_FEATURES: RawFeature[] = [
       { key: "q", label: "Качество", type: "select", default: "Высокое", options: ["Черновик", "Среднее", "Высокое", "Presentation"] },
     ],
     compute: v => [{ label: "Разрешение", value: `${num(v.w)}×${num(v.h)} (${(num(v.w) * num(v.h) / 1e6).toFixed(1)} Мпикс)` }, { label: "Качество", value: v.q }],
+  },
+
+  // ═══════════════ AutoCAD — СЛОИ И СВОЙСТВА (2022–2027) ═══════════════
+  {
+    id: "acad-layer-new", product: "acad", version: "2022", dir: "docs",
+    name: "Диспетчер слоёв (Layer)", command: "LAYER",
+    desc: "Создание и настройка слоёв: цвет, тип линии, вес, печать.",
+    icon: "Layers3", outputLabel: "Слой",
+    fields: [
+      { key: "name", label: "Имя слоя", type: "text", default: "Оси" },
+      { key: "color", label: "Цвет", type: "select", default: "Красный", options: ["Красный", "Жёлтый", "Зелёный", "Голубой", "Синий", "Белый"] },
+      { key: "lw", label: "Вес линии", type: "select", default: "0.25", options: ["0.13", "0.18", "0.25", "0.35", "0.50", "0.70"] },
+    ],
+    compute: v => [{ label: `Слой «${v.name}»`, value: `${v.color}, ${v.lw} мм` }],
+  },
+  {
+    id: "acad-layer-iso", product: "acad", version: "2022", dir: "docs",
+    name: "Изоляция слоёв (Layiso)", command: "LAYISO",
+    desc: "Изоляция выбранных слоёв, остальные затемняются или гасятся.",
+    icon: "EyeOff", outputLabel: "Изоляция",
+    fields: [{ key: "n", label: "Слоёв изолировать", type: "number", default: "3" }],
+    compute: v => [{ label: "Изолировано", value: `${v.n} слоёв` }],
+  },
+  {
+    id: "acad-layer-merge", product: "acad", version: "2023", dir: "docs",
+    name: "Объединение слоёв (Laymrg)", command: "LAYMRG",
+    desc: "Перенос объектов из одних слоёв в другой и удаление пустых.",
+    icon: "Combine", outputLabel: "Объединение слоёв",
+    fields: [
+      { key: "from", label: "Из слоёв", type: "number", default: "4" },
+      { key: "to", label: "В слой", type: "text", default: "Основной" },
+    ],
+    compute: v => [{ label: "Объединено", value: `${v.from} → «${v.to}»` }],
+  },
+  {
+    id: "acad-layer-state", product: "acad", version: "2024", dir: "docs",
+    name: "Состояния слоёв (LayerState)", command: "LAYERSTATE",
+    desc: "Сохранение и восстановление наборов видимости/свойств слоёв.",
+    icon: "Save", outputLabel: "Состояние слоёв",
+    fields: [{ key: "name", label: "Имя состояния", type: "text", default: "Печать_План" }],
+    compute: v => [{ label: "Состояние сохранено", value: v.name }],
+  },
+  {
+    id: "acad-layer-freeze-vp", product: "acad", version: "2025", dir: "docs",
+    name: "Замораживание в ВЭ (VPFreeze)", command: "VPLAYER",
+    desc: "Управление видимостью слоёв по видовым экранам листа.",
+    icon: "Snowflake", outputLabel: "Слои в ВЭ",
+    fields: [{ key: "n", label: "Заморозить слоёв", type: "number", default: "2" }],
+    compute: v => [{ label: "В видовом экране", value: `скрыто ${v.n} слоёв` }],
+  },
+  {
+    id: "acad-layer-transparency", product: "acad", version: "2026", dir: "docs",
+    name: "Прозрачность слоя", command: "LAYER",
+    desc: "Настройка прозрачности слоя для подложек и заливок.",
+    icon: "Blend", outputLabel: "Прозрачность",
+    fields: [{ key: "t", label: "Прозрачность", type: "number", default: "40", suffix: "%" }],
+    compute: v => [{ label: "Непрозрачность", value: `${100 - num(v.t)}%` }],
+  },
+
+  // ═══════════════ AutoCAD — БЛОКИ И АТРИБУТЫ (2022–2027) ═══════════════
+  {
+    id: "acad-block-define", product: "acad", version: "2022", dir: "docs",
+    name: "Создание блока (Block)", command: "BLOCK",
+    desc: "Определение блока из выбранных объектов с базовой точкой.",
+    icon: "Boxes", outputLabel: "Блок",
+    fields: [
+      { key: "name", label: "Имя блока", type: "text", default: "ДВЕРЬ_900" },
+      { key: "objs", label: "Объектов", type: "number", default: "6" },
+    ],
+    compute: v => [{ label: `Блок «${v.name}»`, value: `из ${v.objs} объектов` }],
+  },
+  {
+    id: "acad-block-insert", product: "acad", version: "2022", dir: "docs",
+    name: "Вставка блока (Insert)", command: "INSERT",
+    desc: "Вставка блока с масштабом и поворотом.",
+    icon: "PackagePlus", outputLabel: "Вставка",
+    fields: [
+      { key: "sx", label: "Масштаб", type: "number", default: "1" },
+      { key: "rot", label: "Поворот", type: "number", default: "0", suffix: "°" },
+    ],
+    compute: v => [{ label: "Вставлен", value: `м=${v.sx}, поворот ${v.rot}°` }],
+  },
+  {
+    id: "acad-block-attdef", product: "acad", version: "2023", dir: "docs",
+    name: "Атрибут блока (Attdef)", command: "ATTDEF",
+    desc: "Добавление текстового атрибута в определение блока.",
+    icon: "Tag", outputLabel: "Атрибут",
+    fields: [
+      { key: "tag", label: "Тег", type: "text", default: "МАРКА" },
+      { key: "val", label: "Значение по умолч.", type: "text", default: "М1" },
+    ],
+    compute: v => [{ label: `Атрибут ${v.tag}`, value: v.val }],
+  },
+  {
+    id: "acad-block-attext", product: "acad", version: "2024", dir: "docs",
+    name: "Извлечение атрибутов (Dataextraction)", command: "DATAEXTRACTION",
+    desc: "Экспорт атрибутов блоков в таблицу или CSV/XLS.",
+    icon: "TableProperties", outputLabel: "Извлечение",
+    fields: [
+      { key: "blocks", label: "Блоков", type: "number", default: "120" },
+      { key: "attrs", label: "Атрибутов на блок", type: "number", default: "4" },
+    ],
+    compute: v => [{ label: "Строк в таблице", value: `${v.blocks}` }, { label: "Ячеек данных", value: `${num(v.blocks) * num(v.attrs)}` }],
+  },
+  {
+    id: "acad-block-dynamic", product: "acad", version: "2025", dir: "docs",
+    name: "Динамический блок (BEdit)", command: "BEDIT",
+    desc: "Параметры и операции: растяжение, массив, поворот, видимость.",
+    icon: "SlidersHorizontal", outputLabel: "Динамический блок",
+    fields: [{ key: "states", label: "Состояний видимости", type: "number", default: "3" }],
+    compute: v => [{ label: "Вариантов блока", value: `${v.states}` }],
+  },
+  {
+    id: "acad-block-battman", product: "acad", version: "2026", dir: "docs",
+    name: "Диспетчер атрибутов (Battman)", command: "BATTMAN",
+    desc: "Массовое редактирование атрибутов существующих блоков.",
+    icon: "Settings2", outputLabel: "Атрибуты",
+    fields: [{ key: "n", label: "Блоков обновить", type: "number", default: "48" }],
+    compute: v => [{ label: "Обновлено", value: `${v.n} блоков` }],
+  },
+  {
+    id: "acad-block-wblock", product: "acad", version: "2027", dir: "docs",
+    name: "Запись блока в файл (Wblock)", command: "WBLOCK",
+    desc: "Экспорт блока в отдельный DWG-файл для библиотеки.",
+    icon: "FileOutput", outputLabel: "Экспорт блока",
+    fields: [{ key: "name", label: "Имя файла", type: "text", default: "Дверь_900.dwg" }],
+    compute: v => [{ label: "Сохранён файл", value: v.name }],
+  },
+
+  // ═══════════════ AutoCAD — ВНЕШНИЕ ССЫЛКИ (Xref) (2022–2027) ═══════════════
+  {
+    id: "acad-xref-attach", product: "acad", version: "2022", dir: "docs",
+    name: "Присоединение Xref (Attach)", command: "XATTACH",
+    desc: "Присоединение внешнего DWG как ссылки с масштабом и путём.",
+    icon: "Link2", outputLabel: "Внешняя ссылка",
+    fields: [
+      { key: "file", label: "Файл", type: "text", default: "Генплан.dwg" },
+      { key: "type", label: "Тип", type: "select", default: "Наложение", options: ["Наложение", "Вставка"] },
+    ],
+    compute: v => [{ label: `Присоединён ${v.file}`, value: v.type }],
+  },
+  {
+    id: "acad-xref-clip", product: "acad", version: "2023", dir: "docs",
+    name: "Подрезка Xref (Clip)", command: "XCLIP",
+    desc: "Обрезка отображаемой области внешней ссылки контуром.",
+    icon: "Crop", outputLabel: "Подрезка",
+    fields: [{ key: "shape", label: "Контур", type: "select", default: "Прямоугольник", options: ["Прямоугольник", "Полилиния"] }],
+    compute: v => [{ label: "Подрезка", value: v.shape }],
+  },
+  {
+    id: "acad-xref-manager", product: "acad", version: "2024", dir: "docs",
+    name: "Диспетчер ссылок (XrefMgr)", command: "EXTERNALREFERENCES",
+    desc: "Управление всеми внешними ссылками: обновление, отсоединение, пути.",
+    icon: "FolderTree", outputLabel: "Диспетчер ссылок",
+    fields: [
+      { key: "attached", label: "Присоединено", type: "number", default: "5" },
+      { key: "missing", label: "Не найдено", type: "number", default: "1" },
+    ],
+    compute: v => [{ label: "Активных ссылок", value: `${Math.max(0, num(v.attached) - num(v.missing))} из ${v.attached}` }],
+  },
+  {
+    id: "acad-xref-underlay", product: "acad", version: "2025", dir: "docs",
+    name: "Подложка PDF/DGN (Underlay)", command: "PDFATTACH",
+    desc: "Подключение PDF, DGN, DWF или изображения как подложки.",
+    icon: "FileImage", outputLabel: "Подложка",
+    fields: [{ key: "type", label: "Тип подложки", type: "select", default: "PDF", options: ["PDF", "DGN", "DWF", "Изображение"] }],
+    compute: v => [{ label: "Подложка подключена", value: v.type }],
+  },
+  {
+    id: "acad-xref-bind", product: "acad", version: "2026", dir: "docs",
+    name: "Внедрение Xref (Bind)", command: "XBIND",
+    desc: "Внедрение внешней ссылки в чертёж как блока.",
+    icon: "PackageCheck", outputLabel: "Внедрение",
+    fields: [{ key: "file", label: "Ссылка", type: "text", default: "Сети_ВК.dwg" }],
+    compute: v => [{ label: "Внедрено в чертёж", value: v.file }],
+  },
+  {
+    id: "acad-xref-compare", product: "acad", version: "2027", dir: "docs",
+    name: "Сравнение Xref (XCompare)", command: "XREFCOMPARE",
+    desc: "Подсветка изменений между версиями внешней ссылки.",
+    icon: "GitCompare", isNew: true, outputLabel: "Сравнение",
+    fields: [{ key: "changes", label: "Изменений найдено", type: "number", default: "14" }],
+    compute: v => [{ label: "Различий", value: `${v.changes}` }],
   },
 ]
 

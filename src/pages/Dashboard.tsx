@@ -57,7 +57,6 @@ import PublishModule from "@/modules/PublishModule"
 import SaprModule from "@/modules/SaprModule"
 import SaprProModule from "@/modules/SaprProModule"
 import RevarModule from "@/modules/RevarModule"
-import VersionsModule from "@/modules/VersionsModule"
 
 
 const MODULES = [
@@ -85,7 +84,6 @@ const MODULES = [
   { id: "filemanager", icon: "FolderOpen", label: "Менеджер файлов", desc: "DWG, DWT, DWS, XML, SDF, ADSKLIB, BAK", component: FileManagerModule },
   { id: "tools", icon: "Wrench", label: "Инструменты и автоматизация", desc: "LSP-скрипты, DLL-плагины, макросы SCR, палитры CUI", component: ToolsModule },
   { id: "publish", icon: "Printer", label: "Публикация и печать", desc: "PDF, DWF, CTB/STB, пакеты листов, шрифты SHX", component: PublishModule },
-  { id: "versions", icon: "Rocket", label: "Функции 2022–2027", desc: "Все функции AutoCAD и Civil 3D по версиям и направлениям", component: VersionsModule },
 ]
 
 // ─── Направления работы (группировка модулей) ────────────────────────────────
@@ -98,7 +96,7 @@ const DIRECTIONS = [
     icon: "Route",
     color: "#f97316",
     gradient: "from-orange-500 to-amber-600",
-    modules: ["civilcad", "alignment", "corridor", "roads", "railway", "areas", "viewer3d", "surfaces", "analysis", "specs", "standards", "dynamic", "versions"],
+    modules: ["civilcad", "alignment", "corridor", "roads", "railway", "areas", "viewer3d", "surfaces", "analysis", "specs", "standards", "dynamic"],
   },
   {
     id: "survey",
@@ -107,7 +105,7 @@ const DIRECTIONS = [
     icon: "Mountain",
     color: "#10b981",
     gradient: "from-emerald-500 to-teal-600",
-    modules: ["geodesy", "dtm", "surfaces", "analysis", "viewer3d", "alignment", "specs", "integration", "civilcad", "versions"],
+    modules: ["geodesy", "dtm", "surfaces", "analysis", "viewer3d", "alignment", "specs", "integration", "civilcad"],
   },
   {
     id: "networks",
@@ -116,7 +114,7 @@ const DIRECTIONS = [
     icon: "Network",
     color: "#3b82f6",
     gradient: "from-blue-500 to-indigo-600",
-    modules: ["networks", "areas", "analysis", "corridor", "surfaces", "bim", "specs", "standards", "viewer3d", "civilcad", "versions"],
+    modules: ["networks", "areas", "analysis", "corridor", "surfaces", "bim", "specs", "standards", "viewer3d", "civilcad"],
   },
   {
     id: "bim",
@@ -125,7 +123,7 @@ const DIRECTIONS = [
     icon: "Building2",
     color: "#8b5cf6",
     gradient: "from-violet-500 to-fuchsia-600",
-    modules: ["revar", "bim", "viewer3d", "areas", "sapr", "integration", "specs", "standards", "analysis", "versions"],
+    modules: ["revar", "bim", "viewer3d", "areas", "sapr", "integration", "specs", "standards", "analysis"],
   },
   {
     id: "mechanical",
@@ -134,7 +132,7 @@ const DIRECTIONS = [
     icon: "Boxes",
     color: "#ef4444",
     gradient: "from-rose-500 to-red-600",
-    modules: ["sapr", "saprpro", "viewer3d", "revar", "integration", "specs", "standards", "tools", "versions"],
+    modules: ["sapr", "saprpro", "viewer3d", "revar", "integration", "specs", "standards", "tools"],
   },
   {
     id: "docs",
@@ -143,7 +141,7 @@ const DIRECTIONS = [
     icon: "ClipboardList",
     color: "#0ea5e9",
     gradient: "from-sky-500 to-cyan-600",
-    modules: ["specs", "publish", "standards", "integration", "filemanager", "analysis", "projects", "tools", "versions"],
+    modules: ["specs", "publish", "standards", "integration", "filemanager", "analysis", "projects", "tools"],
   },
   {
     id: "management",
@@ -152,7 +150,7 @@ const DIRECTIONS = [
     icon: "FolderKanban",
     color: "#eab308",
     gradient: "from-yellow-500 to-amber-500",
-    modules: ["projects", "dynamic", "tools", "filemanager", "integration", "specs", "publish", "standards", "versions"],
+    modules: ["projects", "dynamic", "tools", "filemanager", "integration", "specs", "publish", "standards"],
   },
   {
     id: "all",

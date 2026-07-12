@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 
 interface BIMElement {
   id: number
@@ -457,6 +458,7 @@ export default function BIMModule() {
           </div>
         </TabsContent>
       </Tabs>
+      <VersionFeaturesPanel dir="bim" />
     </motion.div>
   )
 }
