@@ -10,7 +10,7 @@ export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027"
 export type CategoryId =
   | "draw" | "modify" | "modeling3d" | "annotation" | "collab"
   | "corridor" | "surface" | "network" | "coords" | "bim" | "ai" | "platform"
-  | "layers" | "blocks" | "xref"
+  | "layers" | "blocks" | "xref" | "plot"
 
 export interface CategoryMeta { id: CategoryId; label: string; icon: string; color: string }
 
@@ -20,6 +20,7 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: "layers", label: "Слои и свойства", icon: "Layers3", color: "#0ea5e9" },
   { id: "blocks", label: "Блоки и атрибуты", icon: "Boxes", color: "#f59e0b" },
   { id: "xref", label: "Внешние ссылки (Xref)", icon: "Link2", color: "#6366f1" },
+  { id: "plot", label: "Печать и публикация", icon: "Printer", color: "#e11d48" },
   { id: "modeling3d", label: "3D-моделирование", icon: "Box", color: "#0891b2" },
   { id: "annotation", label: "Аннотации и оформление", icon: "Type", color: "#059669" },
   { id: "collab", label: "Совместная работа", icon: "Users", color: "#d97706" },
@@ -93,6 +94,8 @@ const detectCategory = (id: string): CategoryId => {
   if (/pressure|drainage|network|parts/.test(s)) return "network"
   if (/coord|transform/.test(s)) return "coords"
   if (/property-set|solids|-bim|viewer|model-viewer|ifc/.test(s)) return "bim"
+  // Печать и публикация
+  if (/plot|-print|layout|-pdf|dwf|publish|sheetset|-ctb|-stb|page-setup|batch-plot/.test(s)) return "plot"
   // Слои / блоки / внешние ссылки
   if (/xref|external-ref|underlay|clip|overlay|attach/.test(s)) return "xref"
   if (/layer|laymrg|laydel|layiso|layfrz|layon|layoff|l-props|property-paint/.test(s)) return "layers"
@@ -1087,6 +1090,124 @@ const RAW_FEATURES: RawFeature[] = [
     icon: "GitCompare", isNew: true, outputLabel: "Сравнение",
     fields: [{ key: "changes", label: "Изменений найдено", type: "number", default: "14" }],
     compute: v => [{ label: "Различий", value: `${v.changes}` }],
+  },
+
+  // ═══════════════ AutoCAD — ПЕЧАТЬ И ПУБЛИКАЦИЯ (2022–2027) ═══════════════
+  {
+    id: "acad-plot-layout", product: "acad", version: "2022", dir: "docs",
+    name: "Компоновка листа (Layout)", command: "LAYOUT",
+    desc: "Создание листа с рамкой и основной надписью под формат.",
+    icon: "LayoutTemplate", outputLabel: "Лист",
+    fields: [
+      { key: "fmt", label: "Формат", type: "select", default: "A1", options: ["A0", "A1", "A2", "A3", "A4"] },
+      { key: "orient", label: "Ориентация", type: "select", default: "Альбомная", options: ["Альбомная", "Книжная"] },
+    ],
+    compute: v => {
+      const sizes: Record<string, [number, number]> = { A0: [841, 1189], A1: [594, 841], A2: [420, 594], A3: [297, 420], A4: [210, 297] }
+      const [a, b] = sizes[v.fmt] || [594, 841]
+      const [w, h] = v.orient === "Альбомная" ? [Math.max(a, b), Math.min(a, b)] : [Math.min(a, b), Math.max(a, b)]
+      return [{ label: "Размер листа", value: `${w}×${h} мм` }]
+    },
+  },
+  {
+    id: "acad-plot-vport", product: "acad", version: "2022", dir: "docs",
+    name: "Видовой экран (MView)", command: "MVIEW",
+    desc: "Видовой экран на листе с расчётом масштаба вида.",
+    icon: "SquareDashed", outputLabel: "Видовой экран",
+    fields: [
+      { key: "model", label: "Размер в модели", type: "number", default: "50000", suffix: "мм" },
+      { key: "paper", label: "Размер на листе", type: "number", default: "500", suffix: "мм" },
+    ],
+    compute: v => {
+      const s = num(v.model) / Math.max(1, num(v.paper))
+      return [{ label: "Масштаб", value: `1:${Math.round(s)}` }]
+    },
+  },
+  {
+    id: "acad-plot-pagesetup", product: "acad", version: "2023", dir: "docs",
+    name: "Параметры листа (PageSetup)", command: "PAGESETUP",
+    desc: "Настройка устройства печати, формата и стиля печати листа.",
+    icon: "Settings2", outputLabel: "Параметры печати",
+    fields: [
+      { key: "device", label: "Устройство", type: "select", default: "DWG To PDF.pc3", options: ["DWG To PDF.pc3", "PublishToWeb JPG.pc3", "Плоттер HP T1700", "Системный принтер"] },
+      { key: "ctb", label: "Стиль печати", type: "select", default: "monochrome.ctb", options: ["monochrome.ctb", "acad.ctb", "Grayscale.ctb", "GOST.stb"] },
+    ],
+    compute: v => [{ label: "Устройство", value: v.device }, { label: "Стиль", value: v.ctb }],
+  },
+  {
+    id: "acad-plot-print", product: "acad", version: "2023", dir: "docs",
+    name: "Печать (Plot)", command: "PLOT",
+    desc: "Вывод листа на печать/PDF с областью и масштабом.",
+    icon: "Printer", outputLabel: "Печать",
+    fields: [
+      { key: "area", label: "Область", type: "select", default: "Лист", options: ["Лист", "Экран", "Рамка", "Границы"] },
+      { key: "scale", label: "Масштаб печати", type: "select", default: "1:1", options: ["1:1", "1:2", "1:5", "1:10", "Вписать"] },
+    ],
+    compute: v => [{ label: "Печать области", value: `${v.area}, ${v.scale}` }],
+  },
+  {
+    id: "acad-plot-pdf", product: "acad", version: "2024", dir: "docs",
+    name: "Экспорт в PDF (ExportPDF)", command: "EXPORTPDF",
+    desc: "Умный PDF со слоями, поиском текста и гиперссылками.",
+    icon: "FileText", outputLabel: "PDF",
+    fields: [
+      { key: "sheets", label: "Листов", type: "number", default: "12" },
+      { key: "dpi", label: "Разрешение", type: "select", default: "600", options: ["150", "300", "600", "1200"] },
+      { key: "layers", label: "Слои в PDF", type: "toggle", default: "on" },
+    ],
+    compute: v => [{ label: "Создан PDF", value: `${v.sheets} стр., ${v.dpi} dpi` }, { label: "Слои", value: v.layers === "on" ? "включены" : "сведены" }],
+  },
+  {
+    id: "acad-plot-dwf", product: "acad", version: "2024", dir: "docs",
+    name: "Экспорт в DWF (ExportDWF)", command: "EXPORTDWF",
+    desc: "Компактный DWF/DWFx для рассылки и просмотра.",
+    icon: "FileOutput", outputLabel: "DWF",
+    fields: [{ key: "type", label: "Формат", type: "select", default: "DWFx", options: ["DWF", "DWFx", "DWF (сжатый)"] }],
+    compute: v => [{ label: "Экспортировано", value: v.type }],
+  },
+  {
+    id: "acad-plot-sheetset", product: "acad", version: "2025", dir: "docs",
+    name: "Подшивка листов (SheetSet)", command: "SHEETSET",
+    desc: "Управление комплектом листов проекта, автонумерация и штампы.",
+    icon: "Files", outputLabel: "Подшивка",
+    fields: [
+      { key: "sheets", label: "Листов в комплекте", type: "number", default: "34" },
+      { key: "start", label: "Начальный №", type: "number", default: "1" },
+    ],
+    compute: v => [{ label: "Диапазон листов", value: `№${v.start}…${num(v.start) + num(v.sheets) - 1}` }],
+  },
+  {
+    id: "acad-plot-batch", product: "acad", version: "2025", dir: "docs",
+    name: "Пакетная печать (Publish)", command: "PUBLISH",
+    desc: "Печать всей подшивки в один PDF или на плоттер пакетом.",
+    icon: "Layers", outputLabel: "Пакетная печать",
+    fields: [
+      { key: "sheets", label: "Листов", type: "number", default: "34" },
+      { key: "sec", label: "Время на лист", type: "number", default: "4", suffix: "с" },
+    ],
+    compute: v => [{ label: "Оценка времени", value: `~${Math.ceil(num(v.sheets) * num(v.sec) / 60)} мин` }],
+  },
+  {
+    id: "acad-plot-transmittal", product: "acad", version: "2026", dir: "docs",
+    name: "Комплект передачи (eTransmit)", command: "ETRANSMIT",
+    desc: "Сбор чертежа со всеми ссылками, шрифтами и стилями в архив.",
+    icon: "Package", outputLabel: "Комплект",
+    fields: [
+      { key: "xrefs", label: "Внешних ссылок", type: "number", default: "6" },
+      { key: "fonts", label: "Шрифтов SHX", type: "number", default: "3" },
+    ],
+    compute: v => [{ label: "Файлов в архиве", value: `${1 + num(v.xrefs) + num(v.fonts)}` }],
+  },
+  {
+    id: "acad-plot-cloud", product: "acad", version: "2027", dir: "docs",
+    name: "Публикация в облако (Push to Docs)", command: "PUBLISHTODOCS",
+    desc: "Публикация подшивки в Autodesk Docs с общей ссылкой на просмотр.",
+    icon: "CloudUpload", isNew: true, outputLabel: "Облачная публикация",
+    fields: [
+      { key: "sheets", label: "Листов", type: "number", default: "34" },
+      { key: "access", label: "Доступ", type: "select", default: "По ссылке", options: ["По ссылке", "Команда проекта", "Только я"] },
+    ],
+    compute: v => [{ label: "Опубликовано", value: `${v.sheets} листов` }, { label: "Доступ", value: v.access }],
   },
 ]
 

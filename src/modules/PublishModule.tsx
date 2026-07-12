@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 
 // ─── Таблицы стилей печати ────────────────────────────────────────────────────
 
@@ -496,6 +497,7 @@ export default function PublishModule({ onNavigate }: { onNavigate?: (id: string
           </div>
         </TabsContent>
       </Tabs>
+      <VersionFeaturesPanel categories={["plot"]} title="Функции печати и публикации AutoCAD 2022–2027" defaultOpen />
     </div>
   )
 }
