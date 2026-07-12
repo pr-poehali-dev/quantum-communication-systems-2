@@ -86,6 +86,83 @@ const MODULES = [
   { id: "publish", icon: "Printer", label: "Публикация и печать", desc: "PDF, DWF, CTB/STB, пакеты листов, шрифты SHX", component: PublishModule },
 ]
 
+// ─── Направления работы (группировка модулей) ────────────────────────────────
+
+const DIRECTIONS = [
+  {
+    id: "infra",
+    label: "Инфраструктура и дороги",
+    desc: "Автодороги, ж/д, трассы, коридоры, поперечники",
+    icon: "Route",
+    color: "#f97316",
+    gradient: "from-orange-500 to-amber-600",
+    modules: ["civilcad", "alignment", "corridor", "roads", "railway", "areas"],
+  },
+  {
+    id: "survey",
+    label: "Геодезия и изыскания",
+    desc: "Точки, ЦМР, LiDAR, поверхности, рельеф, объёмы",
+    icon: "Mountain",
+    color: "#10b981",
+    gradient: "from-emerald-500 to-teal-600",
+    modules: ["geodesy", "dtm", "surfaces", "analysis"],
+  },
+  {
+    id: "networks",
+    label: "Инженерные сети",
+    desc: "ВКС, ливневая, теплосеть, гидравлика",
+    icon: "Network",
+    color: "#3b82f6",
+    gradient: "from-blue-500 to-indigo-600",
+    modules: ["networks", "areas", "analysis"],
+  },
+  {
+    id: "bim",
+    label: "BIM и архитектура",
+    desc: "Revar (Revit + ArchiCAD), IFC-модель, коллизии",
+    icon: "Building2",
+    color: "#8b5cf6",
+    gradient: "from-violet-500 to-fuchsia-600",
+    modules: ["revar", "bim", "viewer3d"],
+  },
+  {
+    id: "mechanical",
+    label: "Машиностроение / САПР",
+    desc: "3D-детали, SolidWorks-аналог, Simulation, CAM",
+    icon: "Boxes",
+    color: "#ef4444",
+    gradient: "from-rose-500 to-red-600",
+    modules: ["sapr", "saprpro"],
+  },
+  {
+    id: "docs",
+    label: "Документация и вывод",
+    desc: "Ведомости, спецификации, публикация, печать, стандарты",
+    icon: "ClipboardList",
+    color: "#0ea5e9",
+    gradient: "from-sky-500 to-cyan-600",
+    modules: ["specs", "publish", "standards", "integration", "filemanager"],
+  },
+  {
+    id: "management",
+    label: "Управление проектами",
+    desc: "Проекты, версии, команда, динамические модели, инструменты",
+    icon: "FolderKanban",
+    color: "#eab308",
+    gradient: "from-yellow-500 to-amber-500",
+    modules: ["projects", "dynamic", "tools"],
+  },
+  {
+    id: "all",
+    label: "Все модули",
+    desc: "Полный доступ ко всем инструментам платформы",
+    icon: "LayoutGrid",
+    color: "#64748b",
+    gradient: "from-slate-500 to-slate-700",
+    modules: MODULES.map(m => m.id),
+  },
+]
+
 // ─── Данные последних файлов ─────────────────────────────────────────────────
 
 const ПОСЛЕДНИЕ_ФАЙЛЫ = [
@@ -324,6 +401,11 @@ export default function Dashboard() {
   const store = useContext(ProjectContext)
 
   const [activeModule, setActiveModule] = useState<string | null>(null)
+  const [direction, setDirection] = useState<string | null>(() => localStorage.getItem("civilpro_direction"))
+  const выбратьНаправление = (id: string) => { setDirection(id); localStorage.setItem("civilpro_direction", id); setActiveModule(null); setHomeВкладка("модули") }
+  const сброситьНаправление = () => { setDirection(null); localStorage.removeItem("civilpro_direction"); setActiveModule(null) }
+  const текущееНаправление = DIRECTIONS.find(d => d.id === direction)
+  const модулиНаправления = текущееНаправление ? MODULES.filter(m => текущееНаправление.modules.includes(m.id)) : MODULES
   const [homeВкладка, setHomeВкладка] = useState<"последние" | "модули" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
   const [viewGrid, setViewGrid] = useState(true)
@@ -471,6 +553,61 @@ export default function Dashboard() {
   )
 
   const FULLSCREEN_MODULES = ["civilcad", "viewer3d", "sapr", "saprpro", "revar"]
+
+  // ── Экран выбора направления (показывается после входа, если не выбрано) ──
+  if (!direction) {
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: "radial-gradient(ellipse at top, #232347 0%, #14142a 55%, #0d0d1c 100%)", fontFamily: "Arial, sans-serif" }}>
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-[#0078d4] rounded-lg flex items-center justify-center text-white font-bold">Л</div>
+            <div>
+              <div className="text-white font-bold text-[15px] leading-tight">ЛАПА 3D 2027</div>
+              <div className="text-gray-500 text-[11px]">Выберите направление работы</div>
+            </div>
+          </div>
+          <button onClick={handleLogout} className="text-gray-400 hover:text-white text-[12px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+            <Icon name="LogOut" size={14} />Выйти
+          </button>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-10">
+          <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+            className="text-white text-2xl sm:text-3xl font-bold text-center mb-2">
+            В каком направлении вы работаете?
+          </motion.h1>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+            className="text-gray-400 text-[13px] text-center mb-8 max-w-xl">
+            Мы покажем только нужные вам инструменты. Направление можно сменить в любой момент.
+          </motion.p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl">
+            {DIRECTIONS.map((d, i) => {
+              const count = d.id === "all" ? MODULES.length : d.modules.length
+              return (
+                <motion.button key={d.id}
+                  initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.05 }}
+                  whileHover={{ y: -4 }}
+                  onClick={() => выбратьНаправление(d.id)}
+                  className="group relative text-left rounded-2xl p-5 border border-white/10 hover:border-white/25 transition-all overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.03)" }}>
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${d.gradient} flex items-center justify-center mb-3 shadow-lg`}>
+                    <Icon name={d.icon} size={24} className="text-white" fallback="Square" />
+                  </div>
+                  <div className="text-white font-bold text-[15px] mb-1">{d.label}</div>
+                  <div className="text-gray-400 text-[12px] leading-snug mb-3">{d.desc}</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold" style={{ color: d.color }}>{count} модулей</span>
+                    <Icon name="ArrowRight" size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                  </div>
+                </motion.button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col" style={{ height: "100vh", background: "#1a1a2e", fontFamily: "Arial, sans-serif" }}>
@@ -644,8 +781,18 @@ export default function Dashboard() {
               ))}
 
               <div className="border-t border-gray-800 mt-2 pt-2">
-                <div className="px-4 py-1 text-[9px] text-gray-600 uppercase tracking-wider font-semibold">Модули</div>
-                {MODULES.map(m => (
+                {текущееНаправление && (
+                  <button onClick={сброситьНаправление}
+                    className="w-full flex items-center gap-2 px-4 py-2 mb-1 text-[11px] text-left text-gray-300 hover:text-white hover:bg-[#1a1a28] transition-colors">
+                    <div className={`w-5 h-5 rounded bg-gradient-to-br ${текущееНаправление.gradient} flex items-center justify-center shrink-0`}>
+                      <Icon name={текущееНаправление.icon} size={11} className="text-white" fallback="Square" />
+                    </div>
+                    <span className="flex-1 truncate font-semibold">{текущееНаправление.label}</span>
+                    <Icon name="RefreshCw" size={11} className="text-gray-600" />
+                  </button>
+                )}
+                <div className="px-4 py-1 text-[9px] text-gray-600 uppercase tracking-wider font-semibold">Модули направления</div>
+                {модулиНаправления.map(m => (
                   <button key={m.id} onClick={() => setActiveModule(m.id)}
                     className={`w-full flex items-center gap-2 px-4 py-1.5 text-[11px] text-left transition-colors ${activeModule === m.id ? "text-white bg-[#0078d4]" : "text-gray-500 hover:text-gray-300 hover:bg-[#1a1a28]"}`}>
                     <Icon name={m.icon} size={11} className={activeModule === m.id ? "text-white" : "text-gray-600"} fallback="Square" />
@@ -803,9 +950,25 @@ export default function Dashboard() {
 
                   {homeВкладка === "модули" && (
                     <div className="flex-1 overflow-y-auto p-6" style={{ minHeight: 0 }}>
-                      <h2 className="text-white text-xl font-bold mb-5">Все модули</h2>
+                      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          {текущееНаправление && (
+                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${текущееНаправление.gradient} flex items-center justify-center shadow-lg`}>
+                              <Icon name={текущееНаправление.icon} size={20} className="text-white" fallback="Square" />
+                            </div>
+                          )}
+                          <div>
+                            <h2 className="text-white text-xl font-bold leading-tight">{текущееНаправление?.label ?? "Все модули"}</h2>
+                            <p className="text-gray-500 text-[12px]">{текущееНаправление?.desc}</p>
+                          </div>
+                        </div>
+                        <button onClick={сброситьНаправление}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 hover:text-white hover:border-[#0078d4] text-[12px] transition-colors">
+                          <Icon name="RefreshCw" size={13} />Сменить направление
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {MODULES.map((m, i) => (
+                        {модулиНаправления.map((m, i) => (
                           <motion.button key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.04 }}
                             onClick={() => setActiveModule(m.id)}

@@ -7,7 +7,7 @@ import {
   BimElement, Level, Discipline, DISCIPLINES, FAMILIES, MATERIALS_BIM,
   IFC_FORMATS, elemLength, buildSchedule, analyzeBuilding, FamilyDef,
 } from "./revar-engine"
-import { скачать, экспортCSV, импортФайл } from "@/utils/exportImport"
+import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
 
 type RibbonTab = "arch" | "struct" | "mep" | "annotate" | "analyze" | "options" | "collab" | "manage" | "insert"
 const RIBBON: { id: RibbonTab; label: string; icon: string }[] = [
@@ -41,6 +41,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
   const [tool, setTool] = useState<FamilyDef | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
+  const [drawing, setDrawing] = useState<null | { kind: "section" | "elevation"; title: string }>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawStart = useRef<{ x: number; y: number } | null>(null)
@@ -251,7 +252,13 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
               </div>
             ))}
             <div className="px-3 py-0.5 pt-2 text-gray-400 flex items-center gap-1"><Icon name="Table" size={11} />Виды и спецификации</div>
-            {["План этажа", "Разрез 1-1", "Фасад", "3D-вид", "Спецификация", "Ведомость окон/дверей"].map(v => <div key={v} className="pl-6 py-0.5 text-gray-600 text-[11px] flex items-center gap-1"><Icon name="FileText" size={10} />{v}</div>)}
+            {[
+              { v: "План этажа", fn: () => setView("plan") },
+              { v: "Разрез 1-1", fn: () => setDrawing({ kind: "section", title: "Разрез 1-1" }) },
+              { v: "Разрез 2-2", fn: () => setDrawing({ kind: "section", title: "Разрез 2-2" }) },
+              { v: "Фасад в осях А-Г", fn: () => setDrawing({ kind: "elevation", title: "Фасад в осях А-Г" }) },
+              { v: "3D-вид", fn: () => setView("3d") },
+            ].map(({ v, fn }) => <button key={v} onClick={fn} className="w-full text-left pl-6 py-0.5 text-gray-600 text-[11px] flex items-center gap-1 hover:bg-blue-50 hover:text-blue-700"><Icon name="FileText" size={10} />{v}</button>)}
           </div>
           <div className="border-t border-gray-100 p-2 text-[11px] text-gray-500 space-y-0.5">
             <div className="flex justify-between"><span>Площадь</span><b>{stats.totalArea} м²</b></div>
@@ -291,7 +298,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
               </div>
             )}
             {tab === "insert" && <LibraryPanel onPlace={f => { setTool(f); showToast(`Библиотека: ${f.name}`) }} />}
-            {tab === "annotate" && <AnnotatePanel onAction={showToast} schedule={schedule} onExport={() => { экспортCSV(["Наименование", "Тип", "Кол-во", "Материал"], schedule.map(r => [r.name, r.kind, r.qty, r.material]), "спецификация.csv"); showToast("Спецификация выгружена") }} />}
+            {tab === "annotate" && <AnnotatePanel onAction={showToast} schedule={schedule} onExport={() => { экспортCSV(["Наименование", "Тип", "Кол-во", "Материал"], schedule.map(r => [r.name, r.kind, r.qty, r.material]), "спецификация.csv"); showToast("Спецификация выгружена") }} onSection={() => setDrawing({ kind: "section", title: "Разрез 1-1" })} onElevation={() => setDrawing({ kind: "elevation", title: "Фасад в осях А-Г" })} />}
             {tab === "analyze" && <AnalyzePanel stats={stats} onAction={showToast} />}
             {tab === "options" && <OptionsPanel onAction={showToast} />}
             {tab === "collab" && <CollabPanel onAction={showToast} />}
@@ -309,6 +316,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
         </table>
       </div>
 
+      {drawing && <DrawingView drawing={drawing} elems={elems} levels={levels} onClose={() => setDrawing(null)} onExport={() => { экспортPDF(drawing.title, `Автоматически построенный вид из BIM-модели\nЭлементов: ${elems.length}`, drawing.title); showToast(`${drawing.title} → PDF`) }} />}
       {aiOpen && <AIDialog stats={stats} onClose={() => setAiOpen(false)} onAction={showToast} />}
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2"><Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}</div>}
     </div>
@@ -352,16 +360,91 @@ function LibraryPanel({ onPlace }: { onPlace: (f: FamilyDef) => void }) {
   )
 }
 
-function AnnotatePanel({ onAction, schedule, onExport }: { onAction: (m: string) => void; schedule: ReturnType<typeof buildSchedule>; onExport: () => void }) {
+function AnnotatePanel({ onAction, schedule, onExport, onSection, onElevation }: { onAction: (m: string) => void; schedule: ReturnType<typeof buildSchedule>; onExport: () => void; onSection: () => void; onElevation: () => void }) {
   return (
     <div className="space-y-2">
-      <div className="text-[11px] font-semibold text-gray-600">Аннотации и документация</div>
+      <div className="text-[11px] font-semibold text-gray-600">Чертёжные виды из модели</div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700" onClick={onSection}><Icon name="Scissors" size={13} />Разрез</Button>
+        <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700" onClick={onElevation}><Icon name="PanelLeft" size={13} fallback="Square" />Фасад</Button>
+      </div>
+      <div className="text-[10px] text-gray-400">Разрезы и фасады строятся автоматически из BIM-модели и обновляются при изменениях.</div>
+      <div className="text-[11px] font-semibold text-gray-600 pt-1">Аннотации</div>
       <div className="grid grid-cols-2 gap-1">
         {["Размер", "Текст", "Марка", "Уровень", "Выноска", "Штриховка", "Автотекст", "Осевая сетка"].map(a => <button key={a} onClick={() => onAction(`Аннотация: ${a}`)} className="text-[10px] px-2 py-1 rounded border border-gray-200 hover:bg-blue-50 text-gray-600">{a}</button>)}
       </div>
       <div className="text-[11px] font-semibold text-gray-600 pt-1">Листы и издатель</div>
       <Button size="sm" className="w-full gap-1.5 bg-blue-600 hover:bg-blue-700" onClick={onExport}><Icon name="Download" size={13} />Спецификация → CSV ({schedule.length})</Button>
       <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={() => onAction("Комплект чертежей собран «Издателем»")}><Icon name="Files" size={13} />Собрать комплект листов</Button>
+    </div>
+  )
+}
+
+// ── Автопостроение разреза / фасада из BIM-модели ──────────────────────────
+function DrawingView({ drawing, elems, levels, onClose, onExport }: { drawing: { kind: "section" | "elevation"; title: string }; elems: BimElement[]; levels: Level[]; onClose: () => void; onExport: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return
+    const ctx = cv.getContext("2d"); if (!ctx) return
+    const W = cv.width = 760, H = cv.height = 440
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H)
+    const S = 0.045, ox = W / 2, oy = H - 90
+    const isSection = drawing.kind === "section"
+    // ось проекции: разрез — по Y (вид вдоль), фасад — по фронту
+    const px = (x: number, y: number) => ox + (isSection ? y : x) * S
+    const pyz = (z: number) => oy - z * S
+
+    // отметки уровней
+    ctx.strokeStyle = "#cbd5e1"; ctx.setLineDash([6, 4]); ctx.fillStyle = "#64748b"; ctx.font = "10px sans-serif"
+    levels.forEach(l => {
+      const y = pyz(l.elevation)
+      ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W - 40, y); ctx.stroke()
+      ctx.fillText(`${l.name}  +${(l.elevation / 1000).toFixed(3)}`, 44, y - 4)
+    })
+    // земля
+    const y0 = pyz(0); ctx.setLineDash([]); ctx.strokeStyle = "#334155"; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(30, y0); ctx.lineTo(W - 30, y0); ctx.stroke()
+
+    // элементы -> прямоугольники в проекции
+    const sorted = [...elems].sort((a, b) => (isSection ? a.x - b.x : a.y - b.y))
+    sorted.forEach(e => {
+      const zBase = levels[e.level]?.elevation ?? 0, zTop = zBase + (e.h ?? 3000)
+      const linear = e.x2 !== undefined
+      let a: number, b: number
+      if (linear) { a = isSection ? Math.min(e.y, e.y2!) : Math.min(e.x, e.x2!); b = isSection ? Math.max(e.y, e.y2!) : Math.max(e.x, e.x2!) }
+      else { const s = (e.w ?? 600) / 2; const c = isSection ? e.y : e.x; a = c - s; b = c + s }
+      const x1 = px(a, a), x2 = px(b, b)
+      const w = Math.max(3, x2 - x1)
+      const cut = isSection && linear && e.kind === "wall"  // рассечённые стены — заливка
+      ctx.fillStyle = e.color + (cut ? "ff" : "aa")
+      ctx.fillRect(x1, pyz(zTop), w, pyz(zBase) - pyz(zTop))
+      ctx.strokeStyle = "#1e293b"; ctx.lineWidth = cut ? 1.4 : 0.7
+      ctx.strokeRect(x1, pyz(zTop), w, pyz(zBase) - pyz(zTop))
+      // окна — прозрачный проём
+      if (e.kind === "window") { ctx.fillStyle = "#bfe3f0"; ctx.fillRect(x1, pyz(zBase + 900 + (e.h ?? 1400)), w, (e.h ?? 1400) * S); ctx.strokeRect(x1, pyz(zBase + 900 + (e.h ?? 1400)), w, (e.h ?? 1400) * S) }
+    })
+    // рамка чертежа
+    ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 1.5; ctx.strokeRect(14, 14, W - 28, H - 28)
+    ctx.fillStyle = "#0f172a"; ctx.font = "bold 13px sans-serif"; ctx.fillText(drawing.title, 24, 34)
+    ctx.font = "10px sans-serif"; ctx.fillStyle = "#64748b"; ctx.fillText("М 1:100 · построено из BIM-модели Revar", 24, H - 24)
+  }, [drawing, elems, levels])
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-4 py-3 bg-gray-900 text-white flex items-center gap-2">
+          <Icon name={drawing.kind === "section" ? "Scissors" : "Building"} size={16} />
+          <span className="font-bold text-[13px]">{drawing.title} — автоматический чертёжный вид</span>
+          <button onClick={onClose} className="ml-auto"><Icon name="X" size={18} /></button>
+        </div>
+        <div className="p-3">
+          <canvas ref={ref} className="rounded-lg border border-gray-200" />
+          <div className="flex justify-between items-center mt-3">
+            <span className="text-[11px] text-gray-400">Вид связан с моделью — обновляется автоматически при изменении элементов</span>
+            <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700" onClick={onExport}><Icon name="FileDown" size={13} />Экспорт в PDF</Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
