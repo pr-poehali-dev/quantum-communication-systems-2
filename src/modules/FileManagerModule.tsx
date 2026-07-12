@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 
 // ─── Типы файлов Civil 3D ─────────────────────────────────────────────────────
 
@@ -609,6 +610,7 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
           </div>
         </TabsContent>
       </Tabs>
+      <VersionFeaturesPanel dir="management" />
     </div>
   )
 }

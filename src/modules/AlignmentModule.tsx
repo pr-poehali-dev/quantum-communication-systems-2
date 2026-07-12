@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { экспортCSV, экспортLandXML, экспортТекст, экспортDXF, экспортDWG } from "@/utils/exportImport"
 
@@ -395,6 +396,7 @@ export default function AlignmentModule() {
           </div>
         </TabsContent>
       </Tabs>
+      <VersionFeaturesPanel dir="infra" />
     </motion.div>
   )
 }

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import {
   Feature, SolidKind, MATERIALS, buildMesh, massProps, project, volumeOf, overlapVolume,
   EXCHANGE_3D, EXCHANGE_2D, CAD_IMPORT, Vec3,
@@ -411,7 +412,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#eceff4] overflow-hidden text-sm">
+    <div className="relative flex flex-col h-full bg-[#eceff4] overflow-hidden text-sm">
       {/* Верхняя панель */}
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -864,6 +865,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
           <Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}
         </div>
       )}
+      <VersionFeaturesPanel dir="mechanical" floating />
     </div>
   )
 }

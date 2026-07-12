@@ -3,6 +3,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст, импортФайл, импортLandXML } from "@/utils/exportImport"
 
 interface FormatItem {
@@ -363,6 +364,7 @@ export default function IntegrationModule() {
           </div>
         </TabsContent>
       </Tabs>
+      <VersionFeaturesPanel categories={["interop"]} title="Функции интеграции и обмена форматами 2022–2027" defaultOpen />
     </motion.div>
   )
 }

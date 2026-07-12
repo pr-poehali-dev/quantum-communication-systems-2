@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import {
   BimElement, Level, Discipline, DISCIPLINES, FAMILIES, MATERIALS_BIM,
   IFC_FORMATS, elemLength, buildSchedule, analyzeBuilding, FamilyDef,
@@ -206,7 +207,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
     tab === "mep" ? f.discipline === "mep" : false)
 
   return (
-    <div className="flex flex-col h-full bg-[#eef1f5] overflow-hidden text-sm">
+    <div className="relative flex flex-col h-full bg-[#eef1f5] overflow-hidden text-sm">
       {/* Шапка */}
       <div className="bg-white border-b border-gray-200">
         <div className="px-4 py-1.5 flex items-center gap-2 border-b border-gray-100">
@@ -319,6 +320,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
       {drawing && <DrawingView drawing={drawing} elems={elems} levels={levels} onClose={() => setDrawing(null)} onExport={() => { экспортPDF(drawing.title, `Автоматически построенный вид из BIM-модели\nЭлементов: ${elems.length}`, drawing.title); showToast(`${drawing.title} → PDF`) }} />}
       {aiOpen && <AIDialog stats={stats} onClose={() => setAiOpen(false)} onAction={showToast} />}
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2"><Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}</div>}
+      <VersionFeaturesPanel dir="bim" floating />
     </div>
   )
 }

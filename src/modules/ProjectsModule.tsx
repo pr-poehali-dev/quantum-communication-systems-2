@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
 
 interface Project {
@@ -377,6 +378,7 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
           </motion.div>
         ) : null}
       </AnimatePresence>
+      <VersionFeaturesPanel dir="management" />
     </motion.div>
   )
 }

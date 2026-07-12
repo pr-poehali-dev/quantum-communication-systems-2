@@ -100,16 +100,8 @@ export function FeatureTool({ feature, onClose }: { feature: VersionFeatureFull;
   )
 }
 
-// ─── Встраиваемая панель функций версий (для профильных модулей) ──────────────
-export default function VersionFeaturesPanel({
-  dir, categories, title = "Функции AutoCAD и Civil 3D 2022–2027", defaultOpen = false,
-}: {
-  dir?: DirId
-  categories?: CategoryId[]
-  title?: string
-  defaultOpen?: boolean
-}) {
-  const [open, setOpen] = useState(defaultOpen)
+// ─── Внутренняя сетка функций (поиск + группировка + диалог) ──────────────────
+function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryId[] }) {
   const [active, setActive] = useState<VersionFeatureFull | null>(null)
   const [q, setQ] = useState("")
 
@@ -127,8 +119,105 @@ export default function VersionFeaturesPanel({
       .map(c => ({ cat: c, list: items.filter(f => f.category === c.id) }))
   }, [items])
 
-  if (FEATURES.filter(f => (dir ? f.dir === dir : true)).length === 0) return null
+  return (
+    <div className="p-4">
+      <div className="relative max-w-xs mb-4">
+        <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск функции…"
+          className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-[12px] pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-[#0078d4]" />
+      </div>
 
+      <div className="space-y-5">
+        {grouped.map(({ cat, list }) => (
+          <div key={cat.id}>
+            <div className="flex items-center gap-2 mb-2">
+              <Icon name={cat.icon} size={13} style={{ color: cat.color }} />
+              <span className="text-[12px] font-bold text-gray-800">{cat.label}</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: cat.color + "18", color: cat.color }}>{list.length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {list.map(f => {
+                const p = PRODUCTS.find(x => x.id === f.product)!
+                return (
+                  <button key={f.id} onClick={() => setActive(f)}
+                    className="text-left bg-white border border-gray-200 rounded-lg p-2.5 hover:border-[#0078d4] hover:shadow-sm transition-all group">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon name={f.icon} size={14} style={{ color: p.color }} fallback="Square" />
+                      <span className="text-[11.5px] font-semibold text-gray-900 leading-tight flex-1 group-hover:text-[#0078d4]">{f.name}</span>
+                      <span className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 leading-snug line-clamp-2">{f.desc}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-gray-400 text-[12px] py-4 text-center">Функции не найдены</div>}
+      </div>
+
+      <AnimatePresence>
+        {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── Встраиваемая панель функций версий (для профильных модулей) ──────────────
+export default function VersionFeaturesPanel({
+  dir, categories, title = "Функции AutoCAD и Civil 3D 2022–2027", defaultOpen = false, floating = false,
+}: {
+  dir?: DirId
+  categories?: CategoryId[]
+  title?: string
+  defaultOpen?: boolean
+  floating?: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  const count = useMemo(() => FEATURES.filter(f =>
+    (dir ? f.dir === dir : true) &&
+    (categories && categories.length ? categories.includes(f.category) : true)
+  ).length, [dir, categories])
+
+  if (count === 0) return null
+
+  // Плавающий режим — для полноэкранных модулей: кнопка + оверлей
+  if (floating) {
+    return (
+      <>
+        <button onClick={() => setOpen(true)}
+          className="absolute bottom-4 right-4 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#0078d4] text-white shadow-lg hover:bg-[#0068c0] transition-colors">
+          <Icon name="Rocket" size={16} />
+          <span className="text-[12px] font-semibold">Функции 2022–2027</span>
+          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{count}</span>
+        </button>
+        <AnimatePresence>
+          {open && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 bg-black/50 flex items-stretch justify-end" onClick={() => setOpen(false)}>
+              <motion.div initial={{ x: 40 }} animate={{ x: 0 }} exit={{ x: 40 }}
+                className="w-full max-w-2xl bg-white h-full overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white">
+                  <div className="w-7 h-7 rounded-lg bg-[#0078d4]/10 flex items-center justify-center">
+                    <Icon name="Rocket" size={15} className="text-[#0078d4]" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-[13px] font-bold text-gray-900">{title}</div>
+                    <div className="text-[11px] text-gray-500">{count} рабочих функций</div>
+                  </div>
+                  <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-700 text-lg">✕</button>
+                </div>
+                <FeaturesGrid dir={dir} categories={categories} />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
+    )
+  }
+
+  // Встроенный режим — сворачиваемая секция
   return (
     <div className="mt-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
       <button onClick={() => setOpen(o => !o)}
@@ -138,7 +227,7 @@ export default function VersionFeaturesPanel({
         </div>
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold text-gray-900">{title}</div>
-          <div className="text-[11px] text-gray-500">{items.length} рабочих функций · нажмите, чтобы {open ? "свернуть" : "раскрыть"}</div>
+          <div className="text-[11px] text-gray-500">{count} рабочих функций · нажмите, чтобы {open ? "свернуть" : "раскрыть"}</div>
         </div>
         <Icon name={open ? "ChevronUp" : "ChevronDown"} size={18} className="text-gray-400" />
       </button>
@@ -147,48 +236,9 @@ export default function VersionFeaturesPanel({
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-t border-gray-100">
-            <div className="p-4">
-              <div className="relative max-w-xs mb-4">
-                <Icon name="Search" size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск функции…"
-                  className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-[12px] pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-[#0078d4]" />
-              </div>
-
-              <div className="space-y-5">
-                {grouped.map(({ cat, list }) => (
-                  <div key={cat.id}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Icon name={cat.icon} size={13} style={{ color: cat.color }} />
-                      <span className="text-[12px] font-bold text-gray-800">{cat.label}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: cat.color + "18", color: cat.color }}>{list.length}</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {list.map(f => {
-                        const p = PRODUCTS.find(x => x.id === f.product)!
-                        return (
-                          <button key={f.id} onClick={() => setActive(f)}
-                            className="text-left bg-white border border-gray-200 rounded-lg p-2.5 hover:border-[#0078d4] hover:shadow-sm transition-all group">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Icon name={f.icon} size={14} style={{ color: p.color }} fallback="Square" />
-                              <span className="text-[11.5px] font-semibold text-gray-900 leading-tight flex-1 group-hover:text-[#0078d4]">{f.name}</span>
-                              <span className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
-                            </div>
-                            <div className="text-[10px] text-gray-500 leading-snug line-clamp-2">{f.desc}</div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
-                {items.length === 0 && <div className="text-gray-400 text-[12px] py-4 text-center">Функции не найдены</div>}
-              </div>
-            </div>
+            <FeaturesGrid dir={dir} categories={categories} />
           </motion.div>
         )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
       </AnimatePresence>
     </div>
   )

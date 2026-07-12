@@ -10,7 +10,7 @@ export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027"
 export type CategoryId =
   | "draw" | "modify" | "modeling3d" | "annotation" | "collab"
   | "corridor" | "surface" | "network" | "coords" | "bim" | "ai" | "platform"
-  | "layers" | "blocks" | "xref" | "plot"
+  | "layers" | "blocks" | "xref" | "plot" | "interop"
 
 export interface CategoryMeta { id: CategoryId; label: string; icon: string; color: string }
 
@@ -21,6 +21,7 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: "blocks", label: "Блоки и атрибуты", icon: "Boxes", color: "#f59e0b" },
   { id: "xref", label: "Внешние ссылки (Xref)", icon: "Link2", color: "#6366f1" },
   { id: "plot", label: "Печать и публикация", icon: "Printer", color: "#e11d48" },
+  { id: "interop", label: "Интеграция и обмен форматами", icon: "Puzzle", color: "#0d9488" },
   { id: "modeling3d", label: "3D-моделирование", icon: "Box", color: "#0891b2" },
   { id: "annotation", label: "Аннотации и оформление", icon: "Type", color: "#059669" },
   { id: "collab", label: "Совместная работа", icon: "Users", color: "#d97706" },
@@ -93,6 +94,8 @@ const detectCategory = (id: string): CategoryId => {
   if (/surface|grading|aoi|dtm|relative/.test(s)) return "surface"
   if (/pressure|drainage|network|parts/.test(s)) return "network"
   if (/coord|transform/.test(s)) return "coords"
+  // Интеграция и обмен форматами (раньше bim, т.к. содержит ifc)
+  if (/^interop|import|export|-dwg|-dxf|-ifc|landxml|-shp|-kml|geojson|-rvt|-step|-dgn|format/.test(s)) return "interop"
   if (/property-set|solids|-bim|viewer|model-viewer|ifc/.test(s)) return "bim"
   // Печать и публикация
   if (/plot|-print|layout|-pdf|dwf|publish|sheetset|-ctb|-stb|page-setup|batch-plot/.test(s)) return "plot"
@@ -1208,6 +1211,115 @@ const RAW_FEATURES: RawFeature[] = [
       { key: "access", label: "Доступ", type: "select", default: "По ссылке", options: ["По ссылке", "Команда проекта", "Только я"] },
     ],
     compute: v => [{ label: "Опубликовано", value: `${v.sheets} листов` }, { label: "Доступ", value: v.access }],
+  },
+
+  // ═══════════════ ИНТЕГРАЦИЯ И ОБМЕН ФОРМАТАМИ (2022–2027) ═══════════════
+  {
+    id: "interop-dwg-import", product: "acad", version: "2022", dir: "docs",
+    name: "Импорт DWG/DXF", command: "DWGIMPORT",
+    desc: "Импорт чертежей DWG/DXF с сопоставлением слоёв и единиц.",
+    icon: "FileInput", outputLabel: "Импорт",
+    fields: [
+      { key: "fmt", label: "Формат", type: "select", default: "DWG 2018", options: ["DWG 2018", "DWG 2013", "DWG 2007", "DXF R12", "DXF 2018"] },
+      { key: "objs", label: "Объектов", type: "number", default: "12400" },
+    ],
+    compute: v => [{ label: "Импортировано", value: `${v.objs} объектов (${v.fmt})` }],
+  },
+  {
+    id: "interop-dwg-export", product: "acad", version: "2022", dir: "docs",
+    name: "Экспорт DWG/DXF", command: "DWGEXPORT",
+    desc: "Сохранение в разные версии DWG/DXF для совместимости.",
+    icon: "FileOutput", outputLabel: "Экспорт",
+    fields: [{ key: "fmt", label: "Целевой формат", type: "select", default: "DWG 2018", options: ["DWG 2018", "DWG 2013", "DWG 2007", "DXF 2018", "DXF R12"] }],
+    compute: v => [{ label: "Сохранено", value: v.fmt }],
+  },
+  {
+    id: "interop-landxml", product: "civil", version: "2022", dir: "survey",
+    name: "Обмен LandXML", command: "LANDXMLOUT",
+    desc: "Импорт/экспорт поверхностей, трасс и точек через LandXML.",
+    icon: "FileCode", outputLabel: "LandXML",
+    fields: [
+      { key: "dir", label: "Направление", type: "select", default: "Экспорт", options: ["Экспорт", "Импорт"] },
+      { key: "surf", label: "Поверхностей", type: "number", default: "3" },
+      { key: "align", label: "Трасс", type: "number", default: "2" },
+    ],
+    compute: v => [{ label: v.dir, value: `${v.surf} поверхн., ${v.align} трасс` }],
+  },
+  {
+    id: "interop-ifc-export", product: "civil", version: "2023", dir: "bim",
+    name: "Экспорт IFC", command: "IFCEXPORT",
+    desc: "Экспорт модели в IFC 2x3 / IFC4 для BIM-координации.",
+    icon: "Building2", isNew: true, outputLabel: "IFC",
+    fields: [
+      { key: "schema", label: "Схема", type: "select", default: "IFC4", options: ["IFC2x3", "IFC4", "IFC4.3"] },
+      { key: "elems", label: "Элементов", type: "number", default: "860" },
+    ],
+    compute: v => [{ label: "Экспортировано", value: `${v.elems} элем. (${v.schema})` }],
+  },
+  {
+    id: "interop-shp", product: "civil", version: "2023", dir: "survey",
+    name: "Импорт/экспорт SHP (GIS)", command: "MAPIMPORT",
+    desc: "Обмен с ГИС: shapefile с атрибутами и системой координат.",
+    icon: "Map", outputLabel: "SHP",
+    fields: [
+      { key: "type", label: "Геометрия", type: "select", default: "Полигоны", options: ["Точки", "Линии", "Полигоны"] },
+      { key: "feat", label: "Объектов", type: "number", default: "540" },
+    ],
+    compute: v => [{ label: "Обработано", value: `${v.feat} ${v.type.toLowerCase()}` }],
+  },
+  {
+    id: "interop-rvt", product: "civil", version: "2024", dir: "bim",
+    name: "Связь с Revit (RVT)", command: "IMPORTREVIT",
+    desc: "Импорт/связывание моделей Revit для совмещённой координации.",
+    icon: "Link", isNew: true, outputLabel: "Revit",
+    fields: [{ key: "mode", label: "Режим", type: "select", default: "Связь", options: ["Связь", "Импорт копией"] }],
+    compute: v => [{ label: "Модель Revit", value: v.mode }],
+  },
+  {
+    id: "interop-step", product: "acad", version: "2024", dir: "mechanical",
+    name: "Обмен STEP/IGES", command: "STEPIN",
+    desc: "Импорт/экспорт твёрдых тел в STEP, IGES, SAT для CAD-обмена.",
+    icon: "Boxes", outputLabel: "STEP/IGES",
+    fields: [
+      { key: "fmt", label: "Формат", type: "select", default: "STEP AP242", options: ["STEP AP203", "STEP AP214", "STEP AP242", "IGES", "SAT"] },
+      { key: "bodies", label: "Тел", type: "number", default: "14" },
+    ],
+    compute: v => [{ label: "Обмен", value: `${v.bodies} тел (${v.fmt})` }],
+  },
+  {
+    id: "interop-dgn", product: "acad", version: "2025", dir: "docs",
+    name: "Импорт DGN (MicroStation)", command: "DGNIMPORT",
+    desc: "Импорт чертежей DGN с преобразованием стилей и уровней.",
+    icon: "FileInput", outputLabel: "DGN",
+    fields: [{ key: "levels", label: "Уровней (levels)", type: "number", default: "24" }],
+    compute: v => [{ label: "Уровни → слои", value: `${v.levels}` }],
+  },
+  {
+    id: "interop-kml", product: "civil", version: "2025", dir: "survey",
+    name: "Экспорт KML/KMZ (Google Earth)", command: "MAPEXPORT",
+    desc: "Экспорт объектов в KML/KMZ с пересчётом в WGS84.",
+    icon: "Globe", outputLabel: "KML",
+    fields: [{ key: "feat", label: "Объектов", type: "number", default: "120" }],
+    compute: v => [{ label: "Экспортировано в KMZ", value: `${v.feat} объектов` }],
+  },
+  {
+    id: "interop-geojson", product: "civil", version: "2026", dir: "survey",
+    name: "Обмен GeoJSON", command: "GEOJSON",
+    desc: "Импорт/экспорт GeoJSON для веб-ГИС и открытых данных.",
+    icon: "FileJson", isNew: true, outputLabel: "GeoJSON",
+    fields: [{ key: "feat", label: "Features", type: "number", default: "300" }],
+    compute: v => [{ label: "Записей GeoJSON", value: `${v.feat}` }],
+  },
+  {
+    id: "interop-cloud-format", product: "acad", version: "2027", dir: "management",
+    name: "Авто-конвертер форматов (AI)", command: "AUTOCONVERT",
+    desc: "Пакетное облачное преобразование между DWG, IFC, PDF, STEP по правилам.",
+    icon: "Repeat", isNew: true, outputLabel: "Пакетная конвертация",
+    fields: [
+      { key: "files", label: "Файлов", type: "number", default: "48" },
+      { key: "to", label: "В формат", type: "select", default: "IFC4", options: ["DWG 2018", "IFC4", "PDF", "STEP", "LandXML"] },
+    ],
+    compute: v => [{ label: "Конвертировано", value: `${v.files} → ${v.to}` }],
   },
 ]
 

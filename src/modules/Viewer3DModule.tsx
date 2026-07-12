@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback, useContext } from "react"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
@@ -844,7 +845,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   // ── JSX ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-[#0f1117] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="relative flex flex-col h-full bg-[#0f1117] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif" }}>
 
       {/* Тулбар */}
       <div className="bg-[#1a1a2a] border-b border-gray-700 flex items-center gap-2 px-3 py-1.5 flex-shrink-0 flex-wrap">
@@ -1260,6 +1261,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
         )}
       </div>
+      <VersionFeaturesPanel dir="bim" floating />
     </div>
   )
 }

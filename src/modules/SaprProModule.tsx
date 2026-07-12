@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { Feature, SolidKind, MATERIALS, buildMesh, massProps, project, overlapVolume, Vec3, EXCHANGE_3D } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
 
@@ -183,7 +184,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
   const exportFmt = (label: string, ext: string, content: string) => { скачать(content, `deталь${ext}`); showToast(`Экспорт: ${label}`) }
 
   return (
-    <div className="flex flex-col h-full bg-[#e9edf2] overflow-hidden text-sm">
+    <div className="relative flex flex-col h-full bg-[#e9edf2] overflow-hidden text-sm">
       {/* Заголовок + CommandManager */}
       <div className="bg-white border-b border-gray-200">
         <div className="px-4 py-1.5 flex items-center gap-2 border-b border-gray-100">
@@ -268,6 +269,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
       </div>
 
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2"><Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}</div>}
+      <VersionFeaturesPanel dir="mechanical" floating />
     </div>
   )
 }

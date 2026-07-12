@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback, useContext, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
 import {
   buildDemoScene, stationToPoint, getDesignElevation,
@@ -12586,7 +12587,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
+    <div className="relative flex flex-col h-full bg-[#1e1e2e] text-gray-200 overflow-hidden" style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
 
       {/* ── Title bar ── */}
       <div className="bg-[#1a1a2a] border-b border-gray-800 flex items-center px-2 py-0.5 gap-2 flex-shrink-0" style={{minHeight:24}}>
@@ -15167,6 +15168,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </motion.div>
         )}
       </AnimatePresence>
+      <VersionFeaturesPanel title="Все функции AutoCAD и Civil 3D 2022–2027" floating />
     </div>
   )
 }
