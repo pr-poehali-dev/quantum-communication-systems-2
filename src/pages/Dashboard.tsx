@@ -402,7 +402,13 @@ export default function Dashboard() {
 
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [direction, setDirection] = useState<string | null>(() => localStorage.getItem("civilpro_direction"))
+  const [поискИнстр, setПоискИнстр] = useState("")
   const выбратьНаправление = (id: string) => { setDirection(id); localStorage.setItem("civilpro_direction", id); setActiveModule(null); setHomeВкладка("модули") }
+  const открытьМодульНапрямую = (id: string) => {
+    const dir = DIRECTIONS.find(d => d.id !== "all" && d.modules.includes(id)) || DIRECTIONS.find(d => d.id === "all")!
+    setDirection(dir.id); localStorage.setItem("civilpro_direction", dir.id)
+    setActiveModule(id); setПоискИнстр("")
+  }
   const сброситьНаправление = () => { setDirection(null); localStorage.removeItem("civilpro_direction"); setActiveModule(null) }
   const текущееНаправление = DIRECTIONS.find(d => d.id === direction)
   const модулиНаправления = текущееНаправление ? MODULES.filter(m => текущееНаправление.modules.includes(m.id)) : MODULES
@@ -580,6 +586,39 @@ export default function Dashboard() {
             className="text-gray-400 text-[13px] text-center mb-8 max-w-xl">
             Мы покажем только нужные вам инструменты. Направление можно сменить в любой момент.
           </motion.p>
+
+          {/* Поиск по инструментам */}
+          <div className="w-full max-w-md mb-8 relative">
+            <Icon name="Search" size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input value={поискИнстр} onChange={e => setПоискИнстр(e.target.value)}
+              placeholder="Найти инструмент по названию…"
+              className="w-full bg-white/5 border border-white/10 text-gray-200 text-[13px] pl-10 pr-9 py-2.5 rounded-xl outline-none focus:border-white/30 placeholder-gray-500" />
+            {поискИнстр && (
+              <button onClick={() => setПоискИнстр("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                <Icon name="X" size={15} />
+              </button>
+            )}
+            {поискИнстр.trim() && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-[#1b1b30] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-20 max-h-72 overflow-y-auto">
+                {MODULES.filter(m => m.label.toLowerCase().includes(поискИнстр.toLowerCase()) || m.desc.toLowerCase().includes(поискИнстр.toLowerCase())).slice(0, 8).map(m => (
+                  <button key={m.id} onClick={() => открытьМодульНапрямую(m.id)}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+                    <div className="w-8 h-8 rounded-lg bg-[#0078d4]/20 flex items-center justify-center shrink-0">
+                      <Icon name={m.icon} size={15} className="text-[#4da3e0]" fallback="Square" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-white text-[12px] font-semibold truncate">{m.label}</div>
+                      <div className="text-gray-500 text-[10px] truncate">{m.desc}</div>
+                    </div>
+                    <Icon name="ArrowRight" size={14} className="text-gray-600 ml-auto shrink-0" />
+                  </button>
+                ))}
+                {MODULES.filter(m => m.label.toLowerCase().includes(поискИнстр.toLowerCase()) || m.desc.toLowerCase().includes(поискИнстр.toLowerCase())).length === 0 && (
+                  <div className="px-4 py-3 text-gray-500 text-[12px]">Ничего не найдено</div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl">
             {DIRECTIONS.map((d, i) => {
