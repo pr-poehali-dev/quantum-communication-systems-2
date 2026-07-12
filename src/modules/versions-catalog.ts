@@ -10,7 +10,7 @@ export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027"
 export type CategoryId =
   | "draw" | "modify" | "modeling3d" | "annotation" | "collab"
   | "corridor" | "surface" | "network" | "coords" | "bim" | "ai" | "platform"
-  | "layers" | "blocks" | "xref" | "plot" | "interop"
+  | "layers" | "blocks" | "xref" | "plot" | "interop" | "survey"
 
 export interface CategoryMeta { id: CategoryId; label: string; icon: string; color: string }
 
@@ -29,6 +29,7 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: "surface", label: "Поверхности и рельеф", icon: "Mountain", color: "#10b981" },
   { id: "network", label: "Инженерные сети", icon: "Network", color: "#3b82f6" },
   { id: "coords", label: "Координаты и геодезия", icon: "Globe", color: "#14b8a6" },
+  { id: "survey", label: "Геодезия и съёмка (COGO)", icon: "MapPin", color: "#0284c7" },
   { id: "bim", label: "BIM и IFC", icon: "Building2", color: "#8b5cf6" },
   { id: "ai", label: "ИИ и автоматизация", icon: "Bot", color: "#ec4899" },
   { id: "platform", label: "Платформа и производительность", icon: "Gauge", color: "#64748b" },
@@ -90,6 +91,7 @@ const num = (v: string) => parseFloat((v || "0").replace(",", ".")) || 0
 const detectCategory = (id: string): CategoryId => {
   const s = id
   // Civil-специфика проверяется раньше общих правил
+  if (/^survey|cogo|-survey|traverse|figure|total-station|leveling|adjust|geodetic|gnss|astro/.test(s)) return "survey"
   if (/corridor|profile|-align|road|transition|superelev/.test(s)) return "corridor"
   if (/surface|grading|aoi|dtm|relative/.test(s)) return "surface"
   if (/pressure|drainage|network|parts/.test(s)) return "network"
@@ -1320,6 +1322,136 @@ const RAW_FEATURES: RawFeature[] = [
       { key: "to", label: "В формат", type: "select", default: "IFC4", options: ["DWG 2018", "IFC4", "PDF", "STEP", "LandXML"] },
     ],
     compute: v => [{ label: "Конвертировано", value: `${v.files} → ${v.to}` }],
+  },
+
+  // ═══════════════ Civil 3D — ГЕОДЕЗИЯ И СЪЁМКА / COGO (2022–2027) ═══════════════
+  {
+    id: "survey-cogo-point", product: "civil", version: "2022", dir: "survey",
+    name: "COGO-точки (CreatePoints)", command: "CREATEPOINTS",
+    desc: "Создание точек по координатам, дирекционному углу и расстоянию.",
+    icon: "MapPin", outputLabel: "COGO-точка",
+    fields: [
+      { key: "n", label: "Северное X", type: "number", default: "6120.500" },
+      { key: "e", label: "Восточное Y", type: "number", default: "4310.250" },
+      { key: "z", label: "Отметка H", type: "number", default: "142.35", suffix: "м" },
+    ],
+    compute: v => [{ label: "Точка", value: `X ${v.n} · Y ${v.e} · H ${v.z}` }],
+  },
+  {
+    id: "survey-cogo-inverse", product: "civil", version: "2022", dir: "survey",
+    name: "Обратная геодезическая (Inverse)", command: "INVERSE",
+    desc: "Расстояние и дирекционный угол между двумя точками.",
+    icon: "MoveDiagonal", outputLabel: "Обратная задача",
+    fields: [
+      { key: "dn", label: "ΔСеверное", type: "number", default: "230.400" },
+      { key: "de", label: "ΔВосточное", type: "number", default: "158.900" },
+    ],
+    compute: v => {
+      const dn = num(v.dn), de = num(v.de)
+      const dist = Math.sqrt(dn * dn + de * de)
+      let az = Math.atan2(de, dn) * 180 / Math.PI
+      if (az < 0) az += 360
+      return [{ label: "Расстояние", value: `${dist.toFixed(3)} м` }, { label: "Дир. угол", value: `${az.toFixed(4)}°` }]
+    },
+  },
+  {
+    id: "survey-cogo-figure", product: "civil", version: "2023", dir: "survey",
+    name: "Фигуры съёмки (Figure)", command: "SURVEYFIGURE",
+    desc: "Линейные объекты съёмки (бордюр, кромка) из точек с кодами.",
+    icon: "Spline", outputLabel: "Фигура",
+    fields: [
+      { key: "pts", label: "Точек в фигуре", type: "number", default: "14" },
+      { key: "code", label: "Код", type: "text", default: "EOP" },
+    ],
+    compute: v => [{ label: `Фигура «${v.code}»`, value: `${v.pts} вершин` }],
+  },
+  {
+    id: "survey-total-station", product: "civil", version: "2023", dir: "survey",
+    name: "Импорт тахеометрии", command: "IMPORTFIELDBOOK",
+    desc: "Обработка полевого журнала (FBK) тахеометра с кодировкой точек.",
+    icon: "Radar", outputLabel: "Тахеометрия",
+    fields: [
+      { key: "st", label: "Станций", type: "number", default: "6" },
+      { key: "obs", label: "Наблюдений", type: "number", default: "480" },
+    ],
+    compute: v => [{ label: "Импортировано", value: `${v.obs} набл. с ${v.st} станций` }],
+  },
+  {
+    id: "survey-traverse", product: "civil", version: "2024", dir: "survey",
+    name: "Уравнивание хода (Traverse)", command: "TRAVERSEADJUST",
+    desc: "Уравнивание теодолитного хода методом Болмана/наименьших квадратов.",
+    icon: "Waypoints", isNew: true, outputLabel: "Ход",
+    fields: [
+      { key: "stations", label: "Станций хода", type: "number", default: "8" },
+      { key: "len", label: "Длина хода", type: "number", default: "1240", suffix: "м" },
+      { key: "close", label: "Невязка", type: "number", default: "0.045", suffix: "м" },
+    ],
+    compute: v => {
+      const rel = num(v.len) / Math.max(0.001, num(v.close))
+      return [{ label: "Отн. невязка", value: `1:${Math.round(rel)}` }, { label: "Оценка", value: num(v.len) / num(v.close) > 2000 ? "в допуске" : "проверить" }]
+    },
+  },
+  {
+    id: "survey-leveling", product: "civil", version: "2024", dir: "survey",
+    name: "Обработка нивелирования (Leveling)", command: "LEVELING",
+    desc: "Уравнивание нивелирного хода и вычисление отметок.",
+    icon: "GitCommitVertical", outputLabel: "Нивелирование",
+    fields: [
+      { key: "stations", label: "Станций", type: "number", default: "12" },
+      { key: "hclose", label: "Невязка по H", type: "number", default: "8", suffix: "мм" },
+    ],
+    compute: v => {
+      const dop = 10 * Math.sqrt(num(v.stations))
+      return [{ label: "Допуск (10√n)", value: `${dop.toFixed(1)} мм` }, { label: "Статус", value: num(v.hclose) <= dop ? "в допуске" : "превышение" }]
+    },
+  },
+  {
+    id: "survey-gnss", product: "civil", version: "2025", dir: "survey",
+    name: "Обработка GNSS/RTK", command: "IMPORTGNSS",
+    desc: "Импорт точек RTK/статики с пересчётом в местную систему координат.",
+    icon: "Satellite", isNew: true, outputLabel: "GNSS",
+    fields: [
+      { key: "pts", label: "Точек GNSS", type: "number", default: "320" },
+      { key: "pdop", label: "Средний PDOP", type: "number", default: "1.8" },
+    ],
+    compute: v => [{ label: "Импортировано", value: `${v.pts} точек` }, { label: "Качество PDOP", value: num(v.pdop) < 2 ? "отличное" : num(v.pdop) < 4 ? "хорошее" : "слабое" }],
+  },
+  {
+    id: "survey-network-adjust", product: "civil", version: "2025", dir: "survey",
+    name: "Уравнивание сети (LeastSquares)", command: "NETWORKADJUST",
+    desc: "Строгое уравнивание геодезической сети по методу наименьших квадратов.",
+    icon: "Network", outputLabel: "Уравнивание сети",
+    fields: [
+      { key: "pts", label: "Пунктов", type: "number", default: "18" },
+      { key: "obs", label: "Измерений", type: "number", default: "64" },
+    ],
+    compute: v => {
+      const redundancy = num(v.obs) - 2 * num(v.pts)
+      return [{ label: "Избыточность", value: `${redundancy}` }, { label: "Решение", value: redundancy > 0 ? "переопределено" : "недостаточно данных" }]
+    },
+  },
+  {
+    id: "survey-geodetic-transform", product: "civil", version: "2026", dir: "survey",
+    name: "Геодезическое преобразование", command: "GEODETICCALC",
+    desc: "Пересчёт координат между системами (СК-42, СК-95, ГСК-2011, WGS84).",
+    icon: "Globe", outputLabel: "Преобразование",
+    fields: [
+      { key: "from", label: "Из системы", type: "select", default: "WGS84", options: ["WGS84", "СК-42", "СК-95", "ГСК-2011", "МСК"] },
+      { key: "to", label: "В систему", type: "select", default: "МСК", options: ["WGS84", "СК-42", "СК-95", "ГСК-2011", "МСК"] },
+      { key: "pts", label: "Точек", type: "number", default: "540" },
+    ],
+    compute: v => [{ label: "Пересчитано", value: `${v.pts} точек` }, { label: "Переход", value: `${v.from} → ${v.to}` }],
+  },
+  {
+    id: "survey-report", product: "civil", version: "2027", dir: "survey",
+    name: "Ведомость координат (COGO Report)", command: "COGOREPORT",
+    desc: "Автоматическая ведомость координат, углов и линий с оценкой точности.",
+    icon: "FileSpreadsheet", isNew: true, outputLabel: "Ведомость",
+    fields: [
+      { key: "pts", label: "Точек в ведомости", type: "number", default: "128" },
+      { key: "fmt", label: "Формат", type: "select", default: "PDF + CSV", options: ["PDF", "CSV", "PDF + CSV", "XLSX"] },
+    ],
+    compute: v => [{ label: "Строк", value: `${v.pts}` }, { label: "Экспорт", value: v.fmt }],
   },
 ]
 
