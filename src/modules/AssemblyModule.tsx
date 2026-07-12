@@ -62,6 +62,19 @@ const RIBBON: { group: string; icons: string[] }[] = [
 const VIEWBAR_LEFT = ["Frame", "QrCode", "Clipboard", "Layers", "LayoutGrid"]
 const VIEWBAR_RIGHT = ["Search", "Share2", "Axis3D", "Box", "Eye", "EyeOff", "Spline", "Grid3x3", "Filter", "Ruler", "Pipette"]
 
+// Подсказки к иконкам команд
+const TIPS: Record<string, string> = {
+  FolderOpen: "Открыть", Save: "Сохранить", SaveAll: "Сохранить всё", Undo2: "Отменить", Redo2: "Повторить",
+  PackagePlus: "Добавить компонент", Boxes: "Изометрия", Percent: "Разнести / собрать",
+  Move3D: "Переместить", RotateCw: "Автоповорот", AlignHorizontalSpaceAround: "Совмещение", CircleDot: "Соосность",
+  Ruler: "Размеры", Magnet: "Авто-сопряжение", Box: "Полутон", Cylinder: "Полутон с рёбрами", Layers: "Каркас",
+  Scissors: "Сечение", Axis3D: "Оси", SquareDashed: "Плоскость", Grid3x3: "Сетка",
+  MoveHorizontal: "Линейный размер", Diameter: "Диаметр", Spline: "Дуговой размер",
+  Type: "Текст", Tag: "Позиция", Flag: "Обозначение", MessageSquare: "Выноска",
+  ShieldCheck: "Проверка пересечений", Scale: "Масс-центровка", Star: "Избранное", Layers3: "Слои", Settings2: "Настройки",
+  Search: "Поиск", Share2: "Общий вид", Eye: "Показать все", EyeOff: "Скрыть все", Filter: "Фильтр", Pipette: "Свойства",
+}
+
 export default function AssemblyModule() {
   const [comps, setComps] = useState<Comp[]>(START)
   const [sel, setSel] = useState<number | null>(3)
@@ -71,8 +84,89 @@ export default function AssemblyModule() {
   const [scale, setScale] = useState(1.15)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [treeExpanded, setTreeExpanded] = useState(true)
+  const [renderMode, setRenderMode] = useState<"wire" | "shaded" | "edges">("edges")
+  const [showGrid, setShowGrid] = useState(true)
+  const [showDims, setShowDims] = useState(false)
+  const [autoSpin, setAutoSpin] = useState(false)
+  const [showDiag, setShowDiag] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [nextId, setNextId] = useState(100)
   const canvasRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null)
+  const undoStack = useRef<Comp[][]>([])
+  const redoStack = useRef<Comp[][]>([])
+
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 1600) }
+
+  const pushHistory = (next: Comp[]) => {
+    undoStack.current.push(comps)
+    redoStack.current = []
+    setComps(next)
+  }
+  const undo = () => {
+    const prev = undoStack.current.pop()
+    if (!prev) { flash("Нечего отменять"); return }
+    redoStack.current.push(comps); setComps(prev); flash("Отменено")
+  }
+  const redo = () => {
+    const next = redoStack.current.pop()
+    if (!next) { flash("Нечего повторять"); return }
+    undoStack.current.push(comps); setComps(next); flash("Повторено")
+  }
+
+  // Стандартные виды
+  const setView = (v: "iso" | "front" | "top" | "right" | "back") => {
+    const views: Record<string, [number, number]> = {
+      iso: [-0.62, 0.38], front: [0, 0], top: [0, 1.4], right: [-Math.PI / 2, 0], back: [Math.PI, 0],
+    }
+    const [y, p] = views[v]; setYaw(y); setPitch(p); flash(`Вид: ${{ iso: "Изометрия", front: "Спереди", top: "Сверху", right: "Справа", back: "Сзади" }[v]}`)
+  }
+
+  const setAllVisible = (val: boolean) => { pushHistory(comps.map(c => ({ ...c, visible: val }))); flash(val ? "Показаны все" : "Скрыты все") }
+  const toggleFix = () => {
+    if (sel == null) { flash("Выберите компонент"); return }
+    pushHistory(comps.map(c => c.id === sel ? { ...c, fixed: !c.fixed } : c))
+    flash("Фиксация переключена")
+  }
+  const addComponent = () => {
+    const id = nextId; setNextId(id + 1)
+    const nc: Comp = { id, name: `Деталь ${id}`, shape: "box", color: C_BLUE, x: 360 + (id % 5) * 20, r: 18, len: 18, explode: 3.8 + (id % 5) * 0.3, visible: true }
+    pushHistory([...comps, nc]); setSel(id); flash("Компонент добавлен")
+  }
+  const deleteSel = () => {
+    if (sel == null) { flash("Выберите компонент"); return }
+    pushHistory(comps.filter(c => c.id !== sel)); setSel(null); flash("Компонент удалён")
+  }
+
+  // Диспетчер команд ленты/меню
+  const cmd = (label: string) => {
+    switch (label) {
+      case "FolderOpen": case "Открыть…": flash("Открыть сборку"); break
+      case "Save": case "SaveAll": case "Сохранить": flash("Сборка сохранена"); break
+      case "Undo2": undo(); break
+      case "Redo2": redo(); break
+      case "PackagePlus": addComponent(); break
+      case "Boxes": setView("iso"); break
+      case "Percent": setExplode(e => (e > 0.1 ? 0 : 0.9)); flash("Переключено разнесение"); break
+      case "Move3D": flash("Переместить компонент"); break
+      case "RotateCw": setAutoSpin(s => !s); break
+      case "Magnet": flash("Сопряжение: авто"); break
+      case "Box": setRenderMode("shaded"); flash("Полутоновое отображение"); break
+      case "Cylinder": setRenderMode("edges"); flash("Полутон с рёбрами"); break
+      case "Layers": setRenderMode("wire"); flash("Каркас"); break
+      case "Grid3x3": setShowGrid(g => !g); break
+      case "Scale": case "ShieldCheck": setShowDiag(d => !d); break
+      case "Diameter": case "MoveHorizontal": setShowDims(d => !d); break
+      case "EyeOff": setAllVisible(false); break
+      case "Eye": setAllVisible(true); break
+      case "Экспорт в STEP/IFC": flash("Экспорт STEP/IFC"); break
+      case "Печать": flash("Печать сборочного чертежа"); break
+      case "Свойства модели": setShowDiag(true); break
+      case "Создать…": flash("Новая сборка"); break
+      case "Ruler": setShowDims(d => !d); break
+      default: flash(label)
+    }
+  }
 
   // ── Вращение мышью ──
   const onDown = (e: React.MouseEvent) => {
@@ -96,6 +190,15 @@ export default function AssemblyModule() {
     setScale(s => Math.max(0.5, Math.min(3, s - e.deltaY * 0.001)))
   }
 
+  // Автоповорот
+  useEffect(() => {
+    if (!autoSpin) return
+    let raf = 0
+    const tick = () => { setYaw(y => y + 0.006); raf = requestAnimationFrame(tick) }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [autoSpin])
+
   const toggleVisible = (id: number) =>
     setComps(cs => cs.map(c => c.id === id ? { ...c, visible: !c.visible } : c))
 
@@ -117,6 +220,25 @@ export default function AssemblyModule() {
     const op = active ? 1 : 0.85
     const segs = 40
     const els: JSX.Element[] = []
+    const fillOn = renderMode !== "wire"
+    const fillCol = active ? C_GREEN : c.color
+
+    // Полутоновая заливка боковой поверхности цилиндра/конуса (квадами)
+    const shade = (r1: number, r2: number) => {
+      if (!fillOn) return
+      const n = 24
+      for (let i = 0; i < n; i++) {
+        const a1 = (i / n) * Math.PI * 2, a2 = ((i + 1) / n) * Math.PI * 2
+        const p1 = project([cx - c.len / 2, Math.cos(a1) * r1, Math.sin(a1) * r1], [0, 0, 0], yaw, pitch, scale, W, H)
+        const p2 = project([cx - c.len / 2, Math.cos(a2) * r1, Math.sin(a2) * r1], [0, 0, 0], yaw, pitch, scale, W, H)
+        const p3 = project([cx + c.len / 2, Math.cos(a2) * r2, Math.sin(a2) * r2], [0, 0, 0], yaw, pitch, scale, W, H)
+        const p4 = project([cx + c.len / 2, Math.cos(a1) * r2, Math.sin(a1) * r2], [0, 0, 0], yaw, pitch, scale, W, H)
+        // простая псевдо-освещённость по нормали (cos угла)
+        const light = 0.35 + 0.45 * Math.max(0, Math.cos(a1 + yaw))
+        els.push(<polygon key={`sh${c.id}-${i}`} points={`${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y} ${p4.x},${p4.y}`}
+          fill={fillCol} opacity={0.10 + light * 0.22} />)
+      }
+    }
 
     const ring = (offX: number, r: number, key: string) => {
       let d = ""
@@ -158,14 +280,16 @@ export default function AssemblyModule() {
       const vb = project([cx + c.len / 2 + 30, 0, 0], [0, 0, 0], yaw, pitch, scale, W, H)
       els.push(<line key={`shaft${c.id}`} x1={va.x} y1={va.y} x2={vb.x} y2={vb.y} stroke={stroke} strokeWidth={sw * 1.4} opacity={op} />)
     } else if (c.shape === "shaft") {
+      shade(c.r, c.r)
       ring(-c.len / 2, c.r, `r1${c.id}`)
       ring(c.len / 2, c.r, `r2${c.id}`)
-      generatrix(c.r, c.r)
+      if (renderMode !== "shaded") generatrix(c.r, c.r)
     } else if (c.shape === "disk" || c.shape === "flange") {
+      shade(c.r, c.r)
       ring(-c.len / 2, c.r, `r1${c.id}`)
       ring(c.len / 2, c.r, `r2${c.id}`)
       ring(0, c.r * 0.35, `hole${c.id}`)
-      generatrix(c.r, c.r)
+      if (renderMode !== "shaded") generatrix(c.r, c.r)
       if (c.shape === "flange") {
         // болтовые отверстия по окружности
         for (let i = 0; i < 10; i++) {
@@ -175,15 +299,17 @@ export default function AssemblyModule() {
         }
       }
     } else if (c.shape === "ring") {
+      shade(c.r, c.r)
       ring(-c.len / 2, c.r, `r1${c.id}`)
       ring(c.len / 2, c.r, `r2${c.id}`)
       ring(-c.len / 2, c.r * 0.9, `ri1${c.id}`)
       ring(c.len / 2, c.r * 0.9, `ri2${c.id}`)
-      generatrix(c.r, c.r)
+      if (renderMode !== "shaded") generatrix(c.r, c.r)
     } else if (c.shape === "cone") {
+      shade(c.r, c.r * 0.35)
       ring(-c.len / 2, c.r, `r1${c.id}`)
       ring(c.len / 2, c.r * 0.35, `r2${c.id}`)
-      generatrix(c.r, c.r * 0.35)
+      if (renderMode !== "shaded") generatrix(c.r, c.r * 0.35)
     } else {
       // box
       const hs = c.r
@@ -251,7 +377,7 @@ export default function AssemblyModule() {
         {openMenu && (
           <div className="absolute top-9 left-10 z-30 bg-[#2b2f38] border border-[#1f232b] shadow-2xl rounded-b w-56 py-1 text-[13px]" onMouseLeave={() => setOpenMenu(null)}>
             {["Создать…", "Открыть…", "Сохранить", "Экспорт в STEP/IFC", "Печать", "Свойства модели"].map(i => (
-              <button key={i} className="w-full text-left px-3 py-1.5 hover:bg-[#3a7bd5] hover:text-white">{i}</button>
+              <button key={i} onClick={() => { cmd(i); setOpenMenu(null) }} className="w-full text-left px-3 py-1.5 hover:bg-[#3a7bd5] hover:text-white">{i}</button>
             ))}
           </div>
         )}
@@ -277,11 +403,19 @@ export default function AssemblyModule() {
             {RIBBON.map(g => (
               <div key={g.group} className="flex flex-col items-center border-r border-[#1f232b] px-1.5 pt-1">
                 <div className="flex items-center gap-0.5">
-                  {g.icons.map((ic, i) => (
-                    <button key={i} className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-300">
-                      <Icon name={ic} size={17} fallback="Square" />
-                    </button>
-                  ))}
+                  {g.icons.map((ic, i) => {
+                    const activeIc =
+                      (ic === "Grid3x3" && showGrid) || (ic === "RotateCw" && autoSpin) ||
+                      (ic === "Box" && renderMode === "shaded") || (ic === "Cylinder" && renderMode === "edges") ||
+                      (ic === "Layers" && renderMode === "wire") || (ic === "Ruler" && showDims) ||
+                      ((ic === "ShieldCheck" || ic === "Scale") && showDiag)
+                    return (
+                      <button key={i} title={TIPS[ic] || g.group} onClick={() => cmd(ic)}
+                        className={`w-8 h-8 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${activeIc ? "bg-[#37506e] text-[#7db3ff]" : "text-gray-300"}`}>
+                        <Icon name={ic} size={17} fallback="Square" />
+                      </button>
+                    )
+                  })}
                 </div>
                 <div className="text-[10px] text-gray-500 mt-0.5 whitespace-nowrap flex items-center gap-1">{g.group}<Icon name="ChevronDown" size={9} /></div>
               </div>
@@ -291,20 +425,29 @@ export default function AssemblyModule() {
         {/* второй ряд — панель вида */}
         <div className="flex items-center gap-1 px-2 h-9 border-t border-[#1f232b] bg-[#262b33]">
           {VIEWBAR_LEFT.map((ic, i) => (
-            <button key={i} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
+            <button key={i} title={TIPS[ic] || ic} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
           ))}
           <div className="w-px h-5 bg-[#1f232b] mx-1" />
-          {VIEWBAR_RIGHT.map((ic, i) => (
-            <button key={i} className={`w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${ic === "Box" ? "text-[#3a7bd5]" : "text-gray-400"}`}><Icon name={ic} size={15} fallback="Square" /></button>
+          {/* Стандартные виды */}
+          {([["Изометрия", "Box", () => setView("iso")], ["Спереди", "Square", () => setView("front")], ["Сверху", "SquareStack", () => setView("top")], ["Справа", "PanelRight", () => setView("right")]] as const).map(([tip, ic, fn], i) => (
+            <button key={`v${i}`} title={tip} onClick={fn} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
           ))}
+          <div className="w-px h-5 bg-[#1f232b] mx-1" />
+          {VIEWBAR_RIGHT.map((ic, i) => {
+            const activeIc = (ic === "Grid3x3" && showGrid) || (ic === "Ruler" && showDims) || (ic === "Axis3D" && showGrid)
+            return (
+              <button key={i} title={TIPS[ic] || ic} onClick={() => cmd(ic)}
+                className={`w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${activeIc ? "text-[#7db3ff]" : "text-gray-400"}`}><Icon name={ic} size={15} fallback="Square" /></button>
+            )
+          })}
         </div>
       </div>
 
       <div className="flex" style={{ height: 560 }}>
         {/* ── Левая колонка иконок ── */}
         <div className="w-9 bg-[#232830] border-r border-[#1f232b] flex flex-col items-center py-2 gap-3">
-          {["ListTree", "Ruler", "FunctionSquare", "Menu", "Share2"].map((ic, i) => (
-            <button key={i} className={`w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${i === 0 ? "text-[#3a7bd5]" : "text-gray-400"}`}><Icon name={ic} size={16} fallback="Square" /></button>
+          {([["ListTree", "Дерево", () => setTreeExpanded(t => !t)], ["Ruler", "Размеры", () => cmd("Ruler")], ["FunctionSquare", "Переменные", () => flash("Переменные модели")], ["Menu", "Слои", () => flash("Слои сборки")], ["Share2", "Диагностика", () => setShowDiag(d => !d)]] as const).map(([ic, tip, fn], i) => (
+            <button key={i} title={tip} onClick={fn} className={`w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${i === 0 && treeExpanded ? "text-[#3a7bd5]" : "text-gray-400"}`}><Icon name={ic} size={16} fallback="Square" /></button>
           ))}
           <button onClick={() => setTreeExpanded(!treeExpanded)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400 mt-auto">
             <Icon name={treeExpanded ? "PanelLeftClose" : "PanelLeftOpen"} size={16} />
@@ -350,9 +493,66 @@ export default function AssemblyModule() {
           className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
           style={{ background: "radial-gradient(circle at 60% 45%, #2f343d 0%, #21252c 70%, #191c22 100%)" }}>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+            {showGrid && (() => {
+              const lines: JSX.Element[] = []
+              const N = 10, step = 60
+              for (let i = -N; i <= N; i++) {
+                const a = project([i * step, -N * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
+                const b = project([i * step, N * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
+                const c1 = project([-N * step, i * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
+                const d1 = project([N * step, i * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
+                lines.push(<line key={`gx${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#3a3f4b" strokeWidth={0.5} opacity={0.4} />)
+                lines.push(<line key={`gy${i}`} x1={c1.x} y1={c1.y} x2={d1.x} y2={d1.y} stroke="#3a3f4b" strokeWidth={0.5} opacity={0.4} />)
+              }
+              return <g>{lines}</g>
+            })()}
             {ordered.map(renderComp)}
             {selBox}
+            {showDims && (() => {
+              const c = comps.find(x => x.id === sel)
+              if (!c || !c.visible) return null
+              const [cx] = compCenter(c)
+              const a = project([cx - c.len / 2, c.r + 30, 0], [0, 0, 0], yaw, pitch, scale, W, H)
+              const b = project([cx + c.len / 2, c.r + 30, 0], [0, 0, 0], yaw, pitch, scale, W, H)
+              const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+              return (
+                <g stroke="#e5b84d" fill="#e5b84d">
+                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={1} />
+                  <circle cx={a.x} cy={a.y} r={2.5} /><circle cx={b.x} cy={b.y} r={2.5} />
+                  <text x={mid.x} y={mid.y - 6} fontSize="13" textAnchor="middle" stroke="none">{c.len.toFixed(0)} мм</text>
+                </g>
+              )
+            })()}
           </svg>
+
+          {/* Тост-уведомление */}
+          {toast && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#1f232b]/95 border border-[#3a7bd5] text-[#7db3ff] text-[12px] px-3 py-1.5 rounded-lg shadow-lg">
+              {toast}
+            </div>
+          )}
+
+          {/* Панель диагностики (масс-центровочные характеристики) */}
+          {showDiag && (() => {
+            const vis = comps.filter(c => c.visible)
+            const vol = vis.reduce((s, c) => s + Math.PI * (c.r / 100) ** 2 * (c.len / 100) * (c.qty || 1), 0)
+            const mass = vol * 7850
+            return (
+              <div className="absolute top-3 left-3 w-56 bg-[#1f232b]/95 border border-[#3a3f4b] rounded-lg p-3 text-[12px]">
+                <div className="flex items-center gap-2 text-gray-200 font-medium mb-2"><Icon name="Scale" size={14} className="text-[#3a7bd5]" />Диагностика сборки</div>
+                {[
+                  ["Компонентов", `${vis.length} / ${comps.length}`],
+                  ["Всего деталей", `${comps.reduce((s, c) => s + (c.qty || 1), 0)} шт.`],
+                  ["Объём (оценка)", `${(vol * 1000).toFixed(1)} л`],
+                  ["Масса (сталь)", `${mass.toFixed(1)} кг`],
+                  ["Пересечений", "не обнаружено ✓"],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex justify-between py-0.5 text-gray-400"><span>{k}</span><span className="text-gray-200">{v}</span></div>
+                ))}
+                <button onClick={() => setShowDiag(false)} className="w-full mt-2 h-6 rounded bg-[#3a3f4b] hover:bg-[#4a4f5b] text-gray-300 text-[11px]">Закрыть</button>
+              </div>
+            )
+          })()}
 
           {/* Логотип-подсказка навигации в углу */}
           <div className="absolute top-3 right-3 bg-[#1f232b]/80 border border-[#3a3f4b] rounded p-1.5">
@@ -416,6 +616,14 @@ export default function AssemblyModule() {
                 <button onClick={() => toggleVisible(c.id)} className="w-full mt-2 h-8 rounded bg-[#3a7bd5] hover:bg-[#4a8be5] text-white flex items-center justify-center gap-1.5">
                   <Icon name={c.visible ? "EyeOff" : "Eye"} size={14} />{c.visible ? "Скрыть" : "Показать"}
                 </button>
+                <div className="flex gap-1">
+                  <button onClick={toggleFix} className="flex-1 h-8 rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200 flex items-center justify-center gap-1">
+                    <Icon name={c.fixed ? "PinOff" : "Pin"} size={13} />{c.fixed ? "Снять" : "Фикс."}
+                  </button>
+                  <button onClick={deleteSel} className="flex-1 h-8 rounded bg-[#2b3038] hover:bg-red-600 text-gray-200 hover:text-white flex items-center justify-center gap-1">
+                    <Icon name="Trash2" size={13} />Удалить
+                  </button>
+                </div>
               </div>
             )
           })()}
@@ -426,6 +634,8 @@ export default function AssemblyModule() {
       <div className="flex items-center gap-4 px-3 h-7 bg-[#1f232b] border-t border-[#151820] text-[11px] text-gray-400">
         <span className="flex items-center gap-1"><Icon name="Boxes" size={12} className="text-[#3a7bd5]" />Сборка · {comps.length} компонентов</span>
         <span>Выбрано: {comps.find(c => c.id === sel)?.name || "—"}</span>
+        <span className="flex items-center gap-1"><Icon name="Palette" size={12} />{{ wire: "Каркас", shaded: "Полутон", edges: "Полутон с рёбрами" }[renderMode]}</span>
+        {autoSpin && <span className="flex items-center gap-1 text-[#7db3ff]"><Icon name="RotateCw" size={12} />Автоповорот</span>}
         <span className="ml-auto flex items-center gap-1"><Icon name="MousePointer2" size={12} />ЛКМ — вращение · Колесо — масштаб</span>
         <span>КОМПАС-3D · среда сборки</span>
       </div>
