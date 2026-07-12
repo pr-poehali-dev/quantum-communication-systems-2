@@ -122,6 +122,12 @@ export default function AssemblyModule() {
   }
   useEffect(() => () => cancelAnimationFrame(animRaf.current), [])
 
+  // ── Покадровая разборка (сценарий ИЭТР / Composer) ──
+  const [stepMode, setStepMode] = useState(false)   // включён пошаговый режим
+  const [scene, setScene] = useState(0)              // положение сценария 0..steps (дробное во время анимации)
+  const [playing, setPlaying] = useState(false)
+  const sceneRaf = useRef<number>(0)
+
   const pushHistory = (next: Comp[]) => {
     undoStack.current.push(comps)
     redoStack.current = []
@@ -228,17 +234,80 @@ export default function AssemblyModule() {
 
   const W = 1240, H = 720
 
+  // Порядок разборки: крайние детали (большой |explode|) снимаются первыми
+  const disOrder = useMemo(() => {
+    const vis = comps.filter(c => c.visible)
+    return [...vis].sort((a, b) => Math.abs(b.explode) - Math.abs(a.explode)).map(c => c.id)
+  }, [comps])
+  const totalSteps = disOrder.length
+  const rankOf = useCallback((id: number) => {
+    const i = disOrder.indexOf(id)
+    return i < 0 ? 0 : i
+  }, [disOrder])
+
+  const easeIO = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+
+  // Личный множитель разнесения компонента с учётом покадрового сценария
+  const compExplodeK = useCallback((c: Comp) => {
+    if (!stepMode) return explode
+    // компонент ранга k начинает двигаться, когда сцена доходит до его номера
+    const k = rankOf(c.id)
+    const local = Math.max(0, Math.min(1, scene - k))
+    return easeIO(local) * 1.1
+  }, [stepMode, explode, scene, rankOf])
+
   // Проекция центра компонента с учётом разнесения вдоль оси сборки (X)
   const compCenter = useCallback((c: Comp): Vec3 => {
-    const ex = c.explode * explode * 120
+    const ex = c.explode * compExplodeK(c) * 120
     return [c.x + ex, 0, 0]
-  }, [explode])
+  }, [compExplodeK])
+
+  // Анимация перехода сцены к целевому шагу
+  const animateScene = (to: number) => {
+    cancelAnimationFrame(sceneRaf.current)
+    const from = scene
+    const dur = 480
+    const t0 = performance.now()
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur)
+      setScene(from + (to - from) * k)
+      if (k < 1) sceneRaf.current = requestAnimationFrame(step)
+      else setScene(to)
+    }
+    sceneRaf.current = requestAnimationFrame(step)
+  }
+  const enterStepMode = () => { setStepMode(true); setScene(0); flash("Пошаговая разборка (ИЭТР)") }
+  const exitStepMode = () => { cancelAnimationFrame(sceneRaf.current); setPlaying(false); setStepMode(false); flash("Обычный режим") }
+  const stepNext = () => { if (scene < totalSteps) animateScene(Math.min(totalSteps, Math.floor(scene) + 1)) }
+  const stepPrev = () => { if (scene > 0) animateScene(Math.max(0, Math.ceil(scene) - 1)) }
+
+  // Автовоспроизведение сценария
+  useEffect(() => {
+    if (!playing) return
+    if (scene >= totalSteps) { setPlaying(false); return }
+    const from = scene
+    const to = Math.min(totalSteps, Math.floor(scene) + 1)
+    const t0 = performance.now(); const dur = 620
+    let raf = 0
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur)
+      setScene(from + (to - from) * k)
+      if (k < 1) raf = requestAnimationFrame(step)
+      else { setScene(to); if (to >= totalSteps) setPlaying(false) }
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [playing, scene, totalSteps])
+  useEffect(() => () => cancelAnimationFrame(sceneRaf.current), [])
+
+  // Текущий снимаемый компонент (для подсветки шага)
+  const currentStepComp = stepMode ? comps.find(c => c.id === disOrder[Math.min(totalSteps - 1, Math.max(0, Math.ceil(scene) - 1))]) : null
 
   // ── Рендер одного компонента как набор проволочных колец/линий ──
   const renderComp = (c: Comp) => {
     if (!c.visible) return null
     const [cx] = compCenter(c)
-    const active = sel === c.id
+    const active = sel === c.id || (stepMode && currentStepComp?.id === c.id)
     const stroke = active ? C_GREEN : c.color
     const sw = active ? 1.6 : 1
     const op = active ? 1 : 0.85
@@ -583,26 +652,64 @@ export default function AssemblyModule() {
             <Icon name="Boxes" size={26} className="text-[#3a7bd5]" />
           </div>
 
-          {/* Панель разнесения */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#1f232b]/90 border border-[#3a3f4b] rounded-lg px-4 py-2 backdrop-blur">
-            <button onClick={toggleExplode} disabled={animating}
-              className={`flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded transition-colors ${explode > 0.1 ? "bg-[#3a7bd5] text-white hover:bg-[#4a8be5]" : "bg-[#2b3038] text-gray-200 hover:bg-[#3a3f4b]"} disabled:opacity-60`}>
-              <Icon name={explode > 0.1 ? "Shrink" : "Expand"} size={14} />
-              {explode > 0.1 ? "Собрать" : "Разнести"}
-            </button>
-            <div className="w-px h-5 bg-[#3a3f4b]" />
-            <Icon name="Shrink" size={15} className="text-gray-400" />
-            <input type="range" min={0} max={1.6} step={0.02} value={explode}
-              onChange={e => setExplode(parseFloat(e.target.value))}
-              className="w-48 accent-[#3a7bd5]" />
-            <Icon name="Expand" size={15} className="text-gray-400" />
-            <span className="text-[12px] text-gray-300 w-24">Разнесение</span>
-            <div className="w-px h-5 bg-[#3a3f4b]" />
-            <button onClick={() => { setYaw(-0.62); setPitch(0.38); setScale(1.15) }}
-              className="flex items-center gap-1 text-[12px] text-gray-300 hover:text-white">
-              <Icon name="Home" size={14} />Вид
-            </button>
-          </div>
+          {/* Панель разнесения / плеер ИЭТР */}
+          {!stepMode ? (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#1f232b]/90 border border-[#3a3f4b] rounded-lg px-4 py-2 backdrop-blur">
+              <button onClick={toggleExplode} disabled={animating}
+                className={`flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded transition-colors ${explode > 0.1 ? "bg-[#3a7bd5] text-white hover:bg-[#4a8be5]" : "bg-[#2b3038] text-gray-200 hover:bg-[#3a3f4b]"} disabled:opacity-60`}>
+                <Icon name={explode > 0.1 ? "Shrink" : "Expand"} size={14} />
+                {explode > 0.1 ? "Собрать" : "Разнести"}
+              </button>
+              <div className="w-px h-5 bg-[#3a3f4b]" />
+              <Icon name="Shrink" size={15} className="text-gray-400" />
+              <input type="range" min={0} max={1.6} step={0.02} value={explode}
+                onChange={e => setExplode(parseFloat(e.target.value))}
+                className="w-40 accent-[#3a7bd5]" />
+              <Icon name="Expand" size={15} className="text-gray-400" />
+              <div className="w-px h-5 bg-[#3a3f4b]" />
+              <button onClick={enterStepMode} title="Пошаговая разборка (ИЭТР)"
+                className="flex items-center gap-1 text-[12px] text-gray-300 hover:text-white">
+                <Icon name="ListVideo" size={14} />По шагам
+              </button>
+              <button onClick={() => { setYaw(-0.62); setPitch(0.38); setScale(1.15) }}
+                className="flex items-center gap-1 text-[12px] text-gray-300 hover:text-white">
+                <Icon name="Home" size={14} />Вид
+              </button>
+            </div>
+          ) : (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col gap-1.5 bg-[#1f232b]/95 border border-[#3a7bd5]/60 rounded-lg px-4 py-2.5 backdrop-blur w-[560px]">
+              <div className="flex items-center gap-3">
+                <button onClick={() => { setPlaying(false); animateScene(0) }} title="В начало"
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="SkipBack" size={15} /></button>
+                <button onClick={() => { setPlaying(false); stepPrev() }} title="Шаг назад"
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="ChevronLeft" size={16} /></button>
+                <button onClick={() => { if (scene >= totalSteps) setScene(0); setPlaying(p => !p) }} title={playing ? "Пауза" : "Воспроизвести"}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-[#3a7bd5] hover:bg-[#4a8be5] text-white"><Icon name={playing ? "Pause" : "Play"} size={17} /></button>
+                <button onClick={() => { setPlaying(false); stepNext() }} title="Шаг вперёд"
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="ChevronRight" size={16} /></button>
+                <button onClick={() => { setPlaying(false); animateScene(totalSteps) }} title="В конец"
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="SkipForward" size={15} /></button>
+
+                <div className="flex-1 text-[12px] text-gray-200 truncate px-1">
+                  <span className="text-[#7db3ff] font-medium">Шаг {Math.min(totalSteps, Math.ceil(scene))} / {totalSteps}</span>
+                  {currentStepComp && <span className="text-gray-400"> · снять «{currentStepComp.name}»</span>}
+                </div>
+                <button onClick={exitStepMode} title="Выйти из режима"
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-red-600 text-gray-300 hover:text-white"><Icon name="X" size={15} /></button>
+              </div>
+              {/* Дорожка прогресса с шагами */}
+              <div className="relative h-2 rounded-full bg-[#2b3038] mt-0.5">
+                <div className="absolute top-0 left-0 h-2 rounded-full bg-[#3a7bd5] transition-none" style={{ width: `${totalSteps ? (scene / totalSteps) * 100 : 0}%` }} />
+                {Array.from({ length: totalSteps + 1 }).map((_, i) => (
+                  <button key={i} onClick={() => { setPlaying(false); animateScene(i) }}
+                    className="absolute -top-1 w-4 h-4 -ml-2 rounded-full"
+                    style={{ left: `${totalSteps ? (i / totalSteps) * 100 : 0}%` }} title={`Шаг ${i}`}>
+                    <span className={`block w-2.5 h-2.5 mx-auto mt-0.5 rounded-full ${i <= scene ? "bg-[#7db3ff]" : "bg-[#4a4f5b]"}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Триада координат */}
           <div className="absolute bottom-3 left-3">
