@@ -96,7 +96,7 @@ const DIRECTIONS = [
     icon: "Route",
     color: "#f97316",
     gradient: "from-orange-500 to-amber-600",
-    modules: ["civilcad", "alignment", "corridor", "roads", "railway", "areas"],
+    modules: ["civilcad", "alignment", "corridor", "roads", "railway", "areas", "viewer3d", "surfaces", "analysis", "specs", "standards", "dynamic"],
   },
   {
     id: "survey",
@@ -105,7 +105,7 @@ const DIRECTIONS = [
     icon: "Mountain",
     color: "#10b981",
     gradient: "from-emerald-500 to-teal-600",
-    modules: ["geodesy", "dtm", "surfaces", "analysis"],
+    modules: ["geodesy", "dtm", "surfaces", "analysis", "viewer3d", "alignment", "specs", "integration", "civilcad"],
   },
   {
     id: "networks",
@@ -114,7 +114,7 @@ const DIRECTIONS = [
     icon: "Network",
     color: "#3b82f6",
     gradient: "from-blue-500 to-indigo-600",
-    modules: ["networks", "areas", "analysis"],
+    modules: ["networks", "areas", "analysis", "corridor", "surfaces", "bim", "specs", "standards", "viewer3d", "civilcad"],
   },
   {
     id: "bim",
@@ -123,7 +123,7 @@ const DIRECTIONS = [
     icon: "Building2",
     color: "#8b5cf6",
     gradient: "from-violet-500 to-fuchsia-600",
-    modules: ["revar", "bim", "viewer3d"],
+    modules: ["revar", "bim", "viewer3d", "areas", "sapr", "integration", "specs", "standards", "analysis"],
   },
   {
     id: "mechanical",
@@ -132,7 +132,7 @@ const DIRECTIONS = [
     icon: "Boxes",
     color: "#ef4444",
     gradient: "from-rose-500 to-red-600",
-    modules: ["sapr", "saprpro"],
+    modules: ["sapr", "saprpro", "viewer3d", "revar", "integration", "specs", "standards", "tools"],
   },
   {
     id: "docs",
@@ -141,7 +141,7 @@ const DIRECTIONS = [
     icon: "ClipboardList",
     color: "#0ea5e9",
     gradient: "from-sky-500 to-cyan-600",
-    modules: ["specs", "publish", "standards", "integration", "filemanager"],
+    modules: ["specs", "publish", "standards", "integration", "filemanager", "analysis", "projects", "tools"],
   },
   {
     id: "management",
@@ -150,7 +150,7 @@ const DIRECTIONS = [
     icon: "FolderKanban",
     color: "#eab308",
     gradient: "from-yellow-500 to-amber-500",
-    modules: ["projects", "dynamic", "tools"],
+    modules: ["projects", "dynamic", "tools", "filemanager", "integration", "specs", "publish", "standards"],
   },
   {
     id: "all",
