@@ -7,12 +7,33 @@
 export type ProductId = "acad" | "civil"
 export type DirId = "infra" | "survey" | "networks" | "bim" | "mechanical" | "docs" | "management"
 export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027"
+export type CategoryId =
+  | "draw" | "modify" | "modeling3d" | "annotation" | "collab"
+  | "corridor" | "surface" | "network" | "coords" | "bim" | "ai" | "platform"
+
+export interface CategoryMeta { id: CategoryId; label: string; icon: string; color: string }
+
+export const CATEGORIES: CategoryMeta[] = [
+  { id: "draw", label: "Черчение", icon: "PenLine", color: "#0078d4" },
+  { id: "modify", label: "Редактирование", icon: "Move", color: "#7c3aed" },
+  { id: "modeling3d", label: "3D-моделирование", icon: "Box", color: "#0891b2" },
+  { id: "annotation", label: "Аннотации и оформление", icon: "Type", color: "#059669" },
+  { id: "collab", label: "Совместная работа", icon: "Users", color: "#d97706" },
+  { id: "corridor", label: "Коридоры и трассы", icon: "RoadHorizon", color: "#f97316" },
+  { id: "surface", label: "Поверхности и рельеф", icon: "Mountain", color: "#10b981" },
+  { id: "network", label: "Инженерные сети", icon: "Network", color: "#3b82f6" },
+  { id: "coords", label: "Координаты и геодезия", icon: "Globe", color: "#14b8a6" },
+  { id: "bim", label: "BIM и IFC", icon: "Building2", color: "#8b5cf6" },
+  { id: "ai", label: "ИИ и автоматизация", icon: "Bot", color: "#ec4899" },
+  { id: "platform", label: "Платформа и производительность", icon: "Gauge", color: "#64748b" },
+]
 
 export interface VersionFeature {
   id: string
   product: ProductId
   version: VersionId
   dir: DirId
+  category: CategoryId
   name: string
   desc: string
   icon: string
@@ -54,10 +75,33 @@ export interface VersionFeatureFull extends VersionFeature {
   compute?: (v: Record<string, string>) => { label: string; value: string }[]
 }
 
+// На входе category необязательна — она достраивается автоматически по id.
+type RawFeature = Omit<VersionFeatureFull, "category"> & { category?: CategoryId }
+
 const num = (v: string) => parseFloat((v || "0").replace(",", ".")) || 0
 
-// ─── Реестр ────────────────────────────────────────────────────────────────
-export const FEATURES: VersionFeatureFull[] = [
+// Автоопределение категории по id функции (порядок правил = приоритет)
+const detectCategory = (id: string): CategoryId => {
+  const s = id
+  // Civil-специфика проверяется раньше общих правил
+  if (/corridor|profile|-align|road|transition|superelev/.test(s)) return "corridor"
+  if (/surface|grading|aoi|dtm|relative/.test(s)) return "surface"
+  if (/pressure|drainage|network|parts/.test(s)) return "network"
+  if (/coord|transform/.test(s)) return "coords"
+  if (/property-set|solids|-bim|viewer|model-viewer|ifc/.test(s)) return "bim"
+  // Аннотации раньше черчения (dimlinear содержит "line")
+  if (/anno|dim|mtext|leader|table|field|revcloud|-text|count/.test(s)) return "annotation"
+  // Редактирование раньше черчения (offset/array/fillet/chamfer — команды правки)
+  if (/modify|move|rotate|scale|mirror|copy|offset|array|fillet|chamfer|trim|extend|stretch|erase|explode/.test(s)) return "modify"
+  if (/3d|extrude|revolve|sweep|loft|solid|union|subtract|intersect|mesh|render/.test(s)) return "modeling3d"
+  if (/draw|line|pline|circle|arc|rect|polygon|spline|region|hatch/.test(s)) return "draw"
+  if (/ai|assist|smart|gen|bot|detect|markup|object|replace/.test(s)) return "ai"
+  if (/share|coedit|collab|activity|insights|cloud|twin|docs|push/.test(s)) return "collab"
+  return "platform"
+}
+
+// ─── Реестр (сырой, без category) ────────────────────────────────────────────
+const RAW_FEATURES: RawFeature[] = [
 
   // ═══════════════ AutoCAD 2022 ═══════════════
   {
@@ -678,17 +722,203 @@ export const FEATURES: VersionFeatureFull[] = [
     fields: [{ key: "std", label: "Стандарт", type: "select", default: "ГОСТ 2.307", options: ["ГОСТ 2.307", "ISO-25", "ANSI", "DIN"] }],
     compute: v => [{ label: "Стиль применён", value: v.std }],
   },
+
+  // ═══════════════ AutoCAD — РЕДАКТИРОВАНИЕ (2022–2027) ═══════════════
+  {
+    id: "acad-modify-move", product: "acad", version: "2022", dir: "docs",
+    name: "Перенос (Move)", command: "MOVE",
+    desc: "Перемещение объектов на вектор смещения.",
+    icon: "Move", outputLabel: "Перенос",
+    fields: [
+      { key: "dx", label: "Смещение X", type: "number", default: "50" },
+      { key: "dy", label: "Смещение Y", type: "number", default: "-30" },
+    ],
+    compute: v => [{ label: "Длина вектора", value: `${Math.hypot(num(v.dx), num(v.dy)).toFixed(2)} мм` }, { label: "Угол", value: `${((Math.atan2(num(v.dy), num(v.dx)) * 180 / Math.PI + 360) % 360).toFixed(1)}°` }],
+  },
+  {
+    id: "acad-modify-rotate", product: "acad", version: "2022", dir: "docs",
+    name: "Поворот (Rotate)", command: "ROTATE",
+    desc: "Поворот объектов вокруг базовой точки на заданный угол.",
+    icon: "RotateCw", outputLabel: "Поворот",
+    fields: [{ key: "ang", label: "Угол", type: "number", default: "45", suffix: "°" }],
+    compute: v => [{ label: "Поворот", value: `${v.ang}° (${(num(v.ang) * Math.PI / 180).toFixed(4)} рад)` }],
+  },
+  {
+    id: "acad-modify-scale", product: "acad", version: "2022", dir: "docs",
+    name: "Масштаб (Scale)", command: "SCALE",
+    desc: "Масштабирование объектов с расчётом изменения площади.",
+    icon: "Scaling", outputLabel: "Масштаб",
+    fields: [{ key: "k", label: "Коэффициент", type: "number", default: "1.5" }],
+    compute: v => [{ label: "Линейный", value: `${v.k}×` }, { label: "Площадь", value: `${(num(v.k) * num(v.k)).toFixed(2)}×` }],
+  },
+  {
+    id: "acad-modify-mirror", product: "acad", version: "2023", dir: "docs",
+    name: "Зеркало (Mirror)", command: "MIRROR",
+    desc: "Зеркальное отражение объектов относительно оси.",
+    icon: "FlipHorizontal", outputLabel: "Зеркало",
+    fields: [{ key: "axis", label: "Ось", type: "select", default: "Вертикальная", options: ["Вертикальная", "Горизонтальная", "Наклонная"] }],
+    compute: v => [{ label: "Отражено", value: `относительно оси: ${v.axis}` }],
+  },
+  {
+    id: "acad-modify-trim", product: "acad", version: "2023", dir: "docs",
+    name: "Обрезка (Trim)", command: "TRIM",
+    desc: "Обрезка объектов по режущим кромкам (быстрый режим).",
+    icon: "Scissors", outputLabel: "Обрезка",
+    fields: [{ key: "n", label: "Объектов обрезать", type: "number", default: "5" }],
+    compute: v => [{ label: "Обрезано", value: `${v.n} объектов` }],
+  },
+  {
+    id: "acad-modify-extend", product: "acad", version: "2024", dir: "docs",
+    name: "Удлинение (Extend)", command: "EXTEND",
+    desc: "Удлинение объектов до граничных кромок.",
+    icon: "MoveHorizontal", outputLabel: "Удлинение",
+    fields: [{ key: "d", label: "Удлинение", type: "number", default: "18", suffix: "мм" }],
+    compute: v => [{ label: "Удлинено на", value: `${v.d} мм` }],
+  },
+  {
+    id: "acad-modify-stretch", product: "acad", version: "2024", dir: "docs",
+    name: "Растяжение (Stretch)", command: "STRETCH",
+    desc: "Растяжение части объектов рамкой выбора.",
+    icon: "Maximize2", outputLabel: "Растяжение",
+    fields: [{ key: "d", label: "Величина", type: "number", default: "25", suffix: "мм" }],
+    compute: v => [{ label: "Растянуто", value: `${v.d} мм` }],
+  },
+  {
+    id: "acad-modify-align", product: "acad", version: "2025", dir: "docs",
+    name: "Выравнивание (Align)", command: "ALIGN",
+    desc: "Совмещение объекта по паре точек с опциональным масштабом.",
+    icon: "AlignHorizontalJustifyCenter", outputLabel: "Выравнивание",
+    fields: [{ key: "scale", label: "Масштабировать", type: "toggle", default: "off" }],
+    compute: v => [{ label: "Режим", value: v.scale === "on" ? "С масштабированием" : "Без масштаба" }],
+  },
+  {
+    id: "acad-modify-explode", product: "acad", version: "2026", dir: "docs",
+    name: "Расчленение (Explode)", command: "EXPLODE",
+    desc: "Разбиение блоков и полилиний на примитивы.",
+    icon: "Split", outputLabel: "Расчленение",
+    fields: [{ key: "n", label: "Вершин полилинии", type: "number", default: "8" }],
+    compute: v => [{ label: "Получено отрезков", value: `${Math.max(1, num(v.n) - 1)}` }],
+  },
+
+  // ═══════════════ AutoCAD — 3D-МОДЕЛИРОВАНИЕ (2022–2027) ═══════════════
+  {
+    id: "acad-3d-extrude", product: "acad", version: "2022", dir: "bim",
+    name: "Выдавливание (Extrude)", command: "EXTRUDE",
+    desc: "Создание тела выдавливанием контура на высоту.",
+    icon: "Box", outputLabel: "Тело выдавливания",
+    fields: [
+      { key: "area", label: "Площадь профиля", type: "number", default: "1200", suffix: "мм²" },
+      { key: "h", label: "Высота", type: "number", default: "300", suffix: "мм" },
+    ],
+    compute: v => [{ label: "Объём", value: `${(num(v.area) * num(v.h) / 1000).toFixed(1)} см³` }],
+  },
+  {
+    id: "acad-3d-revolve", product: "acad", version: "2022", dir: "bim",
+    name: "Вращение (Revolve)", command: "REVOLVE",
+    desc: "Тело вращения профиля вокруг оси (теорема Гульдина).",
+    icon: "RefreshCw", outputLabel: "Тело вращения",
+    fields: [
+      { key: "area", label: "Площадь профиля", type: "number", default: "500", suffix: "мм²" },
+      { key: "rc", label: "R центра тяжести", type: "number", default: "40", suffix: "мм" },
+      { key: "ang", label: "Угол", type: "number", default: "360", suffix: "°" },
+    ],
+    compute: v => [{ label: "Объём", value: `${(num(v.area) * 2 * Math.PI * num(v.rc) * (num(v.ang) / 360) / 1000).toFixed(1)} см³` }],
+  },
+  {
+    id: "acad-3d-sweep", product: "acad", version: "2023", dir: "bim",
+    name: "Сдвиг по траектории (Sweep)", command: "SWEEP",
+    desc: "Тело протягиванием профиля вдоль пути.",
+    icon: "Spline", outputLabel: "Тело сдвига",
+    fields: [
+      { key: "area", label: "Площадь профиля", type: "number", default: "314", suffix: "мм²" },
+      { key: "len", label: "Длина пути", type: "number", default: "1500", suffix: "мм" },
+    ],
+    compute: v => [{ label: "Объём", value: `${(num(v.area) * num(v.len) / 1000).toFixed(1)} см³` }],
+  },
+  {
+    id: "acad-3d-loft", product: "acad", version: "2023", dir: "bim",
+    name: "По сечениям (Loft)", command: "LOFT",
+    desc: "Тело по набору поперечных сечений.",
+    icon: "Layers", outputLabel: "Тело по сечениям",
+    fields: [{ key: "sections", label: "Сечений", type: "number", default: "4" }],
+    compute: v => [{ label: "Переходов", value: `${Math.max(1, num(v.sections) - 1)}` }],
+  },
+  {
+    id: "acad-3d-union", product: "acad", version: "2024", dir: "bim",
+    name: "Объединение (Union)", command: "UNION",
+    desc: "Булево объединение тел.",
+    icon: "Combine", outputLabel: "Объединение",
+    fields: [
+      { key: "v1", label: "Объём тела 1", type: "number", default: "1200", suffix: "см³" },
+      { key: "v2", label: "Объём тела 2", type: "number", default: "800", suffix: "см³" },
+      { key: "overlap", label: "Пересечение", type: "number", default: "150", suffix: "см³" },
+    ],
+    compute: v => [{ label: "Итоговый объём", value: `${(num(v.v1) + num(v.v2) - num(v.overlap)).toFixed(0)} см³` }],
+  },
+  {
+    id: "acad-3d-subtract", product: "acad", version: "2024", dir: "bim",
+    name: "Вычитание (Subtract)", command: "SUBTRACT",
+    desc: "Булево вычитание одного тела из другого.",
+    icon: "Minus", outputLabel: "Вычитание",
+    fields: [
+      { key: "v1", label: "Объём основы", type: "number", default: "2000", suffix: "см³" },
+      { key: "v2", label: "Объём выреза", type: "number", default: "450", suffix: "см³" },
+    ],
+    compute: v => [{ label: "Итоговый объём", value: `${Math.max(0, num(v.v1) - num(v.v2)).toFixed(0)} см³` }],
+  },
+  {
+    id: "acad-3d-intersect", product: "acad", version: "2025", dir: "bim",
+    name: "Пересечение (Intersect)", command: "INTERSECT",
+    desc: "Оставить только общий объём тел.",
+    icon: "SquaresIntersect", outputLabel: "Пересечение",
+    fields: [{ key: "overlap", label: "Общий объём", type: "number", default: "320", suffix: "см³" }],
+    compute: v => [{ label: "Результат", value: `${v.overlap} см³` }],
+  },
+  {
+    id: "acad-3d-mesh", product: "acad", version: "2026", dir: "bim",
+    name: "Сеть (Mesh)", command: "MESH",
+    desc: "Полигональная сеть со сглаживанием.",
+    icon: "Grid3x3", outputLabel: "Сеть",
+    fields: [
+      { key: "u", label: "Разбиений U", type: "number", default: "12" },
+      { key: "w", label: "Разбиений V", type: "number", default: "12" },
+    ],
+    compute: v => [{ label: "Граней", value: `${num(v.u) * num(v.w)}` }],
+  },
+  {
+    id: "acad-3d-render", product: "acad", version: "2027", dir: "bim",
+    name: "Визуализация (Render)", command: "RENDER",
+    desc: "Фотореалистичная визуализация сцены.",
+    icon: "Image", isNew: true, outputLabel: "Рендер",
+    fields: [
+      { key: "w", label: "Ширина", type: "number", default: "1920", suffix: "px" },
+      { key: "h", label: "Высота", type: "number", default: "1080", suffix: "px" },
+      { key: "q", label: "Качество", type: "select", default: "Высокое", options: ["Черновик", "Среднее", "Высокое", "Presentation"] },
+    ],
+    compute: v => [{ label: "Разрешение", value: `${num(v.w)}×${num(v.h)} (${(num(v.w) * num(v.h) / 1e6).toFixed(1)} Мпикс)` }, { label: "Качество", value: v.q }],
+  },
 ]
 
+// Нормализация: достраиваем category (явную или автоопределённую)
+export const FEATURES: VersionFeatureFull[] = RAW_FEATURES.map(f => ({
+  ...f,
+  category: f.category ?? detectCategory(f.id),
+}))
+
 // Утилиты
-export const featuresByFilter = (product: ProductId | "all", version: VersionId | "all", dir: DirId | "all", q: string) => {
+export const featuresByFilter = (
+  product: ProductId | "all", version: VersionId | "all",
+  dir: DirId | "all", category: CategoryId | "all", q: string,
+) => {
   const query = q.trim().toLowerCase()
   return FEATURES.filter(f =>
     (product === "all" || f.product === product) &&
     (version === "all" || f.version === version) &&
     (dir === "all" || f.dir === dir) &&
+    (category === "all" || f.category === category) &&
     (!query || f.name.toLowerCase().includes(query) || f.desc.toLowerCase().includes(query) || (f.command || "").toLowerCase().includes(query))
   )
 }
 
 export const featureCountByDir = (dir: DirId) => FEATURES.filter(f => f.dir === dir).length
+export const usedCategories = (): CategoryMeta[] => CATEGORIES.filter(c => FEATURES.some(f => f.category === c.id))

@@ -2,9 +2,9 @@ import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import {
-  FEATURES, PRODUCTS, VERSIONS, DIR_LABELS,
+  FEATURES, PRODUCTS, VERSIONS, DIR_LABELS, CATEGORIES, usedCategories,
   featuresByFilter,
-  type VersionFeatureFull, type ProductId, type VersionId, type DirId, type ToolField,
+  type VersionFeatureFull, type ProductId, type VersionId, type DirId, type CategoryId, type ToolField,
 } from "./versions-catalog"
 
 const DIRS = Object.keys(DIR_LABELS) as DirId[]
@@ -103,15 +103,47 @@ function FeatureTool({ feature, onClose }: { feature: VersionFeatureFull; onClos
   )
 }
 
+// ─── Карточка функции ─────────────────────────────────────────────────────────
+function FeatureCard({ f, onOpen }: { f: VersionFeatureFull; onOpen: () => void }) {
+  const p = PRODUCTS.find(x => x.id === f.product)!
+  return (
+    <button onClick={onOpen}
+      className="text-left bg-white border border-gray-200 rounded-xl p-3.5 hover:border-[#0078d4] hover:shadow-md transition-all group">
+      <div className="flex items-start justify-between mb-2">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: p.color + "18" }}>
+          <Icon name={f.icon} size={17} style={{ color: p.color }} fallback="Square" />
+        </div>
+        <div className="flex items-center gap-1">
+          {f.isNew && <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-600">NEW</span>}
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
+        </div>
+      </div>
+      <div className="text-gray-900 font-semibold text-[12.5px] leading-tight mb-1 group-hover:text-[#0078d4]">{f.name}</div>
+      <div className="text-gray-500 text-[10.5px] leading-snug line-clamp-2 mb-2">{f.desc}</div>
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] text-gray-400">{DIR_LABELS[f.dir]}</span>
+        <Icon name="ArrowRight" size={13} className="text-gray-300 group-hover:text-[#0078d4] group-hover:translate-x-0.5 transition-all" />
+      </div>
+    </button>
+  )
+}
+
 // ─── Модуль ──────────────────────────────────────────────────────────────────
 export default function VersionsModule(_props: { onNavigate?: (id: string) => void } = {}) {
   const [product, setProduct] = useState<ProductId | "all">("all")
   const [version, setVersion] = useState<VersionId | "all">("all")
   const [dir, setDir] = useState<DirId | "all">("all")
+  const [category, setCategory] = useState<CategoryId | "all">("all")
   const [q, setQ] = useState("")
   const [active, setActive] = useState<VersionFeatureFull | null>(null)
 
-  const list = useMemo(() => featuresByFilter(product, version, dir, q), [product, version, dir, q])
+  const list = useMemo(() => featuresByFilter(product, version, dir, category, q), [product, version, dir, category, q])
+
+  // Группировка результата по категориям
+  const grouped = useMemo(() => {
+    const cats = usedCategories().filter(c => list.some(f => f.category === c.id))
+    return cats.map(c => ({ cat: c, items: list.filter(f => f.category === c.id) }))
+  }, [list])
 
   const chip = (on: boolean) =>
     `px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${on ? "bg-[#0078d4] border-[#0078d4] text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`
@@ -120,15 +152,31 @@ export default function VersionsModule(_props: { onNavigate?: (id: string) => vo
     <div className="relative min-h-full">
       <div className="mb-5">
         <h1 className="text-[22px] font-bold text-gray-900 flex items-center gap-2">
-          <Icon name="Rocket" size={22} className="text-[#0078d4]" /> Функции по версиям 2022–2027
+          <Icon name="Rocket" size={22} className="text-[#0078d4]" /> Функции AutoCAD и Civil 3D
         </h1>
         <p className="text-gray-500 text-[13px] mt-1">
-          {FEATURES.length} функций AutoCAD и Civil 3D, разложенных по направлениям. Каждую можно запустить.
+          {FEATURES.length} функций (версии 2022–2027), сгруппированы по категориям. Каждую можно запустить.
         </p>
       </div>
 
-      {/* Фильтры */}
-      <div className="space-y-2.5 mb-4">
+      {/* Категории — основная навигация */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        <button
+          onClick={() => setCategory("all")}
+          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${category === "all" ? "bg-[#0078d4] border-[#0078d4] text-white" : "text-gray-500 hover:text-gray-800 bg-white border-gray-200"}`}>
+          Все категории
+        </button>
+        {CATEGORIES.filter(c => FEATURES.some(f => f.category === c.id)).map(c => (
+          <button key={c.id} onClick={() => setCategory(category === c.id ? "all" : c.id)}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors flex items-center gap-1 ${category === c.id ? "text-white" : "text-gray-500 hover:text-gray-800 bg-white border-gray-200"}`}
+            style={category === c.id ? { background: c.color, borderColor: c.color } : {}}>
+            <Icon name={c.icon} size={12} /> {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Доп. фильтры */}
+      <div className="space-y-2 mb-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-gray-400 text-[10px] font-semibold w-16">Продукт:</span>
           <button className={chip(product === "all")} onClick={() => setProduct("all")}>Все</button>
@@ -151,32 +199,25 @@ export default function VersionsModule(_props: { onNavigate?: (id: string) => vo
         </div>
       </div>
 
-      <div className="text-gray-400 text-[11px] mb-2">Найдено: {list.length}</div>
+      <div className="text-gray-400 text-[11px] mb-3">Найдено: {list.length} в {grouped.length} категориях</div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {list.map(f => {
-          const p = PRODUCTS.find(x => x.id === f.product)!
-          return (
-            <button key={f.id} onClick={() => setActive(f)}
-              className="text-left bg-white border border-gray-200 rounded-xl p-3.5 hover:border-[#0078d4] hover:shadow-md transition-all group">
-              <div className="flex items-start justify-between mb-2">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: p.color + "18" }}>
-                  <Icon name={f.icon} size={17} style={{ color: p.color }} fallback="Square" />
-                </div>
-                <div className="flex items-center gap-1">
-                  {f.isNew && <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-600">NEW</span>}
-                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
-                </div>
+      {/* Секции по категориям */}
+      <div className="space-y-6">
+        {grouped.map(({ cat, items }) => (
+          <div key={cat.id}>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: cat.color + "20" }}>
+                <Icon name={cat.icon} size={14} style={{ color: cat.color }} />
               </div>
-              <div className="text-gray-900 font-semibold text-[12.5px] leading-tight mb-1 group-hover:text-[#0078d4]">{f.name}</div>
-              <div className="text-gray-500 text-[10.5px] leading-snug line-clamp-2 mb-2">{f.desc}</div>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] text-gray-400">{DIR_LABELS[f.dir]}</span>
-                <Icon name="ArrowRight" size={13} className="text-gray-300 group-hover:text-[#0078d4] group-hover:translate-x-0.5 transition-all" />
-              </div>
-            </button>
-          )
-        })}
+              <h2 className="text-[14px] font-bold text-gray-900">{cat.label}</h2>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: cat.color + "18", color: cat.color }}>{items.length}</span>
+              <div className="flex-1 h-px bg-gray-200 ml-1" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {items.map(f => <FeatureCard key={f.id} f={f} onOpen={() => setActive(f)} />)}
+            </div>
+          </div>
+        ))}
       </div>
 
       {list.length === 0 && (
