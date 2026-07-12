@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import { FeatureTool } from "@/modules/VersionFeaturesPanel"
@@ -99,9 +100,12 @@ export function SwSectionPanel({ section, onAction }: { section: SwSectionId; on
         ))}
       </div>
 
-      <AnimatePresence>
-        {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   )
 }
