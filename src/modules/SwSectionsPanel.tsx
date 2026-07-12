@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import { FeatureTool } from "@/modules/VersionFeaturesPanel"
-import { FEATURES, type VersionFeatureFull } from "./versions-catalog"
+import { FEATURES, DIR_LABELS, type VersionFeatureFull, type DirId } from "./versions-catalog"
 
 // ── Логические разделы SOLIDWORKS: КПП · ТПП · Управление данными · Новинки ──
 export type SwSectionId = "kpp" | "tpp" | "data" | "swnew"
@@ -59,14 +59,29 @@ function sectionFeatures(sec: SwSectionId): VersionFeatureFull[] {
 export function SwSectionPanel({ section, onAction }: { section: SwSectionId; onAction?: (n: string) => void }) {
   const meta = SW_SECTIONS[section]
   const [q, setQ] = useState("")
+  const [dirFilter, setDirFilter] = useState<string | null>(null)
   const [active, setActive] = useState<VersionFeatureFull | null>(null)
 
   const all = useMemo(() => sectionFeatures(section), [section])
   const list = useMemo(() => {
     const query = q.trim().toLowerCase()
-    if (!query) return all
-    return all.filter(f => f.name.toLowerCase().includes(query) || (f.desc ?? "").toLowerCase().includes(query))
-  }, [all, q])
+    return all.filter(f =>
+      (!dirFilter || f.dir === dirFilter) &&
+      (!query || f.name.toLowerCase().includes(query) || (f.desc ?? "").toLowerCase().includes(query))
+    )
+  }, [all, q, dirFilter])
+
+  // Клик по бейджу внутри окна функции: фильтруем список по направлению
+  // или по команде (показываем конкретную функцию), окно закрываем.
+  const handleBadge = (kind: "dir" | "command", value: string) => {
+    setActive(null)
+    if (kind === "dir") { setDirFilter(value); setQ("") }
+    else {
+      const f = all.find(x => x.command === value)
+      setDirFilter(null)
+      setQ(f ? f.name : value)
+    }
+  }
 
   return (
     <div className="space-y-2.5">
@@ -82,6 +97,14 @@ export function SwSectionPanel({ section, onAction }: { section: SwSectionId; on
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск по функциям…"
           className="w-full bg-gray-50 border border-gray-200 rounded-md pl-7 pr-2 py-1.5 text-[11px] outline-none focus:border-red-400" />
       </div>
+
+      {dirFilter && (
+        <button onClick={() => setDirFilter(null)}
+          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
+          <Icon name="Filter" size={10} />Фильтр: {DIR_LABELS[dirFilter as DirId] ?? dirFilter}
+          <Icon name="X" size={10} />
+        </button>
+      )}
 
       <div className="space-y-1">
         {list.length === 0 && <div className="text-[10px] text-gray-400 px-1 py-2">Ничего не найдено</div>}
@@ -102,7 +125,7 @@ export function SwSectionPanel({ section, onAction }: { section: SwSectionId; on
 
       {createPortal(
         <AnimatePresence>
-          {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+          {active && <FeatureTool feature={active} onClose={() => setActive(null)} onBadge={handleBadge} />}
         </AnimatePresence>,
         document.body
       )}

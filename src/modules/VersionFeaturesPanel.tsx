@@ -7,7 +7,7 @@ import {
 } from "./versions-catalog"
 
 // ─── Рабочий диалог функции (переиспользуется) ────────────────────────────────
-export function FeatureTool({ feature, onClose }: { feature: VersionFeatureFull; onClose: () => void }) {
+export function FeatureTool({ feature, onClose, onBadge }: { feature: VersionFeatureFull; onClose: () => void; onBadge?: (kind: "dir" | "command", value: string) => void }) {
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {}
     feature.fields.forEach(f => { o[f.key] = f.default ?? "" })
@@ -37,8 +37,22 @@ export function FeatureTool({ feature, onClose }: { feature: VersionFeatureFull;
         <div className="flex-1 overflow-auto p-4">
           <div className="flex flex-wrap gap-1.5 mb-3">
             <span className="text-[9px] px-2 py-0.5 rounded font-bold" style={{ background: product.color + "22", color: product.color }}>{product.label} {feature.version}</span>
-            <span className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10">{DIR_LABELS[feature.dir]}</span>
-            {feature.command && <span className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-400 font-mono">_{feature.command}</span>}
+            {onBadge ? (
+              <button onClick={() => onBadge("dir", feature.dir)}
+                className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white transition-colors cursor-pointer">
+                {DIR_LABELS[feature.dir]}
+              </button>
+            ) : (
+              <span className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10">{DIR_LABELS[feature.dir]}</span>
+            )}
+            {feature.command && (onBadge ? (
+              <button onClick={() => onBadge("command", feature.command!)}
+                className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-300 font-mono border border-white/10 hover:bg-white/15 hover:text-white transition-colors cursor-pointer">
+                _{feature.command}
+              </button>
+            ) : (
+              <span className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-400 font-mono">_{feature.command}</span>
+            ))}
           </div>
           <p className="text-gray-400 text-[11px] leading-relaxed mb-4">{feature.desc}</p>
 
