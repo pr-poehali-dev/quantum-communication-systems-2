@@ -5,11 +5,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import SwSectionsPanel from "@/modules/SwSectionsPanel"
 import { Feature, SolidKind, MATERIALS, buildMesh, massProps, project, overlapVolume, Vec3, EXCHANGE_3D } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
 
 // ── Вкладки CommandManager (как в SolidWorks) ──────────────────────────────
-type CM = "features" | "sketch" | "sheet" | "weld" | "mold" | "assembly" | "sim" | "flow" | "cam" | "render" | "config" | "pdm" | "eval" | "exchange"
+type CM = "features" | "sketch" | "sheet" | "weld" | "mold" | "assembly" | "sim" | "flow" | "cam" | "render" | "config" | "pdm" | "eval" | "exchange" | "catalog"
 
 const CM_TABS: { id: CM; label: string; icon: string }[] = [
   { id: "features", label: "Элементы", icon: "Boxes" },
@@ -26,6 +27,7 @@ const CM_TABS: { id: CM; label: string; icon: string }[] = [
   { id: "pdm", label: "PDM", icon: "Database" },
   { id: "eval", label: "Анализ", icon: "Gauge" },
   { id: "exchange", label: "Обмен / AR-VR", icon: "ArrowLeftRight" },
+  { id: "catalog", label: "Каталог SW", icon: "LayoutList" },
 ]
 
 // Инструменты каждой вкладки: [название, иконка, действие-подсказка]
@@ -264,6 +266,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
             {cm === "pdm" && <PdmPanel revisions={revisions} onAction={showToast} />}
             {cm === "eval" && <EvalPanel mp={mp} onAction={showToast} />}
             {cm === "exchange" && <ExchangePanel onImport={() => импортФайл(".step,.igs,.stl,.x_t,.sldprt", (_c, n) => { addFeature("box", "Объектная", "Импорт-"); showToast(`3D Interconnect: ${n}`) })} onExport={exportFmt} onAction={showToast} />}
+            {cm === "catalog" && <SwSectionsPanel onAction={showToast} />}
           </div>
         </div>
       </div>
