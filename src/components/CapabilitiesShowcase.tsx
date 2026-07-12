@@ -38,7 +38,7 @@ const BIG = [
 
 const GRID = [
   { icon: "Cuboid", title: "САПР 3D-моделирование", desc: "Параметрические детали, эскизы, чертежи, спецификации", color: "#0891b2" },
-  { icon: "Boxes", title: "САПР Про (SolidWorks-аналог)", desc: "Листовой металл, Simulation, Flow, CAM, PDM", color: "#ef4444" },
+  { icon: "Boxes", title: "САПР Про (SolidWorks-аналог)", desc: "КПП и ТПП: Simulation, Flow, CAM, оснастка, ЧПУ, PDM, ЭЦП", color: "#ef4444" },
   { icon: "Network", title: "Инженерные сети", desc: "ВКС, ливневая, теплосеть, гидравлика, коллизии", color: "#3b82f6" },
   { icon: "Triangle", title: "Поверхности TIN / Grid", desc: "Триангуляция, горизонтали, анализ уклонов", color: "#10b981" },
   { icon: "ScanLine", title: "ЦМР / Облако точек", desc: "LiDAR, GNSS, тахеометр, фотограмметрия", color: "#8b5cf6" },

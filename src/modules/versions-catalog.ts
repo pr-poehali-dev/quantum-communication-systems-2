@@ -2226,6 +2226,275 @@ const RAW_FEATURES: RawFeature[] = [
       return [{ label: "Углеродный след", value: `${(num(v.mass) * (k[v.mat] || 2)).toFixed(1)} кг CO₂` }]
     },
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOLIDWORKS — КПП, ТПП, управление данными, экспертные системы и новинки версии
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Экспертные системы ──
+  {
+    id: "sw-sketchxpert", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "SketchXpert: конфликты эскиза", command: "SKETCHXPERT",
+    desc: "Анализ конфликтов и переопределений в эскизе, поиск оптимального набора решений.",
+    icon: "PenTool", outputLabel: "Диагностика эскиза",
+    fields: [{ key: "confl", label: "Конфликтов", type: "number", default: "3" }],
+    compute: v => [{ label: "Найдено решений", value: `${num(v.confl) + 1} варианта` }],
+  },
+  {
+    id: "sw-featurexpert", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "FeatureXpert / FilletXpert", command: "FEATUREXPERT",
+    desc: "Автоуправление скруглениями и уклонами, оптимизация порядка построения модели.",
+    icon: "Wand2", outputLabel: "Оптимизация построения",
+    fields: [{ key: "fillets", label: "Скруглений", type: "number", default: "24" }],
+    compute: v => [{ label: "Упорядочено", value: `${num(v.fillets)} элементов` }],
+  },
+  {
+    id: "sw-dimxpert", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "DimXpert: авто-размеры/допуски", command: "DIMXPERT",
+    desc: "Автоматизированная простановка размеров и допусков в 3D-модели, в т.ч. по импортированной геометрии.",
+    icon: "Ruler", outputLabel: "Простановка",
+    fields: [{ key: "feat", label: "Элементов", type: "number", default: "30" }],
+    compute: v => [{ label: "Проставлено", value: `${num(v.feat)} размеров с допусками` }],
+  },
+  {
+    id: "sw-assemblyxpert", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "AssemblyXpert: производительность", command: "ASSEMBLYXPERT",
+    desc: "Анализ производительности больших сборок и подготовка вариантов ускорения.",
+    icon: "Gauge", outputLabel: "Оценка сборки",
+    fields: [{ key: "comps", label: "Компонентов", type: "number", default: "1800" }],
+    compute: v => [{ label: "Рекомендаций", value: `${Math.max(1, Math.round(num(v.comps) / 400))} по ускорению` }],
+  },
+  {
+    id: "sw-matexpert", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "MateXpert: анализ сопряжений", command: "MATEXPERT",
+    desc: "Диагностика проблемных сопряжений сборки и поиск оптимального решения.",
+    icon: "Link2", outputLabel: "Сопряжения",
+    fields: [{ key: "mates", label: "Сопряжений", type: "number", default: "120" }],
+    compute: v => [{ label: "Проверено", value: `${num(v.mates)} сопряжений` }],
+  },
+  {
+    id: "sw-instant3d", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Instant3D: прямое редактирование", command: "INSTANT3D",
+    desc: "Динамическое прямое редактирование геометрии деталей, сборок и стандартных компонентов.",
+    icon: "MousePointerClick", outputLabel: "Прямое редактирование",
+    fields: [{ key: "d", label: "Смещение грани", type: "number", default: "5", suffix: "мм" }],
+    compute: v => [{ label: "Сдвиг геометрии", value: `${num(v.d)} мм` }],
+  },
+
+  // ── КПП: обратная разработка, размерные цепи, ECAD ──
+  {
+    id: "sw-scanto3d", product: "solidworks", version: "sw", dir: "mechanical", category: "interop",
+    name: "ScanTo3D: обратный инжиниринг", command: "SCANTO3D",
+    desc: "Преобразование сканированного облака точек и сетки в поверхности и твердотельную 3D-модель.",
+    icon: "ScanLine", isNew: true, outputLabel: "Реконструкция",
+    fields: [{ key: "pts", label: "Точек в облаке", type: "number", default: "500000" }],
+    compute: v => [{ label: "Реконструкция", value: `${(num(v.pts) / 1000).toFixed(0)}k точек → поверхности` }],
+  },
+  {
+    id: "sw-tolanalyst", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "TolAnalyst: размерные цепи", command: "TOLANALYST",
+    desc: "Расчёт и оптимизация размерных цепей в 3D-сборке: допуски, посадки, накопление отклонений.",
+    icon: "Ruler", outputLabel: "Размерная цепь",
+    fields: [
+      { key: "links", label: "Звеньев цепи", type: "number", default: "6" },
+      { key: "tol", label: "Допуск звена", type: "number", default: "0.05", suffix: "мм" },
+    ],
+    compute: v => [{ label: "Замыкающее звено (±)", value: `${(num(v.links) * num(v.tol)).toFixed(2)} мм` }],
+  },
+  {
+    id: "sw-circuitworks", product: "solidworks", version: "sw", dir: "networks", category: "interop",
+    name: "CircuitWorks: обмен с ECAD", command: "CIRCUITWORKS",
+    desc: "Двунаправленный обмен с радиотехническими САПР (Altium, Mentor, CADENCE, P-CAD), 3D-модель платы.",
+    icon: "CircuitBoard", isNew: true, outputLabel: "ECAD ↔ MCAD",
+    fields: [{ key: "comps", label: "Компонентов платы", type: "number", default: "240" }],
+    compute: v => [{ label: "Синхронизировано", value: `${num(v.comps)} компонентов` }],
+  },
+  {
+    id: "sw-motion", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Motion: динамика механизмов", command: "MOTION",
+    desc: "Кинематический и динамический анализ механизмов: скорости, ускорения, силы взаимодействия.",
+    icon: "Cog", outputLabel: "Кинематика",
+    fields: [
+      { key: "rpm", label: "Обороты", type: "number", default: "1500", suffix: "об/мин" },
+      { key: "r", label: "Радиус", type: "number", default: "50", suffix: "мм" },
+    ],
+    compute: v => {
+      const w = num(v.rpm) * 2 * Math.PI / 60
+      return [{ label: "Лин. скорость", value: `${(w * num(v.r) / 1000).toFixed(2)} м/с` }, { label: "Ускорение", value: `${(w * w * num(v.r) / 1000).toFixed(0)} м/с²` }]
+    },
+  },
+  {
+    id: "sw-plastics-warp", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Plastics Advanced: коробление", command: "PLASTICSWARP",
+    desc: "Расчёт коробления и усадки отливки, остаточных напряжений, времени охлаждения пресс-формы.",
+    icon: "Droplets", outputLabel: "Коробление",
+    fields: [
+      { key: "shrink", label: "Усадка материала", type: "number", default: "1.8", suffix: "%" },
+      { key: "size", label: "Габарит детали", type: "number", default: "200", suffix: "мм" },
+    ],
+    compute: v => [{ label: "Коробление (оценка)", value: `${(num(v.size) * num(v.shrink) / 100 * 0.3).toFixed(2)} мм` }],
+  },
+
+  // ── КПП: проверка стандартов, распознавание, планировщик ──
+  {
+    id: "sw-design-checker", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Design Checker: контроль СтП", command: "DESIGNCHECKER",
+    desc: "Автопроверка и корректировка моделей/чертежей на соответствие стандартам предприятия.",
+    icon: "ShieldCheck", outputLabel: "Проверка СтП",
+    fields: [{ key: "sheets", label: "Документов", type: "number", default: "48" }],
+    compute: v => [{ label: "Проверено", value: `${num(v.sheets)} документов` }],
+  },
+  {
+    id: "sw-featureworks", product: "solidworks", version: "sw", dir: "mechanical", category: "interop",
+    name: "FeatureWorks: распознавание", command: "FEATUREWORKS",
+    desc: "Распознавание и параметризация импортированной геометрии — превращение «немых» тел в дерево построения.",
+    icon: "ScanSearch", outputLabel: "Распознавание",
+    fields: [{ key: "faces", label: "Граней", type: "number", default: "320" }],
+    compute: v => [{ label: "Восстановлено", value: `${Math.round(num(v.faces) / 12)} элементов дерева` }],
+  },
+  {
+    id: "sw-task-scheduler", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "Task Scheduler: задачи по расписанию", command: "TASKSCHEDULER",
+    desc: "Пакетные операции по расписанию: групповая печать, импорт/экспорт, проверка на СтП.",
+    icon: "CalendarClock", outputLabel: "Планировщик",
+    fields: [{ key: "files", label: "Файлов в пакете", type: "number", default: "150" }],
+    compute: v => [{ label: "В очереди", value: `${num(v.files)} файлов` }],
+  },
+  {
+    id: "sw-translate", product: "solidworks", version: "sw", dir: "mechanical", category: "interop",
+    name: "Трансляция форматов CAD", command: "TRANSLATE",
+    desc: "Нейтральные и прямые трансляторы: STEP, Parasolid, IGES, ACIS, STL + Pro/E, NX, CATIA, Inventor.",
+    icon: "FileCog", outputLabel: "Конвертация",
+    fields: [{ key: "fmt", label: "Формат", type: "select", default: "STEP AP214", options: ["STEP AP203", "STEP AP214", "Parasolid", "IGES", "ACIS", "STL", "CATIA"] }],
+    compute: v => [{ label: "Экспорт в", value: v.fmt }],
+  },
+
+  // ── ТПП: технология, оснастка, нормирование ──
+  {
+    id: "sw-cam-verify", product: "solidworks", version: "sw", dir: "docs", category: "interop",
+    name: "Верификация УП и имитация станка", command: "CAMVERIFY",
+    desc: "Проверка управляющих программ ЧПУ, имитация работы станка, контроль зарезов и столкновений.",
+    icon: "MonitorPlay", isNew: true, outputLabel: "Верификация УП",
+    fields: [{ key: "lines", label: "Кадров G-кода", type: "number", default: "12000" }],
+    compute: v => [{ label: "Проверено", value: `${num(v.lines).toLocaleString("ru")} кадров, столкновений нет` }],
+  },
+  {
+    id: "sw-cam-cut", product: "solidworks", version: "sw", dir: "docs", category: "interop",
+    name: "Резка: лазер / плазма / гидроабразив", command: "CAMCUT",
+    desc: "УП для лазерной, плазменной и гидроабразивной резки, вырубных штампов и КИМ.",
+    icon: "Scissors", outputLabel: "Резка",
+    fields: [
+      { key: "type", label: "Технология", type: "select", default: "Лазер", options: ["Лазер", "Плазма", "Гидроабразив"] },
+      { key: "len", label: "Длина реза", type: "number", default: "3200", suffix: "мм" },
+    ],
+    compute: v => [{ label: v.type, value: `${num(v.len)} мм контура` }],
+  },
+  {
+    id: "sw-tooling", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Проектирование оснастки", command: "TOOLING",
+    desc: "Пресс-формы, штампы и средства технологического оснащения с анализом технологичности.",
+    icon: "Hammer", outputLabel: "Оснастка",
+    fields: [{ key: "cav", label: "Гнёзд формы", type: "number", default: "4" }],
+    compute: v => [{ label: "Пресс-форма", value: `${num(v.cav)}-местная` }],
+  },
+  {
+    id: "sw-estd", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Техпроцессы по ЕСТД", command: "ESTD",
+    desc: "Разработка технологических процессов по ЕСТД, маршрутные и операционные карты.",
+    icon: "ListChecks", outputLabel: "Техпроцесс",
+    fields: [{ key: "ops", label: "Операций", type: "number", default: "18" }],
+    compute: v => [{ label: "Маршрут", value: `${num(v.ops)} операций` }],
+  },
+  {
+    id: "sw-norming", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Материальное и трудовое нормирование", command: "NORMING",
+    desc: "Расчёт норм расхода материала и трудоёмкости операций, подготовка данных для себестоимости.",
+    icon: "Calculator", outputLabel: "Нормирование",
+    fields: [
+      { key: "tpiece", label: "Штучное время", type: "number", default: "12", suffix: "мин" },
+      { key: "qty", label: "Партия", type: "number", default: "500", suffix: "шт" },
+    ],
+    compute: v => [{ label: "Трудоёмкость партии", value: `${(num(v.tpiece) * num(v.qty) / 60).toFixed(1)} н-ч` }],
+  },
+
+  // ── Управление данными и процессами ──
+  {
+    id: "sw-esign", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "ЭЦП и защита данных", command: "ESIGN",
+    desc: "Электронная подпись документов, защита данных и разграничение прав в электронном документообороте.",
+    icon: "FileSignature", outputLabel: "ЭЦП",
+    fields: [{ key: "docs", label: "Документов на подпись", type: "number", default: "32" }],
+    compute: v => [{ label: "Подписано ЭЦП", value: `${num(v.docs)} документов` }],
+  },
+  {
+    id: "sw-erp-cost", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "Данные для ERP и себестоимость", command: "ERPCOST",
+    desc: "Подготовка данных для ERP и опережающий расчёт себестоимости изготовления изделия.",
+    icon: "Wallet", isNew: true, outputLabel: "Себестоимость",
+    fields: [
+      { key: "mat", label: "Материал", type: "number", default: "1200", suffix: "₽" },
+      { key: "labor", label: "Работа", type: "number", default: "2400", suffix: "₽" },
+    ],
+    compute: v => [{ label: "Себестоимость", value: `${(num(v.mat) + num(v.labor)).toLocaleString("ru")} ₽` }],
+  },
+
+  // ── Новинки версии ──
+  {
+    id: "sw-autogen-drawing", product: "solidworks", version: "sw", dir: "docs", category: "ai",
+    name: "Авточертёж по 3D (Auto-Generate)", command: "AUTODRAW",
+    desc: "Система сама создаёт листы с видами, подбирает формат и масштаб, распознаёт отверстия и проставляет размеры.",
+    icon: "Sparkles", isNew: true, outputLabel: "Автогенерация",
+    fields: [{ key: "views", label: "Проекций", type: "number", default: "3" }],
+    compute: v => [{ label: "Создан чертёж", value: `${num(v.views)} вида + размеры авто` }],
+  },
+  {
+    id: "sw-aura", command: "AURA", product: "solidworks", version: "sw", dir: "management", category: "ai",
+    name: "AURA: ИИ-компаньон", 
+    desc: "AI-помощник на 3DEXPERIENCE: поиск по документации, конспект обсуждений сообщества, подсказки по действиям.",
+    icon: "Bot", isNew: true, outputLabel: "ИИ-ассистент",
+    fields: [{ key: "q", label: "Тип запроса", type: "select", default: "Как сделать…", options: ["Как сделать…", "Найти в документации", "Конспект обсуждения"] }],
+    compute: v => [{ label: "AURA", value: v.q }],
+  },
+  {
+    id: "sw-semantic-search", product: "solidworks", version: "sw", dir: "mechanical", category: "ai",
+    name: "Семантический поиск в дереве", command: "SEMSEARCH",
+    desc: "Умный поиск по дереву FeatureManager и «заморозка» ветвей построения для ускорения.",
+    icon: "Search", isNew: true, outputLabel: "Поиск",
+    fields: [{ key: "feat", label: "Элементов в дереве", type: "number", default: "260" }],
+    compute: v => [{ label: "Индекс дерева", value: `${num(v.feat)} элементов` }],
+  },
+  {
+    id: "sw-select-size", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Select Bodies by Size/Volume", command: "SELECTBODIES",
+    desc: "Изоляция и массовое удаление мелких тел ползунком по размеру или выделением объёма — упрощение сборки.",
+    icon: "Filter", isNew: true, outputLabel: "Упрощение",
+    fields: [{ key: "thr", label: "Порог размера", type: "number", default: "3", suffix: "мм" }],
+    compute: v => [{ label: "Скрыть тела", value: `< ${num(v.thr)} мм` }],
+  },
+  {
+    id: "sw-filter-comp", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Filter Components", command: "FILTERCOMP",
+    desc: "Быстрый выбор компонентов верхнего уровня или подсборок прямо из графической области.",
+    icon: "MousePointerSquareDashed", outputLabel: "Фильтр компонентов",
+    fields: [{ key: "level", label: "Уровень", type: "select", default: "Верхний", options: ["Верхний", "Подсборки", "Все"] }],
+    compute: v => [{ label: "Выбор по уровню", value: v.level }],
+  },
+  {
+    id: "sw-smooth-geom", product: "solidworks", version: "sw", dir: "mechanical", category: "ai",
+    name: "Smooth Geometry (после расчётов)", command: "SMOOTHGEOM",
+    desc: "Мастер автоматически сглаживает ступенчатые поверхности после оптимизации и заменяет их примитивами.",
+    icon: "Waves", isNew: true, outputLabel: "Сглаживание",
+    fields: [{ key: "faces", label: "Граней", type: "number", default: "1500" }],
+    compute: v => [{ label: "Сглажено", value: `${num(v.faces)} граней → примитивы` }],
+  },
+  {
+    id: "sw-shopfloor", product: "solidworks", version: "sw", dir: "docs", category: "collab",
+    name: "Shop Floor Programmer", command: "SHOPFLOOR",
+    desc: "Облачные инструменты для оптимизации операций механообработки и производственных процессов в цехе.",
+    icon: "Factory", isNew: true, outputLabel: "Цех",
+    fields: [{ key: "ops", label: "Операций", type: "number", default: "24" }],
+    compute: v => [{ label: "Оптимизировано", value: `${num(v.ops)} операций` }],
+  },
 ]
 
 // Нормализация: достраиваем category (явную или автоопределённую)
