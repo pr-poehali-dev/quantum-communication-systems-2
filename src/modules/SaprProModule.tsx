@@ -5,12 +5,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
-import SwSectionsPanel from "@/modules/SwSectionsPanel"
+import { SwSectionPanel } from "@/modules/SwSectionsPanel"
 import { Feature, SolidKind, MATERIALS, buildMesh, massProps, project, overlapVolume, Vec3, EXCHANGE_3D } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
 
 // ── Вкладки CommandManager (как в SolidWorks) ──────────────────────────────
-type CM = "features" | "sketch" | "sheet" | "weld" | "mold" | "assembly" | "sim" | "flow" | "cam" | "render" | "config" | "pdm" | "eval" | "exchange" | "catalog"
+type CM = "features" | "sketch" | "sheet" | "weld" | "mold" | "assembly" | "sim" | "flow" | "cam" | "render" | "config" | "pdm" | "eval" | "exchange" | "kpp" | "tpp" | "data" | "swnew"
 
 const CM_TABS: { id: CM; label: string; icon: string }[] = [
   { id: "features", label: "Элементы", icon: "Boxes" },
@@ -27,7 +27,10 @@ const CM_TABS: { id: CM; label: string; icon: string }[] = [
   { id: "pdm", label: "PDM", icon: "Database" },
   { id: "eval", label: "Анализ", icon: "Gauge" },
   { id: "exchange", label: "Обмен / AR-VR", icon: "ArrowLeftRight" },
-  { id: "catalog", label: "Каталог SW", icon: "LayoutList" },
+  { id: "kpp", label: "КПП", icon: "Ruler" },
+  { id: "tpp", label: "ТПП", icon: "Wrench" },
+  { id: "data", label: "Управление данными", icon: "Database" },
+  { id: "swnew", label: "Новинки", icon: "Sparkles" },
 ]
 
 // Инструменты каждой вкладки: [название, иконка, действие-подсказка]
@@ -141,10 +144,12 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
     const draws: FD[] = []
     features.filter(f => f.visible).forEach(f => {
       const m = buildMesh(f)
+      if (!m || !m.vertices || !m.faces) return
       const pr = m.vertices.map(v => project([(v[0] + f.pos[0]) * cfgScale, (v[1] + f.pos[1]) * cfgScale, (v[2] + f.pos[2]) * cfgScale], [0, 0, 0], yaw, pitch, sc, W, H))
       m.faces.forEach(face => {
         const pts = face.map(i => pr[i])
-        const z = face.reduce((s, i) => s + pr[i].z, 0) / face.length
+        if (pts.length < 3 || pts.some(p => !p)) return
+        const z = face.reduce((s, i) => s + (pr[i]?.z ?? 0), 0) / face.length
         const cr = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x)
         draws.push({ pts: pts.map(p => ({ x: p.x, y: p.y })), z, color: f.color, sel: f.id === selected, nz: cr > 0 ? 1 : -1 })
       })
@@ -266,7 +271,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
             {cm === "pdm" && <PdmPanel revisions={revisions} onAction={showToast} />}
             {cm === "eval" && <EvalPanel mp={mp} onAction={showToast} />}
             {cm === "exchange" && <ExchangePanel onImport={() => импортФайл(".step,.igs,.stl,.x_t,.sldprt", (_c, n) => { addFeature("box", "Объектная", "Импорт-"); showToast(`3D Interconnect: ${n}`) })} onExport={exportFmt} onAction={showToast} />}
-            {cm === "catalog" && <SwSectionsPanel onAction={showToast} />}
+            {(cm === "kpp" || cm === "tpp" || cm === "data" || cm === "swnew") && <SwSectionPanel section={cm} onAction={showToast} />}
           </div>
         </div>
       </div>

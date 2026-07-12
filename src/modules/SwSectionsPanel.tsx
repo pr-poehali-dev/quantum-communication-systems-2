@@ -5,17 +5,17 @@ import { FeatureTool } from "@/modules/VersionFeaturesPanel"
 import { FEATURES, type VersionFeatureFull } from "./versions-catalog"
 
 // ── Логические разделы SOLIDWORKS: КПП · ТПП · Управление данными · Новинки ──
-type SectionId = "kpp" | "tpp" | "data" | "new"
+export type SwSectionId = "kpp" | "tpp" | "data" | "swnew"
 
-const SECTIONS: { id: SectionId; label: string; icon: string; color: string; desc: string }[] = [
-  { id: "kpp", label: "КПП — конструкторская подготовка", icon: "Ruler", color: "#0078d4", desc: "3D-проектирование, документация, анализ, обратная разработка" },
-  { id: "tpp", label: "ТПП — технологическая подготовка", icon: "Wrench", color: "#f97316", desc: "Оснастка, техпроцессы, ЧПУ, нормирование" },
-  { id: "data", label: "Управление данными и процессами", icon: "Database", color: "#10b981", desc: "PDM, документооборот, ЭЦП, ERP, себестоимость" },
-  { id: "new", label: "Новинки версии", icon: "Sparkles", color: "#8b5cf6", desc: "ИИ, автогенерация, ускорение больших сборок" },
-]
+export const SW_SECTIONS: Record<SwSectionId, { label: string; icon: string; desc: string }> = {
+  kpp: { label: "КПП — конструкторская подготовка", icon: "Ruler", desc: "3D-проектирование, документация, анализ, обратная разработка" },
+  tpp: { label: "ТПП — технологическая подготовка", icon: "Wrench", desc: "Оснастка, техпроцессы, ЧПУ, нормирование" },
+  data: { label: "Управление данными и процессами", icon: "Database", desc: "PDM, документооборот, ЭЦП, ERP, себестоимость" },
+  swnew: { label: "Новинки версии", icon: "Sparkles", desc: "ИИ, автогенерация, ускорение больших сборок" },
+}
 
 // Явное распределение функций каталога по разделам (по id)
-const SECTION_IDS: Record<SectionId, string[]> = {
+const SECTION_IDS: Record<SwSectionId, string[]> = {
   kpp: [
     "sw-solid-modeling", "sw-direct-edit", "sw-surfaces", "sw-sheetmetal", "sw-weldments", "sw-mold",
     "sw-assembly", "sw-drawing", "sw-bom", "sw-mbd", "sw-mbd-std", "sw-toolbox", "sw-config",
@@ -35,20 +35,18 @@ const SECTION_IDS: Record<SectionId, string[]> = {
     "sw-pdm", "sw-manage", "sw-task-scheduler", "sw-design-checker", "sw-esign",
     "sw-erp-cost", "sw-driveworks", "sw-translate", "sw-shopfloor",
   ],
-  new: [
+  swnew: [
     "sw-autogen-drawing", "sw-aura", "sw-semantic-search", "sw-select-size",
     "sw-filter-comp", "sw-smooth-geom",
   ],
 }
 
 const SW = FEATURES.filter(f => f.product === "solidworks")
-const byId = (id: string) => SW.find(f => f.id === id)
 
-// Функции раздела (в новинки также попадают все isNew, которых нет в списках выше)
-function sectionFeatures(sec: SectionId): VersionFeatureFull[] {
+function sectionFeatures(sec: SwSectionId): VersionFeatureFull[] {
   const ids = SECTION_IDS[sec]
-  const listed = ids.map(byId).filter(Boolean) as VersionFeatureFull[]
-  if (sec === "new") {
+  const listed = ids.map(id => SW.find(f => f.id === id)).filter(Boolean) as VersionFeatureFull[]
+  if (sec === "swnew") {
     const extra = SW.filter(f => f.isNew && !ids.includes(f.id) &&
       !SECTION_IDS.kpp.includes(f.id) && !SECTION_IDS.tpp.includes(f.id) && !SECTION_IDS.data.includes(f.id))
     return [...listed, ...extra]
@@ -56,71 +54,50 @@ function sectionFeatures(sec: SectionId): VersionFeatureFull[] {
   return listed
 }
 
-export default function SwSectionsPanel({ onAction }: { onAction?: (n: string) => void }) {
-  const [open, setOpen] = useState<Record<SectionId, boolean>>({ kpp: true, tpp: false, data: false, new: true })
+// Панель одного раздела — обычная вкладка CommandManager (как остальные)
+export function SwSectionPanel({ section, onAction }: { section: SwSectionId; onAction?: (n: string) => void }) {
+  const meta = SW_SECTIONS[section]
   const [q, setQ] = useState("")
   const [active, setActive] = useState<VersionFeatureFull | null>(null)
 
-  const filtered = useMemo(() => {
+  const all = useMemo(() => sectionFeatures(section), [section])
+  const list = useMemo(() => {
     const query = q.trim().toLowerCase()
-    return SECTIONS.map(s => {
-      let list = sectionFeatures(s.id)
-      if (query) list = list.filter(f => f.name.toLowerCase().includes(query) || (f.desc ?? "").toLowerCase().includes(query))
-      return { sec: s, list }
-    })
-  }, [q])
-
-  const total = SECTIONS.reduce((n, s) => n + sectionFeatures(s.id).length, 0)
+    if (!query) return all
+    return all.filter(f => f.name.toLowerCase().includes(query) || (f.desc ?? "").toLowerCase().includes(query))
+  }, [all, q])
 
   return (
     <div className="space-y-2.5">
-      <div className="flex items-center justify-between">
-        <div className="text-[11px] font-bold text-gray-500 uppercase flex items-center gap-1">
-          <Icon name="LayoutList" size={12} />Каталог SOLIDWORKS
-        </div>
-        <span className="text-[10px] text-gray-400">{total} функций</span>
+      <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-700">
+        <Icon name={meta.icon} size={13} className="text-red-500" fallback="Square" />
+        <span className="flex-1 leading-tight">{meta.label}</span>
+        <span className="text-[10px] text-gray-400 font-normal">{all.length}</span>
       </div>
+      <div className="text-[10px] text-gray-400 leading-snug">{meta.desc}</div>
+
       <div className="relative">
         <Icon name="Search" size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск по функциям…"
-          className="w-full bg-gray-50 border border-gray-200 rounded-md pl-7 pr-2 py-1.5 text-[11px] outline-none focus:border-[#0078d4]" />
+          className="w-full bg-gray-50 border border-gray-200 rounded-md pl-7 pr-2 py-1.5 text-[11px] outline-none focus:border-red-400" />
       </div>
 
-      {filtered.map(({ sec, list }) => (
-        <div key={sec.id} className="border border-gray-200 rounded-lg overflow-hidden">
-          <button onClick={() => setOpen(o => ({ ...o, [sec.id]: !o[sec.id] }))}
-            className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-gray-50 text-left">
-            <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: sec.color + "1a" }}>
-              <Icon name={sec.icon} size={13} style={{ color: sec.color }} fallback="Square" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[11.5px] font-semibold text-gray-900 leading-tight truncate">{sec.label}</div>
-              <div className="text-[9.5px] text-gray-400 leading-tight truncate">{sec.desc}</div>
-            </div>
-            <span className="text-[9px] text-gray-400 flex-shrink-0">{list.length}</span>
-            <Icon name={open[sec.id] ? "ChevronUp" : "ChevronDown"} size={13} className="text-gray-400 flex-shrink-0" />
+      <div className="space-y-1">
+        {list.length === 0 && <div className="text-[10px] text-gray-400 px-1 py-2">Ничего не найдено</div>}
+        {list.map(f => (
+          <button key={f.id} onClick={() => { setActive(f); onAction?.(f.name) }}
+            className="w-full text-left bg-white border border-gray-200 rounded-md px-2 py-1.5 hover:border-red-400 hover:shadow-sm transition-all group flex items-start gap-2">
+            <Icon name={f.icon} size={13} className="text-gray-500 mt-0.5 flex-shrink-0 group-hover:text-red-500" fallback="Box" />
+            <span className="flex-1 min-w-0">
+              <span className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-gray-900 leading-tight group-hover:text-red-600">{f.name}</span>
+                {f.isNew && <span className="text-[8px] px-1 py-px rounded font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">NEW</span>}
+              </span>
+              {f.desc && <span className="block text-[9.5px] text-gray-500 leading-snug mt-0.5 line-clamp-2">{f.desc}</span>}
+            </span>
           </button>
-
-          {open[sec.id] && (
-            <div className="p-2 pt-0 space-y-1 bg-gray-50/50">
-              {list.length === 0 && <div className="text-[10px] text-gray-400 px-1 py-2">Ничего не найдено</div>}
-              {list.map(f => (
-                <button key={f.id} onClick={() => { setActive(f); onAction?.(f.name) }}
-                  className="w-full text-left bg-white border border-gray-200 rounded-md px-2 py-1.5 hover:border-[#0078d4] hover:shadow-sm transition-all group flex items-start gap-2">
-                  <Icon name={f.icon} size={13} className="text-gray-500 mt-0.5 flex-shrink-0 group-hover:text-[#0078d4]" fallback="Box" />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-gray-900 leading-tight group-hover:text-[#0078d4]">{f.name}</span>
-                      {f.isNew && <span className="text-[8px] px-1 py-px rounded font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">NEW</span>}
-                    </span>
-                    {f.desc && <span className="block text-[9.5px] text-gray-500 leading-snug mt-0.5 line-clamp-2">{f.desc}</span>}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
 
       <AnimatePresence>
         {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
@@ -128,3 +105,5 @@ export default function SwSectionsPanel({ onAction }: { onAction?: (n: string) =
     </div>
   )
 }
+
+export default SwSectionPanel
