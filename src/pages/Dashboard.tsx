@@ -584,19 +584,26 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl">
             {DIRECTIONS.map((d, i) => {
               const count = d.id === "all" ? MODULES.length : d.modules.length
+              const tools = (d.id === "all" ? MODULES : MODULES.filter(m => d.modules.includes(m.id))).map(m => m.label)
               return (
                 <motion.button key={d.id}
                   initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.05 }}
                   whileHover={{ y: -4 }}
                   onClick={() => выбратьНаправление(d.id)}
-                  className="group relative text-left rounded-2xl p-5 border border-white/10 hover:border-white/25 transition-all overflow-hidden"
+                  className="group relative text-left rounded-2xl p-5 border border-white/10 hover:border-white/25 transition-all overflow-hidden flex flex-col"
                   style={{ background: "rgba(255,255,255,0.03)" }}>
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${d.gradient} flex items-center justify-center mb-3 shadow-lg`}>
                     <Icon name={d.icon} size={24} className="text-white" fallback="Square" />
                   </div>
                   <div className="text-white font-bold text-[15px] mb-1">{d.label}</div>
                   <div className="text-gray-400 text-[12px] leading-snug mb-3">{d.desc}</div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {tools.slice(0, 4).map(t => (
+                      <span key={t} className="text-[10px] px-2 py-0.5 rounded-full text-gray-300 border border-white/10" style={{ background: "rgba(255,255,255,0.04)" }}>{t}</span>
+                    ))}
+                    {tools.length > 4 && <span className="text-[10px] px-2 py-0.5 rounded-full text-gray-500" style={{ background: "rgba(255,255,255,0.04)" }}>+{tools.length - 4}</span>}
+                  </div>
+                  <div className="flex items-center justify-between mt-auto">
                     <span className="text-[11px] font-semibold" style={{ color: d.color }}>{count} модулей</span>
                     <Icon name="ArrowRight" size={16} className="text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
                   </div>
