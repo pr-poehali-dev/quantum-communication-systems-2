@@ -8,7 +8,7 @@ import Icon from "@/components/ui/icon"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts"
-import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV, импортLandXML } from "@/utils/exportImport"
+import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ const PAL_HEAT    = ["#00008b","#0000ff","#0080ff","#00ffff","#80ff00","#ffff00"
 const PALETTES: Record<string, string[]> = { Terrain: PAL_TERRAIN, Rainbow: PAL_RAINBOW, Grayscale: PAL_GREY, Thermal: PAL_HEAT }
 
 const SURF_STYLES = ["Стандарт","Горизонтали 0.5м","Горизонтали 1м","Горизонтали 5м","Анализ уклонов","Анализ высот","Без отображения"]
-const DATA_FORMATS = ["CSV (N,E,Z,Desc)","TXT (X,Y,Z)","LandXML","DEM / GeoTIFF","Облако точек (LAS/RCP)","XLSX / Excel","DWG — 3D полилинии","Shapefile"]
+const DATA_FORMATS = ["CSV (N,E,Z,Desc)","TXT (X,Y,Z)","LandXML","SDR (Sokkia/тахеометр)","DEM / GeoTIFF","Облако точек (LAS/RCP)","XLSX / Excel","DWG — 3D полилинии","Shapefile"]
 const BOUNDARY_TYPES: Boundary["type"][] = ["Внешняя","Внутренняя","Обрезка"]
 
 const SLOPE_RANGES = [
@@ -347,12 +347,22 @@ export default function SurfacesModule() {
     ], `${surf.name}_report.txt`)
   }
 
+  const doЭкспортSDR = () => экспортSDR(
+    points.map(p => ({ name: p.name, x: p.x, y: p.y, z: p.z, code: p.code })),
+    `${surf.name}.sdr`, surf.name
+  )
+
   const doИмпорт = () => {
-    импортФайл(".csv,.txt,.xml,.landxml,.las", (содержимое, имя) => {
+    импортФайл(".csv,.txt,.xml,.landxml,.las,.sdr", (содержимое, имя) => {
       const low = имя.toLowerCase()
       let newPts: SurfPoint[] = []
 
-      if (low.endsWith(".xml") || low.endsWith(".landxml")) {
+      if (low.endsWith(".sdr")) {
+        newPts = импортSDR(содержимое).map((p, i) => ({
+          id: Date.now() + i, name: p.name || `ТЧК-${i + 1}`,
+          x: p.x, y: p.y, z: p.z, code: p.code, group: "Импорт SDR",
+        }))
+      } else if (low.endsWith(".xml") || low.endsWith(".landxml")) {
         // LandXML — извлекаем точки CgPoint
         const { точки } = импортLandXML(содержимое)
         newPts = точки.map((p, i) => ({
@@ -392,7 +402,7 @@ export default function SurfacesModule() {
 
       if (newPts.length === 0) { alert("Не удалось прочитать точки из файла. Проверьте формат данных."); return }
       setPoints(prev => [...prev, ...newPts])
-      updateSurf({ sources: [...surf.sources, { id: Date.now(), name: имя, format: low.endsWith(".xml") || low.endsWith(".landxml") ? "LandXML" : low.endsWith(".txt") ? "TXT (X,Y,Z)" : "CSV (N,E,Z,Desc)", count: newPts.length }] })
+      updateSurf({ sources: [...surf.sources, { id: Date.now(), name: имя, format: low.endsWith(".sdr") ? "SDR (Sokkia)" : low.endsWith(".xml") || low.endsWith(".landxml") ? "LandXML" : low.endsWith(".txt") ? "TXT (X,Y,Z)" : "CSV (N,E,Z,Desc)", count: newPts.length }] })
     })
   }
 
@@ -662,7 +672,7 @@ export default function SurfacesModule() {
                     Далее — редактирование <Icon name="ChevronRight" size={16} />
                   </Button>
                   <Button variant="outline" onClick={doИмпорт} className="gap-2">
-                    <Icon name="Upload" size={15} /> Импорт точек (CSV / TXT / LandXML)
+                    <Icon name="Upload" size={15} /> Импорт точек (CSV / TXT / LandXML / SDR)
                   </Button>
                   <Button variant="outline" onClick={() => setStep(1)}>Назад</Button>
                 </div>
@@ -996,6 +1006,7 @@ export default function SurfacesModule() {
                         { fmt: "LandXML", desc: "Обмен с ГИС-системами", icon: "Globe" },
                         { fmt: "DWG",     desc: "3D-грани и полилинии",   icon: "FileText" },
                         { fmt: "CSV",     desc: "Таблица отметок и уклонов", icon: "Table" },
+                        { fmt: "SDR",     desc: "Sokkia/Topcon для тахеометров", icon: "MapPin" },
                         { fmt: "GeoTIFF", desc: "Растр для ГИС",          icon: "Map" },
                         { fmt: "IFC",     desc: "BIM-формат для Revit",    icon: "Layers" },
                         { fmt: "Shapefile",desc: "ESRI Shapefile / QGIS",  icon: "Hexagon" },
@@ -1030,6 +1041,7 @@ export default function SurfacesModule() {
                     <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 mt-2" onClick={() => {
                       if (exportFormat === "LandXML") doЭкспортLandXML()
                       else if (exportFormat === "CSV") doЭкспортCSV()
+                      else if (exportFormat === "SDR") doЭкспортSDR()
                       else if (exportFormat === "GeoTIFF") doЭкспортCSV()
                       else if (exportFormat === "IFC") doЭкспортLandXML()
                       else if (exportFormat === "DWG") doЭкспортExcel()

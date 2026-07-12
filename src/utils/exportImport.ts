@@ -251,6 +251,65 @@ ${содержимое}
   скачать(html, имяФайла + ".html", "text/html")
 }
 
+// ── SDR (Sokkia SDR33) — обмен с тахеометрами и полевыми контроллерами ────────
+// Текстовый формат геодезических данных: заголовок 00NM + координатные записи
+// 08KI (Имя, N(Y), E(X), Elev(Z), Код). Совместим с Sokkia, Topcon, Trimble,
+// Nikon, GeoMax, GeoniCS, Credo, AutoCAD Civil 3D (импорт Survey).
+
+function sdrFld(s: string | number, len: number): string {
+  return String(s).slice(0, len).padEnd(len, " ")
+}
+
+export function экспортSDR(
+  точки: { name: string | number; x: number; y: number; z: number; code?: string }[],
+  имяФайла = "съёмка.sdr",
+  имяРабот = "ЛАПА 3D"
+) {
+  const dt = new Date()
+  const dd = `${String(dt.getDate()).padStart(2, "0")}-${dt.toLocaleString("en", { month: "short" })}-${dt.getFullYear()}`
+  const строки: string[] = []
+  // 00NM — заголовок: версия SDR33, имя работ, единицы (метры/град)
+  строки.push(`00NMSDR33 V04-04.01${sdrFld(имяРабот, 16)}${dd} 121111`)
+  строки.push(`10NM${sdrFld(имяРабот, 16)}`)
+  // 08KI — координатная запись точки: Имя(16) N/Y(16) E/X(16) Elev/Z(16) Код(16)
+  точки.forEach(p => {
+    строки.push(
+      "08KI" +
+      sdrFld(p.name, 16) +
+      sdrFld(p.y.toFixed(4), 16) +
+      sdrFld(p.x.toFixed(4), 16) +
+      sdrFld(p.z.toFixed(4), 16) +
+      sdrFld(p.code || "", 16)
+    )
+  })
+  скачать(строки.join("\r\n"), имяФайла, "text/plain")
+}
+
+export function импортSDR(текст: string): { name: string; x: number; y: number; z: number; code: string }[] {
+  const точки: { name: string; x: number; y: number; z: number; code: string }[] = []
+  const строки = текст.split(/\r?\n/)
+  for (const строка of строки) {
+    // Координатные записи: 08KI / 08TP / 02TP — формат с полями по 16 символов
+    if (!/^0[28]/.test(строка)) continue
+    const тело = строка.slice(4)
+    // Пытаемся распарсить как поля фиксированной ширины (16), иначе — по пробелам
+    let поля: string[]
+    if (тело.length >= 64) {
+      поля = [тело.slice(0, 16), тело.slice(16, 32), тело.slice(32, 48), тело.slice(48, 64), тело.slice(64)]
+        .map(s => s.trim())
+    } else {
+      поля = тело.trim().split(/\s+/)
+    }
+    const name = поля[0] || `ТЧК-${точки.length + 1}`
+    const n = parseFloat(поля[1])
+    const e = parseFloat(поля[2])
+    const z = parseFloat(поля[3])
+    if (isNaN(n) || isNaN(e)) continue
+    точки.push({ name, y: n, x: e, z: isNaN(z) ? 0 : z, code: (поля[4] || "TOPO").trim() })
+  }
+  return точки
+}
+
 // ── Импорт из файла ───────────────────────────────────────────────────────────
 
 export function импортФайл(

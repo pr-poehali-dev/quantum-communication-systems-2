@@ -67,6 +67,14 @@ const FILE_TYPES = [
     badgeColor: "bg-gray-100 text-gray-700",
   },
   {
+    ext: "SDR", category: "data", icon: "MapPin", color: "#0d9488",
+    name: "Съёмка тахеометра (SDR)",
+    desc: "Полевые геодезические измерения с тахеометров и контроллеров. Формат Sokkia SDR33, совместим с Topcon, Trimble, Nikon, GeoMax. Импорт/экспорт точек COGO.",
+    actions: ["Импортировать", "Экспортировать", "В точки COGO"],
+    badge: "Геодезия",
+    badgeColor: "bg-teal-100 text-teal-700",
+  },
+  {
     ext: "SDF", category: "data", icon: "Database", color: "#ec4899",
     name: "База геодезических данных",
     desc: "Компактный формат для хранения больших массивов геодезических данных. Поддерживает связь с объектами ЛАПА 3D.",

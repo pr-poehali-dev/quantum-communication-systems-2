@@ -9,7 +9,7 @@ import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
-import { импортФайл, импортLandXML } from "@/utils/exportImport"
+import { импортФайл, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
 
 interface Point {
   id: number
@@ -173,6 +173,9 @@ export default function GeodesyModule() {
       const { точки } = импортLandXML(text)
       return точки.map((p, i) => ({ id: Date.now() + i, name: p.name || `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z, code: "TOPO" }))
     }
+    if (format.startsWith("SDR")) {
+      return импортSDR(text).map((p, i) => ({ id: Date.now() + i, name: p.name || `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z, code: p.code }))
+    }
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'))
     // пропускаем строку-заголовок, если она не числовая (например "Имя,X,Y,Z,Код")
     const dataLines = lines.filter((l, idx) => {
@@ -197,6 +200,7 @@ export default function GeodesyModule() {
 
   const importFromFile = (format: string) => {
     const accept = format.startsWith("LandXML") ? ".xml,.landxml"
+      : format.startsWith("SDR") ? ".sdr"
       : format.startsWith("Excel") ? ".csv,.txt,.xls,.xlsx"
       : format.startsWith("TXT") || format.startsWith("Тахеометр") ? ".txt,.csv"
       : ".csv,.txt"
@@ -242,6 +246,8 @@ export default function GeodesyModule() {
       скачать(строки.join("\n"), "points.txt", "text/plain")
     )
   }
+
+  const exportPointsSDR = () => экспортSDR(points, "points.sdr", "Съёмка COGO")
 
   const pointsCADОбъекты = () =>
     points.map(p => ({
@@ -571,7 +577,7 @@ export default function GeodesyModule() {
             </h3>
             <p className="text-xs text-gray-500 -mt-1">Выберите формат — откроется выбор файла на компьютере</p>
             <div className="grid grid-cols-3 gap-3">
-              {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)"].map(f => (
+              {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)", "SDR (Sokkia/тахеометр)"].map(f => (
                 <button key={f} onClick={() => importFromFile(f)} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">
                   <Icon name="FileText" size={14} className="text-indigo-600 mb-1" />
                   <div>{f}</div>
@@ -668,6 +674,7 @@ export default function GeodesyModule() {
                 { fmt: "LandXML", desc: "Обмен с Civil 3D, InfraWorks", color: "bg-blue-50 border-blue-200", btn: "bg-blue-600", fn: exportPointsLandXML },
                 { fmt: "CSV", desc: "Excel, таблицы, расчёты", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: exportPointsCSV },
                 { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsTXT },
+                { fmt: "SDR", desc: "Sokkia, Topcon, Nikon, Trimble", color: "bg-teal-50 border-teal-200", btn: "bg-teal-600", fn: exportPointsSDR },
                 { fmt: "DXF", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsDXF },
                 { fmt: "DWG", desc: "AutoCAD, nanoCAD, КОМПАС", color: "bg-indigo-50 border-indigo-200", btn: "bg-indigo-600", fn: exportPointsDWG },
               ].map(f => (

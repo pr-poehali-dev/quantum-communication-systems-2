@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
-import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст, импортФайл, импортLandXML } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст, импортФайл, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
 
 interface FormatItem {
   ext: string; name: string; app: string; icon: string
@@ -20,6 +20,7 @@ const FORMATS: FormatItem[] = [
   { ext: "RVT", name: "Проект Revit", app: "Revit", icon: "Building2", desc: "Прямой экспорт мостов, зданий и инженерных объектов в среду Revit.", direction: "out", supported: true },
   { ext: "IMX", name: "Обмен 3D-моделью", app: "3D Просмотр", icon: "Globe", desc: "Передача 3D-модели территории и инфраструктуры для визуализации и презентаций.", direction: "out", supported: true },
   { ext: "RCP/RCS", name: "Облако точек", app: "LiDAR / ReCap", icon: "Scan", desc: "Импорт облаков точек LiDAR для создания поверхностей DTM.", direction: "in", supported: true },
+  { ext: "SDR", name: "Съёмка тахеометра", app: "Sokkia / Topcon / Nikon", icon: "MapPin", desc: "Обмен полевыми геодезическими измерениями с тахеометрами и контроллерами. Sokkia SDR33, Topcon, Trimble, Nikon.", direction: "both", supported: true },
   { ext: "SHP", name: "Шейп-файл", app: "ArcGIS / QGIS", icon: "Map", desc: "Импорт/экспорт геоданных для работы с ГИС-системами.", direction: "both", supported: true },
   { ext: "GeoTIFF", name: "Растровый рельеф", app: "QGIS / MapInfo", icon: "Image", desc: "Импорт растровых подложек и цифровых моделей рельефа.", direction: "in", supported: true },
   { ext: "KMZ/KML", name: "Google Планета Земля", app: "Google Earth Pro", icon: "Globe2", desc: "Экспорт трасс и объектов для отображения в Google Earth.", direction: "out", supported: true },
@@ -66,7 +67,7 @@ export default function IntegrationModule() {
       "DWG/DXF": ".dxf,.dwg", "LandXML": ".xml,.landxml",
       "IFC": ".ifc", "CSV": ".csv,.txt",
       "Shapefile": ".shp,.zip", "KML/KMZ": ".kml,.kmz",
-      "DEM/GeoTIFF": ".tif,.tiff,.dem", "default": ".*",
+      "DEM/GeoTIFF": ".tif,.tiff,.dem", "SDR": ".sdr", "default": ".*",
     }
     const ext = extensions[формат] || extensions["default"]
     импортФайл(ext, (содержимое, имяФайла) => {
@@ -74,6 +75,9 @@ export default function IntegrationModule() {
       if (формат === "LandXML" || имяФайла.endsWith(".xml")) {
         const данные = импортLandXML(содержимое)
         сообщение = `Импорт LandXML: точек ${данные.точки.length}, трасс ${данные.трассы.length}, поверхностей ${данные.поверхности.length}`
+      } else if (формат === "SDR" || имяФайла.toLowerCase().endsWith(".sdr")) {
+        const точки = импортSDR(содержимое)
+        сообщение = `Импорт SDR (Sokkia): загружено точек съёмки — ${точки.length}`
       }
       setImportMsg(сообщение)
       setTimeout(() => setImportMsg(""), 4000)
@@ -83,6 +87,12 @@ export default function IntegrationModule() {
   const handleExport = (формат: string) => {
     if (формат === "LandXML") {
       экспортLandXML({ имя: "Проект ЛАПА 3D" }, "export.xml")
+    } else if (формат === "SDR") {
+      экспортSDR([
+        { name: "ТЧК-101", x: 150.25, y: 200.10, z: 121.55, code: "TOPO" },
+        { name: "ТЧК-102", x: 155.30, y: 205.80, z: 122.10, code: "EDGE" },
+        { name: "ТЧК-103", x: 148.90, y: 210.50, z: 119.80, code: "LOW" },
+      ], "export.sdr", "Проект ЛАПА 3D")
     } else if (формат === "DWG" || формат === "DXF") {
       const объекты = [
         { тип: "LINE" as const, данные: [0, 0, 0, 100, 0, 0], слой: "ROADS" },

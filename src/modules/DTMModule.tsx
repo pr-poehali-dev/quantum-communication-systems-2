@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Icon from "@/components/ui/icon"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
-import { экспортCSV, экспортLandXML, экспортТекст } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортТекст, экспортSDR } from "@/utils/exportImport"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -296,6 +296,11 @@ export default function DTMModule() {
         имя: "ЦМР ЛАПА 3D",
         точки: облако.slice(0, 5000).map((p, i) => ({ name: `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z })),
       }, "dtm.xml")
+    } else if (формат === "SDR") {
+      экспортSDR(
+        облако.slice(0, 10000).map((p, i) => ({ name: `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z, code: КЛАССЫ_ТОЧЕК[p.cls] || "TOPO" })),
+        "dtm.sdr", "ЦМР ЛАПА 3D"
+      )
     } else if (формат === "PDF") {
       экспортТекст([
         "ТЕХНИЧЕСКИЙ ОТЧЁТ ЦМР",
@@ -859,6 +864,7 @@ export default function DTMModule() {
                   { fmt: "LandXML", desc: "Обмен с Civil 3D, InfraWorks, ЛАПА", color: "bg-blue-50 border-blue-200", btn: "bg-blue-600", fn: () => экспорт("XML") },
                   { fmt: "DEM / GeoTIFF", desc: "Растровая ЦМР для ГИС", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: () => экспорт("DEM") },
                   { fmt: "CSV точки", desc: "X, Y, Z, класс для Excel", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: () => экспорт("CSV") },
+                  { fmt: "SDR", desc: "Sokkia/Topcon для тахеометров", color: "bg-teal-50 border-teal-200", btn: "bg-teal-600", fn: () => экспорт("SDR") },
                   { fmt: "Shapefile", desc: "ESRI Shape для ArcGIS/QGIS", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: () => экспорт("SHP") },
                   { fmt: "LAS / LAZ", desc: "Облако точек для обмена", color: "bg-cyan-50 border-cyan-200", btn: "bg-cyan-600", fn: () => экспорт("LAS") },
                   { fmt: "PDF отчёт", desc: "Технический отчёт с картами", color: "bg-red-50 border-red-200", btn: "bg-red-600", fn: () => экспорт("PDF") },
