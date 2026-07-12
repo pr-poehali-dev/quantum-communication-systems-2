@@ -57,6 +57,7 @@ export default function GeodesyModule() {
     { id: 5, name: "HIGH — повышенные", filter: "HIGH", style: "Красный" },
   ])
   const [groupForm, setGroupForm] = useState({ name: "", filter: "", style: "Стандарт" })
+  const [importInfo, setImportInfo] = useState("")
 
   // ── Уравнивание съёмочных сетей (метод наименьших квадратов) ──────────────
   interface TraverseStation { id: number; name: string; angle: string; distance: string }
@@ -165,6 +166,7 @@ export default function GeodesyModule() {
       }
     })
     setPoints(prev => [...prev, ...newPts])
+    registerCodes(newPts, "CSV")
   }
 
   // Парсинг точек по формату; для CSV/TXT/Тахеометр — разбор строк, для LandXML — извлечение CgPoint
@@ -208,7 +210,49 @@ export default function GeodesyModule() {
       const newPts = parsePointsByFormat(format, содержимое)
       if (newPts.length === 0) { alert("Не удалось прочитать точки из файла. Проверьте формат данных."); return }
       setPoints(prev => [...prev, ...newPts])
+      registerCodes(newPts, format)
     })
+  }
+
+  // ── Авто-распознавание кодов точек: создаём слой, стиль и группу для новых кодов
+  const registerCodes = (pts: Point[], format = "") => {
+    const коды = Array.from(new Set(pts.map(p => (p.code || "TOPO").toUpperCase()))).filter(Boolean)
+    const новыеКоды: string[] = []
+
+    setPrefixKeys(prev => {
+      const существующие = new Set(prev.map(k => k.code.toUpperCase()))
+      const добавить = коды.filter(c => !существующие.has(c))
+      новыеКоды.push(...добавить)
+      if (добавить.length === 0) return prev
+      return [
+        ...prev,
+        ...добавить.map((c, i) => ({
+          id: Date.now() + i,
+          code: c,
+          description: `Импорт из ${format || "файла"}`,
+          layer: `C-${c}`,
+          style: "Крестик",
+          geometry: "Точка" as PrefixKey["geometry"],
+        })),
+      ]
+    })
+
+    setGroups(prev => {
+      const существующие = new Set(prev.map(g => g.filter.toUpperCase()))
+      const добавить = коды.filter(c => !существующие.has(c) && c !== "*")
+      if (добавить.length === 0) return prev
+      return [
+        ...prev,
+        ...добавить.map((c, i) => ({ id: Date.now() + 1000 + i, name: `${c} — импорт`, filter: c, style: "Стандарт" })),
+      ]
+    })
+
+    if (новыеКоды.length > 0) {
+      setImportInfo(`Импортировано ${pts.length} точек. Распознаны новые коды: ${новыеКоды.join(", ")} — созданы слои и стили автоматически.`)
+    } else {
+      setImportInfo(`Импортировано ${pts.length} точек. Все коды сопоставлены с базой префиксов.`)
+    }
+    setTimeout(() => setImportInfo(""), 6000)
   }
 
   const loadDemoPoints = () => importCSV(
@@ -576,6 +620,12 @@ export default function GeodesyModule() {
               <Icon name="Upload" size={16} className="text-indigo-600" />Импорт точек COGO
             </h3>
             <p className="text-xs text-gray-500 -mt-1">Выберите формат — откроется выбор файла на компьютере</p>
+            {importInfo && (
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                <Icon name="CheckCircle2" size={14} className="text-emerald-600 mt-0.5 shrink-0" />
+                <span>{importInfo}</span>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
               {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)", "SDR (Sokkia/тахеометр)"].map(f => (
                 <button key={f} onClick={() => importFromFile(f)} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">

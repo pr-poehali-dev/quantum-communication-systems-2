@@ -319,13 +319,35 @@ export function импортФайл(
   const input = document.createElement("input")
   input.type = "file"
   input.accept = расширения
-  input.onchange = () => {
-    const file = input.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = e => обработчик(e.target?.result as string, file.name)
-    reader.readAsText(file, "UTF-8")
+  // Важно: input должен быть в DOM, иначе в ряде браузеров и в iframe-предпросмотре
+  // click() не открывает диалог, а onchange не срабатывает.
+  input.style.position = "fixed"
+  input.style.left = "-9999px"
+  input.style.opacity = "0"
+  input.style.pointerEvents = "none"
+
+  const очистка = () => {
+    setTimeout(() => { if (input.parentNode) input.parentNode.removeChild(input) }, 1000)
   }
+
+  input.addEventListener("change", () => {
+    const file = input.files?.[0]
+    if (!file) { очистка(); return }
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        обработчик((e.target?.result as string) ?? "", file.name)
+      } catch (err) {
+        console.error("Ошибка обработки файла:", err)
+        alert("Не удалось обработать файл. Проверьте формат данных.")
+      }
+      очистка()
+    }
+    reader.onerror = () => { alert("Не удалось прочитать файл."); очистка() }
+    reader.readAsText(file, "UTF-8")
+  })
+
+  document.body.appendChild(input)
   input.click()
 }
 
