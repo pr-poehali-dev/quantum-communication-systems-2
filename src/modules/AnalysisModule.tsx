@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts"
 import { экспортТекст, экспортCSV } from "@/utils/exportImport"
 
@@ -138,6 +138,7 @@ export default function AnalysisModule() {
           <TabsTrigger value="drainage">Дренаж и сток</TabsTrigger>
           <TabsTrigger value="norms">Нормы СП 34</TabsTrigger>
           <TabsTrigger value="report">Отчёт</TabsTrigger>
+          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
         </TabsList>
 
         {/* EARTH */}
@@ -392,8 +393,8 @@ export default function AnalysisModule() {
             </div>
           </div>
         </TabsContent>
+        <TabsContent value="v2027"><VersionFeaturesInline categories={["corridor", "surface"]} /></TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["corridor", "surface"]} />
     </motion.div>
   )
 }

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
 
 interface Project {
@@ -294,6 +294,7 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                 <TabsTrigger value="versions">Версии ({current.versions.length})</TabsTrigger>
                 <TabsTrigger value="team">Команда</TabsTrigger>
                 <TabsTrigger value="reports">Отчёты</TabsTrigger>
+                <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
               </TabsList>
 
               <TabsContent value="info" className="space-y-4 mt-4">
@@ -374,11 +375,12 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                   ))}
                 </div>
               </TabsContent>
+
+              <TabsContent value="v2027" className="mt-4"><VersionFeaturesInline categories={["collab", "platform"]} /></TabsContent>
             </Tabs>
           </motion.div>
         ) : null}
       </AnimatePresence>
-      <VersionFeaturesPanel categories={["collab", "platform"]} />
     </motion.div>
   )
 }

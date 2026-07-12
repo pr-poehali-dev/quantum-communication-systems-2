@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
@@ -286,6 +286,7 @@ export default function GeodesyModule() {
           <TabsTrigger value="import">Импорт</TabsTrigger>
           <TabsTrigger value="groups">Группы</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
+          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
         </TabsList>
 
         {/* POINTS */}
@@ -681,8 +682,11 @@ export default function GeodesyModule() {
             </div>
           </div>
         </TabsContent>
+
+        <TabsContent value="v2027">
+          <VersionFeaturesInline categories={["survey", "coords"]} />
+        </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["survey", "coords"]} />
     </motion.div>
   )
 }

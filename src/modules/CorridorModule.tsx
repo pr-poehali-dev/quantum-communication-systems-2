@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts"
 import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC } from "@/utils/exportImport"
 
@@ -176,6 +176,7 @@ export default function CorridorModule() {
           <TabsTrigger value="cross">Поперечники</TabsTrigger>
           <TabsTrigger value="volumes">Объёмы</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
+          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
         </TabsList>
 
         <TabsContent value="params" className="space-y-5">
@@ -351,8 +352,8 @@ export default function CorridorModule() {
             <p className="text-xs text-muted-foreground">Все файлы формируются в браузере без сервера и сохраняются локально.</p>
           </div>
         </TabsContent>
+        <TabsContent value="v2027"><VersionFeaturesInline categories={["corridor"]} /></TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["corridor"]} />
     </motion.div>
   )
 }

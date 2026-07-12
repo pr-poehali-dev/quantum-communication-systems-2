@@ -100,6 +100,11 @@ export function FeatureTool({ feature, onClose }: { feature: VersionFeatureFull;
   )
 }
 
+// ─── Инлайн-сетка функций для встраивания как содержимое вкладки модуля ───────
+export function VersionFeaturesInline({ dir, categories }: { dir?: DirId; categories?: CategoryId[] }) {
+  return <FeaturesGrid dir={dir} categories={categories} />
+}
+
 // ─── Внутренняя сетка функций (поиск + группировка + диалог) ──────────────────
 function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryId[] }) {
   const [active, setActive] = useState<VersionFeatureFull | null>(null)

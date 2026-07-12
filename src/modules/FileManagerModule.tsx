@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 
 // ─── Типы файлов Civil 3D ─────────────────────────────────────────────────────
 
@@ -285,6 +285,11 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
                 {t.label}
               </TabsTrigger>
             ))}
+            <TabsTrigger value="v2027"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              Функции 2022–2027
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -609,8 +614,8 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
             </div>
           </div>
         </TabsContent>
+        <TabsContent value="v2027"><VersionFeaturesInline categories={["interop"]} /></TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["interop"]} />
     </div>
   )
 }

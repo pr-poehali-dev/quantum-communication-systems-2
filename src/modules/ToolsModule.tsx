@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 
 // ─── LSP-скрипты ──────────────────────────────────────────────────────────────
 
@@ -414,6 +414,11 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
                 <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-bold">{t.count}</span>
               </TabsTrigger>
             ))}
+            <TabsTrigger value="v2027"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:text-violet-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              Функции 2022–2027
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -761,6 +766,8 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
             showToast(`Палитра «${name}» создана`)
           }} />
         </TabsContent>
+
+        <TabsContent value="v2027" className="p-6 overflow-auto"><VersionFeaturesInline categories={["layers", "blocks", "xref", "ai", "collab"]} /></TabsContent>
       </Tabs>
 
       {/* ── Toast ── */}
@@ -1188,7 +1195,6 @@ function GitHubImportDialog({ onClose, onImport }: { onClose: () => void; onImpo
           <span className="text-violet-600 font-semibold">{imported.size} импортировано</span>
         </div>
       </motion.div>
-      <VersionFeaturesPanel categories={["layers", "blocks", "xref", "ai", "collab"]} title="Функции AutoCAD: слои, блоки, Xref, автоматизация" />
     </motion.div>
   )
 }

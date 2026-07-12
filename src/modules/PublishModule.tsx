@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 
 // ─── Таблицы стилей печати ────────────────────────────────────────────────────
 
@@ -142,6 +142,11 @@ export default function PublishModule({ onNavigate }: { onNavigate?: (id: string
                 {t.label}
               </TabsTrigger>
             ))}
+            <TabsTrigger value="v2027"
+              className="h-10 px-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-700 data-[state=active]:bg-transparent text-xs font-medium gap-1.5">
+              <Icon name="Sparkles" size={13} />
+              Функции 2022–2027
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -496,8 +501,8 @@ export default function PublishModule({ onNavigate }: { onNavigate?: (id: string
             </div>
           </div>
         </TabsContent>
+        <TabsContent value="v2027"><VersionFeaturesInline categories={["plot"]} /></TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["plot"]} title="Функции печати и публикации AutoCAD 2022–2027" />
     </div>
   )
 }

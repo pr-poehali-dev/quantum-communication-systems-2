@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { экспортCSV, экспортExcel as утилExcel, экспортLandXML, экспортТекст } from "@/utils/exportImport"
 
 interface SpecItem {
@@ -188,6 +188,7 @@ export default function SpecsModule() {
           <TabsTrigger value="export">Экспорт</TabsTrigger>
           <TabsTrigger value="norms">Нормы материалов</TabsTrigger>
           <TabsTrigger value="compare">Сравнение версий</TabsTrigger>
+          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
         </TabsList>
 
         {/* SPECS */}
@@ -486,8 +487,8 @@ export default function SpecsModule() {
             )}
           </div>
         </TabsContent>
+        <TabsContent value="v2027"><VersionFeaturesInline categories={["annotation"]} /></TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["annotation"]} />
     </motion.div>
   )
 }

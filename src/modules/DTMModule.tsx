@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { экспортCSV, экспортLandXML, экспортТекст } from "@/utils/exportImport"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
@@ -930,7 +930,12 @@ export default function DTMModule() {
           </motion.div>
         )}
       </AnimatePresence>
-      <VersionFeaturesPanel categories={["surface", "survey"]} />
+      <div className="mt-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <span className="text-[13px] font-bold text-gray-900">Функции 2022–2027</span>
+        </div>
+        <VersionFeaturesInline categories={["surface", "survey"]} />
+      </div>
     </motion.div>
   )
 }

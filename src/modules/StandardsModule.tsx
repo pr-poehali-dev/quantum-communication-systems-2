@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 
 interface Standard {
   code: string; title: string; region: string; category: string
@@ -58,6 +58,7 @@ export default function StandardsModule() {
           <TabsTrigger value="db">База нормативов</TabsTrigger>
           <TabsTrigger value="checker">Проверка соответствия</TabsTrigger>
           <TabsTrigger value="map">Охват регионов</TabsTrigger>
+          <TabsTrigger value="v2027">Функции 2022–2027</TabsTrigger>
         </TabsList>
 
         {/* DATABASE */}
@@ -205,8 +206,8 @@ export default function StandardsModule() {
             </div>
           </div>
         </TabsContent>
+        <TabsContent value="v2027"><VersionFeaturesInline categories={["annotation", "plot"]} /></TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["annotation", "plot"]} />
     </motion.div>
   )
 }
