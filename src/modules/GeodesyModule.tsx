@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -293,13 +293,79 @@ export default function GeodesyModule() {
 
   const exportPointsSDR = () => экспортSDR(points, "points.sdr", "Съёмка COGO")
 
-  const pointsCADОбъекты = () =>
-    points.map(p => ({
+  // ── Авто-построение линий по кодам: точки с линейным/площадным кодом ────────
+  //     соединяются в полилинии в порядке съёмки. Код из базы префиксов задаёт
+  //     тип геометрии (Линия / Площадь), слой и стиль.
+  interface Фигура {
+    code: string; geometry: PrefixKey["geometry"]; layer: string; style: string
+    points: Point[]; closed: boolean; length: number
+  }
+
+  const фигуры = useMemo<Фигура[]>(() => {
+    const порядокКодов: string[] = []
+    const поКоду: Record<string, Point[]> = {}
+    points.forEach(p => {
+      const c = (p.code || "TOPO").toUpperCase()
+      if (!поКоду[c]) { поКоду[c] = []; порядокКодов.push(c) }
+      поКоду[c].push(p)
+    })
+    const результат: Фигура[] = []
+    порядокКодов.forEach(code => {
+      const ключ = prefixKeys.find(k => k.code.toUpperCase() === code)
+      const geometry = ключ?.geometry ?? "Точка"
+      if (geometry === "Точка") return
+      const pts = поКоду[code]
+      if (pts.length < 2) return
+      const closed = geometry === "Площадь"
+      const seq = closed ? [...pts, pts[0]] : pts
+      let length = 0
+      for (let i = 1; i < seq.length; i++) {
+        length += Math.hypot(seq[i].x - seq[i - 1].x, seq[i].y - seq[i - 1].y)
+      }
+      результат.push({
+        code, geometry, layer: ключ?.layer || `C-${code}`, style: ключ?.style || "Сплошная",
+        points: pts, closed, length: +length.toFixed(2),
+      })
+    })
+    return результат
+  }, [points, prefixKeys])
+
+  // Габариты для превью-чертежа (SVG)
+  const чертёжГабариты = useMemo(() => {
+    if (points.length === 0) return null
+    const xs = points.map(p => p.x), ys = points.map(p => p.y)
+    return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) }
+  }, [points])
+
+  const проекция = (p: Point, W = 640, H = 420, pad = 30) => {
+    const g = чертёжГабариты!
+    const dx = g.maxX - g.minX || 1, dy = g.maxY - g.minY || 1
+    const s = Math.min((W - pad * 2) / dx, (H - pad * 2) / dy)
+    return {
+      cx: pad + (p.x - g.minX) * s,
+      cy: H - pad - (p.y - g.minY) * s, // Y вверх
+    }
+  }
+
+  const линииCADОбъекты = () =>
+    фигуры.flatMap(ф => {
+      const seq = ф.closed ? [...ф.points, ф.points[0]] : ф.points
+      const линии: { тип: "LINE"; данные: number[]; слой: string }[] = []
+      for (let i = 1; i < seq.length; i++) {
+        линии.push({ тип: "LINE", данные: [seq[i - 1].x, seq[i - 1].y, seq[i - 1].z, seq[i].x, seq[i].y, seq[i].z], слой: ф.layer })
+      }
+      return линии
+    })
+
+  const pointsCADОбъекты = () => [
+    ...points.map(p => ({
       тип: "TEXT" as const,
       данные: [p.x, p.y],
       текст: `${p.name || p.id} ${p.z.toFixed(2)}`,
       слой: "COGO_POINTS",
-    }))
+    })),
+    ...линииCADОбъекты(),
+  ]
 
   const exportPointsDXF = () => {
     import("@/utils/exportImport").then(({ экспортDXF }) => экспортDXF(pointsCADОбъекты(), "points.dxf"))
@@ -333,6 +399,7 @@ export default function GeodesyModule() {
           <TabsTrigger value="analysis">Анализ DTM</TabsTrigger>
           <TabsTrigger value="adjust">Уравнивание</TabsTrigger>
           <TabsTrigger value="prefix">База префиксов</TabsTrigger>
+          <TabsTrigger value="drawing">Чертёж</TabsTrigger>
           <TabsTrigger value="import">Импорт</TabsTrigger>
           <TabsTrigger value="groups">Группы</TabsTrigger>
           <TabsTrigger value="export">Экспорт</TabsTrigger>
@@ -610,6 +677,93 @@ export default function GeodesyModule() {
               <div>• Точки с линейным кодом соединяются в полилинии, с площадным — в контуры.</div>
               <div className="mt-1">Кодов в базе: <strong>{prefixKeys.length}</strong> · Точек со съёмки: <strong>{points.length}</strong></div>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* DRAWING — авто-построение линий по кодам */}
+        <TabsContent value="drawing" className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Icon name="Spline" size={16} className="text-indigo-600" />Чертёж по кодам съёмки
+              </h3>
+              <div className="flex gap-2">
+                <Button onClick={exportPointsDXF} variant="outline" size="sm" className="gap-1 h-8"><Icon name="Download" size={13} />DXF</Button>
+                <Button onClick={exportPointsDWG} variant="outline" size="sm" className="gap-1 h-8"><Icon name="Download" size={13} />DWG</Button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 -mt-1">
+              Точки с линейным и площадным кодом автоматически соединяются в полилинии и контуры в порядке съёмки.
+              Тип геометрии, слой и стиль берутся из базы префиксов.
+            </p>
+
+            {чертёжГабариты ? (
+              <div className="rounded-lg border border-gray-200 bg-[#0f1420] overflow-hidden">
+                <svg viewBox="0 0 640 420" className="w-full" style={{ maxHeight: 460 }}>
+                  <defs>
+                    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+                      <path d="M32 0H0V32" fill="none" stroke="#ffffff10" strokeWidth="1" />
+                    </pattern>
+                  </defs>
+                  <rect width="640" height="420" fill="url(#grid)" />
+                  {фигуры.map((ф, fi) => {
+                    const seq = ф.closed ? [...ф.points, ф.points[0]] : ф.points
+                    const цвет = ф.geometry === "Площадь" ? "#fb923c" : "#38bdf8"
+                    const d = seq.map((p, i) => { const { cx, cy } = проекция(p); return `${i === 0 ? "M" : "L"}${cx.toFixed(1)} ${cy.toFixed(1)}` }).join(" ")
+                    return (
+                      <g key={fi}>
+                        <path d={d} fill={ф.closed ? цвет + "22" : "none"} stroke={цвет} strokeWidth="1.8"
+                          strokeDasharray={ф.style === "Пунктир" ? "6 4" : ф.style === "Штриховка" ? "2 3" : undefined} />
+                      </g>
+                    )
+                  })}
+                  {points.map(p => {
+                    const { cx, cy } = проекция(p)
+                    return (
+                      <g key={p.id}>
+                        <circle cx={cx} cy={cy} r="2.6" fill="#22d3ee" />
+                        <text x={cx + 4} y={cy - 4} fill="#94a3b8" fontSize="8">{p.name || p.id}</text>
+                      </g>
+                    )
+                  })}
+                </svg>
+              </div>
+            ) : (
+              <div className="text-gray-400 text-sm py-10 text-center border border-dashed border-gray-200 rounded-lg">
+                Нет точек. Импортируйте съёмку или добавьте точки — чертёж построится автоматически.
+              </div>
+            )}
+
+            <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#38bdf8] inline-block" />Линии</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-2 bg-[#fb923c]/40 border border-[#fb923c] inline-block" />Контуры</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#22d3ee] inline-block" />Точки</span>
+            </div>
+
+            {фигуры.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-gray-400 border-b border-gray-200">
+                    <tr><th className="text-left py-1.5">Код</th><th className="text-left">Геометрия</th><th className="text-left">Слой</th><th className="text-left">Вершин</th><th className="text-left">Длина, м</th></tr>
+                  </thead>
+                  <tbody>
+                    {фигуры.map((ф, i) => (
+                      <tr key={i} className="border-b border-gray-100">
+                        <td className="py-1.5 font-mono font-semibold text-gray-800">{ф.code}</td>
+                        <td><span className={`px-1.5 py-0.5 rounded-full font-semibold ${ф.geometry === "Линия" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>{ф.geometry}</span></td>
+                        <td className="font-mono text-gray-500">{ф.layer}</td>
+                        <td className="text-gray-600">{ф.points.length}</td>
+                        <td className="font-mono text-gray-700">{ф.length.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 text-xs text-gray-500">
+                Пока нет линейных объектов. Присвойте точкам линейный код (EDGE, FEN, WATR…) или площадной (BLD) — они соединятся в полилинии.
+              </div>
+            )}
           </div>
         </TabsContent>
 
