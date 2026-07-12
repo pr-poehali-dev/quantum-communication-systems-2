@@ -4,9 +4,9 @@
 // product: "acad" — AutoCAD, "civil" — Civil 3D.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ProductId = "acad" | "civil"
+export type ProductId = "acad" | "civil" | "kompas" | "solidworks"
 export type DirId = "infra" | "survey" | "networks" | "bim" | "mechanical" | "docs" | "management"
-export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027"
+export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "v24" | "sw"
 export type CategoryId =
   | "draw" | "modify" | "modeling3d" | "annotation" | "collab"
   | "corridor" | "surface" | "network" | "coords" | "bim" | "ai" | "platform"
@@ -51,9 +51,11 @@ export interface VersionFeature {
 export const PRODUCTS: { id: ProductId; label: string; short: string; color: string }[] = [
   { id: "acad", label: "AutoCAD", short: "ACAD", color: "#d13438" },
   { id: "civil", label: "AutoCAD Civil 3D", short: "C3D", color: "#0078d4" },
+  { id: "kompas", label: "КОМПАС-3D v24", short: "КОМПАС", color: "#00843d" },
+  { id: "solidworks", label: "SOLIDWORKS 3D CAD", short: "SW", color: "#e2231a" },
 ]
 
-export const VERSIONS: VersionId[] = ["2022", "2023", "2024", "2025", "2026", "2027"]
+export const VERSIONS: VersionId[] = ["2022", "2023", "2024", "2025", "2026", "2027", "v24", "sw"]
 
 export const DIR_LABELS: Record<DirId, string> = {
   infra: "Инфраструктура и дороги",
@@ -1452,6 +1454,514 @@ const RAW_FEATURES: RawFeature[] = [
       { key: "fmt", label: "Формат", type: "select", default: "PDF + CSV", options: ["PDF", "CSV", "PDF + CSV", "XLSX"] },
     ],
     compute: v => [{ label: "Строк", value: `${v.pts}` }, { label: "Экспорт", value: v.fmt }],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // КОМПАС-3D v24 (АСКОН) — твердотельное, поверхностное и прямое моделирование,
+  // машиностроение, строительство, визуализация, интеграция.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Моделирование и геометрия ──
+  {
+    id: "kompas-v24-fillet-surface", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Скругление поверхностей", command: "FILLETSURF",
+    desc: "Плавные переходы с «прокатыванием шарика» и объединением в единое тело. Для сложных форм без лишних шагов.",
+    icon: "Spline", isNew: true, outputLabel: "Скругление",
+    fields: [
+      { key: "radius", label: "Радиус", type: "number", default: "5", suffix: "мм" },
+      { key: "roll", label: "Прокатывание шарика", type: "toggle", default: "on" },
+      { key: "merge", label: "Объединить в тело", type: "toggle", default: "on" },
+    ],
+    compute: v => [
+      { label: "Радиус скругления", value: `R${num(v.radius)} мм` },
+      { label: "Режим", value: v.roll === "on" ? "Прокатывание шарика" : "Постоянный радиус" },
+      { label: "Результат", value: v.merge === "on" ? "Единое тело" : "Отдельные грани" },
+    ],
+  },
+  {
+    id: "kompas-v24-deform", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Деформация детали", command: "DEFORM",
+    desc: "Гибкая деформация тел без плагинов — изгиб, кручение, растяжение геометрии прямо в КОМПАС.",
+    icon: "Waypoints", isNew: true, outputLabel: "Деформация",
+    fields: [
+      { key: "type", label: "Тип", type: "select", default: "Изгиб", options: ["Изгиб", "Кручение", "Растяжение", "Конус"] },
+      { key: "value", label: "Величина", type: "number", default: "15", suffix: "°/мм" },
+    ],
+    compute: v => [{ label: "Деформация", value: `${v.type} на ${num(v.value)}` }],
+  },
+  {
+    id: "kompas-v24-midsurface", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Срединная поверхность", command: "MIDSURFACE",
+    desc: "Автопостроение срединной поверхности тонкостенных деталей (винты, повторяющиеся формы) без ручных доработок.",
+    icon: "Layers2", isNew: true, outputLabel: "Срединная поверхность",
+    fields: [{ key: "thick", label: "Толщина стенки", type: "number", default: "2", suffix: "мм" }],
+    compute: v => [{ label: "Поверхность построена", value: `Стенка ${num(v.thick)} мм` }],
+  },
+  {
+    id: "kompas-v24-checkgeom", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Проверка геометрии", command: "CHECKGEOM",
+    desc: "Поиск ошибок и пересечений в модели до передачи на производство.",
+    icon: "ShieldCheck", isNew: true, outputLabel: "Проверка",
+    fields: [
+      { key: "faces", label: "Граней в модели", type: "number", default: "1240" },
+      { key: "tol", label: "Допуск", type: "number", default: "0.01", suffix: "мм" },
+    ],
+    compute: v => {
+      const errs = Math.max(0, Math.round(num(v.faces) / 800 - num(v.tol) * 30))
+      return [
+        { label: "Проверено граней", value: `${num(v.faces)}` },
+        { label: "Найдено проблем", value: errs === 0 ? "Ошибок нет ✓" : `${errs} пересечений` },
+      ]
+    },
+  },
+  {
+    id: "kompas-v24-direct-faces", product: "kompas", version: "v24", dir: "mechanical", category: "modify",
+    name: "Прямое моделирование граней", command: "DIRECTEDIT",
+    desc: "Сдвиг, поворот и замена групп граней без перестроения дерева построения.",
+    icon: "Move3D", isNew: true, outputLabel: "Правка граней",
+    fields: [
+      { key: "op", label: "Операция", type: "select", default: "Сдвиг", options: ["Сдвиг", "Поворот", "Замена"] },
+      { key: "faces", label: "Граней выбрано", type: "number", default: "6" },
+    ],
+    compute: v => [{ label: v.op, value: `${num(v.faces)} граней` }],
+  },
+  {
+    id: "kompas-v24-optim-import", product: "kompas", version: "v24", dir: "mechanical", category: "interop",
+    name: "Оптимизация импорт. геометрии", command: "OPTIMIZEGEOM",
+    desc: "Улучшенная обработка данных из внешних источников — «лечение» импортированной геометрии.",
+    icon: "Wand2", isNew: true, outputLabel: "Оптимизация",
+    fields: [{ key: "faces", label: "Граней импортировано", type: "number", default: "5400" }],
+    compute: v => [{ label: "Исправлено", value: `${Math.round(num(v.faces) * 0.04)} дефектов геометрии` }],
+  },
+  {
+    id: "kompas-v24-reverse", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Реверс-инжиниринг (скан)", command: "REVERSE",
+    desc: "Восстановление и адаптация геометрии по результатам сканирования объекта.",
+    icon: "ScanLine", isNew: true, outputLabel: "Реконструкция",
+    fields: [{ key: "pts", label: "Точек скана", type: "number", default: "1500000" }],
+    compute: v => [{ label: "Облако точек", value: `${(num(v.pts) / 1e6).toFixed(1)} млн → поверхность` }],
+  },
+
+  // ── Машиностроение ──
+  {
+    id: "kompas-v24-shafts", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Валы и мех. передачи 3D", command: "SHAFTS3D",
+    desc: "Проектирование и расчёт передач в сборке, связь 2D и 3D в одном файле, авто-документы, цепи и ремни.",
+    icon: "Cog", isNew: true, outputLabel: "Расчёт передачи",
+    fields: [
+      { key: "type", label: "Передача", type: "select", default: "Зубчатая", options: ["Зубчатая", "Ремённая", "Цепная", "Червячная"] },
+      { key: "ratio", label: "Передаточное число", type: "number", default: "3.15" },
+      { key: "power", label: "Мощность", type: "number", default: "7.5", suffix: "кВт" },
+    ],
+    compute: v => [
+      { label: "Тип", value: v.type },
+      { label: "Крутящий момент", value: `${(9550 * num(v.power) / 1450 * num(v.ratio)).toFixed(1)} Н·м` },
+    ],
+  },
+  {
+    id: "kompas-v24-pipes", product: "kompas", version: "v24", dir: "networks", category: "network",
+    name: "Оборудование: Трубопроводы", command: "PIPING",
+    desc: "Выбор трассировки трубопровода между точками, подбор материала и деталей из каталога, избранное.",
+    icon: "Workflow", isNew: true, outputLabel: "Трубопровод",
+    fields: [
+      { key: "dn", label: "Диаметр DN", type: "number", default: "100", suffix: "мм" },
+      { key: "len", label: "Длина трассы", type: "number", default: "24", suffix: "м" },
+      { key: "mat", label: "Материал", type: "select", default: "Сталь", options: ["Сталь", "Нержавейка", "ПНД", "Медь"] },
+    ],
+    compute: v => [
+      { label: "Трасса", value: `DN${num(v.dn)} · ${num(v.len)} м` },
+      { label: "Материал", value: v.mat },
+    ],
+  },
+  {
+    id: "kompas-v24-kompasflow", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "KompasFlow (CFD)", command: "KOMPASFLOW",
+    desc: "Расчёт климатических и аэрогидродинамических условий: влажность, шаблоны, параметры, визуализация результатов.",
+    icon: "Wind", isNew: true, outputLabel: "CFD-расчёт",
+    fields: [
+      { key: "velocity", label: "Скорость потока", type: "number", default: "5", suffix: "м/с" },
+      { key: "humid", label: "Влажность", type: "number", default: "60", suffix: "%" },
+    ],
+    compute: v => [
+      { label: "Число Рейнольдса", value: `${Math.round(num(v.velocity) * 0.1 / 1.5e-5).toLocaleString("ru")}` },
+      { label: "Режим", value: num(v.velocity) > 2 ? "Турбулентный" : "Ламинарный" },
+    ],
+  },
+  {
+    id: "kompas-v24-nesting", product: "kompas", version: "v24", dir: "mechanical", category: "modify",
+    name: "Раскрой материалов", command: "NESTING",
+    desc: "Авто-карты раскроя, импорт 3D-сборок, вынос плоских деталей, ведомости отходов и рабочие задания.",
+    icon: "LayoutGrid", isNew: true, outputLabel: "Карта раскроя",
+    fields: [
+      { key: "parts", label: "Деталей", type: "number", default: "48" },
+      { key: "sheet", label: "Лист, м²", type: "number", default: "3", suffix: "м²" },
+    ],
+    compute: v => {
+      const usage = Math.min(96, 70 + num(v.parts) / 4)
+      return [
+        { label: "Коэффициент раскроя", value: `${usage.toFixed(1)} %` },
+        { label: "Отходы", value: `${(100 - usage).toFixed(1)} %` },
+      ]
+    },
+  },
+  {
+    id: "kompas-v24-apmfem", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "APM FEM (прочность)", command: "APMFEM",
+    desc: "Быстрый ввод данных, удобный просмотр результатов, связка с металлоконструкциями, генерация сетки с узлами разной сложности.",
+    icon: "Grid3x3", isNew: true, outputLabel: "Прочностной расчёт",
+    fields: [
+      { key: "load", label: "Нагрузка", type: "number", default: "5000", suffix: "Н" },
+      { key: "area", label: "Сечение", type: "number", default: "250", suffix: "мм²" },
+      { key: "yield", label: "Предел текучести", type: "number", default: "235", suffix: "МПа" },
+    ],
+    compute: v => {
+      const stress = num(v.load) / num(v.area)
+      const safety = num(v.yield) / stress
+      return [
+        { label: "Напряжение", value: `${stress.toFixed(1)} МПа` },
+        { label: "Коэф. запаса", value: `${safety.toFixed(2)}× ${safety >= 1.5 ? "✓" : "⚠ мало"}` },
+      ]
+    },
+  },
+  {
+    id: "kompas-v24-frames", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Металлоконструкции и каркасы", command: "FRAMES",
+    desc: "Проектирование каркасов из профильного металлопроката с авто-документацией.",
+    icon: "Frame", outputLabel: "Каркас",
+    fields: [
+      { key: "profile", label: "Профиль", type: "select", default: "Двутавр", options: ["Двутавр", "Швеллер", "Уголок", "Труба кв."] },
+      { key: "len", label: "Суммарная длина", type: "number", default: "120", suffix: "м" },
+    ],
+    compute: v => [{ label: "Профиль", value: `${v.profile}, ${num(v.len)} м` }],
+  },
+  {
+    id: "kompas-v24-weld", product: "kompas", version: "v24", dir: "mechanical", category: "annotation",
+    name: "Сварные швы", command: "WELD",
+    desc: "Создание сварных швов и оформление обозначений по ГОСТ.",
+    icon: "Flame", outputLabel: "Сварной шов",
+    fields: [
+      { key: "type", label: "Тип шва", type: "select", default: "Стыковой", options: ["Стыковой", "Угловой", "Тавровый", "Нахлёсточный"] },
+      { key: "leg", label: "Катет", type: "number", default: "5", suffix: "мм" },
+    ],
+    compute: v => [{ label: v.type, value: `Катет ${num(v.leg)} мм` }],
+  },
+  {
+    id: "kompas-v24-molds", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Штампы и пресс-формы", command: "MOLDS",
+    desc: "Проектирование штампов и пресс-форм с библиотеками стандартных элементов.",
+    icon: "Boxes", outputLabel: "Оснастка",
+    fields: [{ key: "cavities", label: "Число гнёзд", type: "number", default: "4" }],
+    compute: v => [{ label: "Пресс-форма", value: `${num(v.cavities)} гнезда` }],
+  },
+
+  // ── КОМПАС-Композиты ──
+  {
+    id: "kompas-v24-composites", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "КОМПАС-Композиты", command: "COMPOSITES",
+    desc: "Проектирование изделий из полимерных композитов: расчёт с учётом специфики, проверка укладки, раскрой, производственные данные.",
+    icon: "Layers", isNew: true, outputLabel: "Композит",
+    fields: [
+      { key: "plies", label: "Число слоёв", type: "number", default: "16" },
+      { key: "angle", label: "Схема укладки", type: "select", default: "[0/45/-45/90]", options: ["[0/90]", "[0/45/-45/90]", "[±45]", "Квази-изотроп"] },
+      { key: "thick", label: "Толщина слоя", type: "number", default: "0.25", suffix: "мм" },
+    ],
+    compute: v => [
+      { label: "Толщина пакета", value: `${(num(v.plies) * num(v.thick)).toFixed(2)} мм` },
+      { label: "Укладка", value: v.angle },
+    ],
+  },
+
+  // ── Строительство (СПДС / ГОСТ) ──
+  {
+    id: "kompas-v24-pid", product: "kompas", version: "v24", dir: "networks", category: "network",
+    name: "Схемы P&ID (ТХ)", command: "PID",
+    desc: "Расширенные принципиальные схемы трубопроводов и приборов: шаблоны отчётов, фильтры по зонам/блокам, материал труб.",
+    icon: "Network", isNew: true, outputLabel: "P&ID",
+    fields: [
+      { key: "elems", label: "Элементов на схеме", type: "number", default: "85" },
+      { key: "mat", label: "Материал труб", type: "text", default: "Ст20" },
+    ],
+    compute: v => [{ label: "Схема ТХ", value: `${num(v.elems)} элементов, ${v.mat}` }],
+  },
+  {
+    id: "kompas-v24-ugo", product: "kompas", version: "v24", dir: "docs", category: "annotation",
+    name: "Точка вставки УГО", command: "UGOPOINT",
+    desc: "Задание точки вставки условно-графического обозначения для точного размещения на чертеже.",
+    icon: "Crosshair", outputLabel: "УГО",
+    fields: [{ key: "elem", label: "Обозначение", type: "text", default: "Задвижка" }],
+    compute: v => [{ label: "Точка вставки задана", value: v.elem }],
+  },
+  {
+    id: "kompas-v24-ifc-classes", product: "kompas", version: "v24", dir: "bim", category: "interop",
+    name: "IFC: авто-классы ОВ/ВК/ТХ", command: "IFCEXPORT",
+    desc: "При конвертации в IFC автоматически назначаются классы для разделов ОВ, ВК, ТХ и постоянный GUID каждому элементу.",
+    icon: "Building2", isNew: true, outputLabel: "IFC-экспорт",
+    fields: [
+      { key: "section", label: "Раздел", type: "select", default: "ОВ", options: ["ОВ", "ВК", "ТХ", "ЭОМ"] },
+      { key: "elems", label: "Элементов", type: "number", default: "320" },
+    ],
+    compute: v => [
+      { label: "Раздел", value: v.section },
+      { label: "Присвоено GUID", value: `${num(v.elems)} элементов` },
+    ],
+  },
+  {
+    id: "kompas-v24-techblocks", product: "kompas", version: "v24", dir: "docs", category: "blocks",
+    name: "Технологические блоки", command: "TECHBLOCK",
+    desc: "Массовая замена технологических блоков одной операцией.",
+    icon: "Replace", isNew: true, outputLabel: "Замена блоков",
+    fields: [{ key: "count", label: "Блоков заменить", type: "number", default: "36" }],
+    compute: v => [{ label: "Заменено", value: `${num(v.count)} блоков` }],
+  },
+  {
+    id: "kompas-v24-spec-report", product: "kompas", version: "v24", dir: "docs", category: "annotation",
+    name: "Шаблоны отчётов ТХ", command: "REPORTTPL",
+    desc: "Пользовательские шаблоны отчётов с фильтрами и колонками для авто-сбора проектных данных по зонам и блокам.",
+    icon: "FileSpreadsheet", isNew: true, outputLabel: "Отчёт",
+    fields: [{ key: "cols", label: "Колонок", type: "number", default: "8" }],
+    compute: v => [{ label: "Шаблон отчёта", value: `${num(v.cols)} колонок, авто-сбор` }],
+  },
+
+  // ── Визуализация ──
+  {
+    id: "kompas-v24-render", product: "kompas", version: "v24", dir: "bim", category: "modeling3d",
+    name: "Фотореалистичная визуализация", command: "RENDER",
+    desc: "Фотореалистичные изображения моделей прямо в программе, без сторонних приложений. Реалистичные материалы и освещение.",
+    icon: "Image", isNew: true, outputLabel: "Рендер",
+    fields: [
+      { key: "res", label: "Разрешение", type: "select", default: "Full HD", options: ["HD", "Full HD", "2K", "4K"] },
+      { key: "quality", label: "Качество", type: "select", default: "Высокое", options: ["Черновик", "Среднее", "Высокое", "Финальное"] },
+    ],
+    compute: v => [{ label: "Изображение", value: `${v.res}, качество: ${v.quality}` }],
+  },
+
+  // ── Интеграция и импорт ──
+  {
+    id: "kompas-v24-import-c3d", product: "kompas", version: "v24", dir: "mechanical", category: "interop",
+    name: "Чтение моделей других САПР", command: "IMPORTCAD",
+    desc: "Импорт 3D-моделей NX, SolidWorks, Creo, Inventor, Catia, SolidEdge через ядро C3D с выбором объектов и свойств.",
+    icon: "FileInput", isNew: true, outputLabel: "Импорт",
+    fields: [{ key: "src", label: "Источник", type: "select", default: "SolidWorks", options: ["NX", "SolidWorks", "Creo", "Inventor", "Catia", "SolidEdge"] }],
+    compute: v => [{ label: "Импорт из", value: `${v.src} → C3D` }],
+  },
+  {
+    id: "kompas-v24-jt-step", product: "kompas", version: "v24", dir: "mechanical", category: "interop",
+    name: "Обмен C3D / JT / STEP", command: "EXPORTJT",
+    desc: "Экспорт с выбором объектов, сохранение таблиц и свойств в C3D, JT, STEP. STEP корректно читает СК и имена объектов.",
+    icon: "FileOutput", outputLabel: "Экспорт",
+    fields: [{ key: "fmt", label: "Формат", type: "select", default: "STEP", options: ["C3D", "JT", "STEP"] }],
+    compute: v => [{ label: "Экспорт в", value: v.fmt }],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOLIDWORKS 3D CAD (Dassault) — детали, сборки, чертежи, анализ, обмен.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Проектирование деталей и узлов ──
+  {
+    id: "sw-solid-modeling", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Твердотельное моделирование", command: "EXTRUDE",
+    desc: "Трёхмерное твердотельное и концептуальное моделирование деталей и узлов, планирование структуры изделия.",
+    icon: "Box", outputLabel: "Модель",
+    fields: [
+      { key: "op", label: "Операция", type: "select", default: "Вытянуть", options: ["Вытянуть", "Повернуть", "По траектории", "По сечениям"] },
+      { key: "depth", label: "Глубина", type: "number", default: "40", suffix: "мм" },
+    ],
+    compute: v => [{ label: v.op, value: `${num(v.depth)} мм` }],
+  },
+  {
+    id: "sw-direct-edit", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Прямая модификация геометрии", command: "MOVEFACE",
+    desc: "Изменение геометрии без истории построения — сдвиг и удаление граней, инструмент Instant3D.",
+    icon: "Move3D", outputLabel: "Правка",
+    fields: [{ key: "faces", label: "Граней", type: "number", default: "4" }],
+    compute: v => [{ label: "Изменено граней", value: `${num(v.faces)}` }],
+  },
+  {
+    id: "sw-surfaces", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Проектирование поверхностей", command: "SURFACE",
+    desc: "Сложные поверхности произвольной формы: заплатки, границы, сопряжения с контролем кривизны.",
+    icon: "Spline", outputLabel: "Поверхность",
+    fields: [{ key: "type", label: "Тип", type: "select", default: "Граничная", options: ["Вытянутая", "Граничная", "По сечениям", "Заполнить"] }],
+    compute: v => [{ label: "Поверхность", value: v.type }],
+  },
+  {
+    id: "sw-sheetmetal", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Тонколистовое проектирование", command: "SHEETMETAL",
+    desc: "Проектирование листовых деталей с развёртками, углами гибки и таблицами гибки.",
+    icon: "Layers2", outputLabel: "Развёртка",
+    fields: [
+      { key: "thick", label: "Толщина", type: "number", default: "2", suffix: "мм" },
+      { key: "kfac", label: "K-фактор", type: "number", default: "0.44" },
+      { key: "angle", label: "Угол гиба", type: "number", default: "90", suffix: "°" },
+    ],
+    compute: v => {
+      const t = num(v.thick), k = num(v.kfac), a = num(v.angle)
+      const ba = Math.PI * (a / 180) * (0 + k * t)
+      return [{ label: "Допуск на гиб (BA)", value: `${ba.toFixed(2)} мм` }, { label: "K-фактор", value: `${k}` }]
+    },
+  },
+  {
+    id: "sw-weldments", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Сварные конструкции", command: "WELDMENT",
+    desc: "Каркасы из профилей по эскизу, обрезка/удлинение, ведомость сварных элементов.",
+    icon: "Frame", outputLabel: "Сварная конструкция",
+    fields: [{ key: "len", label: "Длина профиля", type: "number", default: "80", suffix: "м" }],
+    compute: v => [{ label: "Ведомость", value: `${num(v.len)} м профиля` }],
+  },
+  {
+    id: "sw-mold", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Проектирование пресс-форм", command: "MOLD",
+    desc: "Анализ уклонов, линия разъёма, полости и знаки пресс-форм для пластиковых деталей.",
+    icon: "Boxes", outputLabel: "Пресс-форма",
+    fields: [{ key: "draft", label: "Уклон", type: "number", default: "1.5", suffix: "°" }],
+    compute: v => [{ label: "Уклон", value: `${num(v.draft)}° ${num(v.draft) >= 1 ? "✓" : "⚠ мало"}` }],
+  },
+  {
+    id: "sw-assembly", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Проектирование сборок", command: "ASSEMBLY",
+    desc: "Сложные сборки с сопряжениями, массивами компонентов и режимом больших сборок.",
+    icon: "Component", outputLabel: "Сборка",
+    fields: [{ key: "comp", label: "Компонентов", type: "number", default: "350" }],
+    compute: v => [{ label: "Сборка", value: `${num(v.comp)} компонентов` }],
+  },
+
+  // ── Выпуск чертежей ──
+  {
+    id: "sw-drawing", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Ассоциативные чертежи", command: "DRAWING",
+    desc: "Авто-создание и обновление видов ассоциативной модели, ГОСТ-оформление, размеры, допуски, разнесённые виды.",
+    icon: "FileText", outputLabel: "Чертёж",
+    fields: [
+      { key: "views", label: "Видов на листе", type: "number", default: "4" },
+      { key: "std", label: "Стандарт", type: "select", default: "ГОСТ", options: ["ГОСТ", "ISO", "ANSI", "DIN"] },
+    ],
+    compute: v => [{ label: "Чертёж", value: `${num(v.views)} вида, ${v.std}` }],
+  },
+  {
+    id: "sw-bom", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Спецификация (ЕСКД)", command: "BOM",
+    desc: "Автоматизированная спецификация по ЕСКД в формате чертежа SOLIDWORKS или таблицы Excel. Простановка позиций.",
+    icon: "Table", outputLabel: "Спецификация",
+    fields: [
+      { key: "pos", label: "Позиций", type: "number", default: "42" },
+      { key: "fmt", label: "Формат", type: "select", default: "Чертёж SW", options: ["Чертёж SW", "Excel"] },
+    ],
+    compute: v => [{ label: "Спецификация", value: `${num(v.pos)} позиций → ${v.fmt}` }],
+  },
+  {
+    id: "sw-mbd", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Бесчертёжные технологии (MBD)", command: "DIMXPERT",
+    desc: "Простановка размеров, допусков и спецсимволов прямо на 3D-модели без чертежа.",
+    icon: "Ruler", outputLabel: "MBD-аннотации",
+    fields: [{ key: "dims", label: "Размеров", type: "number", default: "24" }],
+    compute: v => [{ label: "Аннотировано на 3D", value: `${num(v.dims)} размеров` }],
+  },
+
+  // ── Средства проектирования ──
+  {
+    id: "sw-toolbox", product: "solidworks", version: "sw", dir: "mechanical", category: "blocks",
+    name: "Toolbox (ГОСТ-компоненты)", command: "TOOLBOX",
+    desc: "Библиотека стандартных компонентов по ГОСТ — крепёж, подшипники, шайбы. Ускоряет и стандартизирует работу.",
+    icon: "Boxes", outputLabel: "Стандартный компонент",
+    fields: [
+      { key: "type", label: "Компонент", type: "select", default: "Болт", options: ["Болт", "Гайка", "Шайба", "Подшипник", "Штифт"] },
+      { key: "size", label: "Размер", type: "text", default: "M12" },
+    ],
+    compute: v => [{ label: "Вставлен", value: `${v.type} ${v.size} (ГОСТ)` }],
+  },
+  {
+    id: "sw-config", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Конфигурации (исполнения)", command: "CONFIG",
+    desc: "Варианты исполнений деталей и узлов в одном файле, таблицы параметров (DriveWorksXpress).",
+    icon: "Copy", outputLabel: "Конфигурации",
+    fields: [{ key: "count", label: "Исполнений", type: "number", default: "6" }],
+    compute: v => [{ label: "Создано", value: `${num(v.count)} исполнений` }],
+  },
+
+  // ── Анимация и анализ ──
+  {
+    id: "sw-render", product: "solidworks", version: "sw", dir: "bim", category: "modeling3d",
+    name: "Фотореалистичный рендеринг", command: "PHOTOVIEW",
+    desc: "Фотореалистичные изображения (PhotoView 360), ролики с перемещением камеры и эффектом присутствия.",
+    icon: "Image", outputLabel: "Рендер",
+    fields: [{ key: "res", label: "Разрешение", type: "select", default: "Full HD", options: ["HD", "Full HD", "2K", "4K"] }],
+    compute: v => [{ label: "Рендер", value: v.res }],
+  },
+  {
+    id: "sw-collision", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Контроль коллизий", command: "INTERFERENCE",
+    desc: "Проверка пересечений компонентов, соосности крепежа и отверстий в сборке.",
+    icon: "ShieldAlert", outputLabel: "Коллизии",
+    fields: [{ key: "comp", label: "Компонентов", type: "number", default: "120" }],
+    compute: v => [{ label: "Проверка", value: `${num(v.comp)} компонентов на пересечения` }],
+  },
+  {
+    id: "sw-simulation", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Анализ прочности (Simulation)", command: "SIMULATION",
+    desc: "Линейный анализ прочности деталей, базовый анализ течения жидкости и газов.",
+    icon: "Activity", outputLabel: "Прочность",
+    fields: [
+      { key: "force", label: "Сила", type: "number", default: "2000", suffix: "Н" },
+      { key: "area", label: "Сечение", type: "number", default: "150", suffix: "мм²" },
+    ],
+    compute: v => [{ label: "Напряжение", value: `${(num(v.force) / num(v.area)).toFixed(1)} МПа` }],
+  },
+  {
+    id: "sw-sustain", product: "solidworks", version: "sw", dir: "mechanical", category: "platform",
+    name: "Экологичность (Sustainability)", command: "SUSTAINABILITY",
+    desc: "Оценка влияния детали на окружающую среду — углеродный след, энергия, экологически рациональное проектирование.",
+    icon: "Leaf", outputLabel: "Эко-оценка",
+    fields: [
+      { key: "mass", label: "Масса", type: "number", default: "1.2", suffix: "кг" },
+      { key: "mat", label: "Материал", type: "select", default: "Сталь", options: ["Сталь", "Алюминий", "Пластик ABS", "Титан"] },
+    ],
+    compute: v => {
+      const k: Record<string, number> = { "Сталь": 1.9, "Алюминий": 8.2, "Пластик ABS": 3.1, "Титан": 24 }
+      return [{ label: "Углеродный след", value: `${(num(v.mass) * (k[v.mat] || 2)).toFixed(1)} кг CO₂` }]
+    },
+  },
+
+  // ── Обмен данными ──
+  {
+    id: "sw-3d-interconnect", product: "solidworks", version: "sw", dir: "mechanical", category: "interop",
+    name: "3D Interconnect (импорт САПР)", command: "INTERCONNECT",
+    desc: "Ассоциативный импорт 3D-моделей других САПР без конвертации, импорт/экспорт 30+ форматов.",
+    icon: "FileInput", outputLabel: "Импорт",
+    fields: [{ key: "src", label: "Источник", type: "select", default: "STEP", options: ["STEP", "IGES", "Parasolid", "NX", "Creo", "Inventor", "Catia"] }],
+    compute: v => [{ label: "Импорт", value: `${v.src} (ассоциативно)` }],
+  },
+  {
+    id: "sw-dxf-cnc", product: "solidworks", version: "sw", dir: "docs", category: "interop",
+    name: "2D DXF/DWG для ЧПУ", command: "EXPORTDXF",
+    desc: "Автопостроение 2D DXF или DWG для станков с ЧПУ на базе 3D-модели (развёртки листовых деталей).",
+    icon: "FileOutput", outputLabel: "DXF для ЧПУ",
+    fields: [{ key: "parts", label: "Деталей", type: "number", default: "12" }],
+    compute: v => [{ label: "Экспорт", value: `${num(v.parts)} развёрток → DXF` }],
+  },
+  {
+    id: "sw-print3d", product: "solidworks", version: "sw", dir: "docs", category: "interop",
+    name: "Печать на 3D-принтере", command: "PRINT3D",
+    desc: "Прямая печать на 3D-принтерах в форматах AMF и 3MF.",
+    icon: "Printer", outputLabel: "3D-печать",
+    fields: [{ key: "fmt", label: "Формат", type: "select", default: "3MF", options: ["AMF", "3MF", "STL"] }],
+    compute: v => [{ label: "Экспорт для печати", value: v.fmt }],
+  },
+  {
+    id: "sw-edrawings", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "eDrawings (согласование)", command: "EDRAWINGS",
+    desc: "Просмотр и согласование чертежей и документации, в т.ч. без установки САПР.",
+    icon: "Eye", outputLabel: "Публикация",
+    fields: [{ key: "mode", label: "Режим", type: "select", default: "Просмотр", options: ["Просмотр", "Измерения", "Разметка"] }],
+    compute: v => [{ label: "eDrawings", value: v.mode }],
+  },
+  {
+    id: "sw-defeature", product: "solidworks", version: "sw", dir: "mechanical", category: "interop",
+    name: "Defeature (нейтрализация)", command: "DEFEATURE",
+    desc: "Упрощение и «нейтрализация» моделей для защиты интеллектуальных прав при передаче.",
+    icon: "EyeOff", outputLabel: "Упрощение",
+    fields: [{ key: "faces", label: "Скрыть деталей", type: "number", default: "40" }],
+    compute: v => [{ label: "Нейтрализовано", value: `${num(v.faces)} элементов` }],
   },
 ]
 
