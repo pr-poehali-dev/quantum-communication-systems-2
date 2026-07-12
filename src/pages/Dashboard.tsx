@@ -58,6 +58,7 @@ import SaprModule from "@/modules/SaprModule"
 import SaprProModule from "@/modules/SaprProModule"
 import AssemblyModule from "@/modules/AssemblyModule"
 import RevarModule from "@/modules/RevarModule"
+import FeaturesShowcase from "@/components/FeaturesShowcase"
 
 
 const MODULES = [
@@ -414,7 +415,7 @@ export default function Dashboard() {
   const сброситьНаправление = () => { setDirection(null); localStorage.removeItem("civilpro_direction"); setActiveModule(null) }
   const текущееНаправление = DIRECTIONS.find(d => d.id === direction)
   const модулиНаправления = текущееНаправление ? MODULES.filter(m => текущееНаправление.modules.includes(m.id)) : MODULES
-  const [homeВкладка, setHomeВкладка] = useState<"последние" | "модули" | "шаблоны" | "обучение">("последние")
+  const [homeВкладка, setHomeВкладка] = useState<"последние" | "возможности" | "модули" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
   const [viewGrid, setViewGrid] = useState(true)
   const [поиск, setПоиск] = useState("")
@@ -816,6 +817,7 @@ export default function Dashboard() {
             <nav className="flex-1 py-2 overflow-y-auto">
               {[
                 { id: "последние", label: "Последние", icon: "Clock" },
+                { id: "возможности", label: "Возможности", icon: "Sparkles" },
                 { id: "модули", label: "Все модули", icon: "LayoutGrid" },
                 { id: "шаблоны", label: "Шаблоны", icon: "FileText" },
                 { id: "обучение", label: "Обучение", icon: "GraduationCap" },
@@ -994,6 +996,10 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {homeВкладка === "возможности" && (
+                    <FeaturesShowcase onOpen={(id) => setActiveModule(id)} />
                   )}
 
                   {homeВкладка === "модули" && (
