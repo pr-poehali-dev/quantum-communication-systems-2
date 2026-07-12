@@ -364,7 +364,7 @@ export default function IntegrationModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["interop"]} title="Функции интеграции и обмена форматами 2022–2027" defaultOpen />
+      <VersionFeaturesPanel categories={["interop"]} title="Функции интеграции и обмена форматами 2022–2027" />
     </motion.div>
   )
 }

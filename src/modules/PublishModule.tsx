@@ -497,7 +497,7 @@ export default function PublishModule({ onNavigate }: { onNavigate?: (id: string
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["plot"]} title="Функции печати и публикации AutoCAD 2022–2027" defaultOpen />
+      <VersionFeaturesPanel categories={["plot"]} title="Функции печати и публикации AutoCAD 2022–2027" />
     </div>
   )
 }

@@ -682,7 +682,7 @@ export default function GeodesyModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel categories={["survey", "coords"]} defaultOpen />
+      <VersionFeaturesPanel categories={["survey", "coords"]} />
     </motion.div>
   )
 }
