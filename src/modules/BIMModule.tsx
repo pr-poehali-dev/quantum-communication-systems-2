@@ -458,7 +458,7 @@ export default function BIMModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="bim" />
+      <VersionFeaturesPanel categories={["bim", "modeling3d"]} />
     </motion.div>
   )
 }

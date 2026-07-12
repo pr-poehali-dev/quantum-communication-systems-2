@@ -610,7 +610,7 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="management" />
+      <VersionFeaturesPanel categories={["interop"]} />
     </div>
   )
 }

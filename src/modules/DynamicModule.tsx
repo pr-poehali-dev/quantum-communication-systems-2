@@ -362,7 +362,7 @@ export default function DynamicModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="management" />
+      <VersionFeaturesPanel categories={["modify", "draw"]} />
     </motion.div>
   )
 }

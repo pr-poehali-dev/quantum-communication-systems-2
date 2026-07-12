@@ -396,7 +396,7 @@ export default function AlignmentModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="infra" />
+      <VersionFeaturesPanel categories={["corridor", "draw"]} />
     </motion.div>
   )
 }

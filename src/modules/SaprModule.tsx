@@ -865,7 +865,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
           <Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}
         </div>
       )}
-      <VersionFeaturesPanel dir="mechanical" floating />
+      <VersionFeaturesPanel categories={["modeling3d", "modify"]} floating />
     </div>
   )
 }

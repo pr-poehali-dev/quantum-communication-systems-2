@@ -269,7 +269,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
       </div>
 
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2"><Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}</div>}
-      <VersionFeaturesPanel dir="mechanical" floating />
+      <VersionFeaturesPanel categories={["modeling3d", "modify"]} floating />
     </div>
   )
 }

@@ -393,7 +393,7 @@ export default function AnalysisModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="infra" />
+      <VersionFeaturesPanel categories={["corridor", "surface"]} />
     </motion.div>
   )
 }

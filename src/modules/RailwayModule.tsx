@@ -233,7 +233,7 @@ export default function RailwayModule() {
           <TractionCalc speed={cls.speed} grade={grade} />
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="infra" />
+      <VersionFeaturesPanel categories={["corridor"]} />
     </motion.div>
   )
 }

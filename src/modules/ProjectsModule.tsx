@@ -378,7 +378,7 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
           </motion.div>
         ) : null}
       </AnimatePresence>
-      <VersionFeaturesPanel dir="management" />
+      <VersionFeaturesPanel categories={["collab", "platform"]} />
     </motion.div>
   )
 }

@@ -526,7 +526,7 @@ export default function NetworksModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="networks" />
+      <VersionFeaturesPanel categories={["network"]} />
     </motion.div>
   )
 }

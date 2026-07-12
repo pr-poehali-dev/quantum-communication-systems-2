@@ -206,7 +206,7 @@ export default function StandardsModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="docs" />
+      <VersionFeaturesPanel categories={["annotation", "plot"]} />
     </motion.div>
   )
 }

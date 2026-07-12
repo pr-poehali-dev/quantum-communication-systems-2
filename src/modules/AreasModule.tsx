@@ -434,7 +434,7 @@ export default function AreasModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="infra" />
+      <VersionFeaturesPanel categories={["annotation", "surface"]} />
     </motion.div>
   )
 }

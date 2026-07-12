@@ -487,7 +487,7 @@ export default function SpecsModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="docs" />
+      <VersionFeaturesPanel categories={["annotation"]} />
     </motion.div>
   )
 }

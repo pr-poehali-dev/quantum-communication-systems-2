@@ -1261,7 +1261,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
           </div>
         )}
       </div>
-      <VersionFeaturesPanel dir="bim" floating />
+      <VersionFeaturesPanel categories={["bim", "modeling3d"]} floating />
     </div>
   )
 }

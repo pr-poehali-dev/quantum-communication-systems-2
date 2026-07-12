@@ -930,7 +930,7 @@ export default function DTMModule() {
           </motion.div>
         )}
       </AnimatePresence>
-      <VersionFeaturesPanel dir="survey" />
+      <VersionFeaturesPanel categories={["surface", "survey"]} />
     </motion.div>
   )
 }

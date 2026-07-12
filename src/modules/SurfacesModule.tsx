@@ -1091,7 +1091,7 @@ export default function SurfacesModule() {
           </motion.div>
         )}
       </AnimatePresence>
-      <VersionFeaturesPanel dir="survey" />
+      <VersionFeaturesPanel categories={["surface", "survey"]} />
     </motion.div>
   )
 }

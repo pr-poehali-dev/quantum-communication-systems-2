@@ -352,7 +352,7 @@ export default function CorridorModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="infra" />
+      <VersionFeaturesPanel categories={["corridor"]} />
     </motion.div>
   )
 }

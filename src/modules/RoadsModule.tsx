@@ -624,7 +624,7 @@ export default function RoadsModule() {
           </div>
         </TabsContent>
       </Tabs>
-      <VersionFeaturesPanel dir="infra" />
+      <VersionFeaturesPanel categories={["corridor"]} />
     </motion.div>
   )
 }
