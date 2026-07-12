@@ -56,6 +56,7 @@ import ToolsModule from "@/modules/ToolsModule"
 import PublishModule from "@/modules/PublishModule"
 import SaprModule from "@/modules/SaprModule"
 import SaprProModule from "@/modules/SaprProModule"
+import RevarModule from "@/modules/RevarModule"
 
 
 const MODULES = [
@@ -63,6 +64,7 @@ const MODULES = [
   { id: "viewer3d", icon: "Box", label: "3D-вьюер", desc: "Рельеф, дорога, сети, здания в 3D", component: Viewer3DModule },
   { id: "sapr", icon: "Cuboid", label: "САПР (3D-моделирование)", desc: "Параметрические детали, чертежи, спецификации, обмен STEP/STL/DXF", component: SaprModule },
   { id: "saprpro", icon: "Boxes", label: "САПР Про (Premium)", desc: "SolidWorks-аналог: элементы, эскизы, листовой металл, Simulation, Flow, CAM, PDM", component: SaprProModule },
+  { id: "revar", icon: "Building2", label: "Revar (BIM)", desc: "Revit + ArchiCAD 2-в-1: BIM-модель, дисциплины, анализ, IFC, AI-ассистент", component: RevarModule },
   { id: "dtm", icon: "ScanLine", label: "ЦМР / Облако точек", desc: "LiDAR, GNSS, тахеометр, фотограмметрия", component: DTMModule },
   { id: "projects", icon: "FolderKanban", label: "Управление проектами", desc: "Проекты, версии, команда, отчёты", component: ProjectsModule },
   { id: "geodesy", icon: "Mountain", label: "Геодезия и рельеф", desc: "Точки, DTM, профиль, объёмы", component: GeodesyModule },
@@ -468,7 +470,7 @@ export default function Dashboard() {
     f.name.toLowerCase().includes(поиск.toLowerCase())
   )
 
-  const FULLSCREEN_MODULES = ["civilcad", "viewer3d", "sapr", "saprpro"]
+  const FULLSCREEN_MODULES = ["civilcad", "viewer3d", "sapr", "saprpro", "revar"]
 
   return (
     <div className="flex flex-col" style={{ height: "100vh", background: "#1a1a2e", fontFamily: "Arial, sans-serif" }}>
