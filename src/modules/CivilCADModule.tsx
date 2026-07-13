@@ -45,12 +45,20 @@ import {
 // ─── Recent files data ────────────────────────────────────────────────────────
 
 const RECENT_FILES = [
-  { name: "Intro-1", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#a855f7", preview: "intro" },
-  { name: "Quantities-7", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#4ade80", preview: "quantities" },
-  { name: "Align-Superelevat...", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#ef4444", preview: "align" },
-  { name: "Parcel-3A", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#06b6d4", preview: "parcel" },
+  { name: "Введение-1", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#a855f7", preview: "intro" },
+  { name: "Объёмы-работ-7", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#4ade80", preview: "quantities" },
+  { name: "Трасса-Вираж-5", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#ef4444", preview: "align" },
+  { name: "Участок-3А", ext: "dwg", date: "3 апреля 2026 г. 21:29:39", color: "#06b6d4", preview: "parcel" },
   { name: "Главная_парковка_Финал", ext: "dwg", date: "20 мая 2026 г. 14:32", color: "#4f46e5", preview: "corridor" },
   { name: "ЦМР_Съёмка_2024", ext: "tin", date: "19 мая 2026 г. 18:10", color: "#059669", preview: "tin" },
+  { name: "Генплан_Микрорайон", ext: "dwg", date: "18 мая 2026 г. 11:05", color: "#f97316", preview: "parcel" },
+  { name: "Продольный_профиль_М5", ext: "dwg", date: "17 мая 2026 г. 16:40", color: "#e11d48", preview: "align" },
+  { name: "Ведомость_координат", ext: "dwg", date: "16 мая 2026 г. 09:22", color: "#22c55e", preview: "quantities" },
+  { name: "Коридор_Развязка_2", ext: "dwg", date: "15 мая 2026 г. 13:58", color: "#8b5cf6", preview: "corridor" },
+  { name: "Рельеф_Площадка_B", ext: "tin", date: "14 мая 2026 г. 10:15", color: "#0ea5e9", preview: "tin" },
+  { name: "Водосток_Схема-4", ext: "dwg", date: "13 мая 2026 г. 17:44", color: "#14b8a6", preview: "intro" },
+  { name: "Дорога_Категория-II", ext: "dwg", date: "12 мая 2026 г. 12:30", color: "#eab308", preview: "align" },
+  { name: "Межевание_Кадастр-9", ext: "dwg", date: "11 мая 2026 г. 15:07", color: "#ec4899", preview: "parcel" },
 ]
 
 // ─── AdaptationDialog ─────────────────────────────────────────────────────────
