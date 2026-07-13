@@ -4,7 +4,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import VersionFeaturesPanel, { FeatureTool } from "@/modules/VersionFeaturesPanel"
+import { FEATURES, type VersionFeatureFull } from "@/modules/versions-catalog"
+import { AnimatePresence } from "framer-motion"
+import { createPortal } from "react-dom"
 import {
   Feature, SolidKind, MATERIALS, buildMesh, massProps, project, volumeOf, overlapVolume,
   EXCHANGE_3D, EXCHANGE_2D, CAD_IMPORT, Vec3,
@@ -657,6 +660,8 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                     </div>
                   ))}
                 </div>
+
+                <NewsV25Strip tab="assembly" />
               </div>
             </div>
           )}
@@ -680,6 +685,8 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => showToast("Добавлены допуски формы и шероховатость")}><Icon name="Diff" size={13} fallback="Triangle" />Допуски</Button>
                   <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 ml-auto" onClick={() => { экспортPDF("Чертёж детали ЛАПА", features.map(f => `${f.name}: ${f.w}×${f.d}×${f.h} мм`).join("\n"), "чертёж"); showToast("Чертёж выгружен в PDF") }}><Icon name="FileDown" size={13} />Лист в PDF</Button>
                 </div>
+
+                <div className="mt-4"><NewsV25Strip tab="draw" /></div>
               </div>
             </div>
           )}
@@ -725,6 +732,8 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                     </div>
                   ))}
                 </div>
+
+                <NewsV25Strip tab="analysis" />
               </div>
             </div>
           )}
@@ -777,6 +786,8 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                     </button>
                   ))}
                 </div>
+
+                <NewsV25Strip tab="spec" />
               </div>
             </div>
           )}
@@ -856,6 +867,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
                 </div>
               </div>
             )}
+            <div className="p-3 border-t border-gray-100"><NewsV25Strip tab="model" /></div>
           </div>
         )}
       </div>
@@ -866,6 +878,66 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
         </div>
       )}
       <VersionFeaturesPanel categories={["modeling3d", "modify"]} floating />
+    </div>
+  )
+}
+
+// ── Новинки КОМПАС-3D v25 по разделам режима (3D / Сборка / Чертёж / Анализ / Спецификация) ──
+const V25_BY_TAB: Record<string, string[]> = {
+  model: [
+    "kompas-v25-relief", "kompas-v25-group-select", "kompas-v25-equidist",
+    "kompas-v25-segmentation", "kompas-v25-shafts-geom", "kompas-v25-composites-itekma",
+    "kompas-v25-nesting-shape", "kompas-v25-pipe-flare", "kompas-v25-frames-array",
+  ],
+  assembly: [
+    "kompas-v25-lod", "kompas-v25-motion-collision", "kompas-v25-ergonomics",
+    "kompas-v25-fasteners-tpl", "kompas-v25-flow-sector",
+  ],
+  draw: [
+    "kompas-v25-proj-depth", "kompas-v25-2d-symmetry",
+    "kompas-v25-slope-marker", "kompas-v25-schema-select", "kompas-v25-ctrl-point",
+  ],
+  analysis: [
+    "kompas-v25-flow-sector", "kompas-v25-segmentation", "kompas-v25-motion-collision",
+    "kompas-v25-ppu-net",
+  ],
+  spec: [
+    "kompas-v25-report-tpl", "kompas-v25-land-alloc", "kompas-v25-electric-pg",
+    "kompas-v25-converters", "kompas-v25-linux",
+  ],
+}
+
+function NewsV25Strip({ tab }: { tab: string }) {
+  const [active, setActive] = useState<VersionFeatureFull | null>(null)
+  const ids = V25_BY_TAB[tab] || []
+  const items = ids.map(id => FEATURES.find(f => f.id === id)).filter(Boolean) as VersionFeatureFull[]
+  if (!items.length) return null
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Icon name="Sparkles" size={14} className="text-emerald-600" />
+        <span className="text-[12px] font-bold text-emerald-800">Новинки КОМПАС-3D v25</span>
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-600/15 text-emerald-700">{items.length}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {items.map(f => (
+          <button key={f.id} onClick={() => setActive(f)}
+            className="text-left bg-white border border-gray-200 rounded-lg p-2.5 hover:border-emerald-400 hover:shadow-sm transition-all group">
+            <div className="flex items-center gap-2 mb-1">
+              <Icon name={f.icon} size={14} className="text-emerald-600" fallback="Square" />
+              <span className="text-[11.5px] font-semibold text-gray-900 leading-tight flex-1 group-hover:text-emerald-700">{f.name}</span>
+              <span className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0 bg-emerald-500/15 text-emerald-700">v25</span>
+            </div>
+            <div className="text-[10px] text-gray-500 leading-snug line-clamp-2">{f.desc}</div>
+          </button>
+        ))}
+      </div>
+      {createPortal(
+        <AnimatePresence>
+          {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   )
 }
