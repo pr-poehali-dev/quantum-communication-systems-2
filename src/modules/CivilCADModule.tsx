@@ -14273,9 +14273,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showDWTTemplates && (
               <DWTTemplatesDialog onClose={()=>setShowDWTTemplates(false)} onApply={(name, layers, color)=>{
                 const objs = buildTemplateObjects(name, layers, color)
+                setShowDemo(false)
                 setCanvasObjects(prev => [...prev, ...objs])
+                // Открываем шаблон как активный чертёж в редакторе
+                const tabName = `${name}.dwg`
+                setDrawingTabs(prev => prev.includes(tabName) ? prev : [...prev, tabName])
+                setActiveDrawingTab(tabName)
                 setShowStartScreen(false)
-                showToast(`Шаблон «${name}» применён — ${objs.length} объектов на чертеже`)
+                // Вписываем новые объекты в вид
+                setZoom(1.1); setPan({ x: 30, y: 20 })
+                showToast(`Шаблон «${name}» открыт в редакторе — ${objs.length} объектов`)
                 setStatusMsg(`Шаблон: ${name} · объектов: ${objs.length}`)
               }}/>
             )}
