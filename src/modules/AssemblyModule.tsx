@@ -103,7 +103,10 @@ export default function AssemblyModule() {
   const [pitch, setPitch] = useState(0.38)
   const [scale, setScale] = useState(1.15)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [docOpen, setDocOpen] = useState(true)
   const [treeExpanded, setTreeExpanded] = useState(true)
+  const [openNodes, setOpenNodes] = useState<Record<string, boolean>>({ "Компоненты": true })
+  const toggleNode = (k: string) => setOpenNodes(s => ({ ...s, [k]: !s[k] }))
   const [showFn, setShowFn] = useState(false)
   const [renderMode, setRenderMode] = useState<"wire" | "shaded" | "edges">("edges")
   const [showGrid, setShowGrid] = useState(true)
@@ -569,12 +572,23 @@ export default function AssemblyModule() {
 
       {/* ── Вкладка документа ── */}
       <div className="flex items-center bg-[#232830] border-b border-[#1f232b] text-[12px]">
-        <div className="w-9 h-8 flex items-center justify-center border-r border-[#1f232b]"><Icon name="House" size={14} className="text-gray-400" /></div>
-        <div className="flex items-center gap-2 px-3 h-8 bg-[#2b2f38] border-r border-[#1f232b] text-[#7db3ff]">
-          <Icon name="Boxes" size={14} />
-          <span>АБВГ.000.000 Компрессор…</span>
-          <Icon name="X" size={13} className="hover:text-white cursor-pointer" />
-        </div>
+        <button title="Начальный экран" onClick={() => { setDocOpen(true); setView("iso"); setScale(1.15); flash("Начальный экран") }}
+          className="w-9 h-8 flex items-center justify-center border-r border-[#1f232b] text-gray-400 hover:bg-[#3a3f4b] hover:text-white">
+          <Icon name="House" size={14} />
+        </button>
+        {docOpen ? (
+          <div className="flex items-center gap-2 px-3 h-8 bg-[#2b2f38] border-r border-[#1f232b] text-[#7db3ff]">
+            <Icon name="Boxes" size={14} />
+            <span>АБВГ.000.000 Компрессор…</span>
+            <button title="Закрыть документ" onClick={() => { setDocOpen(false); flash("Документ закрыт") }}
+              className="hover:text-white text-[#7db3ff]"><Icon name="X" size={13} /></button>
+          </div>
+        ) : (
+          <button onClick={() => { setDocOpen(true); flash("Документ открыт") }}
+            className="flex items-center gap-2 px-3 h-8 border-r border-[#1f232b] text-gray-400 hover:bg-[#2b2f38] hover:text-[#7db3ff]">
+            <Icon name="Plus" size={13} />Открыть сборку
+          </button>
+        )}
       </div>
 
       {/* ── Лента инструментов ── */}
@@ -642,15 +656,22 @@ export default function AssemblyModule() {
         {treeExpanded && (
           <div className="w-[340px] bg-[#262b33] border-r border-[#1f232b] overflow-y-auto text-[13px]">
             <TreeRow icon="Boxes" label="(+)Компрессор низкого давления (Тел-0, С" bold depth={0} onClick={() => setShowDiag(d => !d)} />
-            {[
-              { icon: "Compass", label: "Системы координат", muted: true },
-              { icon: "Grid2x2", label: "Компоновочная геометрия", muted: true },
-              { icon: "Library", label: "Коллекции" },
-              { icon: "SquareCode", label: "Макро" },
-            ].map((r, i) => <TreeRow key={i} icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron onClick={() => flash(r.label)} />)}
+            {([
+              { icon: "Compass", label: "Системы координат", muted: true, kids: ["Начало координат", "Плоскость XY", "Плоскость XZ", "Плоскость YZ"] },
+              { icon: "Grid2x2", label: "Компоновочная геометрия", muted: true, kids: ["Скелет сборки", "Осевая линия"] },
+              { icon: "Library", label: "Коллекции", kids: ["Крепёж ГОСТ", "Подшипники", "Уплотнения"] },
+              { icon: "SquareCode", label: "Макро", kids: ["Массив по окружности", "Пересчёт масс"] },
+            ] as const).map((r) => (
+              <div key={r.label}>
+                <TreeRow icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron expanded={openNodes[r.label]} onClick={() => toggleNode(r.label)} />
+                {openNodes[r.label] && r.kids.map(k => (
+                  <TreeRow key={k} icon="Dot" label={k} muted depth={2} onClick={() => flash(k)} />
+                ))}
+              </div>
+            ))}
 
-            <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded eye />
-            {ordered.slice().reverse().map(c => (
+            <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded={openNodes["Компоненты"]} eye onClick={() => toggleNode("Компоненты")} />
+            {openNodes["Компоненты"] && ordered.slice().reverse().map(c => (
               <button key={c.id} onClick={() => setSel(c.id)}
                 className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${sel === c.id ? "bg-[#37506e]" : "hover:bg-[#2f353f]"}`}
                 style={{ paddingLeft: 34 }}>
