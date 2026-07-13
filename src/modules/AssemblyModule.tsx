@@ -72,7 +72,7 @@ const MENU = ["Файл", "Правка", "Выделить", "Вид", "Эск�
 
 // Пункты выпадающих меню верхней панели
 const MENU_ITEMS: Record<string, string[]> = {
-  "Файл": ["Создать…", "Открыть…", "Сохранить", "Экспорт в STEP/IFC", "Печать", "Свойства модели"],
+  "Файл": ["Создать…", "Открыть…", "Сохранить", "Экспорт: спецификация CSV", "Экспорт: 3D-модель OBJ", "Экспорт: STEP", "Печать (PDF)", "Свойства модели"],
   "Правка": ["Отменить", "Повторить", "Удалить компонент", "Показать все", "Скрыть все"],
   "Выделить": ["Выделить всё", "Инвертировать выделение", "Фильтр компонентов"],
   "Вид": ["Изометрия", "Спереди", "Сверху", "Справа", "Полутон", "Полутон с рёбрами", "Каркас", "Сетка", "Автоповорот"],
@@ -335,17 +335,111 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   }
   const openAssembly = () => { setDocOpen(true); setView("iso"); flash("Сборка открыта") }
   const saveAssembly = () => { flash("Сборка сохранена ✓") }
-  const exportAssembly = (fmt: string) => {
-    const lines = comps.map((c, i) => `${i + 1}\t${c.name}\t${c.qty ?? 1}\t${(c.r * 2).toFixed(0)}×${c.len.toFixed(0)}мм`)
-    const content = `${variant === "sw" ? "Редуктор" : "Компрессор"} — экспорт ${fmt}\nПоз.\tНаименование\tКол-во\tГабарит\n${lines.join("\n")}`
+  const asmName = variant === "sw" ? "Редуктор_цилиндрический" : "Компрессор_КНД"
+  const downloadFile = (content: string | Blob, filename: string, mime: string) => {
     try {
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+      const blob = content instanceof Blob ? content : new Blob([content], { type: mime })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = url; a.download = `assembly.${fmt.toLowerCase().replace(/[^a-z0-9]/g, "") || "txt"}`
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
-      flash(`Экспорт: ${fmt}`)
-    } catch { flash(`Экспорт: ${fmt}`) }
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch { /* noop */ }
+  }
+
+  // Спецификация CSV (открывается в Excel)
+  const exportCSV = () => {
+    const head = "Поз.;Обозначение;Наименование;Кол-во;Габарит D×L, мм;Материал"
+    const rows = comps.map((c, i) => {
+      const mat = c.color === SW_STEEL || c.color === C_BLUE ? "Сталь 45" : "Сталь 40Х"
+      return `${i + 1};${asmName}-${String(i + 1).padStart(2, "0")};${c.name};${c.qty ?? 1};${(c.r * 2).toFixed(0)}×${c.len.toFixed(0)};${mat}`
+    })
+    downloadFile("\uFEFF" + [head, ...rows].join("\r\n"), `${asmName}_спецификация.csv`, "text/csv;charset=utf-8")
+  }
+
+  // Геометрия детали в набор треугольников (боксы/цилиндры → аппроксимация)
+  const buildMesh = (c: Comp) => {
+    const seg = 16, hx = c.len / 2, verts: number[][] = [], faces: number[][] = []
+    const round = c.shape !== "box"
+    if (round) {
+      for (const sx of [-hx, hx]) for (let i = 0; i < seg; i++) {
+        const a = (i / seg) * Math.PI * 2
+        verts.push([c.x + sx, Math.cos(a) * c.r, Math.sin(a) * c.r])
+      }
+      for (let i = 0; i < seg; i++) {
+        const n = (i + 1) % seg, a = i, b = n, cc = seg + i, d = seg + n
+        faces.push([a, b, d], [a, d, cc])
+      }
+    } else {
+      const r = c.r
+      const box = [[-hx, -r, -r], [hx, -r, -r], [hx, r, -r], [-hx, r, -r], [-hx, -r, r], [hx, -r, r], [hx, r, r], [-hx, r, r]]
+      box.forEach(p => verts.push([c.x + p[0], p[1], p[2]]))
+      const q = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [1, 2, 6, 5], [0, 3, 7, 4]]
+      q.forEach(([a, b, cc, d]) => faces.push([a, b, cc], [a, cc, d]))
+    }
+    return { verts, faces }
+  }
+
+  // 3D-модель OBJ (открывается в любом вьюере)
+  const exportOBJ = () => {
+    let out = `# ${asmName} — экспорт из среды сборки\n# Деталей: ${comps.length}\n`, base = 0
+    comps.forEach(c => {
+      const { verts, faces } = buildMesh(c)
+      out += `o ${c.name.replace(/\s+/g, "_")}\n`
+      verts.forEach(v => { out += `v ${v[0].toFixed(3)} ${v[1].toFixed(3)} ${v[2].toFixed(3)}\n` })
+      faces.forEach(f => { out += `f ${f[0] + 1 + base} ${f[1] + 1 + base} ${f[2] + 1 + base}\n` })
+      base += verts.length
+    })
+    downloadFile(out, `${asmName}.obj`, "text/plain;charset=utf-8")
+  }
+
+  // STEP AP214 (упрощённый — каркас из точек и линий)
+  const exportSTEP = () => {
+    const now = new Date().toISOString()
+    let d = "", id = 100
+    const pts: string[] = []
+    comps.forEach(c => {
+      const { verts } = buildMesh(c)
+      const start = id
+      verts.forEach(v => { d += `#${id}=CARTESIAN_POINT('',(${v[0].toFixed(3)},${v[1].toFixed(3)},${v[2].toFixed(3)}));\n`; id++ })
+      pts.push(`/* ${c.name}: #${start}..#${id - 1} */`)
+    })
+    const header = `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('${asmName} assembly wireframe'),'2;1');\nFILE_NAME('${asmName}.step','${now}',('CAD'),('poehali'),'','','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN'));\nENDSEC;\nDATA;\n`
+    downloadFile(header + pts.join("\n") + "\n" + d + "ENDSEC;\nEND-ISO-10303-21;\n", `${asmName}.step`, "application/step")
+  }
+
+  // PDF-спецификация (минимальный валидный PDF)
+  const exportPDF = () => {
+    const esc = (s: string) => s.replace(/[()\\]/g, m => "\\" + m).replace(/[^\x00-\x7F]/g, "?")
+    const rows = comps.map((c, i) => `${i + 1}. ${c.name}  x${c.qty ?? 1}  ${(c.r * 2).toFixed(0)}x${c.len.toFixed(0)}mm`)
+    let y = 780
+    let text = `BT /F1 16 Tf 50 ${y} Td (Specification: ${esc(asmName)}) Tj ET\n`
+    y -= 30
+    rows.forEach(r => { text += `BT /F1 10 Tf 50 ${y} Td (${esc(r)}) Tj ET\n`; y -= 16 })
+    const stream = text
+    const objs = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+      `<< /Length ${stream.length} >>\nstream\n${stream}endstream`,
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    let pdf = "%PDF-1.4\n", offsets: number[] = []
+    objs.forEach((o, i) => { offsets.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n` })
+    const xref = pdf.length
+    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`
+    offsets.forEach(o => { pdf += String(o).padStart(10, "0") + " 00000 n \n" })
+    pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`
+    downloadFile(new Blob([pdf], { type: "application/pdf" }), `${asmName}_спецификация.pdf`, "application/pdf")
+  }
+
+  const exportAssembly = (fmt: string) => {
+    const f = fmt.toUpperCase()
+    if (f.includes("CSV")) { exportCSV(); flash("Экспорт: спецификация CSV") }
+    else if (f.includes("OBJ")) { exportOBJ(); flash("Экспорт: 3D-модель OBJ") }
+    else if (f.includes("STEP")) { exportSTEP(); flash("Экспорт: STEP AP214") }
+    else if (f.includes("PDF")) { exportPDF(); flash("Экспорт: PDF-спецификация") }
+    else { exportCSV(); flash("Экспорт: спецификация CSV") }
   }
 
   // Диспетчер команд ленты/меню
@@ -368,8 +462,10 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
       case "Scale": case "ShieldCheck": setShowDiag(d => !d); break
       case "EyeOff": setAllVisible(false); break
       case "Eye": setAllVisible(true); break
-      case "Экспорт в STEP/IFC": exportAssembly("STEP"); break
-      case "Печать": exportAssembly("PDF"); break
+      case "Экспорт: спецификация CSV": exportAssembly("CSV"); break
+      case "Экспорт: 3D-модель OBJ": exportAssembly("OBJ"); break
+      case "Экспорт: STEP": exportAssembly("STEP"); break
+      case "Печать (PDF)": case "Печать": exportAssembly("PDF"); break
       case "Свойства модели": setShowDiag(true); break
       case "Создать…": newAssembly(); break
       case "Ruler": case "MoveHorizontal": case "Diameter": case "Spline": setShowDims(d => !d); break
