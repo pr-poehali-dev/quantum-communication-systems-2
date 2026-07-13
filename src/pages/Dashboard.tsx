@@ -57,6 +57,7 @@ import PublishModule from "@/modules/PublishModule"
 import SaprModule from "@/modules/SaprModule"
 import SaprProModule from "@/modules/SaprProModule"
 import AssemblyModule from "@/modules/AssemblyModule"
+import AssemblySWModule from "@/modules/AssemblySWModule"
 import RevarModule from "@/modules/RevarModule"
 import FeaturesShowcase from "@/components/FeaturesShowcase"
 
@@ -67,6 +68,7 @@ const MODULES = [
   { id: "sapr", icon: "Cuboid", label: "САПР (3D-моделирование)", desc: "Параметрические детали, чертежи, спецификации, обмен STEP/STL/DXF", component: SaprModule },
   { id: "saprpro", icon: "Boxes", label: "САПР Про (Premium)", desc: "SolidWorks-аналог: элементы, эскизы, листовой металл, Simulation, Flow, CAM, PDM", component: SaprProModule },
   { id: "assembly", icon: "Component", label: "Сборка (КОМПАС-3D)", desc: "Среда сборки: дерево компонентов, разнесённый вид, вращение, свойства", component: AssemblyModule },
+  { id: "assemblysw", icon: "Boxes", label: "Сборка (SolidWorks-3D)", desc: "Среда сборки в стиле SolidWorks: FeatureManager, разнесение, сопряжения, ИЭТР", component: AssemblySWModule },
   { id: "revar", icon: "Building2", label: "Revar (BIM)", desc: "Revit + ArchiCAD 2-в-1: BIM-модель, дисциплины, анализ, IFC, AI-ассистент", component: RevarModule },
   { id: "dtm", icon: "ScanLine", label: "ЦМР / Облако точек", desc: "LiDAR, GNSS, тахеометр, фотограмметрия", component: DTMModule },
   { id: "projects", icon: "FolderKanban", label: "Управление проектами", desc: "Проекты, версии, команда, отчёты", component: ProjectsModule },

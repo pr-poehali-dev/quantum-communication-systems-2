@@ -95,7 +95,38 @@ const TIPS: Record<string, string> = {
   Frame: "Рамка чертежа", QrCode: "QR-метка", Clipboard: "Буфер обмена", LayoutGrid: "Компоновка видов",
 }
 
-export default function AssemblyModule() {
+// ── Темы оформления (КОМПАС / SolidWorks) ──
+type Variant = "kompas" | "sw"
+interface Theme {
+  root: string; panel: string; panelAlt: string; border: string; borderStrong: string
+  hover: string; accent: string; accentText: string; accentBg: string; accentBgHover: string
+  activeBg: string; activeText: string; toolbar: string; treeSel: string; textMain: string
+  textMuted: string; canvasBg: string; grid: string; brandName: string; brandSub: string
+  docName: string; treeRoot: string; logo: string; axisZ: string; greenSel: string
+}
+const THEMES: Record<Variant, Theme> = {
+  kompas: {
+    root: "bg-[#2b2f38] text-gray-200 border-[#3a3f4b]", panel: "bg-[#2b2f38]", panelAlt: "bg-[#262b33]",
+    border: "border-[#1f232b]", borderStrong: "border-[#3a3f4b]", hover: "hover:bg-[#3a3f4b]",
+    accent: "text-[#3a7bd5]", accentText: "text-[#7db3ff]", accentBg: "bg-[#3a7bd5]", accentBgHover: "hover:bg-[#4a8be5]",
+    activeBg: "bg-[#37506e]", activeText: "text-[#7db3ff]", toolbar: "bg-[#232830]", treeSel: "bg-[#37506e]",
+    textMain: "text-gray-200", textMuted: "text-gray-400", canvasBg: "radial-gradient(circle at 60% 45%, #2f343d 0%, #21252c 70%, #191c22 100%)",
+    grid: "#3a3f4b", brandName: "КОМПАС-3D · среда сборки", brandSub: "Сборка", docName: "АБВГ.000.000 Компрессор…",
+    treeRoot: "(+)Компрессор низкого давления (Тел-0, С", logo: "Hexagon", axisZ: "#3a7bd5", greenSel: "#25d366",
+  },
+  sw: {
+    root: "bg-[#f0f2f5] text-gray-700 border-[#c8ccd2]", panel: "bg-[#e8ebef]", panelAlt: "bg-white",
+    border: "border-[#d0d4da]", borderStrong: "border-[#c8ccd2]", hover: "hover:bg-[#d8dde3]",
+    accent: "text-[#0078d4]", accentText: "text-[#0078d4]", accentBg: "bg-[#0078d4]", accentBgHover: "hover:bg-[#005fa3]",
+    activeBg: "bg-[#cce4f7]", activeText: "text-[#0078d4]", toolbar: "bg-[#eef1f4]", treeSel: "bg-[#cce4f7]",
+    textMain: "text-gray-700", textMuted: "text-gray-500", canvasBg: "linear-gradient(180deg, #dfe7ef 0%, #c3cfdb 55%, #aab8c7 100%)",
+    grid: "#b3bfcc", brandName: "SolidWorks-3D · среда сборки", brandSub: "Сборка", docName: "Компрессор_КНД.SLDASM",
+    treeRoot: "Компрессор_КНД (По умолчанию)", logo: "Box", axisZ: "#0078d4", greenSel: "#16a34a",
+  },
+}
+
+export default function AssemblyModule({ variant = "kompas" }: { variant?: Variant } = {}) {
+  const TH = THEMES[variant]
   const [comps, setComps] = useState<Comp[]>(START)
   const [sel, setSel] = useState<number | null>(3)
   const [explode, setExplode] = useState(0.55)
@@ -402,13 +433,13 @@ export default function AssemblyModule() {
     if (!c.visible) return null
     const [cx] = compCenter(c)
     const active = sel === c.id || (stepMode && currentStepComp?.id === c.id)
-    const stroke = active ? C_GREEN : c.color
+    const stroke = active ? TH.greenSel : c.color
     const sw = active ? 1.6 : 1
     const op = active ? 1 : 0.85
     const segs = 40
     const els: JSX.Element[] = []
     const fillOn = renderMode !== "wire"
-    const fillCol = active ? C_GREEN : c.color
+    const fillCol = active ? TH.greenSel : c.color
 
     // Полутоновая заливка боковой поверхности цилиндра/конуса (квадами)
     const shade = (r1: number, r2: number) => {
@@ -529,78 +560,78 @@ export default function AssemblyModule() {
     return (
       <g>
         {edges.map(([a, b], i) =>
-          <line key={i} x1={pr[a].x} y1={pr[a].y} x2={pr[b].x} y2={pr[b].y} stroke={C_GREEN} strokeWidth={1.4} opacity={0.9} />
+          <line key={i} x1={pr[a].x} y1={pr[a].y} x2={pr[b].x} y2={pr[b].y} stroke={TH.greenSel} strokeWidth={1.4} opacity={0.9} />
         )}
-        {pr.map((p, i) => <rect key={`c${i}`} x={p.x - 3} y={p.y - 3} width={6} height={6} fill="none" stroke={C_GREEN} strokeWidth={1.2} />)}
+        {pr.map((p, i) => <rect key={`c${i}`} x={p.x - 3} y={p.y - 3} width={6} height={6} fill="none" stroke={TH.greenSel} strokeWidth={1.2} />)}
       </g>
     )
-  }, [comps, sel, compCenter, yaw, pitch, scale])
+  }, [comps, sel, compCenter, yaw, pitch, scale, TH.greenSel])
 
   // порядок отрисовки: дальние компоненты первыми (грубая z-сортировка по X-разнесению)
   const ordered = [...comps].sort((a, b) => compCenter(a)[0] - compCenter(b)[0])
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-[#3a3f4b] bg-[#2b2f38] text-gray-200 select-none" style={{ fontFamily: "Segoe UI, sans-serif" }}>
+    <div className={`relative rounded-xl overflow-hidden border ${TH.root} select-none`} style={{ fontFamily: "Segoe UI, sans-serif" }}>
       {/* ── Верхнее меню ── */}
-      <div className="flex items-center bg-[#2b2f38] border-b border-[#1f232b] text-[13px] relative">
-        <div className="w-9 h-9 flex items-center justify-center bg-[#1f232b] text-[#3a7bd5]">
-          <Icon name="Hexagon" size={18} className="text-[#3a7bd5]" />
+      <div className={`flex items-center ${TH.panel} border-b ${TH.border} text-[13px] relative`}>
+        <div className={`w-9 h-9 flex items-center justify-center ${variant === "sw" ? "bg-[#0078d4]" : "bg-[#1f232b]"} ${variant === "sw" ? "text-white" : TH.accent}`}>
+          <Icon name={TH.logo} size={18} className={variant === "sw" ? "text-white" : TH.accent} />
         </div>
         {MENU.map(m => (
           <button key={m} onClick={() => setOpenMenu(openMenu === m ? null : m)}
-            className={`px-2.5 h-9 hover:bg-[#3a3f4b] ${openMenu === m ? "bg-[#3a3f4b]" : ""}`}>{m}</button>
+            className={`px-2.5 h-9 ${TH.hover} ${openMenu === m ? TH.hover.replace("hover:", "") : ""}`}>{m}</button>
         ))}
         <div className="ml-auto flex items-center gap-1 pr-2">
-          <button title="Компоновка видов" onClick={() => flash("Компоновка видов")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="LayoutTemplate" size={15} /></button>
-          <button title="Настройки" onClick={() => flash("Настройки сборки")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Settings" size={15} /></button>
-          <div className="flex items-center bg-[#1f232b] rounded px-2 h-7 w-56 gap-2 text-gray-400 text-[12px]">
+          <button title="Компоновка видов" onClick={() => flash("Компоновка видов")} className={`w-8 h-9 flex items-center justify-center ${TH.hover}`}><Icon name="LayoutTemplate" size={15} /></button>
+          <button title="Настройки" onClick={() => flash("Настройки сборки")} className={`w-8 h-9 flex items-center justify-center ${TH.hover}`}><Icon name="Settings" size={15} /></button>
+          <div className={`flex items-center ${TH.panelAlt} border ${TH.border} rounded px-2 h-7 w-56 gap-2 ${TH.textMuted} text-[12px]`}>
             <Icon name="Search" size={13} /><span>Поиск по командам (Alt+/)</span>
           </div>
-          <button title="Свернуть" onClick={() => flash("Свернуть окно")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Minus" size={15} /></button>
-          <button title="Развернуть" onClick={() => flash("Развернуть окно")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Square" size={13} /></button>
-          <button title="Закрыть" onClick={() => flash("Закрыть документ")} className="w-8 h-9 flex items-center justify-center hover:bg-red-600"><Icon name="X" size={15} /></button>
+          <button title="Свернуть" onClick={() => flash("Свернуть окно")} className={`w-8 h-9 flex items-center justify-center ${TH.hover}`}><Icon name="Minus" size={15} /></button>
+          <button title="Развернуть" onClick={() => flash("Развернуть окно")} className={`w-8 h-9 flex items-center justify-center ${TH.hover}`}><Icon name="Square" size={13} /></button>
+          <button title="Закрыть" onClick={() => flash("Закрыть документ")} className="w-8 h-9 flex items-center justify-center hover:bg-red-600 hover:text-white"><Icon name="X" size={15} /></button>
         </div>
 
         {openMenu && (
-          <div className="absolute top-9 z-30 bg-[#2b2f38] border border-[#1f232b] shadow-2xl rounded-b w-56 py-1 text-[13px]"
+          <div className={`absolute top-9 z-30 ${TH.panel} border ${TH.border} shadow-2xl rounded-b w-56 py-1 text-[13px]`}
             style={{ left: 36 + MENU.indexOf(openMenu) * 8 }} onMouseLeave={() => setOpenMenu(null)}>
             {(MENU_ITEMS[openMenu] || []).map(i => (
-              <button key={i} onClick={() => { cmd(i); setOpenMenu(null) }} className="w-full text-left px-3 py-1.5 hover:bg-[#3a7bd5] hover:text-white">{i}</button>
+              <button key={i} onClick={() => { cmd(i); setOpenMenu(null) }} className={`w-full text-left px-3 py-1.5 ${TH.accentBg.replace("bg-", "hover:bg-")} hover:text-white`}>{i}</button>
             ))}
           </div>
         )}
       </div>
 
       {/* ── Вкладка документа ── */}
-      <div className="flex items-center bg-[#232830] border-b border-[#1f232b] text-[12px]">
+      <div className={`flex items-center ${TH.toolbar} border-b ${TH.border} text-[12px]`}>
         <button title="Начальный экран" onClick={() => { setDocOpen(true); setView("iso"); setScale(1.15); flash("Начальный экран") }}
-          className="w-9 h-8 flex items-center justify-center border-r border-[#1f232b] text-gray-400 hover:bg-[#3a3f4b] hover:text-white">
+          className={`w-9 h-8 flex items-center justify-center border-r ${TH.border} ${TH.textMuted} ${TH.hover}`}>
           <Icon name="House" size={14} />
         </button>
         {docOpen ? (
-          <div className="flex items-center gap-2 px-3 h-8 bg-[#2b2f38] border-r border-[#1f232b] text-[#7db3ff]">
-            <Icon name="Boxes" size={14} />
-            <span>АБВГ.000.000 Компрессор…</span>
+          <div className={`flex items-center gap-2 px-3 h-8 ${TH.panel} border-r ${TH.border} ${TH.accentText}`}>
+            <Icon name="Box" size={14} />
+            <span>{TH.docName}</span>
             <button title="Закрыть документ" onClick={() => { setDocOpen(false); flash("Документ закрыт") }}
-              className="hover:text-white text-[#7db3ff]"><Icon name="X" size={13} /></button>
+              className={`hover:opacity-70 ${TH.accentText}`}><Icon name="X" size={13} /></button>
           </div>
         ) : (
           <button onClick={() => { setDocOpen(true); flash("Документ открыт") }}
-            className="flex items-center gap-2 px-3 h-8 border-r border-[#1f232b] text-gray-400 hover:bg-[#2b2f38] hover:text-[#7db3ff]">
+            className={`flex items-center gap-2 px-3 h-8 border-r ${TH.border} ${TH.textMuted} ${TH.hover}`}>
             <Icon name="Plus" size={13} />Открыть сборку
           </button>
         )}
       </div>
 
       {/* ── Лента инструментов ── */}
-      <div className="bg-[#2b2f38] border-b border-[#1f232b]">
+      <div className={`${TH.panel} border-b ${TH.border}`}>
         <div className="flex items-stretch">
-          <div className="flex items-center gap-1 px-3 bg-[#1f232b] text-[13px] font-medium min-w-[112px]">
-            <Icon name="Boxes" size={15} className="text-[#3a7bd5]" />Сборка
+          <div className={`flex items-center gap-1 px-3 ${TH.panelAlt} border-r ${TH.border} text-[13px] font-medium min-w-[112px]`}>
+            <Icon name="Boxes" size={15} className={TH.accent} />{TH.brandSub}
           </div>
           <div className="flex-1 flex items-end overflow-x-auto">
             {RIBBON.map(g => (
-              <div key={g.group} className="flex flex-col items-center border-r border-[#1f232b] px-1.5 pt-1">
+              <div key={g.group} className={`flex flex-col items-center border-r ${TH.border} px-1.5 pt-1`}>
                 <div className="flex items-center gap-0.5">
                   {g.icons.map((ic, i) => {
                     const activeIc =
@@ -610,33 +641,33 @@ export default function AssemblyModule() {
                       ((ic === "ShieldCheck" || ic === "Scale") && showDiag)
                     return (
                       <button key={i} title={TIPS[ic] || g.group} onClick={() => cmd(ic)}
-                        className={`w-8 h-8 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${activeIc ? "bg-[#37506e] text-[#7db3ff]" : "text-gray-300"}`}>
+                        className={`w-8 h-8 flex items-center justify-center rounded ${TH.hover} ${activeIc ? `${TH.activeBg} ${TH.activeText}` : TH.textMain}`}>
                         <Icon name={ic} size={17} fallback="Square" />
                       </button>
                     )
                   })}
                 </div>
-                <div className="text-[10px] text-gray-500 mt-0.5 whitespace-nowrap flex items-center gap-1">{g.group}<Icon name="ChevronDown" size={9} /></div>
+                <div className={`text-[10px] ${TH.textMuted} mt-0.5 whitespace-nowrap flex items-center gap-1`}>{g.group}<Icon name="ChevronDown" size={9} /></div>
               </div>
             ))}
           </div>
         </div>
         {/* второй ряд — панель вида */}
-        <div className="flex items-center gap-1 px-2 h-9 border-t border-[#1f232b] bg-[#262b33]">
+        <div className={`flex items-center gap-1 px-2 h-9 border-t ${TH.border} ${TH.panelAlt}`}>
           {VIEWBAR_LEFT.map((ic, i) => (
-            <button key={i} title={TIPS[ic] || ic} onClick={() => cmd(ic)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
+            <button key={i} title={TIPS[ic] || ic} onClick={() => cmd(ic)} className={`w-7 h-7 flex items-center justify-center rounded ${TH.hover} ${TH.textMuted}`}><Icon name={ic} size={15} fallback="Square" /></button>
           ))}
-          <div className="w-px h-5 bg-[#1f232b] mx-1" />
+          <div className={`w-px h-5 ${TH.border.replace("border-", "bg-")} mx-1`} />
           {/* Стандартные виды */}
           {([["Изометрия", "Box", () => setView("iso")], ["Спереди", "Square", () => setView("front")], ["Сверху", "SquareStack", () => setView("top")], ["Справа", "PanelRight", () => setView("right")]] as const).map(([tip, ic, fn], i) => (
-            <button key={`v${i}`} title={tip} onClick={fn} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
+            <button key={`v${i}`} title={tip} onClick={fn} className={`w-7 h-7 flex items-center justify-center rounded ${TH.hover} ${TH.textMuted}`}><Icon name={ic} size={15} fallback="Square" /></button>
           ))}
-          <div className="w-px h-5 bg-[#1f232b] mx-1" />
+          <div className={`w-px h-5 ${TH.border.replace("border-", "bg-")} mx-1`} />
           {VIEWBAR_RIGHT.map((ic, i) => {
             const activeIc = (ic === "Grid3x3" && showGrid) || (ic === "Ruler" && showDims) || (ic === "Axis3D" && showGrid)
             return (
               <button key={i} title={TIPS[ic] || ic} onClick={() => cmd(ic)}
-                className={`w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${activeIc ? "text-[#7db3ff]" : "text-gray-400"}`}><Icon name={ic} size={15} fallback="Square" /></button>
+                className={`w-7 h-7 flex items-center justify-center rounded ${TH.hover} ${activeIc ? TH.accentText : TH.textMuted}`}><Icon name={ic} size={15} fallback="Square" /></button>
             )
           })}
         </div>
@@ -644,19 +675,19 @@ export default function AssemblyModule() {
 
       <div className="flex" style={{ height: 560 }}>
         {/* ── Левая колонка иконок ── */}
-        <div className="w-9 bg-[#232830] border-r border-[#1f232b] flex flex-col items-center py-2 gap-3">
+        <div className={`w-9 ${TH.toolbar} border-r ${TH.border} flex flex-col items-center py-2 gap-3`}>
           {([["ListTree", "Дерево", () => setTreeExpanded(t => !t)], ["Ruler", "Размеры", () => cmd("Ruler")], ["FunctionSquare", "Переменные", () => flash("Переменные модели")], ["Menu", "Слои", () => flash("Слои сборки")], ["Share2", "Диагностика", () => setShowDiag(d => !d)]] as const).map(([ic, tip, fn], i) => (
-            <button key={i} title={tip} onClick={fn} className={`w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] ${i === 0 && treeExpanded ? "text-[#3a7bd5]" : "text-gray-400"}`}><Icon name={ic} size={16} fallback="Square" /></button>
+            <button key={i} title={tip} onClick={fn} className={`w-7 h-7 flex items-center justify-center rounded ${TH.hover} ${i === 0 && treeExpanded ? TH.accent : TH.textMuted}`}><Icon name={ic} size={16} fallback="Square" /></button>
           ))}
-          <button onClick={() => setTreeExpanded(!treeExpanded)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400 mt-auto">
+          <button onClick={() => setTreeExpanded(!treeExpanded)} className={`w-7 h-7 flex items-center justify-center rounded ${TH.hover} ${TH.textMuted} mt-auto`}>
             <Icon name={treeExpanded ? "PanelLeftClose" : "PanelLeftOpen"} size={16} />
           </button>
         </div>
 
         {/* ── Дерево компонентов ── */}
         {treeExpanded && (
-          <div className="w-[340px] bg-[#262b33] border-r border-[#1f232b] overflow-y-auto text-[13px]">
-            <TreeRow icon="Boxes" label="(+)Компрессор низкого давления (Тел-0, С" bold depth={0} onClick={() => setShowDiag(d => !d)} />
+          <div className={`w-[340px] ${TH.panelAlt} border-r ${TH.border} overflow-y-auto text-[13px]`}>
+            <TreeRow icon="Boxes" label={TH.treeRoot} bold depth={0} TH={TH} onClick={() => setShowDiag(d => !d)} />
             {([
               { icon: "Compass", label: "Системы координат", muted: true, kids: ["Начало координат", "Плоскость XY", "Плоскость XZ", "Плоскость YZ"] },
               { icon: "Grid2x2", label: "Компоновочная геометрия", muted: true, kids: ["Скелет сборки", "Осевая линия"] },
@@ -664,9 +695,9 @@ export default function AssemblyModule() {
               { icon: "SquareCode", label: "Макро", kids: ["Массив по окружности", "Пересчёт масс"] },
             ] as const).map((r) => (
               <div key={r.label}>
-                <TreeRow icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron expanded={openNodes[r.label]} onClick={() => toggleNode(r.label)} />
+                <TreeRow icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron expanded={openNodes[r.label]} TH={TH} onClick={() => toggleNode(r.label)} />
                 {openNodes[r.label] && r.kids.map(k => (
-                  <TreeRow key={k}
+                  <TreeRow key={k} TH={TH}
                     icon={r.label === "Системы координат" ? "Axis3D" : r.label === "Компоновочная геометрия" ? "Spline" : r.label === "Коллекции" ? "Package" : "Play"}
                     label={k} depth={2} active={treeSel === k}
                     onClick={() => {
@@ -680,24 +711,24 @@ export default function AssemblyModule() {
               </div>
             ))}
 
-            <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded={openNodes["Компоненты"]} eye onClick={() => toggleNode("Компоненты")} />
+            <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded={openNodes["Компоненты"]} eye TH={TH} onClick={() => toggleNode("Компоненты")} />
             {openNodes["Компоненты"] && ordered.slice().reverse().map(c => (
               <button key={c.id} onClick={() => setSel(c.id)}
-                className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${sel === c.id ? "bg-[#37506e]" : "hover:bg-[#2f353f]"}`}
+                className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${sel === c.id ? TH.treeSel : TH.hover}`}
                 style={{ paddingLeft: 34 }}>
-                <span onClick={e => { e.stopPropagation(); toggleVisible(c.id) }} className="w-5 flex justify-center text-gray-400 hover:text-white">
+                <span onClick={e => { e.stopPropagation(); toggleVisible(c.id) }} className={`w-5 flex justify-center ${TH.textMuted} hover:opacity-70`}>
                   <Icon name={c.visible ? "Eye" : "EyeOff"} size={14} />
                 </span>
-                <Icon name="ChevronRight" size={12} className="text-gray-500 shrink-0" />
-                <Icon name="Box" size={13} className="text-[#7db3ff] shrink-0" />
-                {c.fixed && <Icon name="Pin" size={11} className="text-gray-400 shrink-0" />}
-                <span className={`truncate ${c.visible ? "" : "text-gray-500 line-through"}`}>
+                <Icon name="ChevronRight" size={12} className={`${TH.textMuted} shrink-0`} />
+                <Icon name="Box" size={13} className={`${TH.accentText} shrink-0`} />
+                {c.fixed && <Icon name="Pin" size={11} className={`${TH.textMuted} shrink-0`} />}
+                <span className={`truncate ${c.visible ? "" : `${TH.textMuted} line-through`}`}>
                   {c.name}{c.qty ? ` (x${c.qty})` : ""}
                 </span>
               </button>
             ))}
             {/* оси координат внизу */}
-            <div className="flex items-center gap-1 px-2 py-2 text-[11px] text-gray-500">
+            <div className={`flex items-center gap-1 px-2 py-2 text-[11px] ${TH.textMuted}`}>
               <Icon name="Axis3D" size={22} className="text-red-400" />
             </div>
           </div>
@@ -706,7 +737,7 @@ export default function AssemblyModule() {
         {/* ── 3D-область ── */}
         <div ref={canvasRef} onMouseDown={onDown} onWheel={onWheel}
           className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
-          style={{ background: "radial-gradient(circle at 60% 45%, #2f343d 0%, #21252c 70%, #191c22 100%)" }}>
+          style={{ background: TH.canvasBg }}>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
             {showGrid && (() => {
               const lines: JSX.Element[] = []
@@ -716,8 +747,8 @@ export default function AssemblyModule() {
                 const b = project([i * step, N * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
                 const c1 = project([-N * step, i * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
                 const d1 = project([N * step, i * step, 0], [0, 0, 0], yaw, pitch, scale, W, H)
-                lines.push(<line key={`gx${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#3a3f4b" strokeWidth={0.5} opacity={0.4} />)
-                lines.push(<line key={`gy${i}`} x1={c1.x} y1={c1.y} x2={d1.x} y2={d1.y} stroke="#3a3f4b" strokeWidth={0.5} opacity={0.4} />)
+                lines.push(<line key={`gx${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={TH.grid} strokeWidth={0.5} opacity={0.4} />)
+                lines.push(<line key={`gy${i}`} x1={c1.x} y1={c1.y} x2={d1.x} y2={d1.y} stroke={TH.grid} strokeWidth={0.5} opacity={0.4} />)
               }
               return <g>{lines}</g>
             })()}
@@ -742,7 +773,7 @@ export default function AssemblyModule() {
 
           {/* Тост-уведомление */}
           {toast && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#1f232b]/95 border border-[#3a7bd5] text-[#7db3ff] text-[12px] px-3 py-1.5 rounded-lg shadow-lg">
+            <div className={`absolute top-3 left-1/2 -translate-x-1/2 ${TH.panel} border ${TH.accentBg.replace("bg-", "border-")} ${TH.accentText} text-[12px] px-3 py-1.5 rounded-lg shadow-lg`}>
               {toast}
             </div>
           )}
@@ -753,8 +784,8 @@ export default function AssemblyModule() {
             const vol = vis.reduce((s, c) => s + Math.PI * (c.r / 100) ** 2 * (c.len / 100) * (c.qty || 1), 0)
             const mass = vol * 7850
             return (
-              <div className="absolute top-3 left-3 w-56 bg-[#1f232b]/95 border border-[#3a3f4b] rounded-lg p-3 text-[12px]">
-                <div className="flex items-center gap-2 text-gray-200 font-medium mb-2"><Icon name="Scale" size={14} className="text-[#3a7bd5]" />Диагностика сборки</div>
+              <div className={`absolute top-3 left-3 w-56 ${TH.panel} border ${TH.borderStrong} rounded-lg p-3 text-[12px] shadow-lg`}>
+                <div className={`flex items-center gap-2 ${TH.textMain} font-medium mb-2`}><Icon name="Scale" size={14} className={TH.accent} />Диагностика сборки</div>
                 {[
                   ["Компонентов", `${vis.length} / ${comps.length}`],
                   ["Всего деталей", `${comps.reduce((s, c) => s + (c.qty || 1), 0)} шт.`],
@@ -762,71 +793,71 @@ export default function AssemblyModule() {
                   ["Масса (сталь)", `${mass.toFixed(1)} кг`],
                   ["Пересечений", "не обнаружено ✓"],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-0.5 text-gray-400"><span>{k}</span><span className="text-gray-200">{v}</span></div>
+                  <div key={k} className={`flex justify-between py-0.5 ${TH.textMuted}`}><span>{k}</span><span className={TH.textMain}>{v}</span></div>
                 ))}
-                <button onClick={() => setShowDiag(false)} className="w-full mt-2 h-6 rounded bg-[#3a3f4b] hover:bg-[#4a4f5b] text-gray-300 text-[11px]">Закрыть</button>
+                <button onClick={() => setShowDiag(false)} className={`w-full mt-2 h-6 rounded ${TH.panelAlt} ${TH.hover} ${TH.textMain} text-[11px] border ${TH.border}`}>Закрыть</button>
               </div>
             )
           })()}
 
           {/* Логотип-подсказка навигации в углу */}
-          <div className="absolute top-3 right-3 bg-[#1f232b]/80 border border-[#3a3f4b] rounded p-1.5">
-            <Icon name="Boxes" size={26} className="text-[#3a7bd5]" />
+          <div className={`absolute top-3 right-3 ${TH.panel} border ${TH.borderStrong} rounded p-1.5`}>
+            <Icon name="Boxes" size={26} className={TH.accent} />
           </div>
 
           {/* Панель разнесения / плеер ИЭТР */}
           {!stepMode ? (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#1f232b]/90 border border-[#3a3f4b] rounded-lg px-4 py-2 backdrop-blur">
+            <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 ${TH.panel} border ${TH.borderStrong} rounded-lg px-4 py-2 backdrop-blur shadow-lg`}>
               <button onClick={toggleExplode} disabled={animating}
-                className={`flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded transition-colors ${explode > 0.1 ? "bg-[#3a7bd5] text-white hover:bg-[#4a8be5]" : "bg-[#2b3038] text-gray-200 hover:bg-[#3a3f4b]"} disabled:opacity-60`}>
+                className={`flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded transition-colors ${explode > 0.1 ? `${TH.accentBg} text-white ${TH.accentBgHover}` : `${TH.panelAlt} ${TH.textMain} ${TH.hover}`} disabled:opacity-60`}>
                 <Icon name={explode > 0.1 ? "Shrink" : "Expand"} size={14} />
                 {explode > 0.1 ? "Собрать" : "Разнести"}
               </button>
-              <div className="w-px h-5 bg-[#3a3f4b]" />
-              <Icon name="Shrink" size={15} className="text-gray-400" />
+              <div className={`w-px h-5 ${TH.borderStrong.replace("border-", "bg-")}`} />
+              <Icon name="Shrink" size={15} className={TH.textMuted} />
               <input type="range" min={0} max={1.6} step={0.02} value={explode}
                 onChange={e => setExplode(parseFloat(e.target.value))}
-                className="w-40 accent-[#3a7bd5]" />
-              <Icon name="Expand" size={15} className="text-gray-400" />
-              <div className="w-px h-5 bg-[#3a3f4b]" />
+                className={`w-40 ${TH.accentBg.replace("bg-", "accent-")}`} />
+              <Icon name="Expand" size={15} className={TH.textMuted} />
+              <div className={`w-px h-5 ${TH.borderStrong.replace("border-", "bg-")}`} />
               <button onClick={enterStepMode} title="Пошаговая разборка (ИЭТР)"
-                className="flex items-center gap-1 text-[12px] text-gray-300 hover:text-white">
+                className={`flex items-center gap-1 text-[12px] ${TH.textMain} hover:${TH.accent.replace("text-", "text-")}`}>
                 <Icon name="ListVideo" size={14} />По шагам
               </button>
               <button onClick={() => { setYaw(-0.62); setPitch(0.38); setScale(1.15) }}
-                className="flex items-center gap-1 text-[12px] text-gray-300 hover:text-white">
+                className={`flex items-center gap-1 text-[12px] ${TH.textMain}`}>
                 <Icon name="Home" size={14} />Вид
               </button>
             </div>
           ) : (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col gap-1.5 bg-[#1f232b]/95 border border-[#3a7bd5]/60 rounded-lg px-4 py-2.5 backdrop-blur w-[560px]">
+            <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col gap-1.5 ${TH.panel} border ${TH.accentBg.replace("bg-", "border-")} rounded-lg px-4 py-2.5 backdrop-blur w-[560px] shadow-lg`}>
               <div className="flex items-center gap-3">
                 <button onClick={() => { setPlaying(false); animateScene(0) }} title="В начало"
-                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="SkipBack" size={15} /></button>
+                  className={`w-8 h-8 flex items-center justify-center rounded ${TH.panelAlt} ${TH.hover} ${TH.textMain}`}><Icon name="SkipBack" size={15} /></button>
                 <button onClick={() => { setPlaying(false); stepPrev() }} title="Шаг назад"
-                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="ChevronLeft" size={16} /></button>
+                  className={`w-8 h-8 flex items-center justify-center rounded ${TH.panelAlt} ${TH.hover} ${TH.textMain}`}><Icon name="ChevronLeft" size={16} /></button>
                 <button onClick={() => { if (scene >= totalSteps) setScene(0); setPlaying(p => !p) }} title={playing ? "Пауза" : "Воспроизвести"}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-[#3a7bd5] hover:bg-[#4a8be5] text-white"><Icon name={playing ? "Pause" : "Play"} size={17} /></button>
+                  className={`w-9 h-9 flex items-center justify-center rounded-full ${TH.accentBg} ${TH.accentBgHover} text-white`}><Icon name={playing ? "Pause" : "Play"} size={17} /></button>
                 <button onClick={() => { setPlaying(false); stepNext() }} title="Шаг вперёд"
-                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="ChevronRight" size={16} /></button>
+                  className={`w-8 h-8 flex items-center justify-center rounded ${TH.panelAlt} ${TH.hover} ${TH.textMain}`}><Icon name="ChevronRight" size={16} /></button>
                 <button onClick={() => { setPlaying(false); animateScene(totalSteps) }} title="В конец"
-                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200"><Icon name="SkipForward" size={15} /></button>
+                  className={`w-8 h-8 flex items-center justify-center rounded ${TH.panelAlt} ${TH.hover} ${TH.textMain}`}><Icon name="SkipForward" size={15} /></button>
 
-                <div className="flex-1 text-[12px] text-gray-200 truncate px-1">
-                  <span className="text-[#7db3ff] font-medium">Шаг {Math.min(totalSteps, Math.ceil(scene))} / {totalSteps}</span>
-                  {currentStepComp && <span className="text-gray-400"> · снять «{currentStepComp.name}»</span>}
+                <div className={`flex-1 text-[12px] ${TH.textMain} truncate px-1`}>
+                  <span className={`${TH.accentText} font-medium`}>Шаг {Math.min(totalSteps, Math.ceil(scene))} / {totalSteps}</span>
+                  {currentStepComp && <span className={TH.textMuted}> · снять «{currentStepComp.name}»</span>}
                 </div>
                 <button onClick={exitStepMode} title="Выйти из режима"
-                  className="w-8 h-8 flex items-center justify-center rounded bg-[#2b3038] hover:bg-red-600 text-gray-300 hover:text-white"><Icon name="X" size={15} /></button>
+                  className={`w-8 h-8 flex items-center justify-center rounded ${TH.panelAlt} hover:bg-red-600 ${TH.textMain} hover:text-white`}><Icon name="X" size={15} /></button>
               </div>
               {/* Дорожка прогресса с шагами */}
-              <div className="relative h-2 rounded-full bg-[#2b3038] mt-0.5">
-                <div className="absolute top-0 left-0 h-2 rounded-full bg-[#3a7bd5] transition-none" style={{ width: `${totalSteps ? (scene / totalSteps) * 100 : 0}%` }} />
+              <div className={`relative h-2 rounded-full ${TH.panelAlt} mt-0.5`}>
+                <div className={`absolute top-0 left-0 h-2 rounded-full ${TH.accentBg} transition-none`} style={{ width: `${totalSteps ? (scene / totalSteps) * 100 : 0}%` }} />
                 {Array.from({ length: totalSteps + 1 }).map((_, i) => (
                   <button key={i} onClick={() => { setPlaying(false); animateScene(i) }}
                     className="absolute -top-1 w-4 h-4 -ml-2 rounded-full"
                     style={{ left: `${totalSteps ? (i / totalSteps) * 100 : 0}%` }} title={`Шаг ${i}`}>
-                    <span className={`block w-2.5 h-2.5 mx-auto mt-0.5 rounded-full ${i <= scene ? "bg-[#7db3ff]" : "bg-[#4a4f5b]"}`} />
+                    <span className={`block w-2.5 h-2.5 mx-auto mt-0.5 rounded-full ${i <= scene ? TH.accentBg : "bg-gray-400"}`} />
                   </button>
                 ))}
               </div>
@@ -842,20 +873,20 @@ export default function AssemblyModule() {
                   const p = project(v, [0, 0, 0], yaw, pitch, 0.5, 72, 72)
                   return <><line x1={o.x} y1={o.y} x2={p.x} y2={p.y} stroke={col} strokeWidth={2} /><text x={p.x} y={p.y} fill={col} fontSize="9">{lbl}</text></>
                 }
-                return <g>{ax([60, 0, 0], "#e5484d", "X")}{ax([0, 60, 0], "#30a46c", "Y")}{ax([0, 0, 60], "#3a7bd5", "Z")}</g>
+                return <g>{ax([60, 0, 0], "#e5484d", "X")}{ax([0, 60, 0], "#30a46c", "Y")}{ax([0, 0, 60], TH.axisZ, "Z")}</g>
               })()}
             </svg>
           </div>
         </div>
 
         {/* ── Правая панель свойств выбранного компонента ── */}
-        <div className="w-56 bg-[#262b33] border-l border-[#1f232b] text-[12px] overflow-y-auto">
-          <div className="px-3 h-8 flex items-center gap-2 bg-[#1f232b] text-gray-300 font-medium">
+        <div className={`w-56 ${TH.panelAlt} border-l ${TH.border} text-[12px] overflow-y-auto`}>
+          <div className={`px-3 h-8 flex items-center gap-2 ${TH.panel} ${TH.textMain} font-medium`}>
             <Icon name="Info" size={14} />Свойства
           </div>
           {(() => {
             const c = comps.find(x => x.id === sel)
-            if (!c) return <div className="p-3 text-gray-500">Выберите компонент</div>
+            if (!c) return <div className={`p-3 ${TH.textMuted}`}>Выберите компонент</div>
             const rows: [string, string][] = [
               ["Наименование", c.name],
               ["Количество", c.qty ? `${c.qty} шт.` : "1 шт."],
@@ -867,19 +898,19 @@ export default function AssemblyModule() {
             return (
               <div className="p-2 space-y-1">
                 {rows.map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-2 px-1.5 py-1 rounded bg-[#2b3038]">
-                    <span className="text-gray-500">{k}</span>
-                    <span className="text-gray-200 text-right truncate">{v}</span>
+                  <div key={k} className={`flex justify-between gap-2 px-1.5 py-1 rounded ${TH.panel}`}>
+                    <span className={TH.textMuted}>{k}</span>
+                    <span className={`${TH.textMain} text-right truncate`}>{v}</span>
                   </div>
                 ))}
-                <button onClick={() => toggleVisible(c.id)} className="w-full mt-2 h-8 rounded bg-[#3a7bd5] hover:bg-[#4a8be5] text-white flex items-center justify-center gap-1.5">
+                <button onClick={() => toggleVisible(c.id)} className={`w-full mt-2 h-8 rounded ${TH.accentBg} ${TH.accentBgHover} text-white flex items-center justify-center gap-1.5`}>
                   <Icon name={c.visible ? "EyeOff" : "Eye"} size={14} />{c.visible ? "Скрыть" : "Показать"}
                 </button>
                 <div className="flex gap-1">
-                  <button onClick={toggleFix} className="flex-1 h-8 rounded bg-[#2b3038] hover:bg-[#3a3f4b] text-gray-200 flex items-center justify-center gap-1">
+                  <button onClick={toggleFix} className={`flex-1 h-8 rounded ${TH.panel} ${TH.hover} ${TH.textMain} flex items-center justify-center gap-1`}>
                     <Icon name={c.fixed ? "PinOff" : "Pin"} size={13} />{c.fixed ? "Снять" : "Фикс."}
                   </button>
-                  <button onClick={deleteSel} className="flex-1 h-8 rounded bg-[#2b3038] hover:bg-red-600 text-gray-200 hover:text-white flex items-center justify-center gap-1">
+                  <button onClick={deleteSel} className={`flex-1 h-8 rounded ${TH.panel} hover:bg-red-600 ${TH.textMain} hover:text-white flex items-center justify-center gap-1`}>
                     <Icon name="Trash2" size={13} />Удалить
                   </button>
                 </div>
@@ -890,22 +921,22 @@ export default function AssemblyModule() {
       </div>
 
       {/* ── Статус-бар ── */}
-      <div className="flex items-center gap-4 px-3 h-7 bg-[#1f232b] border-t border-[#151820] text-[11px] text-gray-400">
-        <span className="flex items-center gap-1"><Icon name="Boxes" size={12} className="text-[#3a7bd5]" />Сборка · {comps.length} компонентов</span>
+      <div className={`flex items-center gap-4 px-3 h-7 ${TH.panel} border-t ${TH.border} text-[11px] ${TH.textMuted}`}>
+        <span className="flex items-center gap-1"><Icon name="Boxes" size={12} className={TH.accent} />Сборка · {comps.length} компонентов</span>
         <span>Выбрано: {comps.find(c => c.id === sel)?.name || "—"}</span>
         <span className="flex items-center gap-1"><Icon name="Palette" size={12} />{{ wire: "Каркас", shaded: "Полутон", edges: "Полутон с рёбрами" }[renderMode]}</span>
-        {autoSpin && <span className="flex items-center gap-1 text-[#7db3ff]"><Icon name="RotateCw" size={12} />Автоповорот</span>}
+        {autoSpin && <span className={`flex items-center gap-1 ${TH.accentText}`}><Icon name="RotateCw" size={12} />Автоповорот</span>}
         <span className="ml-auto flex items-center gap-1"><Icon name="MousePointer2" size={12} />ЛКМ — вращение · Колесо — масштаб</span>
-        <span>КОМПАС-3D · среда сборки</span>
+        <span>{TH.brandName}</span>
       </div>
 
       {/* ── Функции сборки 2022–2027 ── */}
-      <div className="bg-[#1f232b] border-t border-[#151820]">
+      <div className={`${TH.panel} border-t ${TH.border}`}>
         <button onClick={() => setShowFn(o => !o)}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-[#2b3038] transition-colors">
-          <Icon name="Rocket" size={13} className="text-[#3a7bd5]" />
+          className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] ${TH.textMain} ${TH.hover} transition-colors`}>
+          <Icon name="Rocket" size={13} className={TH.accent} />
           <span className="font-semibold">Функции сборки 2022–2027</span>
-          <Icon name={showFn ? "ChevronDown" : "ChevronUp"} size={13} className="ml-auto text-gray-500" />
+          <Icon name={showFn ? "ChevronDown" : "ChevronUp"} size={13} className={`ml-auto ${TH.textMuted}`} />
         </button>
         {showFn && (
           <div className="max-h-[42vh] overflow-auto bg-white px-3 py-2">
@@ -918,16 +949,16 @@ export default function AssemblyModule() {
 }
 
 // ─── Строка дерева (для верхних узлов) ───────────────────────────────────────
-function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye, active, onClick }: {
-  icon: string; label: string; bold?: boolean; muted?: boolean; depth?: number; chevron?: boolean; expanded?: boolean; eye?: boolean; active?: boolean; onClick?: () => void
+function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye, active, TH, onClick }: {
+  icon: string; label: string; bold?: boolean; muted?: boolean; depth?: number; chevron?: boolean; expanded?: boolean; eye?: boolean; active?: boolean; TH: Theme; onClick?: () => void
 }) {
   return (
-    <div onClick={onClick} className={`flex items-center gap-1.5 pr-2 h-[26px] ${active ? "bg-[#37506e]" : "hover:bg-[#2f353f]"} ${bold ? "font-medium" : ""} ${onClick ? "cursor-pointer" : ""}`}
+    <div onClick={onClick} className={`flex items-center gap-1.5 pr-2 h-[26px] ${active ? TH.treeSel : TH.hover} ${bold ? "font-medium" : ""} ${onClick ? "cursor-pointer" : ""}`}
       style={{ paddingLeft: 8 + depth * 14 }}>
-      {eye ? <Icon name="Eye" size={14} className="text-gray-400 w-5" /> : <span className="w-0" />}
-      {chevron && <Icon name={expanded ? "ChevronDown" : "ChevronRight"} size={12} className="text-gray-500 shrink-0" />}
-      <Icon name={icon} size={13} className={active ? "text-white shrink-0" : muted ? "text-gray-500 shrink-0" : "text-[#7db3ff] shrink-0"} fallback="Square" />
-      <span className={`truncate ${active ? "text-white" : muted ? "text-gray-400" : "text-gray-200"}`}>{label}</span>
+      {eye ? <Icon name="Eye" size={14} className={`${TH.textMuted} w-5`} /> : <span className="w-0" />}
+      {chevron && <Icon name={expanded ? "ChevronDown" : "ChevronRight"} size={12} className={`${TH.textMuted} shrink-0`} />}
+      <Icon name={icon} size={13} className={active ? `${TH.accentText} shrink-0` : muted ? `${TH.textMuted} shrink-0` : `${TH.accentText} shrink-0`} fallback="Square" />
+      <span className={`truncate ${active ? `${TH.accentText} font-medium` : muted ? TH.textMuted : TH.textMain}`}>{label}</span>
     </div>
   )
 }
