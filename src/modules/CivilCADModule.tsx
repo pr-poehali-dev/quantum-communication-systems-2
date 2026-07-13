@@ -1149,6 +1149,38 @@ const INITIAL_CANVAS_OBJECTS: CanvasObject[] = [
   { id: "pt_1005",   type: "point",     label: "1005",                 color: "#f59e0b", lineWidth: 1,   layer: "C-TOPO-PNTS", pts: [[870,68]],  properties: { "Тип": "Точка", "X": "870.00", "Y": "68.00", "Z": "127.90", "Слой": "C-TOPO-PNTS" } },
 ]
 
+// Генерация объектов чертежа по выбранному шаблону — чтобы он появлялся
+// и в редакторе, и в 3D-вьюере (через синхронизацию canvasObjects).
+function buildTemplateObjects(name: string, layers: string[], color: string): CanvasObject[] {
+  const palette = ["#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#06b6d4", "#ec4899", "#84cc16"]
+  const objs: CanvasObject[] = []
+  const baseY = 120
+  layers.slice(0, 6).forEach((layer, i) => {
+    const c = i === 0 ? color : palette[i % palette.length]
+    const y = baseY + i * 55
+    const isPoints = /точк|пикет|скважин|репер|опор|колод|дожде|гидрант/i.test(layer)
+    if (isPoints) {
+      for (let k = 0; k < 6; k++) {
+        objs.push({
+          id: `tpl_${Date.now()}_${i}_${k}`, type: "point",
+          label: `${layer} ${k + 1}`, color: c, lineWidth: 1, layer: "C-TPL",
+          pts: [[120 + k * 130, y + (k % 2) * 20]],
+          properties: { "Тип": "Точка", "Слой шаблона": layer, "X": `${120 + k * 130}.00`, "Y": `${y}.00`, "Z": (125 + k * 0.7).toFixed(2) },
+        })
+      }
+    } else {
+      const pts: [number, number][] = []
+      for (let k = 0; k <= 8; k++) pts.push([100 + k * 90, y + Math.sin(k * 0.8 + i) * 22])
+      objs.push({
+        id: `tpl_${Date.now()}_${i}`, type: /труб|сет|водопров|канализ|ливн|тепло|газ|кабел|дренаж/i.test(layer) ? "pipe" : "alignment",
+        label: layer, color: c, lineWidth: 2.2, layer: "C-TPL", pts,
+        properties: { "Тип": "Линия шаблона", "Слой": layer, "Шаблон": name, "Длина": `${720 + i * 40} м` },
+      })
+    }
+  })
+  return objs
+}
+
 const ASSEMBLIES = ["Трасса ШД-38", "Ул. Трумана", "Тротуар", "Бордюр проезжей ч. Лев.", "Бордюр проезжей ч. Пр.", "Парковочный бордюр", "Бордюр периметра", "V-образный лоток"]
 const PROFILES: Record<string, string[]> = {
   "Трасса ШД-38": ["ПРОЕКТ_ШД-38", "Сущ. профиль"],
@@ -7385,9 +7417,10 @@ function FormaDataDialog({ onClose }: { onClose: ()=>void }) {
 }
 
 // ─── DWT Templates Manager ────────────────────────────────────────────────────
-function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: (name: string)=>void }) {
+function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: (name: string, layers: string[], color: string)=>void }) {
   const [tab, setTab] = useState<"standard"|"corporate"|"catalogs">("standard")
   const [selTemplate, setSelTemplate] = useState("")
+  const [tplSearch, setTplSearch] = useState("")
 
   const stdTemplates = [
     {name:"Лапа (Метрика)",  desc:"Метры · ГОСТ · МСК-70",        icon:"FileCode",  color:"#0078d4",
@@ -7550,9 +7583,20 @@ function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: 
         </div>
         <div className="flex flex-1 min-h-0">
           <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
-            {tab==="standard" && (
+            {tab==="standard" && (() => {
+              const q = tplSearch.trim().toLowerCase()
+              const list = stdTemplates.filter(t => !q || t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.layers.some(l=>l.toLowerCase().includes(q)) || t.styles.some(s=>s.toLowerCase().includes(q)))
+              return (
               <div className="space-y-2">
-                {stdTemplates.map(t=>(
+                <div className="sticky top-0 z-10 -mt-1 pb-2" style={{background:"#1e1e2e"}}>
+                  <div className="flex items-center gap-1.5 border border-gray-600 rounded-lg px-2.5 py-1.5" style={{background:"#0d1520"}}>
+                    <Icon name="Search" size={12} className="text-gray-500"/>
+                    <input value={tplSearch} onChange={e=>setTplSearch(e.target.value)} placeholder={`Поиск среди ${stdTemplates.length} шаблонов…`}
+                      className="bg-transparent text-[11px] text-white outline-none flex-1 placeholder-gray-600"/>
+                    {tplSearch && <button onClick={()=>setTplSearch("")} className="text-gray-500 hover:text-white"><Icon name="X" size={12}/></button>}
+                  </div>
+                </div>
+                {list.map(t=>(
                   <button key={t.name} onClick={()=>setSelTemplate(t.name)}
                     className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${selTemplate===t.name?"border-[#facc15] bg-[#facc15]/10":"border-gray-700 hover:border-gray-500"}`}
                     style={{background:selTemplate===t.name?undefined:"#111827"}}>
@@ -7566,8 +7610,10 @@ function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: 
                     {selTemplate===t.name&&<Icon name="Check" size={14} className="text-[#facc15]"/>}
                   </button>
                 ))}
+                {list.length===0 && <div className="text-center text-gray-500 text-[11px] py-6">Ничего не найдено по запросу «{tplSearch}»</div>}
               </div>
-            )}
+              )
+            })()}
             {tab==="corporate" && (
               <div className="space-y-3">
                 <div className="rounded-xl border border-dashed border-gray-600 p-6 text-center" style={{background:"#0d1520"}}>
@@ -7656,7 +7702,7 @@ function DWTTemplatesDialog({ onClose, onApply }: { onClose: ()=>void; onApply: 
           <div className="text-[10px] text-gray-500">{selTemplate?`Выбран: ${selTemplate}`:"Выберите шаблон"}</div>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
-            <button onClick={()=>{ if(selTemplate){onApply(selTemplate); onClose()} }}
+            <button onClick={()=>{ if(selTemplate){ const st=stdTemplates.find(t=>t.name===selTemplate); onApply(selTemplate, st?.layers||[], st?.color||"#facc15"); onClose() } }}
               disabled={!selTemplate}
               className={`px-4 py-1.5 rounded text-[11px] font-bold transition-colors ${selTemplate?"bg-[#facc15] text-[#0d1020] hover:bg-[#fde047]":"bg-gray-700 text-gray-500 cursor-not-allowed"}`}>
               Применить шаблон
@@ -14225,9 +14271,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showInfoDrainage && <InfoDrainageDialog onClose={()=>setShowInfoDrainage(false)}/>}
             {showFormaData && <FormaDataDialog onClose={()=>setShowFormaData(false)}/>}
             {showDWTTemplates && (
-              <DWTTemplatesDialog onClose={()=>setShowDWTTemplates(false)} onApply={name=>{
-                showToast(`Шаблон «${name}» применён`)
-                setStatusMsg(`Шаблон: ${name}`)
+              <DWTTemplatesDialog onClose={()=>setShowDWTTemplates(false)} onApply={(name, layers, color)=>{
+                const objs = buildTemplateObjects(name, layers, color)
+                setCanvasObjects(prev => [...prev, ...objs])
+                setShowStartScreen(false)
+                showToast(`Шаблон «${name}» применён — ${objs.length} объектов на чертеже`)
+                setStatusMsg(`Шаблон: ${name} · объектов: ${objs.length}`)
               }}/>
             )}
             {showRealityCapture && <RealityCaptureDialog onClose={()=>setShowRealityCapture(false)}/>}
