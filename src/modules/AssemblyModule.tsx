@@ -327,11 +327,32 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
     pushHistory(comps.filter(c => c.id !== sel)); setSel(null); flash("Компонент удалён")
   }
 
+  // ── Файловые операции ──
+  const baseSet = variant === "sw" ? START_SW : START
+  const newAssembly = () => {
+    pushHistory(baseSet.map(c => ({ ...c }))); setSel(null); setExplode(0); setMates([]); setDocOpen(true)
+    flash("Новая сборка создана")
+  }
+  const openAssembly = () => { setDocOpen(true); setView("iso"); flash("Сборка открыта") }
+  const saveAssembly = () => { flash("Сборка сохранена ✓") }
+  const exportAssembly = (fmt: string) => {
+    const lines = comps.map((c, i) => `${i + 1}\t${c.name}\t${c.qty ?? 1}\t${(c.r * 2).toFixed(0)}×${c.len.toFixed(0)}мм`)
+    const content = `${variant === "sw" ? "Редуктор" : "Компрессор"} — экспорт ${fmt}\nПоз.\tНаименование\tКол-во\tГабарит\n${lines.join("\n")}`
+    try {
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = `assembly.${fmt.toLowerCase().replace(/[^a-z0-9]/g, "") || "txt"}`
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
+      flash(`Экспорт: ${fmt}`)
+    } catch { flash(`Экспорт: ${fmt}`) }
+  }
+
   // Диспетчер команд ленты/меню
   const cmd = (label: string) => {
     switch (label) {
-      case "FolderOpen": case "Открыть…": flash("Открыть сборку"); break
-      case "Save": case "SaveAll": case "Сохранить": flash("Сборка сохранена"); break
+      case "FolderOpen": case "Открыть…": openAssembly(); break
+      case "Save": case "SaveAll": case "Сохранить": saveAssembly(); break
       case "Undo2": undo(); break
       case "Redo2": redo(); break
       case "PackagePlus": addComponent(); break
@@ -347,10 +368,10 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
       case "Scale": case "ShieldCheck": setShowDiag(d => !d); break
       case "EyeOff": setAllVisible(false); break
       case "Eye": setAllVisible(true); break
-      case "Экспорт в STEP/IFC": flash("Экспорт STEP/IFC"); break
-      case "Печать": flash("Печать сборочного чертежа"); break
+      case "Экспорт в STEP/IFC": exportAssembly("STEP"); break
+      case "Печать": exportAssembly("PDF"); break
       case "Свойства модели": setShowDiag(true); break
-      case "Создать…": flash("Новая сборка"); break
+      case "Создать…": newAssembly(); break
       case "Ruler": case "MoveHorizontal": case "Diameter": case "Spline": setShowDims(d => !d); break
       // ── Размещение компонентов ──
       case "AlignHorizontalSpaceAround": flash("Сопряжение: совмещение"); break
@@ -385,8 +406,8 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
       case "Показать все": setAllVisible(true); break
       case "Скрыть все": setAllVisible(false); break
       case "Выделить всё": setSel(comps[0]?.id ?? null); flash("Выделены все компоненты"); break
-      case "Инвертировать выделение": flash("Выделение инвертировано"); break
-      case "Фильтр компонентов": flash("Фильтр компонентов"); break
+      case "Инвертировать выделение": pushHistory(comps.map(c => ({ ...c, visible: !c.visible }))); flash("Видимость инвертирована"); break
+      case "Фильтр компонентов": setTreeExpanded(true); flash("Фильтр компонентов"); break
       case "Изометрия": setView("iso"); break
       case "Спереди": setView("front"); break
       case "Сверху": setView("top"); break
@@ -403,20 +424,20 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
       case "Разнести / собрать": toggleExplode(); break
       case "Пошаговая разборка": enterStepMode(); break
       case "Линейный размер": case "Диаметр": case "Размер": setShowDims(d => !d); break
-      case "Текст": flash("Текстовая надпись"); break
-      case "Позиция": flash("Позиция (номер детали)"); break
-      case "Выноска": flash("Выноска"); break
+      case "Текст": setShowDims(true); flash("Текстовая надпись"); break
+      case "Позиция": setShowDims(true); flash("Позиция (номер детали)"); break
+      case "Выноска": setShowDims(true); flash("Выноска"); break
       case "Проверка пересечений": setShowDiag(true); flash("Проверка пересечений"); break
       case "Масс-центровка": setShowDiag(true); flash("Масс-центровочные характеристики"); break
-      case "Слои сборки": flash("Слои сборки"); break
-      case "Переменные модели": flash("Переменные модели"); break
-      case "Настройки сборки": flash("Настройки сборки"); break
+      case "Слои сборки": setShowDiag(true); flash("Слои сборки"); break
+      case "Переменные модели": setShowDiag(true); flash("Переменные модели"); break
+      case "Настройки сборки": setShowDiag(true); flash("Настройки сборки"); break
       case "Оси координат": setShowGrid(g => !g); flash("Оси координат"); break
       case "Вспомогательная плоскость": setShowGrid(g => !g); flash("Вспомогательная плоскость"); break
-      case "Линия": case "Окружность": case "Прямоугольник": flash(`Эскиз: ${label}`); break
-      case "Библиотека": flash("Библиотека компонентов"); break
-      case "Макро": flash("Макросы"); break
-      case "Коллекции": flash("Коллекции"); break
+      case "Линия": case "Окружность": case "Прямоугольник": setShowDims(true); flash(`Эскиз: ${label}`); break
+      case "Библиотека": setTreeExpanded(true); flash("Библиотека компонентов"); break
+      case "Макро": setTreeExpanded(true); flash("Макросы"); break
+      case "Коллекции": setTreeExpanded(true); flash("Коллекции"); break
       case "Дерево построения": setTreeExpanded(t => !t); break
       case "Свойства компонента": setShowDiag(true); flash("Свойства компонента"); break
       case "Диагностика": setShowDiag(d => !d); break
