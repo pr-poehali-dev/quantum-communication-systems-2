@@ -157,6 +157,45 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 1600) }
 
+  // ── Интерактивные сопряжения (Mate) ──
+  const [mates, setMates] = useState<{ id: number; type: string; a: number; b: number }[]>([])
+  const [mateMode, setMateMode] = useState<string | null>(null)  // активный тип сопряжения
+  const [mateSel, setMateSel] = useState<number[]>([])           // выбранные компоненты для сопряжения
+  const [mateId, setMateId] = useState(1)
+
+  const startMate = (type: string) => {
+    setMateMode(type); setMateSel([]); setRightTab("tools")
+    flash(`${type}: выберите 1-й компонент`)
+  }
+  const cancelMate = () => { setMateMode(null); setMateSel([]) }
+  const applyMate = (type: string, a: number, b: number) => {
+    // Геометрически «притягиваем» компонент B к A вдоль оси сборки
+    setComps(prev => {
+      const A = prev.find(c => c.id === a), B = prev.find(c => c.id === b)
+      if (!A || !B) return prev
+      let targetX = B.x
+      if (type === "Совпадение" || type === "Концентричность" || type === "Касательность") targetX = A.x + (A.len + B.len) / 2
+      else if (type === "На расстоянии") targetX = A.x + (A.len + B.len) / 2 + 30
+      else if (type === "Симметрия") targetX = -A.x
+      return prev.map(c => c.id === b ? { ...c, x: targetX, explode: A.explode } : c)
+    })
+    setMates(m => [...m, { id: mateId, type, a, b }]); setMateId(i => i + 1)
+    flash(`Наложено сопряжение «${type}»`)
+  }
+  const pickForMate = (id: number) => {
+    if (!mateMode) { setSel(id); return }
+    setMateSel(prev => {
+      if (prev.includes(id)) return prev
+      const next = [...prev, id]
+      if (next.length === 1) { flash(`${mateMode}: выберите 2-й компонент`); return next }
+      // два выбраны — применяем
+      applyMate(mateMode, next[0], next[1])
+      setMateMode(null)
+      return []
+    })
+  }
+  const removeMate = (id: number) => { setMates(m => m.filter(x => x.id !== id)); flash("Сопряжение удалено") }
+
   // Плавная анимация разнесения/сборки (ease-in-out)
   const animateExplode = (to: number, label: string) => {
     cancelAnimationFrame(animRaf.current)
@@ -433,14 +472,15 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   const renderComp = (c: Comp) => {
     if (!c.visible) return null
     const [cx] = compCenter(c)
+    const isMatePick = mateSel.includes(c.id)
     const active = sel === c.id || (stepMode && currentStepComp?.id === c.id)
-    const stroke = active ? TH.greenSel : c.color
-    const sw = active ? 1.6 : 1
-    const op = active ? 1 : 0.85
+    const stroke = isMatePick ? "#f59e0b" : active ? TH.greenSel : c.color
+    const sw = isMatePick || active ? 1.6 : 1
+    const op = isMatePick || active ? 1 : 0.85
     const segs = 40
     const els: JSX.Element[] = []
     const fillOn = renderMode !== "wire"
-    const fillCol = active ? TH.greenSel : c.color
+    const fillCol = isMatePick ? "#f59e0b" : active ? TH.greenSel : c.color
 
     // Полутоновая заливка боковой поверхности цилиндра/конуса (квадами)
     const shade = (r1: number, r2: number) => {
@@ -543,7 +583,7 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
       )
     }
 
-    return <g key={c.id} style={{ cursor: "pointer" }} onClick={() => setSel(c.id)}>{els}</g>
+    return <g key={c.id} style={{ cursor: "pointer" }} onClick={() => pickForMate(c.id)}>{els}</g>
   }
 
   // Габаритный бокс выбранного компонента (зелёный, как на скрине)
@@ -714,8 +754,8 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
 
             <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded={openNodes["Компоненты"]} eye TH={TH} onClick={() => toggleNode("Компоненты")} />
             {openNodes["Компоненты"] && ordered.slice().reverse().map(c => (
-              <button key={c.id} onClick={() => setSel(c.id)}
-                className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${sel === c.id ? TH.treeSel : TH.hover}`}
+              <button key={c.id} onClick={() => pickForMate(c.id)}
+                className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${mateSel.includes(c.id) ? "bg-amber-200/70 dark:bg-amber-500/30" : sel === c.id ? TH.treeSel : TH.hover}`}
                 style={{ paddingLeft: 34 }}>
                 <span onClick={e => { e.stopPropagation(); toggleVisible(c.id) }} className={`w-5 flex justify-center ${TH.textMuted} hover:opacity-70`}>
                   <Icon name={c.visible ? "Eye" : "EyeOff"} size={14} />
@@ -754,6 +794,25 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
               return <g>{lines}</g>
             })()}
             {ordered.map(renderComp)}
+            {/* Визуализация наложенных сопряжений */}
+            {mates.map(m => {
+              const A = comps.find(c => c.id === m.a), B = comps.find(c => c.id === m.b)
+              if (!A || !B || !A.visible || !B.visible) return null
+              const pa = project(compCenter(A), [0, 0, 0], yaw, pitch, scale, W, H)
+              const pb = project(compCenter(B), [0, 0, 0], yaw, pitch, scale, W, H)
+              const mid = { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 }
+              return (
+                <g key={m.id}>
+                  <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="#f59e0b" strokeWidth={1.2} strokeDasharray="5 3" opacity={0.85} />
+                  <circle cx={pa.x} cy={pa.y} r={3} fill="#f59e0b" />
+                  <circle cx={pb.x} cy={pb.y} r={3} fill="#f59e0b" />
+                  <g transform={`translate(${mid.x},${mid.y})`}>
+                    <rect x={-9} y={-9} width={18} height={18} rx={4} fill="#f59e0b" opacity={0.9} />
+                    <text x={0} y={4} fontSize="11" textAnchor="middle" fill="#fff" stroke="none">⚲</text>
+                  </g>
+                </g>
+              )
+            })}
             {selBox}
             {showDims && (() => {
               const c = comps.find(x => x.id === sel)
@@ -897,7 +956,11 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
             </div>
           )}
           {variant === "sw" && rightTab === "tools" && (
-            <SwAssemblyTools TH={TH} selName={comps.find(c => c.id === sel)?.name ?? null} onCmd={cmd} flash={flash} />
+            <SwAssemblyTools TH={TH} selName={comps.find(c => c.id === sel)?.name ?? null} onCmd={cmd} flash={flash}
+              onStartMate={startMate} mateMode={mateMode} onCancelMate={cancelMate}
+              mateSelNames={mateSel.map(id => comps.find(c => c.id === id)?.name ?? "").filter(Boolean)}
+              mates={mates.map(m => ({ id: m.id, type: m.type, a: comps.find(c => c.id === m.a)?.name ?? "?", b: comps.find(c => c.id === m.b)?.name ?? "?" }))}
+              onRemoveMate={removeMate} />
           )}
           {(rightTab === "props" || variant !== "sw") && (() => {
             const c = comps.find(x => x.id === sel)
@@ -1046,13 +1109,22 @@ const SW_TOOL_GROUPS: SwGroup[] = [
   },
 ]
 
-function SwAssemblyTools({ TH, selName, onCmd, flash }: {
+// Типы сопряжений, применяемые интерактивно (выбор 2 компонентов)
+const MATE_TYPES = new Set([
+  "Совпадение", "Концентричность", "Касательность", "Параллельность", "Перпендикулярность",
+  "На расстоянии", "Под углом", "Симметрия",
+  "Кулачок (Cam)", "Паз (Slot)", "Шестерня (Gear)", "Рейка-шестерня", "Винт (Screw)", "Шарнир (Hinge)", "Универсальный шарнир",
+])
+
+function SwAssemblyTools({ TH, selName, onCmd, flash, onStartMate, mateMode, onCancelMate, mateSelNames, mates, onRemoveMate }: {
   TH: Theme; selName: string | null; onCmd: (label: string) => void; flash: (m: string) => void
+  onStartMate: (type: string) => void; mateMode: string | null; onCancelMate: () => void
+  mateSelNames: string[]; mates: { id: number; type: string; a: string; b: string }[]; onRemoveMate: (id: number) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({ "Сопряжения (Mate)": true, "Массивы компонентов": true })
   const toggle = (t: string) => setOpen(s => ({ ...s, [t]: !s[t] }))
   const run = (item: { n: string; ic: string; msg?: string }) => {
-    // маппинг на существующие рабочие команды среды
+    if (MATE_TYPES.has(item.n)) { onStartMate(item.n); return }
     const map: Record<string, string> = {
       "Разнесённый вид": "Percent", "Пошаговая разборка": "Пошаговая разборка",
       "Свойства масс": "Масс-центровка", "Проверка интерференции": "Проверка пересечений",
@@ -1064,9 +1136,40 @@ function SwAssemblyTools({ TH, selName, onCmd, flash }: {
   }
   return (
     <div className="p-2 space-y-1.5">
-      <div className={`text-[10px] ${TH.textMuted} px-1 pb-1`}>
-        Компонент: <b className={TH.textMain}>{selName || "не выбран"}</b>
-      </div>
+      {/* Баннер активного режима сопряжения */}
+      {mateMode ? (
+        <div className="rounded border border-amber-400 bg-amber-50 text-amber-800 px-2 py-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5 font-semibold"><Icon name="Link2" size={13} />Сопряжение: {mateMode}</div>
+          <div className="mt-0.5 text-[10px]">
+            {mateSelNames.length === 0 ? "Кликните 1-й компонент (в 3D или дереве)"
+              : `Выбран: «${mateSelNames[0]}». Кликните 2-й компонент`}
+          </div>
+          <button onClick={onCancelMate} className="mt-1 text-[10px] underline">Отменить</button>
+        </div>
+      ) : (
+        <div className={`text-[10px] ${TH.textMuted} px-1`}>
+          Компонент: <b className={TH.textMain}>{selName || "не выбран"}</b>
+        </div>
+      )}
+
+      {/* Список наложенных сопряжений */}
+      {mates.length > 0 && (
+        <div className={`rounded border ${TH.border} overflow-hidden`}>
+          <div className={`px-2 h-6 flex items-center gap-1.5 ${TH.panel} text-[10px] font-semibold ${TH.textMain}`}>
+            <Icon name="ListChecks" size={12} className={TH.accent} />Сопряжения ({mates.length})
+          </div>
+          <div className={TH.panelAlt}>
+            {mates.map(m => (
+              <div key={m.id} className={`flex items-center gap-1 px-2 py-1 text-[10px] ${TH.textMain} border-t ${TH.border}`}>
+                <Icon name="Link" size={11} className="text-amber-500" />
+                <span className="flex-1 truncate">{m.type}: {m.a} ↔ {m.b}</span>
+                <button onClick={() => onRemoveMate(m.id)} className="hover:text-red-500"><Icon name="X" size={11} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {SW_TOOL_GROUPS.map(g => (
         <div key={g.title} className={`rounded border ${TH.border} overflow-hidden`}>
           <button onClick={() => toggle(g.title)}
@@ -1077,13 +1180,17 @@ function SwAssemblyTools({ TH, selName, onCmd, flash }: {
           </button>
           {open[g.title] && (
             <div className={`grid grid-cols-2 gap-1 p-1.5 ${TH.panelAlt}`}>
-              {g.items.map(it => (
-                <button key={it.n} onClick={() => run(it)} title={it.n}
-                  className={`flex flex-col items-center justify-center gap-0.5 h-12 rounded border ${TH.border} ${TH.hover} ${TH.textMain} px-1`}>
-                  <Icon name={it.ic} size={15} className={TH.accent} fallback="Square" />
-                  <span className="text-[8.5px] leading-tight text-center line-clamp-2">{it.n}</span>
-                </button>
-              ))}
+              {g.items.map(it => {
+                const isMate = MATE_TYPES.has(it.n)
+                const activeMate = mateMode === it.n
+                return (
+                  <button key={it.n} onClick={() => run(it)} title={it.n}
+                    className={`flex flex-col items-center justify-center gap-0.5 h-12 rounded border ${activeMate ? "border-amber-400 bg-amber-100" : TH.border} ${TH.hover} ${TH.textMain} px-1`}>
+                    <Icon name={it.ic} size={15} className={activeMate ? "text-amber-600" : isMate ? "text-amber-500" : TH.accent} fallback="Square" />
+                    <span className="text-[8.5px] leading-tight text-center line-clamp-2">{it.n}</span>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
