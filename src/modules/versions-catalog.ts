@@ -2495,6 +2495,404 @@ const RAW_FEATURES: RawFeature[] = [
     fields: [{ key: "ops", label: "Операций", type: "number", default: "24" }],
     compute: v => [{ label: "Оптимизировано", value: `${num(v.ops)} операций` }],
   },
+
+  // ═══════════════ SOLIDWORKS 2027 — новинки версии ═══════════════
+  // ── Моделирование и детали ──
+  {
+    id: "sw27-sheet-offset", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Листовой металл: смещённый фланец", command: "SMOFFSET",
+    desc: "Базовый фланец можно смещать относительно плоскости эскиза — удобнее для мастер-деталей. Точнее считается K-фактор с учётом анизотропии, автоматически создаются технологические вырезы вокруг гибов.",
+    icon: "Layers2", isNew: true, outputLabel: "Развёртка с вырезами",
+    fields: [
+      { key: "thick", label: "Толщина", type: "number", default: "2", suffix: "мм" },
+      { key: "offset", label: "Смещение фланца", type: "number", default: "5", suffix: "мм" },
+      { key: "angle", label: "Угол гиба", type: "number", default: "90", suffix: "°" },
+      { key: "aniso", label: "Учитывать анизотропию", type: "toggle", default: "on" },
+    ],
+    compute: v => {
+      const t = num(v.thick), a = num(v.angle)
+      const k = v.aniso === "on" ? 0.42 : 0.5
+      const ba = Math.PI * (a / 180) * (k * t)
+      return [
+        { label: "K-фактор", value: `${k}${v.aniso === "on" ? " (анизотропия)" : ""}` },
+        { label: "Допуск на гиб (BA)", value: `${ba.toFixed(2)} мм` },
+        { label: "Смещение фланца", value: `${num(v.offset)} мм` },
+        { label: "Тех. вырезы", value: "созданы автоматически" },
+      ]
+    },
+  },
+  {
+    id: "sw27-weld-cutlist", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Сварные: Cut List → свойства файла", command: "CUTLISTPROP",
+    desc: "Значения свойств Cut List можно привязать к файловым свойствам детали — упрощает связь с примечаниями на чертежах и документацией.",
+    icon: "Table2", isNew: true, outputLabel: "Cut List",
+    fields: [
+      { key: "items", label: "Позиций в списке", type: "number", default: "12" },
+      { key: "link", label: "Привязать к свойствам файла", type: "toggle", default: "on" },
+    ],
+    compute: v => [
+      { label: "Позиций Cut List", value: `${num(v.items)}` },
+      { label: "Привязка к файлу", value: v.link === "on" ? "включена" : "выключена" },
+    ],
+  },
+  {
+    id: "sw27-surface-organic", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Поверхности: контроль кривизны", command: "SURFCURV",
+    desc: "Продвинутое поверхностное моделирование: сглаживание переходов между поверхностями и точный контроль кривизны для органичных форм.",
+    icon: "Spline", isNew: true, outputLabel: "Поверхность",
+    fields: [
+      { key: "cont", label: "Непрерывность", type: "select", default: "G2 (кривизна)", options: ["G0 (позиция)", "G1 (касание)", "G2 (кривизна)", "G3"] },
+      { key: "faces", label: "Сопрягаемых граней", type: "number", default: "4" },
+    ],
+    compute: v => [
+      { label: "Непрерывность", value: v.cont },
+      { label: "Сглажено переходов", value: `${num(v.faces)}` },
+    ],
+  },
+  {
+    id: "sw27-reverse-eng", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Обратная инженерия: скан → модель", command: "SCANFIT",
+    desc: "Импорт данных со сканеров, подгонка поверхностей к облакам точек и создание пригодных для производства твёрдых моделей.",
+    icon: "ScanLine", isNew: true, outputLabel: "Твердотельная модель",
+    fields: [
+      { key: "points", label: "Точек в облаке", type: "number", default: "250000" },
+      { key: "tol", label: "Допуск подгонки", type: "number", default: "0.1", suffix: "мм" },
+    ],
+    compute: v => [
+      { label: "Обработано точек", value: `${num(v.points).toLocaleString("ru-RU")}` },
+      { label: "Точность подгонки", value: `±${num(v.tol)} мм` },
+      { label: "Результат", value: "твердотельная модель" },
+    ],
+  },
+
+  // ── Сборки и производительность ──
+  {
+    id: "sw27-selective-open", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Выборочная загрузка сборки", command: "SELOPEN",
+    desc: "Визуализация взаимосвязей компонентов и продвинутые фильтры (в т.ч. из 3DEXPERIENCE), чтобы открывать только нужные части большой сборки. Фильтры сохраняются для повторного использования.",
+    icon: "Filter", isNew: true, outputLabel: "Загрузка",
+    fields: [
+      { key: "total", label: "Всего компонентов", type: "number", default: "5000" },
+      { key: "filter", label: "Фильтр", type: "select", default: "Только видимые", options: ["Только видимые", "По размеру", "По уровню", "Сохранённый фильтр"] },
+    ],
+    compute: v => {
+      const total = num(v.total)
+      const loaded = Math.max(1, Math.round(total * 0.18))
+      return [
+        { label: "Загружено", value: `${loaded.toLocaleString("ru-RU")} из ${total.toLocaleString("ru-RU")}` },
+        { label: "Фильтр", value: v.filter },
+        { label: "Экономия памяти", value: "≈82%" },
+      ]
+    },
+  },
+  {
+    id: "sw27-cosmetic-detect", product: "solidworks", version: "sw", dir: "mechanical", category: "platform",
+    name: "Распознавание косметических изменений", command: "COSMETIC",
+    desc: "Смена цвета или названия компонента больше не вызывает полную перестройку сборки — экономит ресурсы.",
+    icon: "Palette", isNew: true, outputLabel: "Перестроение",
+    fields: [{ key: "comps", label: "Изменено компонентов", type: "number", default: "8" }],
+    compute: v => [
+      { label: "Косметических правок", value: `${num(v.comps)}` },
+      { label: "Полная перестройка", value: "не требуется" },
+    ],
+  },
+  {
+    id: "sw27-offset-warning", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Предупреждения о смещениях", command: "OFFSETWARN",
+    desc: "Система автоматически предупреждает, если компонент смещается на необычно большое расстояние — помогает сохранить целостность сборки.",
+    icon: "TriangleAlert", isNew: true, outputLabel: "Проверка смещений",
+    fields: [
+      { key: "moved", label: "Фактическое смещение", type: "number", default: "1200", suffix: "мм" },
+      { key: "limit", label: "Порог предупреждения", type: "number", default: "500", suffix: "мм" },
+    ],
+    compute: v => {
+      const m = num(v.moved), l = num(v.limit)
+      return [
+        { label: "Смещение", value: `${m} мм` },
+        { label: "Статус", value: m > l ? "⚠ Превышен порог" : "В норме" },
+      ]
+    },
+  },
+
+  // ── Чертежи и документация ──
+  {
+    id: "sw27-autogen-drawing", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Автогенерация чертежей (бета)", command: "AUTODRAW",
+    desc: "По 3D-модели создаются листы с видами (проекционными, изометрией с затенением), управляемые размеры с допусками, рамки GD&T и базы; для сборок — таблицы ревизий и спецификации, для конфигураций — Family Tables.",
+    icon: "FileStack", isNew: true, outputLabel: "Комплект чертежей",
+    fields: [
+      { key: "views", label: "Проекций", type: "select", default: "3 + изометрия", options: ["2 + изометрия", "3 + изометрия", "Все виды"] },
+      { key: "gdt", label: "Рамки GD&T и базы", type: "toggle", default: "on" },
+      { key: "bom", label: "Спецификация (сборка)", type: "toggle", default: "off" },
+    ],
+    compute: v => [
+      { label: "Виды", value: v.views },
+      { label: "GD&T", value: v.gdt === "on" ? "проставлены" : "нет" },
+      { label: "Спецификация", value: v.bom === "on" ? "добавлена" : "—" },
+      { label: "Статус", value: "черновик (требует доработки)" },
+    ],
+  },
+  {
+    id: "sw27-magnetic-lines", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Магнитные линии для аннотаций", command: "MAGLINE",
+    desc: "Магнитные линии теперь поддерживают не только выноски (balloons), но и примечания, сварочные символы, символы ревизий и размеры — упрощают компоновку чертежа.",
+    icon: "Magnet", isNew: true, outputLabel: "Выравнивание",
+    fields: [
+      { key: "type", label: "Тип аннотаций", type: "select", default: "Примечания", options: ["Выноски", "Примечания", "Сварочные символы", "Размеры", "Символы ревизий"] },
+      { key: "count", label: "Аннотаций на линии", type: "number", default: "6" },
+    ],
+    compute: v => [
+      { label: "Тип", value: v.type },
+      { label: "Выровнено", value: `${num(v.count)} шт` },
+    ],
+  },
+  {
+    id: "sw27-dim-breaks", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Разрывы размерных линий", command: "DIMBREAK",
+    desc: "Автоматическая вставка разрывов в размерных линиях в местах пересечения с текстом или другими аннотациями — для лучшей читаемости.",
+    icon: "Minus", isNew: true, outputLabel: "Разрывы",
+    fields: [{ key: "cross", label: "Пересечений", type: "number", default: "14" }],
+    compute: v => [{ label: "Вставлено разрывов", value: `${num(v.cross)}` }],
+  },
+  {
+    id: "sw27-pdf-layers", product: "solidworks", version: "sw", dir: "docs", category: "plot",
+    name: "Экспорт в PDF со слоями", command: "PDFLAYERS",
+    desc: "Многослойный PDF: размеры, скрытые линии и комментарии сохраняются как отдельные слои. Получатель включает/выключает их в просмотрщике. Улучшена векторизация шрифтов.",
+    icon: "FileDown", isNew: true, outputLabel: "PDF",
+    fields: [
+      { key: "dims", label: "Слой размеров", type: "toggle", default: "on" },
+      { key: "hidden", label: "Слой скрытых линий", type: "toggle", default: "on" },
+      { key: "comments", label: "Слой комментариев", type: "toggle", default: "off" },
+    ],
+    compute: v => {
+      const n = [v.dims, v.hidden, v.comments].filter(x => x === "on").length
+      return [
+        { label: "Слоёв в PDF", value: `${n}` },
+        { label: "Векторизация шрифтов", value: "включена" },
+      ]
+    },
+  },
+
+  // ── Симуляция и анализ ──
+  {
+    id: "sw27-nonlinear-rough", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Нелинейный анализ: контакт Rough", command: "NLROUGH",
+    desc: "Улучшена конвергенция при больших деформациях. Новый тип контакта «Rough» (трение без проскальзывания) — для прессовых посадок и фрикционных муфт. Многопоточность на 16+ ядрах ускоряет расчёт до 50%.",
+    icon: "Cpu", isNew: true, outputLabel: "Расчёт",
+    fields: [
+      { key: "cores", label: "Ядер CPU", type: "number", default: "16" },
+      { key: "contact", label: "Тип контакта", type: "select", default: "Rough", options: ["Bonded", "No Penetration", "Rough"] },
+    ],
+    compute: v => {
+      const c = num(v.cores)
+      const speedup = c >= 16 ? "до 50%" : c >= 8 ? "до 30%" : "базовая"
+      return [
+        { label: "Тип контакта", value: v.contact },
+        { label: "Ускорение расчёта", value: speedup },
+      ]
+    },
+  },
+  {
+    id: "sw27-flow-thermal", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Flow → термические напряжения", command: "FLOWTHERM",
+    desc: "Обновлена модель турбулентности для низкоскоростных потоков (вентиляция, охлаждение электроники). Источники тепла и вентиляторы назначаются прямо на геометрию. Результаты тепловых расчётов передаются в структурный модуль.",
+    icon: "Thermometer", isNew: true, outputLabel: "Термонапряжения",
+    fields: [
+      { key: "temp", label: "Макс. температура", type: "number", default: "85", suffix: "°C" },
+      { key: "cte", label: "КТР материала", type: "number", default: "0.000012", suffix: "1/°C" },
+      { key: "len", label: "Характ. размер", type: "number", default: "200", suffix: "мм" },
+    ],
+    compute: v => {
+      const dT = num(v.temp) - 20
+      const strain = num(v.cte) * dT
+      const dl = strain * num(v.len)
+      return [
+        { label: "ΔT", value: `${dT} °C` },
+        { label: "Термодеформация", value: `${dl.toFixed(3)} мм` },
+        { label: "Передано в статику", value: "да" },
+      ]
+    },
+  },
+  {
+    id: "sw27-plastics-uv", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Plastics: график Unified Volume", command: "PLASTUV",
+    desc: "В постобработке SOLIDWORKS Plastics появился новый график «Unified Volume» для результатов заполнения при моделировании литья под давлением.",
+    icon: "LineChart", isNew: true, outputLabel: "Заполнение",
+    fields: [{ key: "fill", label: "Заполнение полости", type: "number", default: "98", suffix: "%" }],
+    compute: v => [{ label: "Unified Volume", value: `${num(v.fill)}% заполнено` }],
+  },
+  {
+    id: "sw27-topology", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Топологическая оптимизация", command: "TOPOLOGY",
+    desc: "Генеративный дизайн: задать пространство дизайна, нагрузки и ограничения, производственные ограничения (мин. размер элемента, симметрия, направление извлечения) и запустить оптимизацию, удаляющую лишний материал.",
+    icon: "Shapes", isNew: true, outputLabel: "Оптимизация",
+    fields: [
+      { key: "reduce", label: "Целевое снижение массы", type: "number", default: "40", suffix: "%" },
+      { key: "minsize", label: "Мин. размер элемента", type: "number", default: "3", suffix: "мм" },
+      { key: "sym", label: "Плоскость симметрии", type: "toggle", default: "on" },
+    ],
+    compute: v => [
+      { label: "Снижение массы", value: `${num(v.reduce)}%` },
+      { label: "Мин. элемент", value: `${num(v.minsize)} мм` },
+      { label: "Симметрия", value: v.sym === "on" ? "учтена" : "нет" },
+    ],
+  },
+
+  // ── Маршрутизация ──
+  {
+    id: "sw27-route-insulation", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Маршрутизация: изоляционные оболочки", command: "ROUTEINSUL",
+    desc: "Моделирование изоляционных оболочек и защитных слоёв для труб и проводов прямо в маршрутизации; сохранение как избранных элементов для повторного использования.",
+    icon: "Cable", isNew: true, outputLabel: "Изоляция",
+    fields: [
+      { key: "dia", label: "Диаметр трубы/провода", type: "number", default: "20", suffix: "мм" },
+      { key: "thick", label: "Толщина изоляции", type: "number", default: "5", suffix: "мм" },
+    ],
+    compute: v => [
+      { label: "Наружный диаметр", value: `${num(v.dia) + 2 * num(v.thick)} мм` },
+      { label: "Изоляция", value: `${num(v.thick)} мм` },
+    ],
+  },
+  {
+    id: "sw27-route-bom", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Сводная спецификация маршрутов", command: "ROUTEBOM",
+    desc: "Объединение спецификаций по нескольким подсборкам маршрутизации в одну общую.",
+    icon: "Rows3", isNew: true, outputLabel: "Спецификация",
+    fields: [{ key: "subs", label: "Подсборок", type: "number", default: "5" }],
+    compute: v => [{ label: "Объединено подсборок", value: `${num(v.subs)}` }],
+  },
+  {
+    id: "sw27-auto-route-3d", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Auto-Route по 3D-эскизам", command: "AUTOROUTE3D",
+    desc: "Функция Auto-Route теперь поддерживает маршрутизацию на основе 3D-эскизов — для организованных схем прокладки проводов, кабелей и жгутов.",
+    icon: "Spline", isNew: true, outputLabel: "Маршрут",
+    fields: [{ key: "seg", label: "Сегментов эскиза", type: "number", default: "9" }],
+    compute: v => [{ label: "Маршрут построен", value: `${num(v.seg)} сегментов` }],
+  },
+
+  // ── Интеграция и совместная работа ──
+  {
+    id: "sw27-circuitworks-trace", product: "solidworks", version: "sw", dir: "mechanical", category: "collab",
+    name: "ECAD-MCAD: прослеживаемость", command: "CWTRACE",
+    desc: "В CircuitWorks отслеживаются связи «родитель-потомок» — механик может просматривать и отменять изменения перед финальным обновлением данных в электрической схеме.",
+    icon: "CircuitBoard", isNew: true, outputLabel: "Синхронизация ECAD",
+    fields: [{ key: "changes", label: "Изменений на проверке", type: "number", default: "7" }],
+    compute: v => [
+      { label: "Изменений", value: `${num(v.changes)}` },
+      { label: "Отмена перед обновлением", value: "доступна" },
+    ],
+  },
+  {
+    id: "sw27-aura", product: "solidworks", version: "sw", dir: "mechanical", category: "ai",
+    name: "AURA — ИИ-компаньон", command: "AURA",
+    desc: "Виртуальный компаньон на базе ИИ: подсказки по проектированию и помощь в оформлении документации.",
+    icon: "Sparkles", isNew: true, outputLabel: "AURA",
+    fields: [{ key: "task", label: "Задача", type: "select", default: "Подсказка по проектированию", options: ["Подсказка по проектированию", "Оформление документации", "Поиск команды"] }],
+    compute: v => [{ label: "AURA", value: v.task }],
+  },
+  {
+    id: "sw27-web-share", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "Обмен ссылками на модели", command: "WEBSHARE",
+    desc: "Можно делиться ссылками на модели — коллеги просматривают и комментируют их в веб-браузере без установки полной версии CAD.",
+    icon: "Share2", isNew: true, outputLabel: "Ссылка",
+    fields: [
+      { key: "access", label: "Доступ", type: "select", default: "Просмотр + комментарии", options: ["Только просмотр", "Просмотр + комментарии"] },
+    ],
+    compute: v => [
+      { label: "Ссылка создана", value: "web://solidworks.share/…" },
+      { label: "Доступ", value: v.access },
+    ],
+  },
+  {
+    id: "sw27-pdm-sync", product: "solidworks", version: "sw", dir: "management", category: "collab",
+    name: "PDM: синхронизация представлений", command: "PDMSYNC",
+    desc: "Улучшены синхронизация представлений хранилища (Synchronize Vault Views), архивирование рабочих процессов и управление правами доступа к папкам.",
+    icon: "FolderSync", isNew: true, outputLabel: "Хранилище",
+    fields: [{ key: "folders", label: "Папок к синхронизации", type: "number", default: "36" }],
+    compute: v => [{ label: "Синхронизировано папок", value: `${num(v.folders)}` }],
+  },
+
+  // ── Визуализация и рендеринг ──
+  {
+    id: "sw27-dspbr", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "DSPBR — физичные материалы", command: "DSPBR",
+    desc: "Новые материалы с физически корректным рендерингом (Dassault Systèmes Physically Based Rendering) — модели выглядят реалистичнее прямо в среде SOLIDWORKS.",
+    icon: "Gem", isNew: true, outputLabel: "Материал",
+    fields: [
+      { key: "mat", label: "Материал", type: "select", default: "Полированный металл", options: ["Полированный металл", "Матовый пластик", "Стекло", "Резина", "Крашеный металл"] },
+      { key: "rough", label: "Шероховатость", type: "number", default: "0.2" },
+    ],
+    compute: v => [
+      { label: "Материал (PBR)", value: v.mat },
+      { label: "Шероховатость", value: `${num(v.rough)}` },
+    ],
+  },
+  {
+    id: "sw27-visualize-export", product: "solidworks", version: "sw", dir: "mechanical", category: "modeling3d",
+    name: "Рендеринг без переключения контекста", command: "VIZEXPORT",
+    desc: "С лицензией SOLIDWORKS Visualize задание на рендеринг настраивается прямо в SOLIDWORKS и экспортируется в Visualize одним кликом.",
+    icon: "Camera", isNew: true, outputLabel: "Задание рендера",
+    fields: [
+      { key: "res", label: "Разрешение", type: "select", default: "1920×1080", options: ["1280×720", "1920×1080", "3840×2160"] },
+      { key: "samples", label: "Сэмплов", type: "number", default: "200" },
+    ],
+    compute: v => [
+      { label: "Разрешение", value: v.res },
+      { label: "Экспорт в Visualize", value: "в один клик" },
+    ],
+  },
+
+  // ── Инструменты выбора и интерфейс ──
+  {
+    id: "sw27-select-filters", product: "solidworks", version: "sw", dir: "mechanical", category: "modify",
+    name: "Фильтры выбора компонентов", command: "SELFILTER",
+    desc: "Быстрый выбор в сложных сборках: Filter Components, Feature-Based Selection Filter, Select Bodies by Size (ползунок), Select Bodies by Volume (по области графической зоны).",
+    icon: "MousePointerSquareDashed", isNew: true, outputLabel: "Выбор",
+    fields: [
+      { key: "mode", label: "Режим", type: "select", default: "По размеру тела", options: ["Компоненты верхнего уровня", "По элементу детали", "По размеру тела", "По объёму области"] },
+      { key: "total", label: "Всего тел", type: "number", default: "3200" },
+    ],
+    compute: v => {
+      const total = num(v.total)
+      const sel = Math.max(1, Math.round(total * 0.12))
+      return [
+        { label: "Режим", value: v.mode },
+        { label: "Выбрано", value: `${sel} из ${total}` },
+      ]
+    },
+  },
+  {
+    id: "sw27-search-nonnative", product: "solidworks", version: "sw", dir: "mechanical", category: "ai",
+    name: "Поиск неродных терминов", command: "XSEARCH",
+    desc: "Инструмент поиска принимает неродные термины (например, «Pad» для CATIA) — упрощает поиск в кросс-платформенных проектах.",
+    icon: "Search", isNew: true, outputLabel: "Поиск",
+    fields: [{ key: "term", label: "Термин", type: "text", default: "Pad" }],
+    compute: v => [{ label: `«${v.term}»`, value: "→ Вытянутая бобышка (Extrude)" }],
+  },
+  {
+    id: "sw27-offline-mode", product: "solidworks", version: "sw", dir: "management", category: "platform",
+    name: "Автономный режим (Augmented)", command: "OFFLINE",
+    desc: "В SOLIDWORKS Augmented добавлен автоматический автономный режим — гарантирует непрерывность работы при проблемах с подключением.",
+    icon: "WifiOff", isNew: true, outputLabel: "Режим работы",
+    fields: [{ key: "state", label: "Соединение", type: "select", default: "Нестабильное", options: ["Онлайн", "Нестабильное", "Отсутствует"] }],
+    compute: v => [{ label: "Автономный режим", value: v.state === "Онлайн" ? "не требуется" : "включён автоматически" }],
+  },
+  {
+    id: "sw27-start-page", product: "solidworks", version: "sw", dir: "mechanical", category: "platform",
+    name: "Динамическая Start Page", command: "STARTPAGE",
+    desc: "Динамическая вкладка Start Page — хаб для быстрого доступа к настройкам рабочего пространства, проектам, последним файлам и обучающим ресурсам.",
+    icon: "LayoutDashboard", isNew: true, outputLabel: "Start Page",
+    fields: [{ key: "recent", label: "Недавних файлов", type: "number", default: "10" }],
+    compute: v => [{ label: "На стартовой странице", value: `${num(v.recent)} последних файлов` }],
+  },
+  {
+    id: "sw27-floating-windows", product: "solidworks", version: "sw", dir: "docs", category: "annotation",
+    name: "Плавающие окна чертежей", command: "FLOATWIN",
+    desc: "Независимые окна для сравнения и параллельного редактирования нескольких чертежей одновременно.",
+    icon: "Copy", isNew: true, outputLabel: "Окна",
+    fields: [{ key: "win", label: "Открыто окон", type: "number", default: "3" }],
+    compute: v => [{ label: "Плавающих окон", value: `${num(v.win)}` }],
+  },
 ]
 
 // Нормализация: достраиваем category (явную или автоопределённую)

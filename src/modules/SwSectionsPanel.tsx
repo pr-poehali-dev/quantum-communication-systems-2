@@ -27,6 +27,14 @@ const SECTION_IDS: Record<SwSectionId, string[]> = {
     "sw-sketchxpert", "sw-featurexpert", "sw-dimxpert", "sw-assemblyxpert", "sw-matexpert", "sw-instant3d",
     "sw-scanto3d", "sw-tolanalyst", "sw-circuitworks", "sw-motion", "sw-plastics-warp",
     "sw-featureworks", "sw-3d-interconnect",
+    // Новинки 2027 — моделирование, сборки, чертежи, симуляция, маршрутизация, визуализация, интерфейс
+    "sw27-sheet-offset", "sw27-weld-cutlist", "sw27-surface-organic", "sw27-reverse-eng",
+    "sw27-selective-open", "sw27-cosmetic-detect", "sw27-offset-warning",
+    "sw27-autogen-drawing", "sw27-magnetic-lines", "sw27-dim-breaks", "sw27-pdf-layers",
+    "sw27-nonlinear-rough", "sw27-flow-thermal", "sw27-plastics-uv", "sw27-topology",
+    "sw27-route-insulation", "sw27-route-bom", "sw27-auto-route-3d",
+    "sw27-circuitworks-trace", "sw27-aura", "sw27-dspbr", "sw27-visualize-export",
+    "sw27-select-filters", "sw27-search-nonnative", "sw27-start-page", "sw27-floating-windows",
   ],
   tpp: [
     "sw-cam", "sw-cam-nesting", "sw-cam-verify", "sw-cam-cut", "sw-tooling", "sw-estd",
@@ -35,6 +43,8 @@ const SECTION_IDS: Record<SwSectionId, string[]> = {
   data: [
     "sw-pdm", "sw-manage", "sw-task-scheduler", "sw-design-checker", "sw-esign",
     "sw-erp-cost", "sw-driveworks", "sw-translate", "sw-shopfloor",
+    // Новинки 2027 — обмен данными и управление
+    "sw27-web-share", "sw27-pdm-sync", "sw27-offline-mode",
   ],
   swnew: [
     "sw-autogen-drawing", "sw-aura", "sw-semantic-search", "sw-select-size",
