@@ -220,8 +220,19 @@ function drawSurface(
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function SurfaceCanvas({ surf, points, analysisMode, selId, onPick }: { surf: Surface; points: SurfPoint[]; analysisMode: string; selId?: number | null; onPick?: (id: number) => void }) {
+function SurfaceCanvas({ surf, points, analysisMode, selId, onPick, onDragPoint, onDragStart, onDragEnd }: { surf: Surface; points: SurfPoint[]; analysisMode: string; selId?: number | null; onPick?: (id: number) => void; onDragPoint?: (id: number, x: number, y: number) => void; onDragStart?: () => void; onDragEnd?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const dragId = useRef<number | null>(null)
+
+  // Границы проекции — идентичны drawSurface (min 0/10)
+  const bounds = useCallback(() => {
+    const xs = points.map(q => q.x), ys = points.map(q => q.y)
+    return {
+      minX: Math.min(...xs, 0), maxX: Math.max(...xs, 10),
+      minY: Math.min(...ys, 0), maxY: Math.max(...ys, 10),
+    }
+  }, [points])
+
   const draw = useCallback(() => {
     const c = canvasRef.current; if (!c) return
     const ctx = c.getContext("2d")!
@@ -250,15 +261,21 @@ function SurfaceCanvas({ surf, points, analysisMode, selId, onPick }: { surf: Su
   }, [draw])
   useEffect(() => { draw() }, [draw])
 
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!onPick || !points.length) return
+  const toCanvas = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const c = canvasRef.current!; const rect = c.getBoundingClientRect()
-    const mx = (e.clientX - rect.left) * (c.width / rect.width)
-    const my = (e.clientY - rect.top) * (c.height / rect.height)
+    return { c, mx: (e.clientX - rect.left) * (c.width / rect.width), my: (e.clientY - rect.top) * (c.height / rect.height) }
+  }
+  // Экран → координаты местности (обратная проекция)
+  const screenToWorld = (c: HTMLCanvasElement, mx: number, my: number) => {
     const pad = 32, W = c.width, H = c.height, w = W - pad * 2, h = H - pad * 2
-    const xs = points.map(q => q.x), ys = points.map(q => q.y)
-    const minX = Math.min(...xs, 0), maxX = Math.max(...xs, 10)
-    const minY = Math.min(...ys, 0), maxY = Math.max(...ys, 10)
+    const { minX, maxX, minY, maxY } = bounds()
+    const x = minX + ((mx - pad) / w) * (maxX - minX + 0.01)
+    const y = minY + ((H - pad - my) / h) * (maxY - minY + 0.01)
+    return { x, y }
+  }
+  const nearestPoint = (c: HTMLCanvasElement, mx: number, my: number) => {
+    const pad = 32, W = c.width, H = c.height, w = W - pad * 2, h = H - pad * 2
+    const { minX, maxX, minY, maxY } = bounds()
     let best = -1, bestD = Infinity
     points.forEach(p => {
       const px = pad + ((p.x - minX) / (maxX - minX + 0.01)) * w
@@ -266,10 +283,27 @@ function SurfaceCanvas({ surf, points, analysisMode, selId, onPick }: { surf: Su
       const d = (px - mx) ** 2 + (py - my) ** 2
       if (d < bestD) { bestD = d; best = p.id }
     })
-    if (best >= 0 && bestD < 30 * 30) onPick(best)
+    return bestD < 30 * 30 ? best : -1
   }
 
-  return <canvas ref={canvasRef} onClick={handleClick} className={`w-full h-full block ${onPick ? "cursor-pointer" : ""}`} />
+  const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!points.length || (!onPick && !onDragPoint)) return
+    const { c, mx, my } = toCanvas(e)
+    const id = nearestPoint(c, mx, my)
+    if (id < 0) return
+    onPick?.(id)
+    if (onDragPoint) { dragId.current = id; onDragStart?.() }
+  }
+  const onMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragId.current == null || !onDragPoint) return
+    const { c, mx, my } = toCanvas(e)
+    const { x, y } = screenToWorld(c, mx, my)
+    onDragPoint(dragId.current, +x.toFixed(2), +y.toFixed(2))
+  }
+  const endDrag = () => { if (dragId.current != null) { dragId.current = null; onDragEnd?.() } }
+
+  return <canvas ref={canvasRef} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={endDrag} onMouseLeave={endDrag}
+    className={`w-full h-full block ${onDragPoint ? "cursor-move" : onPick ? "cursor-pointer" : ""}`} />
 }
 
 // ─── Main module ─────────────────────────────────────────────────────────────
@@ -293,6 +327,15 @@ export default function SurfacesModule() {
   const [toast, setToast] = useState<string | null>(null)
   const [rebuildKey, setRebuildKey] = useState(0)
   const flash = (msg: string) => { setToast(msg); window.clearTimeout((flash as any)._t); (flash as any)._t = window.setTimeout(() => setToast(null), 2200) }
+  const editHistory = useRef<SurfPoint[][]>([])
+  const [canUndo, setCanUndo] = useState(false)
+  const snapshot = () => { editHistory.current.push(points.map(p => ({ ...p }))); setCanUndo(true) }
+  const undoEdit = () => {
+    const prev = editHistory.current.pop()
+    if (!prev) { flash("Нет изменений для отмены"); return }
+    setPoints(prev); setCanUndo(editHistory.current.length > 0)
+    setRebuildKey(k => k + 1); flash("Изменение отменено")
+  }
 
   const surf = surfaces.find(s => s.id === activeSurf) || surfaces[0]
   const minZ = Math.min(...points.map(p => p.z))
@@ -330,6 +373,7 @@ export default function SurfacesModule() {
     if (raw == null) return
     const z = parseFloat(raw.replace(",", "."))
     if (isNaN(z)) { flash("Некорректная отметка"); return }
+    snapshot()
     setPoints(prev => prev.map(x => x.id === p.id ? { ...x, z } : x))
     setRebuildKey(k => k + 1)
     flash(`Точка «${p.name}»: Z = ${z.toFixed(2)} м`)
@@ -357,11 +401,15 @@ export default function SurfacesModule() {
   const simplifySurface = () => {
     if (points.length <= 3) { flash("Слишком мало точек для упрощения"); return }
     const before = points.length
+    snapshot()
     setPoints(prev => prev.filter((_, i) => i % 3 !== 2))
     setSelPoint(null)
     setRebuildKey(k => k + 1)
     flash(`Поверхность упрощена: ${before} → ${Math.ceil(before * 2 / 3)} точек (LOD)`)
   }
+  // Перетаскивание точки мышью по схеме
+  const dragPoint = (id: number, x: number, y: number) =>
+    setPoints(prev => prev.map(p => p.id === id ? { ...p, x, y } : p))
   const EDIT_TOOLS: Record<string, () => void> = {
     "Переместить точку": movePoint,
     "Слияние поверхностей": mergeSurfaces,
@@ -799,7 +847,12 @@ export default function SurfacesModule() {
 
                 {/* Edit tools */}
                 <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2"><Icon name="Wrench" size={16} className="text-indigo-600" />Инструменты редактирования</h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2"><Icon name="Wrench" size={16} className="text-indigo-600" />Инструменты редактирования</h3>
+                    <Button size="sm" variant="outline" disabled={!canUndo} onClick={undoEdit} className="h-7 text-xs gap-1">
+                      <Icon name="Undo2" size={13} />Отменить
+                    </Button>
+                  </div>
                   {[
                     { icon: "MoveVertical", label: "Переместить точку", desc: "Изменить отметку Z выбранной точки" },
                     { icon: "GitMerge", label: "Слияние поверхностей", desc: "Объединить две поверхности в одну" },
@@ -824,9 +877,10 @@ export default function SurfacesModule() {
 
               {/* Canvas with editing */}
               <div className="rounded-xl border border-gray-200 overflow-hidden" style={{ height: 320 }}>
-                <SurfaceCanvas key={rebuildKey} surf={surf} points={points} analysisMode="" selId={selPoint} onPick={setSelPoint} />
+                <SurfaceCanvas key={rebuildKey} surf={surf} points={points} analysisMode="" selId={selPoint}
+                  onPick={setSelPoint} onDragPoint={dragPoint} onDragStart={snapshot} onDragEnd={() => flash("Точка перемещена")} />
               </div>
-              <p className="text-xs text-gray-400 -mt-1">Кликните точку на поверхности, чтобы выбрать её для редактирования.</p>
+              <p className="text-xs text-gray-400 -mt-1 flex items-center gap-1"><Icon name="MousePointer2" size={12} />Перетаскивайте точки мышью прямо на схеме. Для изменения отметки Z выберите точку и нажмите «Переместить точку».</p>
               <div className="flex gap-2">
                 <Button onClick={() => setStep(4)} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">Далее — анализ <Icon name="ChevronRight" size={16} /></Button>
                 <Button variant="outline" onClick={() => setStep(2)}>Назад</Button>
