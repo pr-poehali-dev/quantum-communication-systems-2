@@ -43,6 +43,29 @@ const START: Comp[] = [
   { id: 16, name: "Гайка", qty: 16, shape: "box", color: C_BLUE, x: 330, r: 9, len: 8, explode: 3.5, visible: true },
 ]
 
+// Стартовый набор деталей для SolidWorks — узел цилиндрического редуктора
+const SW_BLUE = "#0078d4"
+const SW_STEEL = "#5b6b7b"
+const START_SW: Comp[] = [
+  { id: 1, name: "Корпус редуктора", shape: "ring", color: SW_STEEL, x: 0, r: 130, len: 200, explode: 0, visible: true, fixed: true },
+  { id: 2, name: "Крышка корпуса", shape: "flange", color: SW_BLUE, x: 130, r: 130, len: 22, explode: 1.4, visible: true },
+  { id: 3, name: "Крышка подшипника Л", shape: "flange", color: SW_BLUE, x: -120, r: 60, len: 16, explode: -1.5, visible: true },
+  { id: 4, name: "Крышка подшипника П", shape: "flange", color: SW_BLUE, x: 120, r: 60, len: 16, explode: 1.9, visible: true },
+  { id: 5, name: "Вал-шестерня ведущий", shape: "shaft", color: SW_STEEL, x: -40, r: 24, len: 240, explode: -0.5, visible: true },
+  { id: 6, name: "Вал ведомый", shape: "shaft", color: SW_STEEL, x: 40, r: 30, len: 220, explode: 0.6, visible: true },
+  { id: 7, name: "Зубчатое колесо ведущее", shape: "disk", color: SW_BLUE, x: -40, r: 62, len: 34, explode: -0.9, visible: true },
+  { id: 8, name: "Зубчатое колесо ведомое", shape: "disk", color: SW_BLUE, x: 40, r: 100, len: 40, explode: 1.0, visible: true },
+  { id: 9, name: "Подшипник 6208", qty: 4, shape: "ring", color: SW_STEEL, x: -95, r: 40, len: 18, explode: -1.2, visible: true },
+  { id: 10, name: "Распорная втулка", qty: 2, shape: "shaft", color: SW_BLUE, x: 70, r: 22, len: 30, explode: 1.3, visible: true },
+  { id: 11, name: "Стакан подшипника", shape: "ring", color: SW_BLUE, x: -95, r: 52, len: 40, explode: -1.6, visible: true },
+  { id: 12, name: "Маслоотражатель", qty: 2, shape: "disk", color: SW_BLUE, x: 90, r: 34, len: 6, explode: 1.6, visible: true },
+  { id: 13, name: "Пробка сливная", shape: "cone", color: SW_STEEL, x: 0, r: 14, len: 26, explode: 2.2, visible: true },
+  { id: 14, name: "Болт М10 крышки", qty: 12, shape: "box", color: SW_STEEL, x: 160, r: 8, len: 30, explode: 2.6, visible: true },
+  { id: 15, name: "Шайба пружинная", qty: 12, shape: "disk", color: SW_STEEL, x: 185, r: 9, len: 3, explode: 2.9, visible: true },
+  { id: 16, name: "Гайка М10", qty: 12, shape: "box", color: SW_STEEL, x: 205, r: 9, len: 8, explode: 3.2, visible: true },
+  { id: 17, name: "Шпонка призматическая", qty: 2, shape: "box", color: SW_BLUE, x: 60, r: 6, len: 40, explode: 3.5, visible: true },
+]
+
 // Пункты верхнего меню (как в КОМПАС)
 const MENU = ["Файл", "Правка", "Выделить", "Вид", "Эскиз", "Моделирование", "Сборка", "Оформление", "Диагностика", "Управление", "Настройка", "Приложения", "Окно", "Справка"]
 
@@ -120,8 +143,8 @@ const THEMES: Record<Variant, Theme> = {
     accent: "text-[#0078d4]", accentText: "text-[#0078d4]", accentBg: "bg-[#0078d4]", accentBgHover: "hover:bg-[#005fa3]",
     activeBg: "bg-[#cce4f7]", activeText: "text-[#0078d4]", toolbar: "bg-[#eef1f4]", treeSel: "bg-[#cce4f7]",
     textMain: "text-gray-700", textMuted: "text-gray-500", canvasBg: "linear-gradient(180deg, #dfe7ef 0%, #c3cfdb 55%, #aab8c7 100%)",
-    grid: "#b3bfcc", brandName: "SolidWorks-3D · среда сборки", brandSub: "Сборка", docName: "Компрессор_КНД.SLDASM",
-    treeRoot: "Компрессор_КНД (По умолчанию)", logo: "Box", axisZ: "#0078d4", greenSel: "#16a34a",
+    grid: "#b3bfcc", brandName: "SolidWorks-3D · среда сборки", brandSub: "Сборка", docName: "Редуктор_цилиндрический.SLDASM",
+    treeRoot: "Редуктор_цилиндрический (По умолчанию)", logo: "Box", axisZ: "#0078d4", greenSel: "#16a34a",
   },
 }
 
@@ -166,7 +189,7 @@ const ASSEMBLY_TREE: ATreeNode[] = [
 
 export default function AssemblyModule({ variant = "kompas" }: { variant?: Variant } = {}) {
   const TH = THEMES[variant]
-  const [comps, setComps] = useState<Comp[]>(START)
+  const [comps, setComps] = useState<Comp[]>(variant === "sw" ? START_SW : START)
   const [sel, setSel] = useState<number | null>(3)
   const [explode, setExplode] = useState(0.55)
   const [yaw, setYaw] = useState(-0.62)
