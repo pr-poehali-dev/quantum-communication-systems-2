@@ -19,6 +19,7 @@ interface Comp {
   explode: number      // множитель разнесения
   visible: boolean
   fixed?: boolean      // компонент зафиксирован (значок кнопки)
+  group?: string       // узел сборки (для группировки в дереве)
 }
 
 const C_BLUE = "#3a7bd5"
@@ -47,23 +48,23 @@ const START: Comp[] = [
 const SW_BLUE = "#0078d4"
 const SW_STEEL = "#5b6b7b"
 const START_SW: Comp[] = [
-  { id: 1, name: "Корпус редуктора", shape: "ring", color: SW_STEEL, x: 0, r: 130, len: 200, explode: 0, visible: true, fixed: true },
-  { id: 2, name: "Крышка корпуса", shape: "flange", color: SW_BLUE, x: 130, r: 130, len: 22, explode: 1.4, visible: true },
-  { id: 3, name: "Крышка подшипника Л", shape: "flange", color: SW_BLUE, x: -120, r: 60, len: 16, explode: -1.5, visible: true },
-  { id: 4, name: "Крышка подшипника П", shape: "flange", color: SW_BLUE, x: 120, r: 60, len: 16, explode: 1.9, visible: true },
-  { id: 5, name: "Вал-шестерня ведущий", shape: "shaft", color: SW_STEEL, x: -40, r: 24, len: 240, explode: -0.5, visible: true },
-  { id: 6, name: "Вал ведомый", shape: "shaft", color: SW_STEEL, x: 40, r: 30, len: 220, explode: 0.6, visible: true },
-  { id: 7, name: "Зубчатое колесо ведущее", shape: "disk", color: SW_BLUE, x: -40, r: 62, len: 34, explode: -0.9, visible: true },
-  { id: 8, name: "Зубчатое колесо ведомое", shape: "disk", color: SW_BLUE, x: 40, r: 100, len: 40, explode: 1.0, visible: true },
-  { id: 9, name: "Подшипник 6208", qty: 4, shape: "ring", color: SW_STEEL, x: -95, r: 40, len: 18, explode: -1.2, visible: true },
-  { id: 10, name: "Распорная втулка", qty: 2, shape: "shaft", color: SW_BLUE, x: 70, r: 22, len: 30, explode: 1.3, visible: true },
-  { id: 11, name: "Стакан подшипника", shape: "ring", color: SW_BLUE, x: -95, r: 52, len: 40, explode: -1.6, visible: true },
-  { id: 12, name: "Маслоотражатель", qty: 2, shape: "disk", color: SW_BLUE, x: 90, r: 34, len: 6, explode: 1.6, visible: true },
-  { id: 13, name: "Пробка сливная", shape: "cone", color: SW_STEEL, x: 0, r: 14, len: 26, explode: 2.2, visible: true },
-  { id: 14, name: "Болт М10 крышки", qty: 12, shape: "box", color: SW_STEEL, x: 160, r: 8, len: 30, explode: 2.6, visible: true },
-  { id: 15, name: "Шайба пружинная", qty: 12, shape: "disk", color: SW_STEEL, x: 185, r: 9, len: 3, explode: 2.9, visible: true },
-  { id: 16, name: "Гайка М10", qty: 12, shape: "box", color: SW_STEEL, x: 205, r: 9, len: 8, explode: 3.2, visible: true },
-  { id: 17, name: "Шпонка призматическая", qty: 2, shape: "box", color: SW_BLUE, x: 60, r: 6, len: 40, explode: 3.5, visible: true },
+  { id: 1, name: "Корпус редуктора", shape: "ring", color: SW_STEEL, x: 0, r: 130, len: 200, explode: 0, visible: true, fixed: true, group: "Корпусные детали" },
+  { id: 2, name: "Крышка корпуса", shape: "flange", color: SW_BLUE, x: 130, r: 130, len: 22, explode: 1.4, visible: true, group: "Корпусные детали" },
+  { id: 3, name: "Крышка подшипника Л", shape: "flange", color: SW_BLUE, x: -120, r: 60, len: 16, explode: -1.5, visible: true, group: "Корпусные детали" },
+  { id: 4, name: "Крышка подшипника П", shape: "flange", color: SW_BLUE, x: 120, r: 60, len: 16, explode: 1.9, visible: true, group: "Корпусные детали" },
+  { id: 5, name: "Вал-шестерня ведущий", shape: "shaft", color: SW_STEEL, x: -40, r: 24, len: 240, explode: -0.5, visible: true, group: "Валы" },
+  { id: 6, name: "Вал ведомый", shape: "shaft", color: SW_STEEL, x: 40, r: 30, len: 220, explode: 0.6, visible: true, group: "Валы" },
+  { id: 17, name: "Шпонка призматическая", qty: 2, shape: "box", color: SW_BLUE, x: 60, r: 6, len: 40, explode: 3.5, visible: true, group: "Валы" },
+  { id: 7, name: "Зубчатое колесо ведущее", shape: "disk", color: SW_BLUE, x: -40, r: 62, len: 34, explode: -0.9, visible: true, group: "Зубчатая передача" },
+  { id: 8, name: "Зубчатое колесо ведомое", shape: "disk", color: SW_BLUE, x: 40, r: 100, len: 40, explode: 1.0, visible: true, group: "Зубчатая передача" },
+  { id: 9, name: "Подшипник 6208", qty: 4, shape: "ring", color: SW_STEEL, x: -95, r: 40, len: 18, explode: -1.2, visible: true, group: "Опоры и уплотнения" },
+  { id: 11, name: "Стакан подшипника", shape: "ring", color: SW_BLUE, x: -95, r: 52, len: 40, explode: -1.6, visible: true, group: "Опоры и уплотнения" },
+  { id: 10, name: "Распорная втулка", qty: 2, shape: "shaft", color: SW_BLUE, x: 70, r: 22, len: 30, explode: 1.3, visible: true, group: "Опоры и уплотнения" },
+  { id: 12, name: "Маслоотражатель", qty: 2, shape: "disk", color: SW_BLUE, x: 90, r: 34, len: 6, explode: 1.6, visible: true, group: "Опоры и уплотнения" },
+  { id: 13, name: "Пробка сливная", shape: "cone", color: SW_STEEL, x: 0, r: 14, len: 26, explode: 2.2, visible: true, group: "Опоры и уплотнения" },
+  { id: 14, name: "Болт М10 крышки", qty: 12, shape: "box", color: SW_STEEL, x: 160, r: 8, len: 30, explode: 2.6, visible: true, group: "Крепёж" },
+  { id: 15, name: "Шайба пружинная", qty: 12, shape: "disk", color: SW_STEEL, x: 185, r: 9, len: 3, explode: 2.9, visible: true, group: "Крепёж" },
+  { id: 16, name: "Гайка М10", qty: 12, shape: "box", color: SW_STEEL, x: 205, r: 9, len: 8, explode: 3.2, visible: true, group: "Крепёж" },
 ]
 
 // Пункты верхнего меню (как в КОМПАС)
@@ -198,7 +199,7 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [docOpen, setDocOpen] = useState(true)
   const [treeExpanded, setTreeExpanded] = useState(true)
-  const [openNodes, setOpenNodes] = useState<Record<string, boolean>>({ "Компоненты": true })
+  const [openNodes, setOpenNodes] = useState<Record<string, boolean>>({ "Компоненты": true, "grp:Корпусные детали": true, "grp:Валы": true, "grp:Зубчатая передача": true })
   const toggleNode = (k: string) => setOpenNodes(s => ({ ...s, [k]: !s[k] }))
   const [treeSel, setTreeSel] = useState<string | null>(null)
   const [showFn, setShowFn] = useState(false)
@@ -694,6 +695,34 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
     )
   }
 
+  // Группировка компонентов по узлам сборки (если задано поле group)
+  const compGroups = useMemo<[string, Comp[]][]>(() => {
+    if (!comps.some(c => c.group)) return []
+    const map = new Map<string, Comp[]>()
+    ordered.forEach(c => {
+      const g = c.group || "Прочее"
+      if (!map.has(g)) map.set(g, [])
+      map.get(g)!.push(c)
+    })
+    return Array.from(map.entries())
+  }, [comps, ordered])
+
+  // Рендер строки одного компонента дерева
+  const renderCompRow = (c: Comp, depth: number) => (
+    <button key={c.id} onClick={() => pickForMate(c.id)}
+      className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${mateSel.includes(c.id) ? "bg-amber-200/70 dark:bg-amber-500/30" : sel === c.id ? TH.treeSel : TH.hover}`}
+      style={{ paddingLeft: 8 + depth * 14 }}>
+      <span onClick={e => { e.stopPropagation(); toggleVisible(c.id) }} className={`w-5 flex justify-center ${TH.textMuted} hover:opacity-70`}>
+        <Icon name={c.visible ? "Eye" : "EyeOff"} size={14} />
+      </span>
+      <Icon name="Box" size={13} className={`${TH.accentText} shrink-0`} />
+      {c.fixed && <Icon name="Pin" size={11} className={`${TH.textMuted} shrink-0`} />}
+      <span className={`truncate ${c.visible ? "" : `${TH.textMuted} line-through`}`}>
+        {c.name}{c.qty ? ` (x${c.qty})` : ""}
+      </span>
+    </button>
+  )
+
   return (
     <div className={`relative rounded-xl overflow-hidden border ${TH.root} select-none`} style={{ fontFamily: "Segoe UI, sans-serif" }}>
       {/* ── Верхнее меню ── */}
@@ -717,12 +746,15 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
         </div>
 
         {openMenu && (
-          <div className={`absolute top-9 z-30 ${TH.panel} border ${TH.border} shadow-2xl rounded-b w-56 py-1 text-[13px]`}
-            style={{ left: 36 + MENU.indexOf(openMenu) * 8 }} onMouseLeave={() => setOpenMenu(null)}>
-            {(MENU_ITEMS[openMenu] || []).map(i => (
-              <button key={i} onClick={() => { cmd(i); setOpenMenu(null) }} className={`w-full text-left px-3 py-1.5 ${TH.accentBg.replace("bg-", "hover:bg-")} hover:text-white`}>{i}</button>
-            ))}
-          </div>
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setOpenMenu(null)} />
+            <div className={`absolute top-9 z-30 ${TH.panel} border ${TH.border} shadow-2xl rounded-b w-56 py-1 text-[13px]`}
+              style={{ left: Math.min(36 + MENU.indexOf(openMenu) * 34, 640) }}>
+              {(MENU_ITEMS[openMenu] || []).map(i => (
+                <button key={i} onClick={() => { cmd(i); setOpenMenu(null) }} className={`w-full text-left px-3 py-1.5 ${TH.accentBg.replace("bg-", "hover:bg-")} hover:text-white`}>{i}</button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -815,21 +847,15 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
             {ASSEMBLY_TREE.map(node => renderTreeNode(node, 1))}
 
             <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded={openNodes["Компоненты"]} eye TH={TH} onClick={() => toggleNode("Компоненты")} />
-            {openNodes["Компоненты"] && ordered.slice().reverse().map(c => (
-              <button key={c.id} onClick={() => pickForMate(c.id)}
-                className={`w-full flex items-center gap-1.5 pr-2 h-[26px] ${mateSel.includes(c.id) ? "bg-amber-200/70 dark:bg-amber-500/30" : sel === c.id ? TH.treeSel : TH.hover}`}
-                style={{ paddingLeft: 34 }}>
-                <span onClick={e => { e.stopPropagation(); toggleVisible(c.id) }} className={`w-5 flex justify-center ${TH.textMuted} hover:opacity-70`}>
-                  <Icon name={c.visible ? "Eye" : "EyeOff"} size={14} />
-                </span>
-                <Icon name="ChevronRight" size={12} className={`${TH.textMuted} shrink-0`} />
-                <Icon name="Box" size={13} className={`${TH.accentText} shrink-0`} />
-                {c.fixed && <Icon name="Pin" size={11} className={`${TH.textMuted} shrink-0`} />}
-                <span className={`truncate ${c.visible ? "" : `${TH.textMuted} line-through`}`}>
-                  {c.name}{c.qty ? ` (x${c.qty})` : ""}
-                </span>
-              </button>
-            ))}
+            {openNodes["Компоненты"] && (compGroups.length > 0
+              ? compGroups.map(([grp, list]) => (
+                <div key={grp}>
+                  <TreeRow icon="Folder" label={`${grp} (${list.length})`} muted depth={2} chevron expanded={openNodes[`grp:${grp}`]} TH={TH} onClick={() => toggleNode(`grp:${grp}`)} />
+                  {openNodes[`grp:${grp}`] && list.map(c => renderCompRow(c, 3))}
+                </div>
+              ))
+              : ordered.slice().reverse().map(c => renderCompRow(c, 2))
+            )}
             {/* оси координат внизу */}
             <div className={`flex items-center gap-1 px-2 py-2 text-[11px] ${TH.textMuted}`}>
               <Icon name="Axis3D" size={22} className="text-red-400" />
