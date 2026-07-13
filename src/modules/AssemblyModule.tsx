@@ -587,6 +587,9 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   const toggleVisible = (id: number) =>
     setComps(cs => cs.map(c => c.id === id ? { ...c, visible: !c.visible } : c))
 
+  const updateComp = (id: number, patch: Partial<Comp>) =>
+    setComps(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c))
+
   const W = 1240, H = 720
 
   // Порядок разборки: крайние детали (большой |explode|) снимаются первыми
@@ -1180,22 +1183,31 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
           {(rightTab === "props" || variant !== "sw") && (() => {
             const c = comps.find(x => x.id === sel)
             if (!c) return <div className={`p-3 ${TH.textMuted}`}>Выберите компонент</div>
-            const rows: [string, string][] = [
-              ["Наименование", c.name],
-              ["Количество", c.qty ? `${c.qty} шт.` : "1 шт."],
-              ["Ø габарит", `${(c.r * 2).toFixed(0)} мм`],
-              ["Длина", `${c.len.toFixed(0)} мм`],
-              ["Зафиксирован", c.fixed ? "Да" : "Нет"],
-              ["Видимость", c.visible ? "Показан" : "Скрыт"],
-            ]
+            const inputCls = `w-full px-2 py-1 rounded border ${TH.border} ${TH.panel} ${TH.textMain} outline-none focus:${TH.accentText.replace("text-", "border-")}`
+            const numRow = (label: string, val: number, unit: string, onCommit: (n: number) => void, min: number, step: number) => (
+              <label className={`flex items-center justify-between gap-2 px-1.5 py-1 rounded ${TH.panel}`}>
+                <span className={TH.textMuted}>{label}</span>
+                <span className="flex items-center gap-1">
+                  <input type="number" min={min} step={step} defaultValue={val} key={`${c.id}-${label}-${val}`}
+                    onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n) && n >= min) onCommit(n) }}
+                    className={`${inputCls} w-16 text-right`} />
+                  <span className={`${TH.textMuted} w-7`}>{unit}</span>
+                </span>
+              </label>
+            )
             return (
               <div className="p-2 space-y-1">
-                {rows.map(([k, v]) => (
-                  <div key={k} className={`flex justify-between gap-2 px-1.5 py-1 rounded ${TH.panel}`}>
-                    <span className={TH.textMuted}>{k}</span>
-                    <span className={`${TH.textMain} text-right truncate`}>{v}</span>
-                  </div>
-                ))}
+                <label className={`block px-1.5 py-1 rounded ${TH.panel}`}>
+                  <span className={`block mb-0.5 ${TH.textMuted}`}>Наименование</span>
+                  <input value={c.name} onChange={e => updateComp(c.id, { name: e.target.value })} className={inputCls} />
+                </label>
+                {numRow("Количество", c.qty ?? 1, "шт.", n => updateComp(c.id, { qty: Math.round(n) }), 1, 1)}
+                {numRow("Ø габарит", c.r * 2, "мм", n => updateComp(c.id, { r: n / 2 }), 2, 1)}
+                {numRow("Длина", c.len, "мм", n => updateComp(c.id, { len: n }), 2, 1)}
+                <div className={`flex justify-between gap-2 px-1.5 py-1 rounded ${TH.panel}`}>
+                  <span className={TH.textMuted}>Видимость</span>
+                  <span className={`${TH.textMain}`}>{c.visible ? "Показан" : "Скрыт"}</span>
+                </div>
                 <button onClick={() => toggleVisible(c.id)} className={`w-full mt-2 h-8 rounded ${TH.accentBg} ${TH.accentBgHover} text-white flex items-center justify-center gap-1.5`}>
                   <Icon name={c.visible ? "EyeOff" : "Eye"} size={14} />{c.visible ? "Скрыть" : "Показать"}
                 </button>
