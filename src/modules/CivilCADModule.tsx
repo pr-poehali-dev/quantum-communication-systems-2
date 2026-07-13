@@ -14282,15 +14282,27 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showDWTTemplates && (
               <DWTTemplatesDialog onClose={()=>setShowDWTTemplates(false)} onApply={(name, layers, color)=>{
                 const objs = buildTemplateObjects(name, layers, color)
+                // Шаблон заменяет содержимое холста — чтобы точно был виден
                 setShowDemo(false)
-                setCanvasObjects(prev => [...prev, ...objs])
+                setSelectedObjId(null)
+                setCanvasObjects(objs)
                 // Открываем шаблон как активный чертёж в редакторе
                 const tabName = `${name}.dwg`
                 setDrawingTabs(prev => prev.includes(tabName) ? prev : [...prev, tabName])
                 setActiveDrawingTab(tabName)
                 setShowStartScreen(false)
-                // Вписываем новые объекты в вид
-                setZoom(1.1); setPan({ x: 30, y: 20 })
+                // Авто-вписывание вида в габариты объектов шаблона
+                const pts = objs.flatMap(o => o.pts)
+                if (pts.length) {
+                  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1])
+                  const minX = Math.min(...xs), maxX = Math.max(...xs)
+                  const minY = Math.min(...ys), maxY = Math.max(...ys)
+                  const c = canvasRef.current
+                  const cw = c?.width || 900, ch = c?.height || 600
+                  const z = Math.max(0.4, Math.min(3, 0.85 * Math.min(cw/(maxX-minX+1), ch/(maxY-minY+1))))
+                  setZoom(z)
+                  setPan({ x: cw/2 - ((minX+maxX)/2)*z, y: ch/2 - ((minY+maxY)/2)*z })
+                }
                 showToast(`Шаблон «${name}» открыт в редакторе — ${objs.length} объектов`)
                 setStatusMsg(`Шаблон: ${name} · объектов: ${objs.length}`)
               }}/>
