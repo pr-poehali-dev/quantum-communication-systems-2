@@ -107,6 +107,7 @@ export default function AssemblyModule() {
   const [treeExpanded, setTreeExpanded] = useState(true)
   const [openNodes, setOpenNodes] = useState<Record<string, boolean>>({ "Компоненты": true })
   const toggleNode = (k: string) => setOpenNodes(s => ({ ...s, [k]: !s[k] }))
+  const [treeSel, setTreeSel] = useState<string | null>(null)
   const [showFn, setShowFn] = useState(false)
   const [renderMode, setRenderMode] = useState<"wire" | "shaded" | "edges">("edges")
   const [showGrid, setShowGrid] = useState(true)
@@ -665,7 +666,16 @@ export default function AssemblyModule() {
               <div key={r.label}>
                 <TreeRow icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron expanded={openNodes[r.label]} onClick={() => toggleNode(r.label)} />
                 {openNodes[r.label] && r.kids.map(k => (
-                  <TreeRow key={k} icon="Dot" label={k} muted depth={2} onClick={() => flash(k)} />
+                  <TreeRow key={k}
+                    icon={r.label === "Системы координат" ? "Axis3D" : r.label === "Компоновочная геометрия" ? "Spline" : r.label === "Коллекции" ? "Package" : "Play"}
+                    label={k} depth={2} active={treeSel === k}
+                    onClick={() => {
+                      setTreeSel(k)
+                      if (r.label === "Системы координат") { setShowGrid(true); flash(`Показана: ${k}`) }
+                      else if (r.label === "Компоновочная геометрия") { setShowGrid(g => g); flash(`Выделено: ${k}`) }
+                      else if (r.label === "Макро") { flash(`Запуск макро: ${k}`) }
+                      else flash(`Выбрано: ${k}`)
+                    }} />
                 ))}
               </div>
             ))}
@@ -908,16 +918,16 @@ export default function AssemblyModule() {
 }
 
 // ─── Строка дерева (для верхних узлов) ───────────────────────────────────────
-function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye, onClick }: {
-  icon: string; label: string; bold?: boolean; muted?: boolean; depth?: number; chevron?: boolean; expanded?: boolean; eye?: boolean; onClick?: () => void
+function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye, active, onClick }: {
+  icon: string; label: string; bold?: boolean; muted?: boolean; depth?: number; chevron?: boolean; expanded?: boolean; eye?: boolean; active?: boolean; onClick?: () => void
 }) {
   return (
-    <div onClick={onClick} className={`flex items-center gap-1.5 pr-2 h-[26px] hover:bg-[#2f353f] ${bold ? "font-medium" : ""} ${onClick ? "cursor-pointer" : ""}`}
+    <div onClick={onClick} className={`flex items-center gap-1.5 pr-2 h-[26px] ${active ? "bg-[#37506e]" : "hover:bg-[#2f353f]"} ${bold ? "font-medium" : ""} ${onClick ? "cursor-pointer" : ""}`}
       style={{ paddingLeft: 8 + depth * 14 }}>
       {eye ? <Icon name="Eye" size={14} className="text-gray-400 w-5" /> : <span className="w-0" />}
       {chevron && <Icon name={expanded ? "ChevronDown" : "ChevronRight"} size={12} className="text-gray-500 shrink-0" />}
-      <Icon name={icon} size={13} className={muted ? "text-gray-500 shrink-0" : "text-[#7db3ff] shrink-0"} fallback="Square" />
-      <span className={`truncate ${muted ? "text-gray-500" : "text-gray-200"}`}>{label}</span>
+      <Icon name={icon} size={13} className={active ? "text-white shrink-0" : muted ? "text-gray-500 shrink-0" : "text-[#7db3ff] shrink-0"} fallback="Square" />
+      <span className={`truncate ${active ? "text-white" : muted ? "text-gray-400" : "text-gray-200"}`}>{label}</span>
     </div>
   )
 }
