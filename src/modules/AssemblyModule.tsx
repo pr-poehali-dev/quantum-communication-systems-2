@@ -1204,6 +1204,20 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
                 {numRow("Количество", c.qty ?? 1, "шт.", n => updateComp(c.id, { qty: Math.round(n) }), 1, 1)}
                 {numRow("Ø габарит", c.r * 2, "мм", n => updateComp(c.id, { r: n / 2 }), 2, 1)}
                 {numRow("Длина", c.len, "мм", n => updateComp(c.id, { len: n }), 2, 1)}
+                <div className={`px-1.5 py-1 rounded ${TH.panel}`}>
+                  <span className={`block mb-1 ${TH.textMuted}`}>Цвет</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {["#3a7bd5", "#0078d4", "#25d366", "#5b6b7b", "#e67e22", "#c0392b", "#8e44ad", "#f1c40f"].map(col => (
+                      <button key={col} title={col} onClick={() => updateComp(c.id, { color: col })}
+                        className={`w-5 h-5 rounded-full border-2 ${c.color.toLowerCase() === col ? "border-current scale-110" : "border-white/40"} ${TH.textMain}`}
+                        style={{ background: col }} />
+                    ))}
+                    <label className={`w-5 h-5 rounded-full border-2 border-dashed ${TH.border} flex items-center justify-center cursor-pointer`} title="Свой цвет">
+                      <Icon name="Pipette" size={11} className={TH.textMuted} />
+                      <input type="color" value={c.color} onChange={e => updateComp(c.id, { color: e.target.value })} className="w-0 h-0 opacity-0 absolute" />
+                    </label>
+                  </div>
+                </div>
                 <div className={`flex justify-between gap-2 px-1.5 py-1 rounded ${TH.panel}`}>
                   <span className={TH.textMuted}>Видимость</span>
                   <span className={`${TH.textMain}`}>{c.visible ? "Показан" : "Скрыт"}</span>

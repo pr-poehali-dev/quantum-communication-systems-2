@@ -13,6 +13,7 @@ import {
   EXCHANGE_3D, EXCHANGE_2D, CAD_IMPORT, Vec3,
 } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
+import AssemblyModule from "@/modules/AssemblyModule"
 import GIF from "gif.js.optimized"
 
 type Tab = "model" | "assembly" | "draw" | "analysis" | "spec" | "exchange"
@@ -445,6 +446,11 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
         </div>
       </div>
 
+      {tab === "assembly" ? (
+        <div className="flex-1 min-h-0 p-2 bg-gray-50">
+          <AssemblyModule variant="kompas" />
+        </div>
+      ) : (
       <div className="flex-1 flex min-h-0">
         {/* Левая панель: дерево + инструменты */}
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-0">
@@ -871,6 +877,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
           </div>
         )}
       </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2">

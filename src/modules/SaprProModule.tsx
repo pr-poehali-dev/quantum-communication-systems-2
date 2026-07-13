@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
 import { SwSectionPanel } from "@/modules/SwSectionsPanel"
+import AssemblyModule from "@/modules/AssemblyModule"
 import { Feature, SolidKind, MATERIALS, buildMesh, massProps, project, overlapVolume, Vec3, EXCHANGE_3D } from "./sapr-engine"
 import { скачать, экспортCSV, экспортPDF, импортФайл } from "@/utils/exportImport"
 
@@ -215,6 +216,11 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
         </div>
       </div>
 
+      {cm === "assembly" ? (
+        <div className="flex-1 min-h-0 p-2 bg-[#eef1f5]">
+          <AssemblyModule variant="sw" />
+        </div>
+      ) : (
       <div className="flex-1 flex min-h-0">
         {/* FeatureManager (дерево) */}
         <div className="w-60 bg-white border-r border-gray-200 flex flex-col min-h-0">
@@ -274,6 +280,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
           </div>
         </div>
       </div>
+      )}
 
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2"><Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}</div>}
     </div>
