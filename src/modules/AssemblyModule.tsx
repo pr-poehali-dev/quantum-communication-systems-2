@@ -319,8 +319,18 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   }
   const addComponent = () => {
     const id = nextId; setNextId(id + 1)
-    const nc: Comp = { id, name: `Деталь ${id}`, shape: "box", color: C_BLUE, x: 360 + (id % 5) * 20, r: 18, len: 18, explode: 3.8 + (id % 5) * 0.3, visible: true }
-    pushHistory([...comps, nc]); setSel(id); flash("Компонент добавлен")
+    const n = comps.length + 1
+    const nc: Comp = {
+      id, name: `Новая деталь ${n}`, shape: "box",
+      color: variant === "sw" ? SW_BLUE : C_BLUE,
+      x: (n % 2 ? 1 : -1) * (40 + (n % 4) * 24), r: 24, len: 40,
+      explode: 0.4, visible: true,
+      group: comps.some(c => c.group) ? "Новые компоненты" : undefined,
+    }
+    setOpenNodes(s => ({ ...s, "Компоненты": true, "grp:Новые компоненты": true }))
+    pushHistory([...comps, nc]); setSel(id)
+    if (explode > 1.2) animateExplode(0.6, "Компонент добавлен")
+    else flash("Компонент добавлен")
   }
   const deleteSel = () => {
     if (sel == null) { flash("Выберите компонент"); return }
