@@ -140,6 +140,7 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   const toggleNode = (k: string) => setOpenNodes(s => ({ ...s, [k]: !s[k] }))
   const [treeSel, setTreeSel] = useState<string | null>(null)
   const [showFn, setShowFn] = useState(false)
+  const [rightTab, setRightTab] = useState<"props" | "tools">(variant === "sw" ? "tools" : "props")
   const [renderMode, setRenderMode] = useState<"wire" | "shaded" | "edges">("edges")
   const [showGrid, setShowGrid] = useState(true)
   const [showDims, setShowDims] = useState(false)
@@ -880,11 +881,25 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
         </div>
 
         {/* ── Правая панель свойств выбранного компонента ── */}
-        <div className={`w-56 ${TH.panelAlt} border-l ${TH.border} text-[12px] overflow-y-auto`}>
-          <div className={`px-3 h-8 flex items-center gap-2 ${TH.panel} ${TH.textMain} font-medium`}>
-            <Icon name="Info" size={14} />Свойства
-          </div>
-          {(() => {
+        <div className={`${variant === "sw" ? "w-64" : "w-56"} ${TH.panelAlt} border-l ${TH.border} text-[12px] overflow-y-auto`}>
+          {variant === "sw" ? (
+            <div className={`flex ${TH.panel} border-b ${TH.border}`}>
+              {([["tools", "Инструменты", "Wrench"], ["props", "Свойства", "Info"]] as const).map(([id, lbl, ic]) => (
+                <button key={id} onClick={() => setRightTab(id)}
+                  className={`flex-1 h-8 flex items-center justify-center gap-1.5 text-[11px] font-medium border-b-2 ${rightTab === id ? `${TH.accent} border-current` : `${TH.textMuted} border-transparent`}`}>
+                  <Icon name={ic} size={13} />{lbl}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className={`px-3 h-8 flex items-center gap-2 ${TH.panel} ${TH.textMain} font-medium`}>
+              <Icon name="Info" size={14} />Свойства
+            </div>
+          )}
+          {variant === "sw" && rightTab === "tools" && (
+            <SwAssemblyTools TH={TH} selName={comps.find(c => c.id === sel)?.name ?? null} onCmd={cmd} flash={flash} />
+          )}
+          {(rightTab === "props" || variant !== "sw") && (() => {
             const c = comps.find(x => x.id === sel)
             if (!c) return <div className={`p-3 ${TH.textMuted}`}>Выберите компонент</div>
             const rows: [string, string][] = [
@@ -959,6 +974,120 @@ function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye, 
       {chevron && <Icon name={expanded ? "ChevronDown" : "ChevronRight"} size={12} className={`${TH.textMuted} shrink-0`} />}
       <Icon name={icon} size={13} className={active ? `${TH.accentText} shrink-0` : muted ? `${TH.textMuted} shrink-0` : `${TH.accentText} shrink-0`} fallback="Square" />
       <span className={`truncate ${active ? `${TH.accentText} font-medium` : muted ? TH.textMuted : TH.textMain}`}>{label}</span>
+    </div>
+  )
+}
+
+// ─── Панель инструментов сборки SolidWorks ───────────────────────────────────
+interface SwGroup { title: string; icon: string; items: { n: string; ic: string; msg?: string }[] }
+const SW_TOOL_GROUPS: SwGroup[] = [
+  {
+    title: "Сопряжения (Mate)", icon: "Link2", items: [
+      { n: "Совпадение", ic: "AlignHorizontalSpaceAround" }, { n: "Концентричность", ic: "CircleDot" },
+      { n: "Касательность", ic: "Circle" }, { n: "Параллельность", ic: "AlignVerticalJustifyCenter" },
+      { n: "Перпендикулярность", ic: "Waypoints" }, { n: "На расстоянии", ic: "MoveHorizontal" },
+      { n: "Под углом", ic: "Triangle" }, { n: "Симметрия", ic: "FlipHorizontal2" },
+    ],
+  },
+  {
+    title: "Механические сопряжения", icon: "Cog", items: [
+      { n: "Кулачок (Cam)", ic: "Disc" }, { n: "Паз (Slot)", ic: "RectangleHorizontal" },
+      { n: "Шестерня (Gear)", ic: "Cog" }, { n: "Рейка-шестерня", ic: "Rows3" },
+      { n: "Винт (Screw)", ic: "Bolt" }, { n: "Шарнир (Hinge)", ic: "Anchor" },
+      { n: "Универсальный шарнир", ic: "GitFork" },
+    ],
+  },
+  {
+    title: "Массивы компонентов", icon: "Grid3x3", items: [
+      { n: "Линейный массив", ic: "Grid2x2" }, { n: "Круговой массив", ic: "RotateCw" },
+      { n: "Массив по эскизу", ic: "PenTool" }, { n: "Массив по траектории", ic: "Spline" },
+      { n: "Зеркальное отражение", ic: "FlipHorizontal2" },
+    ],
+  },
+  {
+    title: "Крепёж и Toolbox", icon: "Bolt", items: [
+      { n: "Смарт-крепёж", ic: "Wand2" }, { n: "Болт ГОСТ", ic: "Bolt" },
+      { n: "Гайка ГОСТ", ic: "Hexagon" }, { n: "Шайба / подшипник", ic: "CircleDot" },
+    ],
+  },
+  {
+    title: "Компоновка", icon: "Boxes", items: [
+      { n: "Вставить компонент", ic: "PackagePlus" }, { n: "Новая деталь на месте", ic: "FilePlus2" },
+      { n: "Копировать с сопряжениями", ic: "Copy" }, { n: "Заменить компонент", ic: "Replace" },
+      { n: "Переместить компонент", ic: "Move3D" }, { n: "Вращать компонент", ic: "RotateCw" },
+    ],
+  },
+  {
+    title: "Разнесение и виды", icon: "Combine", items: [
+      { n: "Разнесённый вид", ic: "Expand" }, { n: "Линии разнесения", ic: "Spline" },
+      { n: "Пошаговая разборка", ic: "ListVideo" }, { n: "SpeedPak", ic: "Zap" },
+      { n: "Конфигурации", ic: "SlidersHorizontal" },
+    ],
+  },
+  {
+    title: "Анализ и проверка", icon: "ShieldCheck", items: [
+      { n: "Проверка интерференции", ic: "ShieldAlert" }, { n: "Обнаружение зазоров", ic: "Ruler" },
+      { n: "Анализ сопряжений (MateXpert)", ic: "Search" }, { n: "Свойства масс", ic: "Scale" },
+      { n: "Датчик (Sensor)", ic: "Activity" }, { n: "AssemblyXpert", ic: "Gauge" },
+    ],
+  },
+  {
+    title: "Движение (Motion)", icon: "Play", items: [
+      { n: "Исследование движения", ic: "Play" }, { n: "Двигатель / привод", ic: "Zap" },
+      { n: "Пружина / контакт", ic: "Waves" }, { n: "Гравитация", ic: "ArrowDown" },
+      { n: "Прогон (Walkthrough)", ic: "Footprints" },
+    ],
+  },
+  {
+    title: "Оформление", icon: "FileText", items: [
+      { n: "Спецификация (BOM)", ic: "Table" }, { n: "Ассоциативный чертёж", ic: "PenTool" },
+      { n: "Позиции (Balloon)", ic: "Tag" }, { n: "eDrawings", ic: "Share2" },
+    ],
+  },
+]
+
+function SwAssemblyTools({ TH, selName, onCmd, flash }: {
+  TH: Theme; selName: string | null; onCmd: (label: string) => void; flash: (m: string) => void
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>({ "Сопряжения (Mate)": true, "Массивы компонентов": true })
+  const toggle = (t: string) => setOpen(s => ({ ...s, [t]: !s[t] }))
+  const run = (item: { n: string; ic: string; msg?: string }) => {
+    // маппинг на существующие рабочие команды среды
+    const map: Record<string, string> = {
+      "Разнесённый вид": "Percent", "Пошаговая разборка": "Пошаговая разборка",
+      "Свойства масс": "Масс-центровка", "Проверка интерференции": "Проверка пересечений",
+      "Вставить компонент": "Добавить компонент", "Вращать компонент": "RotateCw",
+      "Конфигурации": "Настройки сборки",
+    }
+    if (map[item.n]) onCmd(map[item.n])
+    else flash(`${item.n}${selName ? ` · «${selName}»` : ""}`)
+  }
+  return (
+    <div className="p-2 space-y-1.5">
+      <div className={`text-[10px] ${TH.textMuted} px-1 pb-1`}>
+        Компонент: <b className={TH.textMain}>{selName || "не выбран"}</b>
+      </div>
+      {SW_TOOL_GROUPS.map(g => (
+        <div key={g.title} className={`rounded border ${TH.border} overflow-hidden`}>
+          <button onClick={() => toggle(g.title)}
+            className={`w-full flex items-center gap-1.5 px-2 h-7 ${TH.panel} ${TH.textMain} text-[11px] font-semibold`}>
+            <Icon name={g.icon} size={13} className={TH.accent} />
+            <span className="flex-1 text-left">{g.title}</span>
+            <Icon name={open[g.title] ? "ChevronDown" : "ChevronRight"} size={12} className={TH.textMuted} />
+          </button>
+          {open[g.title] && (
+            <div className={`grid grid-cols-2 gap-1 p-1.5 ${TH.panelAlt}`}>
+              {g.items.map(it => (
+                <button key={it.n} onClick={() => run(it)} title={it.n}
+                  className={`flex flex-col items-center justify-center gap-0.5 h-12 rounded border ${TH.border} ${TH.hover} ${TH.textMain} px-1`}>
+                  <Icon name={it.ic} size={15} className={TH.accent} fallback="Square" />
+                  <span className="text-[8.5px] leading-tight text-center line-clamp-2">{it.n}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
