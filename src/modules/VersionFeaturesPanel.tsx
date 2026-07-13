@@ -127,15 +127,23 @@ export const categoryFeatureCount = (id: CategoryId) => FEATURES.filter(f => f.c
 export function CategoryFeaturesGrid({ category }: { category: CategoryId }) {
   const [active, setActive] = useState<VersionFeatureFull | null>(null)
   const [q, setQ] = useState("")
+  const [dirFilter, setDirFilter] = useState<DirId | null>(null)
   const meta = CATEGORIES.find(c => c.id === category)!
 
   const items = useMemo(() => {
     const query = q.trim().toLowerCase()
     return FEATURES.filter(f =>
       f.category === category &&
+      (!dirFilter || f.dir === dirFilter) &&
       (!query || f.name.toLowerCase().includes(query) || f.desc.toLowerCase().includes(query) || (f.command || "").toLowerCase().includes(query))
     )
-  }, [category, q])
+  }, [category, q, dirFilter])
+
+  const handleBadge = (kind: "dir" | "command", value: string) => {
+    setActive(null)
+    if (kind === "dir") { setDirFilter(value as DirId); setQ("") }
+    else { setDirFilter(null); setQ(value) }
+  }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
@@ -151,6 +159,14 @@ export function CategoryFeaturesGrid({ category }: { category: CategoryId }) {
             className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-[12px] pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-[#0078d4]" />
         </div>
       </div>
+
+      {dirFilter && (
+        <button onClick={() => setDirFilter(null)}
+          className="flex items-center gap-1 text-[11px] px-2.5 py-1 mb-3 rounded-full bg-[#0078d4]/10 text-[#0078d4] border border-[#0078d4]/30 hover:bg-[#0078d4]/20">
+          <Icon name="Filter" size={11} />Направление: {DIR_LABELS[dirFilter]}
+          <Icon name="X" size={11} />
+        </button>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {items.map(f => {
@@ -171,7 +187,7 @@ export function CategoryFeaturesGrid({ category }: { category: CategoryId }) {
       {items.length === 0 && <div className="text-gray-400 text-[12px] py-4 text-center">Функции не найдены</div>}
 
       <AnimatePresence>
-        {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+        {active && <FeatureTool feature={active} onClose={() => setActive(null)} onBadge={handleBadge} />}
       </AnimatePresence>
     </div>
   )
@@ -181,15 +197,23 @@ export function CategoryFeaturesGrid({ category }: { category: CategoryId }) {
 function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryId[] }) {
   const [active, setActive] = useState<VersionFeatureFull | null>(null)
   const [q, setQ] = useState("")
+  const [dirFilter, setDirFilter] = useState<DirId | null>(null)
 
   const items = useMemo(() => {
     const query = q.trim().toLowerCase()
     return FEATURES.filter(f =>
       (dir ? f.dir === dir : true) &&
+      (dirFilter ? f.dir === dirFilter : true) &&
       (categories && categories.length ? categories.includes(f.category) : true) &&
       (!query || f.name.toLowerCase().includes(query) || f.desc.toLowerCase().includes(query) || (f.command || "").toLowerCase().includes(query))
     )
-  }, [dir, categories, q])
+  }, [dir, categories, q, dirFilter])
+
+  const handleBadge = (kind: "dir" | "command", value: string) => {
+    setActive(null)
+    if (kind === "dir") { setDirFilter(value as DirId); setQ("") }
+    else { setDirFilter(null); setQ(value) }
+  }
 
   const grouped = useMemo(() => {
     return CATEGORIES.filter(c => items.some(f => f.category === c.id))
@@ -203,6 +227,14 @@ function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryI
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск функции…"
           className="w-full bg-gray-50 border border-gray-200 text-gray-700 text-[12px] pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-[#0078d4]" />
       </div>
+
+      {dirFilter && !dir && (
+        <button onClick={() => setDirFilter(null)}
+          className="flex items-center gap-1 text-[11px] px-2.5 py-1 mb-3 rounded-full bg-[#0078d4]/10 text-[#0078d4] border border-[#0078d4]/30 hover:bg-[#0078d4]/20">
+          <Icon name="Filter" size={11} />Направление: {DIR_LABELS[dirFilter]}
+          <Icon name="X" size={11} />
+        </button>
+      )}
 
       <div className="space-y-5">
         {grouped.map(({ cat, list }) => (
@@ -234,7 +266,7 @@ function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryI
       </div>
 
       <AnimatePresence>
-        {active && <FeatureTool feature={active} onClose={() => setActive(null)} />}
+        {active && <FeatureTool feature={active} onClose={() => setActive(null)} onBadge={handleBadge} />}
       </AnimatePresence>
     </div>
   )
