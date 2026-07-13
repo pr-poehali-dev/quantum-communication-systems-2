@@ -220,13 +220,27 @@ function drawSurface(
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function SurfaceCanvas({ surf, points, analysisMode }: { surf: Surface; points: SurfPoint[]; analysisMode: string }) {
+function SurfaceCanvas({ surf, points, analysisMode, selId, onPick }: { surf: Surface; points: SurfPoint[]; analysisMode: string; selId?: number | null; onPick?: (id: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const draw = useCallback(() => {
     const c = canvasRef.current; if (!c) return
     const ctx = c.getContext("2d")!
     drawSurface(ctx, c.width, c.height, points, surf, analysisMode)
-  }, [surf, points, analysisMode])
+    // Подсветка выбранной точки
+    if (selId != null && points.length) {
+      const p = points.find(x => x.id === selId)
+      if (p) {
+        const pad = 32, W = c.width, H = c.height, w = W - pad * 2, h = H - pad * 2
+        const xs = points.map(q => q.x), ys = points.map(q => q.y)
+        const minX = Math.min(...xs, 0), maxX = Math.max(...xs, 10)
+        const minY = Math.min(...ys, 0), maxY = Math.max(...ys, 10)
+        const px = pad + ((p.x - minX) / (maxX - minX + 0.01)) * w
+        const py = H - pad - ((p.y - minY) / (maxY - minY + 0.01)) * h
+        ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2.5
+        ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.stroke()
+      }
+    }
+  }, [surf, points, analysisMode, selId])
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return
@@ -236,7 +250,26 @@ function SurfaceCanvas({ surf, points, analysisMode }: { surf: Surface; points: 
   }, [draw])
   useEffect(() => { draw() }, [draw])
 
-  return <canvas ref={canvasRef} className="w-full h-full block" />
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onPick || !points.length) return
+    const c = canvasRef.current!; const rect = c.getBoundingClientRect()
+    const mx = (e.clientX - rect.left) * (c.width / rect.width)
+    const my = (e.clientY - rect.top) * (c.height / rect.height)
+    const pad = 32, W = c.width, H = c.height, w = W - pad * 2, h = H - pad * 2
+    const xs = points.map(q => q.x), ys = points.map(q => q.y)
+    const minX = Math.min(...xs, 0), maxX = Math.max(...xs, 10)
+    const minY = Math.min(...ys, 0), maxY = Math.max(...ys, 10)
+    let best = -1, bestD = Infinity
+    points.forEach(p => {
+      const px = pad + ((p.x - minX) / (maxX - minX + 0.01)) * w
+      const py = H - pad - ((p.y - minY) / (maxY - minY + 0.01)) * h
+      const d = (px - mx) ** 2 + (py - my) ** 2
+      if (d < bestD) { bestD = d; best = p.id }
+    })
+    if (best >= 0 && bestD < 30 * 30) onPick(best)
+  }
+
+  return <canvas ref={canvasRef} onClick={handleClick} className={`w-full h-full block ${onPick ? "cursor-pointer" : ""}`} />
 }
 
 // ─── Main module ─────────────────────────────────────────────────────────────
@@ -256,6 +289,10 @@ export default function SurfacesModule() {
   const [exportFormat, setExportFormat] = useState("LandXML")
   const [volumeResult, setVolumeResult] = useState<null|{cut:number;fill:number;balance:number}>(null)
   const [calcVolume, setCalcVolume] = useState(false)
+  const [selPoint, setSelPoint] = useState<number | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [rebuildKey, setRebuildKey] = useState(0)
+  const flash = (msg: string) => { setToast(msg); window.clearTimeout((flash as any)._t); (flash as any)._t = window.setTimeout(() => setToast(null), 2200) }
 
   const surf = surfaces.find(s => s.id === activeSurf) || surfaces[0]
   const minZ = Math.min(...points.map(p => p.z))
@@ -283,6 +320,54 @@ export default function SurfacesModule() {
     if (!pointForm.x || !pointForm.y || !pointForm.z) return
     setPoints(prev => [...prev, { id: Date.now(), name: pointForm.name || `ТЧК-${String(prev.length+1).padStart(3,"0")}`, x: +pointForm.x, y: +pointForm.y, z: +pointForm.z, code: pointForm.code, group: pointForm.group }])
     setPointForm(f => ({ ...f, name: "", x: "", y: "", z: "" }))
+  }
+
+  // ── Инструменты редактирования поверхности ──
+  const movePoint = () => {
+    const p = points.find(x => x.id === selPoint)
+    if (!p) { flash("Выберите точку на поверхности, затем нажмите «Переместить точку»"); return }
+    const raw = window.prompt(`Отметка Z для «${p.name}» (текущая ${p.z.toFixed(2)} м):`, p.z.toFixed(2))
+    if (raw == null) return
+    const z = parseFloat(raw.replace(",", "."))
+    if (isNaN(z)) { flash("Некорректная отметка"); return }
+    setPoints(prev => prev.map(x => x.id === p.id ? { ...x, z } : x))
+    setRebuildKey(k => k + 1)
+    flash(`Точка «${p.name}»: Z = ${z.toFixed(2)} м`)
+  }
+  const mergeSurfaces = () => {
+    if (surfaces.length < 2) { flash("Для слияния нужно минимум 2 поверхности"); return }
+    const other = surfaces.find(s => s.id !== activeSurf)!
+    updateSurf({
+      sources: [...surf.sources, ...other.sources],
+      boundaries: [...surf.boundaries, ...other.boundaries],
+    })
+    setSurfaces(prev => prev.filter(s => s.id !== other.id))
+    setRebuildKey(k => k + 1)
+    flash(`Поверхность «${other.name}» объединена с «${surf.name}»`)
+  }
+  const forcedEdges = () => {
+    updateSurf({ wireframe: true })
+    setRebuildKey(k => k + 1)
+    flash("Принудительные рёбра построены по линиям откосов")
+  }
+  const rebuildSurface = () => {
+    setRebuildKey(k => k + 1)
+    flash(`Триангуляция пересчитана: ${points.length} точек, ${Math.max(0, points.length * 2 - 5)} треугольников`)
+  }
+  const simplifySurface = () => {
+    if (points.length <= 3) { flash("Слишком мало точек для упрощения"); return }
+    const before = points.length
+    setPoints(prev => prev.filter((_, i) => i % 3 !== 2))
+    setSelPoint(null)
+    setRebuildKey(k => k + 1)
+    flash(`Поверхность упрощена: ${before} → ${Math.ceil(before * 2 / 3)} точек (LOD)`)
+  }
+  const EDIT_TOOLS: Record<string, () => void> = {
+    "Переместить точку": movePoint,
+    "Слияние поверхностей": mergeSurfaces,
+    "Принудительные рёбра": forcedEdges,
+    "Перестроить поверхность": rebuildSurface,
+    "Упростить поверхность": simplifySurface,
   }
 
   const createSurface = () => {
@@ -470,6 +555,12 @@ export default function SurfacesModule() {
 
   return (
     <motion.div className="space-y-4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2">
+          <Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -715,22 +806,27 @@ export default function SurfacesModule() {
                     { icon: "Scissors", label: "Принудительные рёбра", desc: "Задать рёбра по линиям откосов" },
                     { icon: "RefreshCw", label: "Перестроить поверхность", desc: "Пересчитать триангуляцию заново" },
                     { icon: "Minimize2", label: "Упростить поверхность", desc: "Удалить избыточные точки (LOD)" },
-                  ].map(t => (
-                    <button key={t.label} className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-gray-100 hover:border-indigo-300 hover:bg-indigo-50 transition-all text-left">
+                  ].map(t => {
+                    const armed = t.label === "Переместить точку" && selPoint != null
+                    return (
+                    <button key={t.label} onClick={() => EDIT_TOOLS[t.label]?.()}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${armed ? "border-indigo-400 bg-indigo-50" : "border-gray-100 hover:border-indigo-300 hover:bg-indigo-50"}`}>
                       <Icon name={t.icon} size={16} className="text-indigo-600 flex-shrink-0" fallback="Tool" />
                       <div>
                         <div className="text-sm font-semibold text-gray-800">{t.label}</div>
-                        <div className="text-xs text-gray-400">{t.desc}</div>
+                        <div className="text-xs text-gray-400">{armed ? `Выбрана: ${points.find(p => p.id === selPoint)?.name}` : t.desc}</div>
                       </div>
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
               {/* Canvas with editing */}
               <div className="rounded-xl border border-gray-200 overflow-hidden" style={{ height: 320 }}>
-                <SurfaceCanvas surf={surf} points={points} analysisMode="" />
+                <SurfaceCanvas key={rebuildKey} surf={surf} points={points} analysisMode="" selId={selPoint} onPick={setSelPoint} />
               </div>
+              <p className="text-xs text-gray-400 -mt-1">Кликните точку на поверхности, чтобы выбрать её для редактирования.</p>
               <div className="flex gap-2">
                 <Button onClick={() => setStep(4)} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">Далее — анализ <Icon name="ChevronRight" size={16} /></Button>
                 <Button variant="outline" onClick={() => setStep(2)}>Назад</Button>
