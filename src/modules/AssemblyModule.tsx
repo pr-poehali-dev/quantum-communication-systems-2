@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { project, Vec3 } from "./sapr-engine"
 
 // ─── Модель сборки (компоненты дерева) ───────────────────────────────────────
@@ -85,6 +85,7 @@ export default function AssemblyModule() {
   const [scale, setScale] = useState(1.15)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [treeExpanded, setTreeExpanded] = useState(true)
+  const [showFn, setShowFn] = useState(false)
   const [renderMode, setRenderMode] = useState<"wire" | "shaded" | "edges">("edges")
   const [showGrid, setShowGrid] = useState(true)
   const [showDims, setShowDims] = useState(false)
@@ -778,7 +779,20 @@ export default function AssemblyModule() {
         <span>КОМПАС-3D · среда сборки</span>
       </div>
 
-      <VersionFeaturesPanel dir="mechanical" categories={["modeling3d", "modify"]} title="Функции сборки 2022–2027" floating />
+      {/* ── Функции сборки 2022–2027 ── */}
+      <div className="bg-[#1f232b] border-t border-[#151820]">
+        <button onClick={() => setShowFn(o => !o)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-[#2b3038] transition-colors">
+          <Icon name="Rocket" size={13} className="text-[#3a7bd5]" />
+          <span className="font-semibold">Функции сборки 2022–2027</span>
+          <Icon name={showFn ? "ChevronDown" : "ChevronUp"} size={13} className="ml-auto text-gray-500" />
+        </button>
+        {showFn && (
+          <div className="max-h-[42vh] overflow-auto bg-white px-3 py-2">
+            <VersionFeaturesInline dir="mechanical" categories={["modeling3d", "modify"]} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

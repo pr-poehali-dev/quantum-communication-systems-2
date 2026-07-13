@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel, { FeatureTool } from "@/modules/VersionFeaturesPanel"
+import { FeatureTool } from "@/modules/VersionFeaturesPanel"
 import { FEATURES, type VersionFeatureFull } from "@/modules/versions-catalog"
 import { AnimatePresence } from "framer-motion"
 import { createPortal } from "react-dom"
@@ -877,7 +877,6 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
           <Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}
         </div>
       )}
-      <VersionFeaturesPanel categories={["modeling3d", "modify"]} floating />
     </div>
   )
 }

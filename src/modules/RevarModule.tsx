@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
+import type { CategoryId } from "@/modules/versions-catalog"
 import {
   BimElement, Level, Discipline, DISCIPLINES, FAMILIES, MATERIALS_BIM,
   IFC_FORMATS, elemLength, buildSchedule, analyzeBuilding, FamilyDef,
@@ -26,6 +27,19 @@ const RIBBON: { id: RibbonTab; label: string; icon: string }[] = [
 type ViewMode = "plan" | "3d"
 let uid = 500
 
+// Категории функций 2022–2027 по вкладкам ленты Revit-режима
+const REVAR_TAB_CATEGORIES: Record<RibbonTab, CategoryId[]> = {
+  arch: ["bim", "modeling3d"],
+  struct: ["bim", "modeling3d"],
+  mep: ["bim", "network"],
+  insert: ["bim", "modeling3d"],
+  annotate: ["annotation"],
+  analyze: ["bim", "platform"],
+  options: ["bim", "collab"],
+  collab: ["collab"],
+  manage: ["interop", "ai"],
+}
+
 export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const [tab, setTab] = useState<RibbonTab>("arch")
   const [view, setView] = useState<ViewMode>("plan")
@@ -42,6 +56,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
   const [tool, setTool] = useState<FamilyDef | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
+  const [showFn, setShowFn] = useState(false)
   const [drawing, setDrawing] = useState<null | { kind: "section" | "elevation"; title: string }>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -304,6 +319,21 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
             {tab === "options" && <OptionsPanel onAction={showToast} />}
             {tab === "collab" && <CollabPanel onAction={showToast} />}
             {tab === "manage" && <ManagePanel onImport={() => импортФайл(".ifc,.3dm,.skp,.obj,.step,.dwg", (_c, n) => showToast(`Импорт Open BIM: ${n}`))} onExport={(f) => { скачать(`# Экспорт ${f}`, `модель.${f.match(/\((\.[a-z0-9]+)\)/)?.[1]?.slice(1) ?? "dat"}`); showToast(`Экспорт: ${f}`) }} onAI={() => setAiOpen(true)} onNavigate={onNavigate} />}
+
+            {/* Функции 2022–2027 для активной вкладки */}
+            <div className="mt-3 border-t border-gray-100 pt-2">
+              <button onClick={() => setShowFn(o => !o)}
+                className="w-full flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 hover:text-blue-700">
+                <Icon name="Rocket" size={12} className="text-blue-600" />
+                Функции 2022–2027
+                <Icon name={showFn ? "ChevronUp" : "ChevronDown"} size={12} className="ml-auto text-gray-400" />
+              </button>
+              {showFn && (
+                <div className="mt-2 -mx-1">
+                  <VersionFeaturesInline categories={REVAR_TAB_CATEGORIES[tab]} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -320,7 +350,6 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
       {drawing && <DrawingView drawing={drawing} elems={elems} levels={levels} onClose={() => setDrawing(null)} onExport={() => { экспортPDF(drawing.title, `Автоматически построенный вид из BIM-модели\nЭлементов: ${elems.length}`, drawing.title); showToast(`${drawing.title} → PDF`) }} />}
       {aiOpen && <AIDialog stats={stats} onClose={() => setAiOpen(false)} onAction={showToast} />}
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm shadow-xl flex items-center gap-2"><Icon name="CheckCircle" size={14} className="text-emerald-400" />{toast}</div>}
-      <VersionFeaturesPanel categories={["bim", "modeling3d", "annotation"]} floating />
     </div>
   )
 }

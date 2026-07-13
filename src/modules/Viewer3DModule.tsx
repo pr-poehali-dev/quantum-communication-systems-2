@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback, useContext } from "react"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
@@ -120,6 +120,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const [вид, setВид] = useState("3D перспектива")
   const [ширДор, setШирДор] = useState(7)
   const [высотаСолнца, setВысотаСолнца] = useState(55)
+  const [showFn, setShowFn] = useState(false)
   const [showПанель, setShowПанель] = useState(true)
   const [showИнфо, setShowИнфо] = useState(false)
   const [showЗамер, setShowЗамер] = useState(false)
@@ -1258,10 +1259,24 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
                 </button>
               ))}
             </div>
+
+            {/* Функции 2022–2027 */}
+            <div className="border-t border-gray-700 flex-shrink-0">
+              <button onClick={() => setShowFn(o => !o)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-300 hover:bg-[#1e1e30] transition-colors">
+                <Icon name="Rocket" size={11} className="text-[#0078d4]" />
+                <span className="font-bold uppercase tracking-wider">Функции 2022–2027</span>
+                <Icon name={showFn ? "ChevronDown" : "ChevronRight"} size={11} className="ml-auto text-gray-500" />
+              </button>
+              {showFn && (
+                <div className="max-h-[40vh] overflow-auto bg-white p-2">
+                  <VersionFeaturesInline categories={["bim", "modeling3d"]} />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
-      <VersionFeaturesPanel categories={["bim", "modeling3d"]} floating />
     </div>
   )
 }

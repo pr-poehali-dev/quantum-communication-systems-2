@@ -1,7 +1,34 @@
 import { useRef, useState, useEffect, useCallback, useContext, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
-import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
+import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
+import type { CategoryId } from "@/modules/versions-catalog"
+
+// Соответствие вкладок ленты категориям функций 2022–2027
+const MENU_TAB_CATEGORIES: Record<string, CategoryId[]> = {
+  "Главная": ["draw", "modify"],
+  "Вид": ["modeling3d"],
+  "Черчение": ["draw", "annotation"],
+  "Съёмка": ["survey", "coords"],
+  "Поверхности": ["surface"],
+  "Трасса": ["corridor"],
+  "Коридоры": ["corridor"],
+  "Сети": ["network"],
+  "Сооружения": ["bim", "modeling3d"],
+  "Транспорт": ["corridor"],
+  "Геология": ["surface", "coords"],
+  "Анализ": ["surface", "network", "coords"],
+  "Инструменты": ["platform", "ai"],
+  "Вывод": ["plot", "interop"],
+  "Производство": ["interop", "plot"],
+  "Надстройки": ["ai", "platform"],
+  // расширенная лента AutoCAD
+  "Вставка": ["blocks", "xref"],
+  "Аннотации": ["annotation"],
+  "Редактирование": ["modify"],
+  "Управление": ["layers"],
+  "Совместная работа": ["collab"],
+}
 import { ProjectContext } from "@/hooks/useProjectStore"
 import {
   buildDemoScene, stationToPoint, getDesignElevation,
@@ -11007,6 +11034,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showCorridor, setShowCorridor] = useState(false)
   const [corridors, setCorridors] = useState<string[]>(["Дорога и парковочная зона"])
   const [activeMenuTab, setActiveMenuTab] = useState("Главная")
+  const [showFuncPanel, setShowFuncPanel] = useState(false)
   const [activeLayout, setActiveLayout] = useState("Model")
   const [drawingTabs, setDrawingTabs] = useState(["Align-Superelevation-5.dwg"])
   const [activeDrawingTab, setActiveDrawingTab] = useState("Align-Superelevation-5.dwg")
@@ -12768,6 +12796,25 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           )
         })}
       </div>
+
+      {/* ── Функции 2022–2027 для активной вкладки ленты ── */}
+      {(MENU_TAB_CATEGORIES[activeMenuTab]?.length ?? 0) > 0 && (
+        <div className="bg-[#232335] border-b border-gray-700 flex-shrink-0">
+          <button onClick={() => setShowFuncPanel(o => !o)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-300 hover:bg-[#2a2a3e] transition-colors">
+            <Icon name="Rocket" size={13} className="text-[#0078d4]" />
+            <span className="font-semibold">Функции 2022–2027 — «{activeMenuTab}»</span>
+            <Icon name={showFuncPanel ? "ChevronUp" : "ChevronDown"} size={13} className="ml-auto text-gray-500" />
+          </button>
+          {showFuncPanel && (
+            <div className="max-h-[42vh] overflow-auto bg-white px-2 py-2 space-y-3">
+              {MENU_TAB_CATEGORIES[activeMenuTab].map(cat => (
+                <CategoryFeaturesGrid key={cat} category={cat} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Drawing tab bar ── */}
       <div className="bg-[#252535] border-b border-gray-700 flex items-center gap-0 px-1 py-0" style={{minHeight:22}}>
@@ -15168,7 +15215,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           </motion.div>
         )}
       </AnimatePresence>
-      <VersionFeaturesPanel title="Все функции AutoCAD и Civil 3D 2022–2027" floating />
     </div>
   )
 }
