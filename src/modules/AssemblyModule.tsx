@@ -74,6 +74,7 @@ const TIPS: Record<string, string> = {
   Type: "Текст", Tag: "Позиция", Flag: "Обозначение", MessageSquare: "Выноска",
   ShieldCheck: "Проверка пересечений", Scale: "Масс-центровка", Star: "Избранное", Layers3: "Слои", Settings2: "Настройки",
   Search: "Поиск", Share2: "Общий вид", Eye: "Показать все", EyeOff: "Скрыть все", Filter: "Фильтр", Pipette: "Свойства",
+  Frame: "Рамка чертежа", QrCode: "QR-метка", Clipboard: "Буфер обмена", LayoutGrid: "Компоновка видов",
 }
 
 export default function AssemblyModule() {
@@ -188,15 +189,40 @@ export default function AssemblyModule() {
       case "Layers": setRenderMode("wire"); flash("Каркас"); break
       case "Grid3x3": setShowGrid(g => !g); break
       case "Scale": case "ShieldCheck": setShowDiag(d => !d); break
-      case "Diameter": case "MoveHorizontal": setShowDims(d => !d); break
       case "EyeOff": setAllVisible(false); break
       case "Eye": setAllVisible(true); break
       case "Экспорт в STEP/IFC": flash("Экспорт STEP/IFC"); break
       case "Печать": flash("Печать сборочного чертежа"); break
       case "Свойства модели": setShowDiag(true); break
       case "Создать…": flash("Новая сборка"); break
-      case "Ruler": setShowDims(d => !d); break
-      default: flash(label)
+      case "Ruler": case "MoveHorizontal": case "Diameter": case "Spline": setShowDims(d => !d); break
+      // ── Размещение компонентов ──
+      case "AlignHorizontalSpaceAround": flash("Сопряжение: совмещение"); break
+      case "CircleDot": flash("Сопряжение: соосность"); break
+      // ── Операции ──
+      case "Scissors": setShowDiag(d => !d); flash("Сечение модели"); break
+      // ── Вспомогательная геометрия ──
+      case "Axis3D": setShowGrid(g => !g); flash("Оси координат"); break
+      case "SquareDashed": setShowGrid(g => !g); flash("Вспомогательная плоскость"); break
+      // ── Обозначения ──
+      case "Type": flash("Текстовая надпись"); break
+      case "Tag": flash("Позиция (номер детали)"); break
+      case "Flag": flash("Обозначение"); break
+      case "MessageSquare": flash("Выноска"); break
+      // ── Моя a3d ──
+      case "Star": flash("Добавлено в избранное"); break
+      case "Layers3": flash("Слои сборки"); break
+      case "Settings2": flash("Настройки сборки"); break
+      // ── Нижняя панель вида ──
+      case "Frame": flash("Рамка чертежа"); break
+      case "QrCode": flash("QR-метка изделия"); break
+      case "Clipboard": flash("Буфер обмена"); break
+      case "LayoutGrid": flash("Компоновка видов"); break
+      case "Search": flash("Поиск компонента"); break
+      case "Share2": setShowDiag(d => !d); break
+      case "Filter": flash("Фильтр компонентов"); break
+      case "Pipette": setShowDiag(true); flash("Свойства компонента"); break
+      default: flash(TIPS[label] || label)
     }
   }
 
@@ -520,7 +546,7 @@ export default function AssemblyModule() {
         {/* второй ряд — панель вида */}
         <div className="flex items-center gap-1 px-2 h-9 border-t border-[#1f232b] bg-[#262b33]">
           {VIEWBAR_LEFT.map((ic, i) => (
-            <button key={i} title={TIPS[ic] || ic} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
+            <button key={i} title={TIPS[ic] || ic} onClick={() => cmd(ic)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3a3f4b] text-gray-400"><Icon name={ic} size={15} fallback="Square" /></button>
           ))}
           <div className="w-px h-5 bg-[#1f232b] mx-1" />
           {/* Стандартные виды */}
