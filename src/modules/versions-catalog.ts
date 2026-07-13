@@ -1753,6 +1753,301 @@ const RAW_FEATURES: RawFeature[] = [
     compute: v => [{ label: "Экспорт в", value: v.fmt }],
   },
 
+  // ═══════════════ КОМПАС-3D v25 — новинки версии ═══════════════
+  // ── Базовые инструменты 3D-моделирования ──
+  {
+    id: "kompas-v25-lod", product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Создать вариант детализации", command: "LODVARIANT",
+    desc: "Замена «тяжёлых» моделей сборки на упрощённые или схематичные — снижает нагрузку на ОЗУ и повышает производительность больших сборок.",
+    icon: "Layers", isNew: true, outputLabel: "Вариант детализации",
+    fields: [
+      { key: "level", label: "Уровень", type: "select", default: "Упрощённый", options: ["Полный", "Упрощённый", "Схематичный"] },
+      { key: "comps", label: "Компонентов", type: "number", default: "4000" },
+    ],
+    compute: v => {
+      const k = v.level === "Схематичный" ? 0.08 : v.level === "Упрощённый" ? 0.3 : 1
+      return [
+        { label: "Уровень", value: v.level },
+        { label: "Нагрузка на ОЗУ", value: `≈${Math.round(k * 100)}% от полной` },
+      ]
+    },
+  },
+  {
+    id: "kompas-v25-proj-depth", product: "kompas", version: "v24", dir: "docs", category: "annotation",
+    name: "Глубина проецирования", command: "PROJDEPTH",
+    desc: "«Очищает» ассоциативные виды от лишней геометрии, ограничивая глубину проекции — насыщенный чертёж становится читаемее. Самая востребованная новинка v25.",
+    icon: "Scissors", isNew: true, outputLabel: "Проекция",
+    fields: [{ key: "depth", label: "Глубина проекции", type: "number", default: "50", suffix: "мм" }],
+    compute: v => [{ label: "Глубина", value: `${num(v.depth)} мм` }, { label: "Лишняя геометрия", value: "исключена" }],
+  },
+  {
+    id: "kompas-v25-relief", command: "RELIEF",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Рельеф (надписи и логотипы)",
+    desc: "Перенос надписей и логотипов на 3D-модель в виде выступов или гравировки, сразу на несколько граней — плоских и криволинейных.",
+    icon: "Type", isNew: true, outputLabel: "Рельеф",
+    fields: [
+      { key: "text", label: "Текст/логотип", type: "text", default: "АСКОН" },
+      { key: "mode", label: "Тип", type: "select", default: "Гравировка", options: ["Выступ", "Гравировка"] },
+      { key: "depth", label: "Глубина/высота", type: "number", default: "0.5", suffix: "мм" },
+      { key: "faces", label: "Граней", type: "number", default: "3" },
+    ],
+    compute: v => [
+      { label: `«${v.text}»`, value: v.mode },
+      { label: "Нанесено на граней", value: `${num(v.faces)}` },
+      { label: "Глубина/высота", value: `${num(v.depth)} мм` },
+    ],
+  },
+  {
+    id: "kompas-v25-group-select", command: "GROUPSEL",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modify",
+    name: "Групповой выбор кривых и граней",
+    desc: "Одним нажатием выделяются группы кривых и граней в операциях моделирования тел, каркасов и поверхностей — сокращает рутину.",
+    icon: "MousePointerSquareDashed", isNew: true, outputLabel: "Выбор",
+    fields: [{ key: "n", label: "Объектов в группе", type: "number", default: "18" }],
+    compute: v => [{ label: "Выбрано одним нажатием", value: `${num(v.n)} объектов` }],
+  },
+  {
+    id: "kompas-v25-equidist", command: "EQUIDIST",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Каркас: эквидистанта и средняя линия",
+    desc: "«Эквидистанту кривой» можно строить вдоль нескольких граней, добавлена команда «Средняя линия», в «Поверхности скругления» — новые способы задания ширины и типа функции формы.",
+    icon: "Spline", isNew: true, outputLabel: "Каркас",
+    fields: [
+      { key: "op", label: "Операция", type: "select", default: "Эквидистанта", options: ["Эквидистанта (неск. граней)", "Средняя линия", "Поверхность скругления"] },
+      { key: "faces", label: "Граней", type: "number", default: "4" },
+    ],
+    compute: v => [{ label: v.op, value: `по ${num(v.faces)} граням` }],
+  },
+  {
+    id: "kompas-v25-segmentation", command: "SEGMENT",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Сегментация полигонального объекта",
+    desc: "Реверс-инжиниринг: сканированная модель автоматически разбивается на простые аналитические поверхности — плоские, цилиндрические, сферические, конические, тороидальные.",
+    icon: "Boxes", isNew: true, outputLabel: "Сегментация",
+    fields: [{ key: "tris", label: "Треугольников скана", type: "number", default: "800000" }],
+    compute: v => {
+      const t = num(v.tris)
+      const surf = Math.max(1, Math.round(t / 15000))
+      return [
+        { label: "Обработано", value: `${t.toLocaleString("ru-RU")} треуг.` },
+        { label: "Найдено поверхностей", value: `${surf} (плоск./цил./сфер./кон./тор.)` },
+      ]
+    },
+  },
+  {
+    id: "kompas-v25-motion-collision", command: "MOTIONCHECK",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Анимация и контроль соударений",
+    desc: "Новые способы изменения положения компонентов позволяют имитировать движение в сборке и проверять, не сталкиваются ли детали.",
+    icon: "Play", isNew: true, outputLabel: "Проверка движения",
+    fields: [
+      { key: "steps", label: "Кадров анимации", type: "number", default: "120" },
+      { key: "clear", label: "Мин. зазор", type: "number", default: "1", suffix: "мм" },
+    ],
+    compute: v => [
+      { label: "Кадров", value: `${num(v.steps)}` },
+      { label: "Контроль соударений", value: `зазор ≥ ${num(v.clear)} мм` },
+    ],
+  },
+  {
+    id: "kompas-v25-ergonomics", command: "ERGONOMICS",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Эргономика: Манекены",
+    desc: "Новое приложение: создание фигуры манекена с учётом антропометрии, изменение положения суставов, выбор позы из встроенной базы или своей библиотеки. Анализ удобства и безопасности изделий.",
+    icon: "PersonStanding", isNew: true, outputLabel: "Манекен",
+    fields: [
+      { key: "percentile", label: "Перцентиль", type: "select", default: "50%", options: ["5%", "50%", "95%"] },
+      { key: "pose", label: "Поза", type: "select", default: "Сидя", options: ["Стоя", "Сидя", "Наклон", "Своя"] },
+    ],
+    compute: v => [
+      { label: "Антропометрия", value: `перцентиль ${v.percentile}` },
+      { label: "Поза", value: v.pose },
+    ],
+  },
+  {
+    id: "kompas-v25-2d-symmetry", command: "SYMMETRY2D",
+    product: "kompas", version: "v24", dir: "docs", category: "modify",
+    name: "2D: Симметрия объектов",
+    desc: "Отдельные или составные объекты размещаются симметрично относительно оси за одну операцию — вместо наложения нескольких ограничений. Расширена простановка размеров с касательными выносными линиями.",
+    icon: "FlipHorizontal2", isNew: true, outputLabel: "Симметрия",
+    fields: [{ key: "n", label: "Объектов", type: "number", default: "6" }],
+    compute: v => [{ label: "Отражено", value: `${num(v.n)} объектов за 1 операцию` }],
+  },
+
+  // ── САПР-приложения в машиностроении ──
+  {
+    id: "kompas-v25-shafts-geom", command: "SHAFTGEOM",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Валы: авто-геометрия ступени",
+    desc: "В «Валы и механические передачи 3D» — автоматическое построение вспомогательной геометрии по габариту ступени для сопряжения с другими компонентами; облегчённое представление в больших сборках.",
+    icon: "Cog", isNew: true, outputLabel: "Геометрия ступени",
+    fields: [{ key: "dia", label: "Диаметр ступени", type: "number", default: "45", suffix: "мм" }],
+    compute: v => [{ label: "Вспом. геометрия ⌀", value: `${num(v.dia)} мм построена` }],
+  },
+  {
+    id: "kompas-v25-nesting-shape", command: "NESTSHAPE",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Раскрой: листы произвольной формы",
+    desc: "В «Раскрой» — фигурный раскрой на листах произвольной формы (нестандартные заготовки и деловые остатки) и выгрузка контуров листовых деталей из листового моделирования и «Металлоконструкций».",
+    icon: "Scissors", isNew: true, outputLabel: "Раскрой",
+    fields: [
+      { key: "parts", label: "Деталей", type: "number", default: "40" },
+      { key: "util", label: "Коэф. использования", type: "number", default: "88", suffix: "%" },
+    ],
+    compute: v => [
+      { label: "Размещено деталей", value: `${num(v.parts)}` },
+      { label: "Использование листа", value: `${num(v.util)}%` },
+    ],
+  },
+  {
+    id: "kompas-v25-composites-itekma", command: "COMPITEKMA",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Композиты: материалы ИТЕКМА, зонный метод",
+    desc: "В «КОМПАС-Композиты» добавлены российские материалы ООО «ИТЕКМА» и инструменты зонного метода: описание областей выкладки через спецификацию материалов и создание слоёв с авто-формированием сбегов.",
+    icon: "Layers3", isNew: true, outputLabel: "Выкладка",
+    fields: [{ key: "layers", label: "Слоёв", type: "number", default: "12" }],
+    compute: v => [{ label: "Слоёв (зонный метод)", value: `${num(v.layers)}, сбеги авто` }],
+  },
+  {
+    id: "kompas-v25-fasteners-tpl", command: "FASTTPL",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Разъёмные соединения: шаблоны",
+    desc: "Команды «Сохранить шаблоны» и «Открыть шаблоны» ускоряют добавление крепёжных соединений, заимствуя готовые наборы из других сборок.",
+    icon: "Bolt", isNew: true, outputLabel: "Шаблон соединений",
+    fields: [{ key: "sets", label: "Наборов крепежа", type: "number", default: "8" }],
+    compute: v => [{ label: "Заимствовано наборов", value: `${num(v.sets)}` }],
+  },
+  {
+    id: "kompas-v25-frames-array", command: "FRAMEARRAY",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Металлоконструкции: массивы",
+    desc: "В «Оборудование: Металлоконструкции» упрощена работа с массивами — создание копий элементов и их редактирование прямо в приложении.",
+    icon: "Grid3x3", isNew: true, outputLabel: "Массив",
+    fields: [{ key: "n", label: "Копий", type: "number", default: "10" }],
+    compute: v => [{ label: "Создано копий", value: `${num(v.n)}` }],
+  },
+  {
+    id: "kompas-v25-pipe-flare", command: "FLARE",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "Трубопроводы: Вальцовка",
+    desc: "Новая команда «Вальцовка» в «Оборудование: Трубопроводы» — для соединения открытых концов труб между собой.",
+    icon: "GitMerge", isNew: true, outputLabel: "Вальцовка",
+    fields: [{ key: "dia", label: "Диаметр трубы", type: "number", default: "32", suffix: "мм" }],
+    compute: v => [{ label: "Вальцовка ⌀", value: `${num(v.dia)} мм` }],
+  },
+  {
+    id: "kompas-v25-electric-pg", command: "ELECPG",
+    product: "kompas", version: "v24", dir: "networks", category: "platform",
+    name: "КОМПАС-Электрик: PostgreSQL",
+    desc: "В «КОМПАС-Электрик» реализована поддержка СУБД PostgreSQL в рамках перевода системы на кроссплатформенное решение.",
+    icon: "Database", isNew: true, outputLabel: "СУБД",
+    fields: [{ key: "db", label: "СУБД", type: "select", default: "PostgreSQL", options: ["PostgreSQL", "Встроенная"] }],
+    compute: v => [{ label: "Хранилище проектов", value: v.db }],
+  },
+  {
+    id: "kompas-v25-flow-sector", command: "FLOWSECTOR",
+    product: "kompas", version: "v24", dir: "mechanical", category: "modeling3d",
+    name: "KompasFlow: секторная постановка",
+    desc: "Секторная постановка для шаблона «Внешний обдув» в KompasFlow — расчётной областью задаётся сектор, что ускоряет решение внешней аэродинамики осесимметричных тел.",
+    icon: "Wind", isNew: true, outputLabel: "CFD-область",
+    fields: [{ key: "angle", label: "Угол сектора", type: "number", default: "30", suffix: "°" }],
+    compute: v => {
+      const a = num(v.angle) || 360
+      return [
+        { label: "Сектор", value: `${a}°` },
+        { label: "Ускорение расчёта", value: `≈×${(360 / a).toFixed(1)}` },
+      ]
+    },
+  },
+
+  // ── САПР-приложения в строительстве ──
+  {
+    id: "kompas-v25-report-tpl", command: "REPORTTPL",
+    product: "kompas", version: "v24", dir: "networks", category: "annotation",
+    name: "Строительство: шаблоны отчётов",
+    desc: "Создание шаблонов отчётов по объектам (например, опросные листы). Система автоматически заполняет их данными заказываемого оборудования (КИПиА, трубопроводная арматура и т. п.).",
+    icon: "FileText", isNew: true, outputLabel: "Отчёт",
+    fields: [
+      { key: "type", label: "Тип отчёта", type: "select", default: "Опросный лист", options: ["Опросный лист", "Спецификация", "Ведомость"] },
+      { key: "items", label: "Позиций оборудования", type: "number", default: "24" },
+    ],
+    compute: v => [{ label: v.type, value: `заполнено по ${num(v.items)} позициям` }],
+  },
+  {
+    id: "kompas-v25-schema-select", command: "SCHEMASEL",
+    product: "kompas", version: "v24", dir: "networks", category: "modify",
+    name: "Выделение объектов на схеме",
+    desc: "Быстрый поиск группы объектов на схеме: задаётся условие поиска — система мгновенно выделяет все подходящие элементы, снижая ошибки.",
+    icon: "Search", isNew: true, outputLabel: "Выделение",
+    fields: [{ key: "cond", label: "Условие поиска", type: "text", default: "Тип = Задвижка" }],
+    compute: v => [{ label: `«${v.cond}»`, value: "все совпадения выделены" }],
+  },
+  {
+    id: "kompas-v25-ctrl-point", command: "CTRLPOINT",
+    product: "kompas", version: "v24", dir: "networks", category: "annotation",
+    name: "Контрольная точка + фрагмент",
+    desc: "Шаблон графического отображения контрольной точки можно дополнить готовым фрагментом — по аналогии с шаблонами оборудования.",
+    icon: "MapPin", isNew: true, outputLabel: "Контрольная точка",
+    fields: [{ key: "frag", label: "Фрагмент", type: "text", default: "Датчик давления" }],
+    compute: v => [{ label: "Шаблон дополнен", value: v.frag }],
+  },
+  {
+    id: "kompas-v25-slope-marker", command: "SLOPEMARK",
+    product: "kompas", version: "v24", dir: "networks", category: "annotation",
+    name: "Маркер уклона на аксонометрии",
+    desc: "В разделе «ОВ/ВК/ТХ/ЭС» маркер уклона доступен на аксонометрии и показывает направление и величину уклона трубы — контроль уклонов и потоков ещё на этапе схемы.",
+    icon: "TrendingUp", isNew: true, outputLabel: "Уклон",
+    fields: [
+      { key: "slope", label: "Уклон", type: "number", default: "0.02" },
+    ],
+    compute: v => [{ label: "Уклон трубы", value: `${num(v.slope)} (${(num(v.slope) * 1000).toFixed(0)}‰)` }],
+  },
+  {
+    id: "kompas-v25-land-alloc", command: "LANDALLOC",
+    product: "kompas", version: "v24", dir: "networks", category: "annotation",
+    name: "Наружные сети: отвод земли",
+    desc: "В разделе «ГСН/НВК/ТС» — автоматизированный выпуск документов по отводу земли: схемы и таблицы координат охранной зоны и линейного объекта.",
+    icon: "LandPlot", isNew: true, outputLabel: "Отвод земли",
+    fields: [{ key: "len", label: "Длина линейного объекта", type: "number", default: "1500", suffix: "м" }],
+    compute: v => [
+      { label: "Линейный объект", value: `${num(v.len)} м` },
+      { label: "Документы", value: "схемы + таблицы координат" },
+    ],
+  },
+  {
+    id: "kompas-v25-ppu-net", command: "PPUNET",
+    product: "kompas", version: "v24", dir: "networks", category: "modeling3d",
+    name: "Сети с изоляцией ППУ (ГОСТ 30732-2020)",
+    desc: "Формирование сетей из труб с изоляцией ППУ по ГОСТ 30732-2020. База данных пополнена элементами арматуры для сетей с изоляцией.",
+    icon: "Cable", isNew: true, outputLabel: "Сеть ППУ",
+    fields: [{ key: "dia", label: "Диаметр трубы", type: "number", default: "108", suffix: "мм" }],
+    compute: v => [{ label: "Труба ППУ ⌀", value: `${num(v.dia)} мм, ГОСТ 30732-2020` }],
+  },
+
+  // ── Совместимость и обмен данными v25 ──
+  {
+    id: "kompas-v25-converters", command: "NATIVECONV",
+    product: "kompas", version: "v24", dir: "mechanical", category: "interop",
+    name: "Собственные конвертеры CAD",
+    desc: "Собственный компонент чтения файлов UGS/NX, ProE/Creo, SolidWorks, Inventor, CATIA V5, Solid Edge. Импорт/экспорт AutoCAD (DXF, DWG) — тоже компонентом собственной разработки.",
+    icon: "FileInput", isNew: true, outputLabel: "Импорт",
+    fields: [{ key: "fmt", label: "Формат-источник", type: "select", default: "SolidWorks", options: ["UGS/NX", "ProE/Creo", "SolidWorks", "Inventor", "CATIA V5", "Solid Edge", "DWG/DXF"] }],
+    compute: v => [{ label: "Чтение", value: `${v.fmt} — собственный конвертер` }],
+  },
+  {
+    id: "kompas-v25-linux", command: "LINUXNATIVE",
+    product: "kompas", version: "v24", dir: "management", category: "platform",
+    name: "Нативная версия для Linux",
+    desc: "Большинство приложений работают в составе нативной версии КОМПАС-3D v25 для Linux. Совместимость с PLM АСКОН v24: ЛОЦМАН:PLM, ВЕРТИКАЛЬ, ПОЛИНОМ:MDM.",
+    icon: "Terminal", isNew: true, outputLabel: "Платформа",
+    fields: [{ key: "os", label: "ОС", type: "select", default: "Astra Linux", options: ["Astra Linux", "РЕД ОС", "ALT Linux", "Windows"] }],
+    compute: v => [
+      { label: "ОС", value: v.os },
+      { label: "PLM АСКОН v24", value: "ЛОЦМАН / ВЕРТИКАЛЬ / ПОЛИНОМ" },
+    ],
+  },
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SOLIDWORKS 3D CAD (Dassault) — детали, сборки, чертежи, анализ, обмен.
   // ═══════════════════════════════════════════════════════════════════════════
