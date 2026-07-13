@@ -11891,11 +11891,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   // ── Синхронизация canvasObjects → store (live 3D) ─────────────────────────
   // Если холст пуст (только демо-сцена) — отдаём в 3D демонстрационные объекты,
   // чтобы 3D-вьюер не был пустым.
+  // Зависим ТОЛЬКО от canvasObjects: store читаем через ref, иначе объект store
+  // пересоздаётся каждый рендер провайдера и вызывает цикл setState.
+  const storeRef = useRef(store)
+  storeRef.current = store
   useEffect(() => {
-    if (!store) return
+    const s = storeRef.current
+    if (!s) return
     const objs = canvasObjects.length > 0 ? canvasObjects : INITIAL_CANVAS_OBJECTS
-    store.setLiveCanvasObjects(objs)
-  }, [canvasObjects, store])
+    s.setLiveCanvasObjects(objs)
+  }, [canvasObjects])
 
   // ── Delete selected ────────────────────────────────────────────────────────
   useEffect(() => {
