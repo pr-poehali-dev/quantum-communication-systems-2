@@ -46,6 +46,24 @@ const START: Comp[] = [
 // Пункты верхнего меню (как в КОМПАС)
 const MENU = ["Файл", "Правка", "Выделить", "Вид", "Эскиз", "Моделирование", "Сборка", "Оформление", "Диагностика", "Управление", "Настройка", "Приложения", "Окно", "Справка"]
 
+// Пункты выпадающих меню верхней панели
+const MENU_ITEMS: Record<string, string[]> = {
+  "Файл": ["Создать…", "Открыть…", "Сохранить", "Экспорт в STEP/IFC", "Печать", "Свойства модели"],
+  "Правка": ["Отменить", "Повторить", "Удалить компонент", "Показать все", "Скрыть все"],
+  "Выделить": ["Выделить всё", "Инвертировать выделение", "Фильтр компонентов"],
+  "Вид": ["Изометрия", "Спереди", "Сверху", "Справа", "Полутон", "Полутон с рёбрами", "Каркас", "Сетка", "Автоповорот"],
+  "Эскиз": ["Линия", "Окружность", "Прямоугольник", "Размер"],
+  "Моделирование": ["Добавить компонент", "Переместить компонент", "Сечение модели"],
+  "Сборка": ["Добавить компонент", "Сопряжение: авто", "Разнести / собрать", "Пошаговая разборка"],
+  "Оформление": ["Линейный размер", "Диаметр", "Текст", "Позиция", "Выноска"],
+  "Диагностика": ["Проверка пересечений", "Масс-центровка", "Свойства модели"],
+  "Управление": ["Слои сборки", "Переменные модели", "Настройки сборки"],
+  "Настройка": ["Настройки сборки", "Оси координат", "Вспомогательная плоскость"],
+  "Приложения": ["Библиотека", "Макро", "Коллекции"],
+  "Окно": ["Дерево построения", "Свойства компонента", "Диагностика"],
+  "Справка": ["О программе", "Горячие клавиши"],
+}
+
 // Группы ленты инструментов
 const RIBBON: { group: string; icons: string[] }[] = [
   { group: "Системная", icons: ["FolderOpen", "Save", "SaveAll", "Undo2", "Redo2"] },
@@ -222,6 +240,50 @@ export default function AssemblyModule() {
       case "Share2": setShowDiag(d => !d); break
       case "Filter": flash("Фильтр компонентов"); break
       case "Pipette": setShowDiag(true); flash("Свойства компонента"); break
+      // ── Текстовые команды меню ──
+      case "Отменить": undo(); break
+      case "Повторить": redo(); break
+      case "Удалить компонент": deleteSel(); break
+      case "Показать все": setAllVisible(true); break
+      case "Скрыть все": setAllVisible(false); break
+      case "Выделить всё": setSel(comps[0]?.id ?? null); flash("Выделены все компоненты"); break
+      case "Инвертировать выделение": flash("Выделение инвертировано"); break
+      case "Фильтр компонентов": flash("Фильтр компонентов"); break
+      case "Изометрия": setView("iso"); break
+      case "Спереди": setView("front"); break
+      case "Сверху": setView("top"); break
+      case "Справа": setView("right"); break
+      case "Полутон": setRenderMode("shaded"); flash("Полутоновое отображение"); break
+      case "Полутон с рёбрами": setRenderMode("edges"); flash("Полутон с рёбрами"); break
+      case "Каркас": setRenderMode("wire"); flash("Каркас"); break
+      case "Сетка": setShowGrid(g => !g); break
+      case "Автоповорот": setAutoSpin(s => !s); break
+      case "Добавить компонент": addComponent(); break
+      case "Переместить компонент": flash("Переместить компонент"); break
+      case "Сечение модели": setShowDiag(d => !d); flash("Сечение модели"); break
+      case "Сопряжение: авто": flash("Сопряжение: авто"); break
+      case "Разнести / собрать": toggleExplode(); break
+      case "Пошаговая разборка": enterStepMode(); break
+      case "Линейный размер": case "Диаметр": case "Размер": setShowDims(d => !d); break
+      case "Текст": flash("Текстовая надпись"); break
+      case "Позиция": flash("Позиция (номер детали)"); break
+      case "Выноска": flash("Выноска"); break
+      case "Проверка пересечений": setShowDiag(true); flash("Проверка пересечений"); break
+      case "Масс-центровка": setShowDiag(true); flash("Масс-центровочные характеристики"); break
+      case "Слои сборки": flash("Слои сборки"); break
+      case "Переменные модели": flash("Переменные модели"); break
+      case "Настройки сборки": flash("Настройки сборки"); break
+      case "Оси координат": setShowGrid(g => !g); flash("Оси координат"); break
+      case "Вспомогательная плоскость": setShowGrid(g => !g); flash("Вспомогательная плоскость"); break
+      case "Линия": case "Окружность": case "Прямоугольник": flash(`Эскиз: ${label}`); break
+      case "Библиотека": flash("Библиотека компонентов"); break
+      case "Макро": flash("Макросы"); break
+      case "Коллекции": flash("Коллекции"); break
+      case "Дерево построения": setTreeExpanded(t => !t); break
+      case "Свойства компонента": setShowDiag(true); flash("Свойства компонента"); break
+      case "Диагностика": setShowDiag(d => !d); break
+      case "О программе": flash("САПР ЛАПА · среда сборки"); break
+      case "Горячие клавиши": flash("Справка: горячие клавиши"); break
       default: flash(TIPS[label] || label)
     }
   }
@@ -485,19 +547,20 @@ export default function AssemblyModule() {
             className={`px-2.5 h-9 hover:bg-[#3a3f4b] ${openMenu === m ? "bg-[#3a3f4b]" : ""}`}>{m}</button>
         ))}
         <div className="ml-auto flex items-center gap-1 pr-2">
-          <button className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="LayoutTemplate" size={15} /></button>
-          <button className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Settings" size={15} /></button>
+          <button title="Компоновка видов" onClick={() => flash("Компоновка видов")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="LayoutTemplate" size={15} /></button>
+          <button title="Настройки" onClick={() => flash("Настройки сборки")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Settings" size={15} /></button>
           <div className="flex items-center bg-[#1f232b] rounded px-2 h-7 w-56 gap-2 text-gray-400 text-[12px]">
             <Icon name="Search" size={13} /><span>Поиск по командам (Alt+/)</span>
           </div>
-          <button className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Minus" size={15} /></button>
-          <button className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Square" size={13} /></button>
-          <button className="w-8 h-9 flex items-center justify-center hover:bg-red-600"><Icon name="X" size={15} /></button>
+          <button title="Свернуть" onClick={() => flash("Свернуть окно")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Minus" size={15} /></button>
+          <button title="Развернуть" onClick={() => flash("Развернуть окно")} className="w-8 h-9 flex items-center justify-center hover:bg-[#3a3f4b]"><Icon name="Square" size={13} /></button>
+          <button title="Закрыть" onClick={() => flash("Закрыть документ")} className="w-8 h-9 flex items-center justify-center hover:bg-red-600"><Icon name="X" size={15} /></button>
         </div>
 
         {openMenu && (
-          <div className="absolute top-9 left-10 z-30 bg-[#2b2f38] border border-[#1f232b] shadow-2xl rounded-b w-56 py-1 text-[13px]" onMouseLeave={() => setOpenMenu(null)}>
-            {["Создать…", "Открыть…", "Сохранить", "Экспорт в STEP/IFC", "Печать", "Свойства модели"].map(i => (
+          <div className="absolute top-9 z-30 bg-[#2b2f38] border border-[#1f232b] shadow-2xl rounded-b w-56 py-1 text-[13px]"
+            style={{ left: 36 + MENU.indexOf(openMenu) * 8 }} onMouseLeave={() => setOpenMenu(null)}>
+            {(MENU_ITEMS[openMenu] || []).map(i => (
               <button key={i} onClick={() => { cmd(i); setOpenMenu(null) }} className="w-full text-left px-3 py-1.5 hover:bg-[#3a7bd5] hover:text-white">{i}</button>
             ))}
           </div>
@@ -578,13 +641,13 @@ export default function AssemblyModule() {
         {/* ── Дерево компонентов ── */}
         {treeExpanded && (
           <div className="w-[340px] bg-[#262b33] border-r border-[#1f232b] overflow-y-auto text-[13px]">
-            <TreeRow icon="Boxes" label="(+)Компрессор низкого давления (Тел-0, С" bold onEye={() => {}} depth={0} />
+            <TreeRow icon="Boxes" label="(+)Компрессор низкого давления (Тел-0, С" bold depth={0} onClick={() => setShowDiag(d => !d)} />
             {[
               { icon: "Compass", label: "Системы координат", muted: true },
               { icon: "Grid2x2", label: "Компоновочная геометрия", muted: true },
               { icon: "Library", label: "Коллекции" },
               { icon: "SquareCode", label: "Макро" },
-            ].map((r, i) => <TreeRow key={i} icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron />)}
+            ].map((r, i) => <TreeRow key={i} icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron onClick={() => flash(r.label)} />)}
 
             <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded eye />
             {ordered.slice().reverse().map(c => (
@@ -824,11 +887,11 @@ export default function AssemblyModule() {
 }
 
 // ─── Строка дерева (для верхних узлов) ───────────────────────────────────────
-function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye }: {
-  icon: string; label: string; bold?: boolean; muted?: boolean; depth?: number; chevron?: boolean; expanded?: boolean; eye?: boolean
+function TreeRow({ icon, label, bold, muted, depth = 0, chevron, expanded, eye, onClick }: {
+  icon: string; label: string; bold?: boolean; muted?: boolean; depth?: number; chevron?: boolean; expanded?: boolean; eye?: boolean; onClick?: () => void
 }) {
   return (
-    <div className={`flex items-center gap-1.5 pr-2 h-[26px] hover:bg-[#2f353f] ${bold ? "font-medium" : ""}`}
+    <div onClick={onClick} className={`flex items-center gap-1.5 pr-2 h-[26px] hover:bg-[#2f353f] ${bold ? "font-medium" : ""} ${onClick ? "cursor-pointer" : ""}`}
       style={{ paddingLeft: 8 + depth * 14 }}>
       {eye ? <Icon name="Eye" size={14} className="text-gray-400 w-5" /> : <span className="w-0" />}
       {chevron && <Icon name={expanded ? "ChevronDown" : "ChevronRight"} size={12} className="text-gray-500 shrink-0" />}
