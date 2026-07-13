@@ -217,8 +217,16 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
       </div>
 
       {cm === "assembly" ? (
-        <div className="flex-1 min-h-0 p-2 bg-[#eef1f5]">
-          <AssemblyModule variant="sw" />
+        <div className="flex-1 min-h-0 flex flex-col bg-[#eef1f5]">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setCm("features")}>
+              <Icon name="ArrowLeft" size={12} />К 3D-модели
+            </Button>
+            <span className="text-[11px] text-gray-500 flex items-center gap-1"><Icon name="Combine" size={12} className="text-red-500" />Среда сборки — SolidWorks-3D</span>
+          </div>
+          <div className="flex-1 min-h-0 p-2">
+            <AssemblyModule variant="sw" />
+          </div>
         </div>
       ) : (
       <div className="flex-1 flex min-h-0">

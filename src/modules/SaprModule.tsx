@@ -447,8 +447,16 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
       </div>
 
       {tab === "assembly" ? (
-        <div className="flex-1 min-h-0 p-2 bg-gray-50">
-          <AssemblyModule variant="kompas" />
+        <div className="flex-1 min-h-0 flex flex-col bg-gray-50">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setTab("model")}>
+              <Icon name="ArrowLeft" size={12} />К 3D-модели
+            </Button>
+            <span className="text-[11px] text-gray-500 flex items-center gap-1"><Icon name="Combine" size={12} className="text-emerald-600" />Среда сборки — КОМПАС-3D</span>
+          </div>
+          <div className="flex-1 min-h-0 p-2">
+            <AssemblyModule variant="kompas" />
+          </div>
         </div>
       ) : (
       <div className="flex-1 flex min-h-0">
