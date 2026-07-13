@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import Icon from "@/components/ui/icon"
+import VersionFeaturesPanel from "@/modules/VersionFeaturesPanel"
 import { project, Vec3 } from "./sapr-engine"
 
 // ─── Модель сборки (компоненты дерева) ───────────────────────────────────────
@@ -446,7 +447,7 @@ export default function AssemblyModule() {
   const ordered = [...comps].sort((a, b) => compCenter(a)[0] - compCenter(b)[0])
 
   return (
-    <div className="rounded-xl overflow-hidden border border-[#3a3f4b] bg-[#2b2f38] text-gray-200 select-none" style={{ fontFamily: "Segoe UI, sans-serif" }}>
+    <div className="relative rounded-xl overflow-hidden border border-[#3a3f4b] bg-[#2b2f38] text-gray-200 select-none" style={{ fontFamily: "Segoe UI, sans-serif" }}>
       {/* ── Верхнее меню ── */}
       <div className="flex items-center bg-[#2b2f38] border-b border-[#1f232b] text-[13px] relative">
         <div className="w-9 h-9 flex items-center justify-center bg-[#1f232b] text-[#3a7bd5]">
@@ -776,6 +777,8 @@ export default function AssemblyModule() {
         <span className="ml-auto flex items-center gap-1"><Icon name="MousePointer2" size={12} />ЛКМ — вращение · Колесо — масштаб</span>
         <span>КОМПАС-3D · среда сборки</span>
       </div>
+
+      <VersionFeaturesPanel dir="mechanical" categories={["modeling3d", "modify"]} title="Функции сборки 2022–2027" floating />
     </div>
   )
 }
