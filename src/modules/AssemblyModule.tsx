@@ -125,6 +125,45 @@ const THEMES: Record<Variant, Theme> = {
   },
 }
 
+// ── Дерево сборки (многоуровневое, раскрываемое) ──
+interface ATreeNode { label: string; icon: string; muted?: boolean; action?: string; children?: ATreeNode[] }
+const ASSEMBLY_TREE: ATreeNode[] = [
+  {
+    label: "Системы координат", icon: "Compass", muted: true, children: [
+      { label: "Начало координат", icon: "Dot", action: "grid" },
+      { label: "Плоскость XY", icon: "Axis3D", action: "grid" },
+      { label: "Плоскость XZ", icon: "Axis3D", action: "grid" },
+      { label: "Плоскость YZ", icon: "Axis3D", action: "grid" },
+    ],
+  },
+  {
+    label: "Компоновочная геометрия", icon: "Grid2x2", muted: true, children: [
+      { label: "Скелет сборки", icon: "Spline", action: "select" },
+      { label: "Осевая линия", icon: "Minus", action: "select" },
+    ],
+  },
+  {
+    label: "Коллекции", icon: "Library", children: [
+      { label: "Крепёж ГОСТ", icon: "Bolt", children: [
+        { label: "Болт М8", icon: "Bolt", action: "select" },
+        { label: "Гайка М8", icon: "Hexagon", action: "select" },
+        { label: "Шайба 8", icon: "CircleDot", action: "select" },
+      ] },
+      { label: "Подшипники", icon: "CircleDot", children: [
+        { label: "Подшипник 6205", icon: "CircleDot", action: "select" },
+        { label: "Подшипник 6206", icon: "CircleDot", action: "select" },
+      ] },
+      { label: "Уплотнения", icon: "Circle", action: "select" },
+    ],
+  },
+  {
+    label: "Макро", icon: "SquareCode", children: [
+      { label: "Массив по окружности", icon: "Play", action: "macro" },
+      { label: "Пересчёт масс", icon: "Play", action: "macro" },
+    ],
+  },
+]
+
 export default function AssemblyModule({ variant = "kompas" }: { variant?: Variant } = {}) {
   const TH = THEMES[variant]
   const [comps, setComps] = useState<Comp[]>(START)
@@ -611,6 +650,27 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
   // порядок отрисовки: дальние компоненты первыми (грубая z-сортировка по X-разнесению)
   const ordered = [...comps].sort((a, b) => compCenter(a)[0] - compCenter(b)[0])
 
+  // Рекурсивный рендер узла дерева (раскрытие по стрелке, действие по названию)
+  const renderTreeNode = (node: ATreeNode, depth: number, path = ""): JSX.Element => {
+    const key = path ? `${path}/${node.label}` : node.label
+    const hasKids = !!node.children?.length
+    const isOpen = !!openNodes[key]
+    const doAction = () => {
+      if (hasKids) { toggleNode(key); return }
+      setTreeSel(key)
+      if (node.action === "grid") { setShowGrid(true); flash(`Показана: ${node.label}`) }
+      else if (node.action === "macro") flash(`Запуск макро: ${node.label}`)
+      else flash(`Выбрано: ${node.label}`)
+    }
+    return (
+      <div key={key}>
+        <TreeRow icon={node.icon} label={node.label} muted={node.muted} depth={depth}
+          chevron={hasKids} expanded={isOpen} active={treeSel === key} TH={TH} onClick={doAction} />
+        {hasKids && isOpen && node.children!.map(ch => renderTreeNode(ch, depth + 1, key))}
+      </div>
+    )
+  }
+
   return (
     <div className={`relative rounded-xl overflow-hidden border ${TH.root} select-none`} style={{ fontFamily: "Segoe UI, sans-serif" }}>
       {/* ── Верхнее меню ── */}
@@ -729,28 +789,7 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
         {treeExpanded && (
           <div className={`w-[340px] ${TH.panelAlt} border-r ${TH.border} overflow-y-auto text-[13px]`}>
             <TreeRow icon="Boxes" label={TH.treeRoot} bold depth={0} TH={TH} onClick={() => setShowDiag(d => !d)} />
-            {([
-              { icon: "Compass", label: "Системы координат", muted: true, kids: ["Начало координат", "Плоскость XY", "Плоскость XZ", "Плоскость YZ"] },
-              { icon: "Grid2x2", label: "Компоновочная геометрия", muted: true, kids: ["Скелет сборки", "Осевая линия"] },
-              { icon: "Library", label: "Коллекции", kids: ["Крепёж ГОСТ", "Подшипники", "Уплотнения"] },
-              { icon: "SquareCode", label: "Макро", kids: ["Массив по окружности", "Пересчёт масс"] },
-            ] as const).map((r) => (
-              <div key={r.label}>
-                <TreeRow icon={r.icon} label={r.label} muted={r.muted} depth={1} chevron expanded={openNodes[r.label]} TH={TH} onClick={() => toggleNode(r.label)} />
-                {openNodes[r.label] && r.kids.map(k => (
-                  <TreeRow key={k} TH={TH}
-                    icon={r.label === "Системы координат" ? "Axis3D" : r.label === "Компоновочная геометрия" ? "Spline" : r.label === "Коллекции" ? "Package" : "Play"}
-                    label={k} depth={2} active={treeSel === k}
-                    onClick={() => {
-                      setTreeSel(k)
-                      if (r.label === "Системы координат") { setShowGrid(true); flash(`Показана: ${k}`) }
-                      else if (r.label === "Компоновочная геометрия") { setShowGrid(g => g); flash(`Выделено: ${k}`) }
-                      else if (r.label === "Макро") { flash(`Запуск макро: ${k}`) }
-                      else flash(`Выбрано: ${k}`)
-                    }} />
-                ))}
-              </div>
-            ))}
+            {ASSEMBLY_TREE.map(node => renderTreeNode(node, 1))}
 
             <TreeRow icon="Network" label="Компоненты" depth={1} chevron expanded={openNodes["Компоненты"]} eye TH={TH} onClick={() => toggleNode("Компоненты")} />
             {openNodes["Компоненты"] && ordered.slice().reverse().map(c => (
