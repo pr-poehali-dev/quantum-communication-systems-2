@@ -11710,12 +11710,48 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setShowOpenProject(false)
     setStatusMsg(`Открыт проект: ${project.name}`)
     showToast(`📂 Открыт: ${project.name}`)
+    setCurrentProjectId(project.id)
     fetch(`https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887?project_id=${project.id}`)
       .then(r => r.json())
       .then(raw => {
         // API может вернуть строку (двойная сериализация) или массив
-        const objs: {object_type:string;name:string}[] = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
+        const objs: {object_type:string;name:string;data?:Record<string,unknown>}[] = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
         setActiveProjectObjects(objs)
+
+        // ── Восстанавливаем объекты на холсте из data.pts ──────────────────────
+        const restored: CanvasObject[] = objs
+          .filter(r => r.data && Array.isArray((r.data as {pts?:unknown}).pts))
+          .map(r => {
+            const d = r.data as {canvas_id?:string; pts:[number,number][]; color?:string; lineWidth?:number; layer?:string; properties?:Record<string,string>}
+            return {
+              id: d.canvas_id || `obj_${Math.random().toString(36).slice(2)}`,
+              type: r.object_type as CanvasObjType,
+              label: r.name,
+              pts: d.pts,
+              color: d.color || "#22d3ee",
+              lineWidth: d.lineWidth,
+              layer: d.layer ?? "0",
+              properties: d.properties ?? {},
+            }
+          })
+        setShowDemo(false)
+        setSelectedObjId(null)
+        skipDirtyRef.current = true
+        setCanvasObjects(restored)
+        setЕстьИзменения(false)
+        // Авто-вписывание вида в габариты объектов
+        const pts = restored.flatMap(o => o.pts)
+        if (pts.length) {
+          const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1])
+          const minX = Math.min(...xs), maxX = Math.max(...xs)
+          const minY = Math.min(...ys), maxY = Math.max(...ys)
+          const c = canvasRef.current
+          const cw = c?.width || 900, ch = c?.height || 600
+          const z = Math.max(0.4, Math.min(3, 0.85 * Math.min(cw/(maxX-minX+1), ch/(maxY-minY+1))))
+          setZoom(z)
+          setPan({ x: cw/2 - ((minX+maxX)/2)*z, y: ch/2 - ((minY+maxY)/2)*z })
+        }
+
         if (objs.length === 0) { showToast(`📂 Проект открыт (объектов нет)`); return }
         const iconMap: Record<string,string> = {corridor:'Navigation',surface:'Triangle',alignment:'Minus',profile:'TrendingUp',pipe_network:'Network',points:'MapPin',assembly:'Layers',version:'GitBranch',feature_line:'Spline',intersection:'Plus',catchment:'Droplets'}
         const colorMap: Record<string,string> = {corridor:'#f97316',surface:'#4ade80',alignment:'#f97316',pipe_network:'#6366f1',points:'#f59e0b',catchment:'#60a5fa'}
