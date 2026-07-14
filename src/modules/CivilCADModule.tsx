@@ -11505,6 +11505,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   // Редактор всегда открывается с чистым холстом.
   // Сохранённый чертёж активного проекта подгружается отдельным эффектом ниже.
   const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>([])
+  // Хранилище объектов по вкладкам чертежей — у каждой вкладки свой холст
+  const tabObjectsRef = useRef<Record<string, CanvasObject[]>>({})
   // Демонстрационный фон (сетка-подложка с примерными трассами/точками/профилями).
   // По умолчанию выключен — холст чистый. Включается кнопкой «Загрузить пример».
   const [showDemo, setShowDemo] = useState(false)
@@ -11732,6 +11734,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     }).catch(() => {})
   }
 
+  // ── Переключение вкладок чертежей: у каждой вкладки свой набор объектов ────
+  const switchDrawingTab = (tab: string) => {
+    if (tab === activeDrawingTab) return
+    // Сохраняем текущие объекты за уходящей вкладкой
+    tabObjectsRef.current[activeDrawingTab] = canvasObjects
+    // Загружаем объекты целевой вкладки (или пустой холст)
+    const next = tabObjectsRef.current[tab] ?? []
+    setSelectedObjId(null)
+    setDrawingPts([])
+    setCanvasObjects(next)
+    setActiveDrawingTab(tab)
+  }
+
   // ── Автозагрузка сохранённого чертежа активного проекта ──────────────────
   const активныйProjectId = store?.activeProject?.id
   useEffect(() => {
@@ -11798,6 +11813,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const openProject = (project: {id:number;name:string}) => {
     const tabName = `${project.name}.dwg`
     if (!drawingTabs.includes(tabName)) setDrawingTabs(prev => [...prev, tabName])
+    if (tabName !== activeDrawingTab) tabObjectsRef.current[activeDrawingTab] = canvasObjects
     setActiveDrawingTab(tabName)
     setShowOpenProject(false)
     setStatusMsg(`Открыт проект: ${project.name}`)
@@ -12922,6 +12938,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           if (!drawingTabs.includes(tabName)) {
             setDrawingTabs(prev => [...prev, tabName])
           }
+          if (tabName !== activeDrawingTab) {
+            tabObjectsRef.current[activeDrawingTab] = canvasObjects
+            setSelectedObjId(null); setDrawingPts([])
+            setCanvasObjects(tabObjectsRef.current[tabName] ?? [])
+          }
           setActiveDrawingTab(tabName)
           if (projectId) {
             setCurrentProjectId(projectId)
@@ -13182,7 +13203,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           {drawingTabs.map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveDrawingTab(tab)}
+              onClick={() => switchDrawingTab(tab)}
               className={`border-t border-l border-r border-gray-600 px-3 py-0.5 text-[10px] flex items-center gap-1 border-b-0 transition-colors ${activeDrawingTab === tab ? "bg-[#1e1e2e] text-blue-300" : "bg-[#2a2a3e] text-gray-500 hover:text-gray-300"}`}
             >
               <Icon name="FileText" size={9} />
@@ -13194,7 +13215,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     e.stopPropagation()
                     const next = drawingTabs.filter(t => t !== tab)
                     setDrawingTabs(next)
-                    if (activeDrawingTab === tab) setActiveDrawingTab(next[0])
+                    if (activeDrawingTab === tab) switchDrawingTab(next[0])
+                    delete tabObjectsRef.current[tab]
                   }}
                 >✕</span>
               )}
@@ -13317,7 +13339,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           {/* Active Drawing View selector */}
           <div className="bg-[#1a1a2a] border-b border-gray-600 flex-shrink-0">
             <select value={activeDrawingTab}
-              onChange={e => { setActiveDrawingTab(e.target.value); setShowStartScreen(false) }}
+              onChange={e => { if(e.target.value){ switchDrawingTab(e.target.value); setShowStartScreen(false) } }}
               className="w-full bg-transparent text-[10px] text-gray-300 px-2 py-1 outline-none cursor-pointer hover:bg-[#252535]">
               <option value="">— Вид активного чертёжа —</option>
               {drawingTabs.map(t => <option key={t} value={t}>{t}</option>)}
@@ -13336,7 +13358,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 <div className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider px-1 py-1">Открытые чертежи</div>
                 {drawingTabs.map(tab => (
                   <div key={tab}
-                    onClick={() => { setActiveDrawingTab(tab); setShowStartScreen(false) }}
+                    onClick={() => { switchDrawingTab(tab); setShowStartScreen(false) }}
                     className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors ${activeDrawingTab === tab ? "bg-[#0078d4]/30 text-blue-300 border border-[#0078d4]/50" : "text-gray-400 hover:bg-[#2a2a3e] hover:text-gray-200"}`}>
                     <Icon name="FileText" size={10} fallback="File" className="flex-shrink-0" />
                     <span className="flex-1 text-[10px] truncate">{tab}</span>
@@ -13347,7 +13369,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                           e.stopPropagation()
                           const next = drawingTabs.filter(t => t !== tab)
                           setDrawingTabs(next)
-                          if (activeDrawingTab === tab) setActiveDrawingTab(next[0])
+                          if (activeDrawingTab === tab) switchDrawingTab(next[0])
+                          delete tabObjectsRef.current[tab]
                         }}>✕</span>
                     )}
                   </div>
@@ -14444,9 +14467,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 // Шаблон заменяет содержимое холста — чтобы точно был виден
                 setShowDemo(false)
                 setSelectedObjId(null)
-                setCanvasObjects(objs)
                 // Открываем шаблон как активный чертёж в редакторе
                 const tabName = `${name}.dwg`
+                if (tabName !== activeDrawingTab) tabObjectsRef.current[activeDrawingTab] = canvasObjects
+                setCanvasObjects(objs)
                 setDrawingTabs(prev => prev.includes(tabName) ? prev : [...prev, tabName])
                 setActiveDrawingTab(tabName)
                 setShowStartScreen(false)
