@@ -11718,22 +11718,48 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         const objs: {object_type:string;name:string;data?:Record<string,unknown>}[] = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
         setActiveProjectObjects(objs)
 
-        // ── Восстанавливаем объекты на холсте из data.pts ──────────────────────
-        const restored: CanvasObject[] = objs
-          .filter(r => r.data && Array.isArray((r.data as {pts?:unknown}).pts))
-          .map(r => {
-            const d = r.data as {canvas_id?:string; pts:[number,number][]; color?:string; lineWidth?:number; layer?:string; properties?:Record<string,string>}
-            return {
-              id: d.canvas_id || `obj_${Math.random().toString(36).slice(2)}`,
+        // ── Восстанавливаем объекты на холсте из data ──────────────────────────
+        // Поддерживаем 2 формата pts:
+        //  1) [[x,y],...] — сохранённые из редактора canvas-объекты
+        //  2) [{x,y,z,name},...] — группы точек (координаты строками)
+        const num = (v: unknown): number => typeof v === "number" ? v : parseFloat(String(v))
+        const restored: CanvasObject[] = []
+        objs.forEach(r => {
+          const d = (r.data || {}) as Record<string, unknown>
+          const rawPts = d.pts
+          if (!Array.isArray(rawPts) || rawPts.length === 0) return
+
+          if (Array.isArray(rawPts[0])) {
+            // Формат [[x,y],...]
+            const pts = (rawPts as unknown[][]).map(p => [num(p[0]), num(p[1])] as [number, number]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]))
+            if (!pts.length) return
+            restored.push({
+              id: (d.canvas_id as string) || `obj_${Math.random().toString(36).slice(2)}`,
               type: r.object_type as CanvasObjType,
               label: r.name,
-              pts: d.pts,
-              color: d.color || "#22d3ee",
-              lineWidth: d.lineWidth,
-              layer: d.layer ?? "0",
-              properties: d.properties ?? {},
-            }
-          })
+              pts,
+              color: (d.color as string) || "#22d3ee",
+              lineWidth: d.lineWidth as number | undefined,
+              layer: (d.layer as string) ?? "0",
+              properties: (d.properties as Record<string, string>) ?? {},
+            })
+          } else if (r.object_type === "points") {
+            // Формат [{x,y,z,name},...] — каждая точка отдельным объектом
+            (rawPts as Record<string, unknown>[]).forEach((p, i) => {
+              const x = num(p.x), y = num(p.y)
+              if (!Number.isFinite(x) || !Number.isFinite(y)) return
+              restored.push({
+                id: `pt_${r.name}_${i}_${Math.random().toString(36).slice(2)}`,
+                type: "point",
+                label: (p.name as string) || `${r.name} #${i + 1}`,
+                pts: [[x, y]],
+                color: "#f59e0b",
+                layer: "Точки",
+                properties: { "Z": String(p.z ?? "") },
+              })
+            })
+          }
+        })
         setShowDemo(false)
         setSelectedObjId(null)
         skipDirtyRef.current = true
@@ -11753,6 +11779,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         }
 
         if (objs.length === 0) { showToast(`📂 Проект открыт (объектов нет)`); return }
+        if (restored.length === 0) { showToast(`📂 Открыт. Объекты в дереве без геометрии — на холсте не отображаются`) }
+        else { showToast(`✅ На холсте: ${restored.length} объектов`) }
         const iconMap: Record<string,string> = {corridor:'Navigation',surface:'Triangle',alignment:'Minus',profile:'TrendingUp',pipe_network:'Network',points:'MapPin',assembly:'Layers',version:'GitBranch',feature_line:'Spline',intersection:'Plus',catchment:'Droplets'}
         const colorMap: Record<string,string> = {corridor:'#f97316',surface:'#4ade80',alignment:'#f97316',pipe_network:'#6366f1',points:'#f59e0b',catchment:'#60a5fa'}
         const nodeMap: Record<string,string> = {corridor:'corridors',surface:'surfaces',alignment:'alignments',profile:'alignments',pipe_network:'pipenet',points:'points',assembly:'assemblies',feature_line:'featurelines',intersection:'intersections',catchment:'catchments'}
