@@ -11641,6 +11641,78 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     }).catch(() => {})
   }
 
+  // Центр видимой области холста в мировых координатах — чтобы новый объект появлялся по центру
+  const центрМира = (): [number, number] => {
+    const c = canvasRef.current
+    const cw = c?.width || 900, ch = c?.height || 600
+    return [(cw / 2 - pan.x) / zoom, (ch / 2 - pan.y) / zoom]
+  }
+
+  // Генерация геометрии по типу объекта (относительно центра вида, масштаб в мировых ед.)
+  const геометрияПоТипу = (type: CanvasObjType): { pts: [number, number][] } => {
+    const [cx, cy] = центрМира()
+    const S = 120 / zoom
+    switch (type) {
+      case "alignment": // трасса — ломаная
+        return { pts: [[cx - 2 * S, cy], [cx - S, cy - S * 0.4], [cx, cy], [cx + S, cy + S * 0.4], [cx + 2 * S, cy]] }
+      case "corridor": // коридор — полоса (замкнутый контур)
+        return { pts: [[cx - 2 * S, cy - S * 0.5], [cx + 2 * S, cy - S * 0.5], [cx + 2 * S, cy + S * 0.5], [cx - 2 * S, cy + S * 0.5], [cx - 2 * S, cy - S * 0.5]] }
+      case "surface": // поверхность — прямоугольный контур
+        return { pts: [[cx - 1.5 * S, cy - 1.5 * S], [cx + 1.5 * S, cy - 1.5 * S], [cx + 1.5 * S, cy + 1.5 * S], [cx - 1.5 * S, cy + 1.5 * S], [cx - 1.5 * S, cy - 1.5 * S]] }
+      case "pipe": // труба — линия с узлами
+        return { pts: [[cx - 1.5 * S, cy - S], [cx, cy], [cx + 1.5 * S, cy + S]] }
+      case "point":
+        return { pts: [[cx, cy]] }
+      default: // profile и прочее — линия
+        return { pts: [[cx - 1.5 * S, cy], [cx + 1.5 * S, cy]] }
+    }
+  }
+
+  // ЕДИНЫЙ helper: создаёт объект → рисует на холсте + добавляет в дерево + сохраняет в проект (с геометрией)
+  const создатьВидимыйОбъект = (opts: {
+    type: CanvasObjType
+    name: string
+    color?: string
+    layer?: string
+    treeNodeId?: string
+    treeIcon?: string
+    pts?: [number, number][]
+    properties?: Record<string, string>
+    extraData?: Record<string, unknown>
+  }) => {
+    const id = `obj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    const pts = opts.pts && opts.pts.length ? opts.pts : геометрияПоТипу(opts.type).pts
+    const color = opts.color || "#22d3ee"
+    const layer = opts.layer || "0"
+    const obj: CanvasObject = { id, type: opts.type, label: opts.name, pts, color, layer, properties: opts.properties ?? {} }
+    // 1) Холст
+    setShowDemo(false)
+    setCanvasObjects(prev => [...prev, obj])
+    // 2) Дерево
+    if (opts.treeNodeId) {
+      setTreeData(prev => {
+        const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n =>
+          n.id === opts.treeNodeId
+            ? { ...n, expanded: true, children: [...(n.children || []), { id: `tn_${id}`, label: opts.name, icon: opts.treeIcon || "File", color }] }
+            : { ...n, children: n.children ? add(n.children) : undefined })
+        return add(prev)
+      })
+    }
+    // 3) База проекта (с геометрией — переживёт переоткрытие)
+    pushUndo(`Создан ${opts.type}: ${opts.name}`)
+    fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: activeProjectId(),
+        object_type: opts.type,
+        name: opts.name,
+        data: { canvas_id: id, pts, color, layer, properties: opts.properties ?? {}, ...(opts.extraData || {}) },
+      }),
+    }).catch(() => {})
+    return obj
+  }
+
   const deleteCanvasObject = (canvasId: string) => {
     fetch(API, {
       method: "DELETE",
@@ -14187,8 +14259,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   setShowCorridor(false)
                   setStatusMsg(`Коридор «${def.name}» успешно создан`)
                   showProgress("Создание коридора…")
-                  saveObject("corridor", def.name, { name: def.name })
-                  showToast(`💾 Коридор «${def.name}» сохранён в проект`)
+                  создатьВидимыйОбъект({ type: "corridor", name: def.name, color: "#f97316", layer: "C-ROAD-CORR", treeNodeId: "corridors", treeIcon: "Navigation" })
+                  showToast(`💾 Коридор «${def.name}» создан на холсте и сохранён`)
                 }}
               />
             )}
@@ -14199,15 +14271,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   setShowSurface(false)
                   setStatusMsg(`Поверхность «${def.name}» (${def.type}) создана`)
                   showProgress("Построение поверхности TIN…")
-                  saveObject("surface", def.name, { type: def.type })
-                  showToast(`💾 Поверхность «${def.name}» сохранена`)
-                  setTreeData(prev => {
-                    const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
-                      if (n.id === "surfaces") return { ...n, children: [...(n.children||[]), { id: `surf_${Date.now()}`, label: def.name, icon: "Triangle", color: "#4ade80" }] }
-                      return { ...n, children: n.children ? add(n.children) : undefined }
-                    })
-                    return add(prev)
-                  })
+                  создатьВидимыйОбъект({ type: "surface", name: def.name, color: "#4ade80", layer: "C-TOPO", treeNodeId: "surfaces", treeIcon: "Triangle", properties: { "Тип": def.type } })
+                  showToast(`💾 Поверхность «${def.name}» создана на холсте и сохранена`)
                 }}
               />
             )}
@@ -14218,15 +14283,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   const length = def.elements.reduce((s,e)=>s+(parseFloat(e.length)||0),0).toFixed(0)
                   setShowAlignment(false)
                   setStatusMsg(`Трасса «${def.name}» создана, длина ${length} м`)
-                  saveObject("alignment", def.name, { length })
-                  showToast(`💾 Трасса «${def.name}» сохранена`)
-                  setTreeData(prev => {
-                    const add = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
-                      if (n.id === "alignments") return { ...n, children: [...(n.children||[]), { id: `al_${Date.now()}`, label: def.name, icon: "Minus", color: "#f97316" }] }
-                      return { ...n, children: n.children ? add(n.children) : undefined }
-                    })
-                    return add(prev)
-                  })
+                  создатьВидимыйОбъект({ type: "alignment", name: def.name, color: "#f97316", layer: "C-ROAD-CNTR", treeNodeId: "alignments", treeIcon: "Minus", properties: { "Длина": `${length} м` } })
+                  showToast(`💾 Трасса «${def.name}» создана на холсте и сохранена`)
                 }}
               />
             )}
@@ -14236,8 +14294,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 onOK={def => {
                   setShowProfile(false)
                   setStatusMsg(`Профиль «${def.name}» создан для трассы ${def.alignment}`)
-                  saveObject("profile", def.name, { alignment: def.alignment })
-                  showToast(`💾 Профиль «${def.name}» сохранён`)
+                  создатьВидимыйОбъект({ type: "polyline", name: def.name, color: "#a855f7", layer: "C-ROAD-PROF", treeNodeId: "alignments", treeIcon: "TrendingUp", properties: { "Трасса": def.alignment, "Тип": "Профиль" } })
+                  showToast(`💾 Профиль «${def.name}» создан на холсте и сохранён`)
                 }}
                 alignments={["Трасса ШД-38","Ул. Трумана","Бордюр периметра"]}
               />
@@ -14264,47 +14322,49 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <PointsDialog onClose={()=>setShowPoints(false)} onOK={pts=>{
                 setShowPoints(false)
                 setStatusMsg(`Создано точек: ${pts.length}`)
-                saveObject("points", `Группа точек (${pts.length})`, { count: pts.length, pts })
-                showToast(`💾 Точек сохранено: ${pts.length}`)
-                setTreeData(prev=>{
-                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="points"?{...n,children:[...(n.children||[]),...pts.map((p,i)=>({id:`pt_${Date.now()+i}`,label:p.name,icon:"MapPin",color:"#f59e0b"}))]}:{...n,children:n.children?add(n.children):undefined})
-                  return add(prev)
+                // Каждая точка — видимый объект на холсте + сохранение в проект
+                pts.forEach(p=>{
+                  const x = parseFloat(String((p as {x?:unknown}).x))
+                  const y = parseFloat(String((p as {y?:unknown}).y))
+                  const [cx,cy] = центрМира()
+                  создатьВидимыйОбъект({
+                    type:"point",
+                    name:p.name,
+                    color:"#f59e0b",
+                    layer:"Точки",
+                    treeNodeId:"points",
+                    treeIcon:"MapPin",
+                    pts:[[Number.isFinite(x)?x:cx, Number.isFinite(y)?y:cy]],
+                    properties:{ "Z": String((p as {z?:unknown}).z ?? "") },
+                  })
                 })
+                showToast(`💾 Точек создано: ${pts.length}`)
               }}/>
             )}
             {showPipeNet && (
               <PipeNetworkDialog onClose={()=>setShowPipeNet(false)} onOK={()=>{
                 setShowPipeNet(false)
-                showToast("Сеть сохранена")
-                saveObject("pipe_network", "Трубопроводная сеть", {})
-                setTreeData(prev=>{
-                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="pipenet"?{...n,children:[...(n.children||[]),{id:`pipe_${Date.now()}`,label:"Трубопроводная сеть",icon:"Network",color:"#6366f1"}]}:{...n,children:n.children?add(n.children):undefined})
-                  return add(prev)
-                })
+                создатьВидимыйОбъект({ type:"pipe", name:"Трубопроводная сеть", color:"#6366f1", layer:"C-STRM", treeNodeId:"pipenet", treeIcon:"Network" })
+                showToast("💾 Трубопроводная сеть создана на холсте и сохранена")
               }}/>
             )}
             {showIntersection && (
               <IntersectionDialog onClose={()=>setShowIntersection(false)} onOK={d=>{
                 setShowIntersection(false)
                 setStatusMsg(`Пересечение «${d.name}»: ${d.mainRoad} × ${d.secRoad}`)
-                saveObject("intersection", d.name, { mainRoad: d.mainRoad, secRoad: d.secRoad })
-                showToast(`💾 Пересечение «${d.name}» сохранено`)
-                setTreeData(prev=>{
-                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="intersections"?{...n,children:[...(n.children||[]),{id:`int_${Date.now()}`,label:d.name,icon:"Plus",color:"#f43f5e"}]}:{...n,children:n.children?add(n.children):undefined})
-                  return add(prev)
-                })
+                const [cx,cy]=центрМира(); const S=120/zoom
+                создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#f43f5e", layer:"C-ROAD-INT", treeNodeId:"intersections", treeIcon:"Plus",
+                  pts:[[cx-S,cy],[cx+S,cy],[cx,cy],[cx,cy-S],[cx,cy+S]],
+                  properties:{ "Главная": d.mainRoad, "Второстеп.": d.secRoad } })
+                showToast(`💾 Пересечение «${d.name}» создано на холсте и сохранено`)
               }}/>
             )}
             {showFeatureLine && (
               <FeatureLineDialog onClose={()=>setShowFeatureLine(false)} onOK={d=>{
                 setShowFeatureLine(false)
                 setStatusMsg(`Характерная линия «${d.name}» создана`)
-                saveObject("feature_line", d.name, { site: d.site })
-                showToast(`💾 Характерная линия «${d.name}» сохранена`)
-                setTreeData(prev=>{
-                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="featurelines"?{...n,children:[...(n.children||[]),{id:`fl_${Date.now()}`,label:d.name,icon:"Spline",color:"#ec4899"}]}:{...n,children:n.children?add(n.children):undefined})
-                  return add(prev)
-                })
+                создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#ec4899", layer:"C-TOPO-FEAT", treeNodeId:"featurelines", treeIcon:"Spline", properties:{ "Площадка": d.site } })
+                showToast(`💾 Характерная линия «${d.name}» создана на холсте и сохранена`)
               }}/>
             )}
             {showAnalysis && <AnalysisDialog type={analysisType} onClose={()=>setShowAnalysis(false)} onOK={d=>{setShowAnalysis(false);setStatusMsg(`${d.type}: выполнен для ${d.surface}`)}}/>}
@@ -14317,8 +14377,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <Draw2DDialog onClose={()=>setShowDraw2D(false)} onOK={obj=>{
                 setShowDraw2D(false)
                 setDraw2DObjects(prev=>[...prev,{...obj,id:`d2d_${Date.now()}`}])
+                const t=String(obj.type).toLowerCase()
+                const ct:CanvasObjType = t.includes("точ")||t.includes("point")?"point"
+                  : t.includes("круг")||t.includes("окруж")||t.includes("circle")?"line"
+                  : t.includes("прямоуг")||t.includes("rect")?"rect"
+                  : t.includes("текст")||t.includes("text")?"text"
+                  : t.includes("полилин")||t.includes("сплайн")||t.includes("line")?"polyline":"line"
+                const [cx,cy]=центрМира(); const S=120/zoom
+                const pts:[number,number][] = ct==="point"?[[cx,cy]]
+                  : ct==="rect"?[[cx-S,cy-S*0.6],[cx+S,cy-S*0.6],[cx+S,cy+S*0.6],[cx-S,cy+S*0.6],[cx-S,cy-S*0.6]]
+                  : [[cx-S,cy],[cx+S,cy]]
+                создатьВидимыйОбъект({ type:ct, name:obj.name, color:"#22d3ee", layer:"0", pts, properties:{ "Тип": String(obj.type) } })
                 setStatusMsg(`2D объект «${obj.name}» (${obj.type}) создан`)
-                showToast(`${obj.type} «${obj.name}» добавлен`)
+                showToast(`💾 ${obj.type} «${obj.name}» добавлен на холст`)
               }}/>
             )}
             {showAnnotation && (
