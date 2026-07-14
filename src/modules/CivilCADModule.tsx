@@ -8775,7 +8775,7 @@ function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
 }
 
 // ─── Grading (площадки, рабочие отметки, откосы) ─────────────────────────────
-function GradingDialog({ onClose }: { onClose: ()=>void }) {
+function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:string;elevation:string})=>void }) {
   const [tab, setTab] = useState<"grade"|"slopes"|"volumes"|"criteria">("grade")
   const [surfName, setSurfName] = useState("Проектная площадка-1")
   const [method, setMethod] = useState("Откос от объекта")
@@ -8942,7 +8942,7 @@ function GradingDialog({ onClose }: { onClose: ()=>void }) {
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#151422] rounded-b-xl">
           <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#f59e0b] text-[#0d0a00] hover:bg-[#fbbf24] rounded text-[11px] font-bold">✓ Применить</button>
+          <button onClick={()=>{ onOK?.({name:surfName,elevation}); onClose() }} className="px-4 py-1.5 bg-[#f59e0b] text-[#0d0a00] hover:bg-[#fbbf24] rounded text-[11px] font-bold">✓ Применить</button>
         </div>
       </motion.div>
     </motion.div>
@@ -14423,12 +14423,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <HydrologyDialog onClose={()=>setShowHydrology(false)} onOK={obj=>{
                 setShowHydrology(false)
                 setStatusMsg(`Водосбор «${obj.name}» создан, площадь ${obj.area} га, метод: ${obj.method}`)
-                saveObject("catchment", obj.name, {area:obj.area,method:obj.method})
-                showToast(`Водосбор «${obj.name}» создан и сохранён`)
-                setTreeData(prev=>{
-                  const add=(nodes:TreeNode[]):TreeNode[]=>nodes.map(n=>n.id==="catchments"?{...n,children:[...(n.children||[]),{id:`catch_${Date.now()}`,label:obj.name,icon:"Droplets",color:"#60a5fa"}]}:{...n,children:n.children?add(n.children):undefined})
-                  return add(prev)
-                })
+                const [cx,cy]=центрМира(); const S=140/zoom
+                создатьВидимыйОбъект({ type:"polyline", name:obj.name, color:"#60a5fa", layer:"C-HYDR-CATCH", treeNodeId:"catchments", treeIcon:"Droplets",
+                  pts:[[cx-1.4*S,cy-S],[cx+1.2*S,cy-1.2*S],[cx+1.5*S,cy+0.8*S],[cx-0.2*S,cy+1.3*S],[cx-1.6*S,cy+0.4*S],[cx-1.4*S,cy-S]],
+                  properties:{ "Площадь": `${obj.area} га`, "Метод": obj.method } })
+                showToast(`💾 Водосбор «${obj.name}» создан на холсте и сохранён`)
               }}/>
             )}
 
@@ -14473,11 +14472,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showConstructionPhases && <ConstructionPhasesDialog onClose={()=>setShowConstructionPhases(false)}/>}
             {showRevitExchange && <RevitExchangeDialog onClose={()=>setShowRevitExchange(false)}/>}
             {showGeotechnical && <GeotechnicalDialog onClose={()=>setShowGeotechnical(false)}/>}
-            {showGrading && <GradingDialog onClose={()=>setShowGrading(false)}/>}
+            {showGrading && <GradingDialog onClose={()=>setShowGrading(false)} onOK={d=>{
+              const [cx,cy]=центрМира(); const S=150/zoom
+              создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#f59e0b", layer:"C-GRADING", treeNodeId:"sites", treeIcon:"Mountain",
+                pts:[[cx-1.6*S,cy-S],[cx+1.6*S,cy-S],[cx+1.6*S,cy+S],[cx-1.6*S,cy+S],[cx-1.6*S,cy-S]],
+                properties:{ "Отметка": `${d.elevation} м` } })
+              showToast(`💾 Площадка «${d.name}» создана на холсте и сохранена`)
+              setStatusMsg(`Планировка «${d.name}»: проектная отметка ${d.elevation} м`)
+            }}/>}
             {showTunnel && (
               <TunnelDialog onClose={()=>setShowTunnel(false)} onOK={d=>{
                 setShowTunnel(false)
-                showToast(`Тоннель «${d.name}» создан`)
+                создатьВидимыйОбъект({ type:"alignment", name:d.name, color:"#8b5cf6", layer:"C-TUNNEL", treeNodeId:"alignments", treeIcon:"Minus", properties:{ "Тип": "Тоннель" } })
+                showToast(`💾 Тоннель «${d.name}» создан на холсте и сохранён`)
                 setStatusMsg(`Тоннель «${d.name}» добавлен в проект`)
               }}/>
             )}
@@ -14490,28 +14497,42 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showRailTrack && (
               <RailTrackDialog onClose={()=>setShowRailTrack(false)} onOK={d=>{
                 setShowRailTrack(false)
-                showToast(`ЖД-путь «${d.name}» создан`)
+                создатьВидимыйОбъект({ type:"alignment", name:d.name, color:"#a3a3a3", layer:"C-RAIL", treeNodeId:"alignments", treeIcon:"Minus", properties:{ "Тип": "ЖД-путь" } })
+                showToast(`💾 ЖД-путь «${d.name}» создан на холсте и сохранён`)
                 setStatusMsg(`Железнодорожный путь «${d.name}» добавлен в проект`)
               }}/>
             )}
             {showBridgeModeler && (
               <BridgeModelerDialog onClose={()=>setShowBridgeModeler(false)} onOK={d=>{
                 setShowBridgeModeler(false)
-                showToast(`Мост «${d.name}» создан`)
+                const [cx,cy]=центрМира(); const S=160/zoom
+                создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#eab308", layer:"C-BRDG", treeNodeId:"bridges", treeIcon:"Landmark",
+                  pts:[[cx-S,cy-0.25*S],[cx+S,cy-0.25*S],[cx+S,cy+0.25*S],[cx-S,cy+0.25*S],[cx-S,cy-0.25*S]],
+                  properties:{ "Тип": "Мост" } })
+                showToast(`💾 Мост «${d.name}» создан на холсте и сохранён`)
                 setStatusMsg(`Мост «${d.name}» добавлен в проект`)
               }}/>
             )}
             {showIntersectionWizard && (
               <IntersectionWizardDialog onClose={()=>setShowIntersectionWizard(false)} onOK={d=>{
                 setShowIntersectionWizard(false)
-                showToast(`Пересечение «${d.name}» (${d.type}) создано`)
+                const [cx,cy]=центрМира(); const S=140/zoom
+                создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#f43f5e", layer:"C-ROAD-INT", treeNodeId:"intersections", treeIcon:"Plus",
+                  pts:[[cx-1.6*S,cy],[cx+1.6*S,cy],[cx,cy],[cx,cy-1.6*S],[cx,cy+1.6*S]],
+                  properties:{ "Тип": String(d.type) } })
+                showToast(`💾 Пересечение «${d.name}» создано на холсте и сохранено`)
                 setStatusMsg(`Пересечение «${d.name}» добавлено в проект`)
               }}/>
             )}
             {showRoundabout && (
               <RoundaboutDialog onClose={()=>setShowRoundabout(false)} onOK={d=>{
                 setShowRoundabout(false)
-                showToast(`Кольцо «${d.name}» R=${d.R}м создано`)
+                const [cx,cy]=центрМира()
+                const rr=Math.max(40, d.R || 20)
+                const ring:[number,number][]=Array.from({length:33},(_,i)=>{const a=i/32*Math.PI*2; return [cx+Math.cos(a)*rr, cy+Math.sin(a)*rr] as [number,number]})
+                создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#f59e0b", layer:"C-ROAD-RNDB", treeNodeId:"intersections", treeIcon:"Circle",
+                  pts:ring, properties:{ "Радиус": `${d.R} м` } })
+                showToast(`💾 Кольцо «${d.name}» R=${d.R}м создано на холсте и сохранено`)
                 setStatusMsg(`Кольцевое пересечение «${d.name}» добавлено`)
               }}/>
             )}
