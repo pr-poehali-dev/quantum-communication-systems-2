@@ -11671,21 +11671,41 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       .then((raw: unknown) => {
         const rows: { object_type: string; name: string; data?: Record<string, unknown> }[] =
           Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
-        const restored: CanvasObject[] = rows
-          .filter(r => r.data && Array.isArray((r.data as { pts?: unknown }).pts))
-          .map(r => {
-            const d = r.data as { canvas_id?: string; pts: [number, number][]; color?: string; lineWidth?: number; layer?: string; properties?: Record<string, string> }
-            return {
-              id: d.canvas_id || `obj_${Math.random().toString(36).slice(2)}`,
+        const num = (v: unknown): number => typeof v === "number" ? v : parseFloat(String(v))
+        const restored: CanvasObject[] = []
+        rows.forEach(r => {
+          const d = (r.data || {}) as Record<string, unknown>
+          const rawPts = d.pts
+          if (!Array.isArray(rawPts) || rawPts.length === 0) return
+          if (Array.isArray(rawPts[0])) {
+            const pts = (rawPts as unknown[][]).map(p => [num(p[0]), num(p[1])] as [number, number]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]))
+            if (!pts.length) return
+            restored.push({
+              id: (d.canvas_id as string) || `obj_${Math.random().toString(36).slice(2)}`,
               type: r.object_type as CanvasObjType,
               label: r.name,
-              pts: d.pts,
-              color: d.color || "#22d3ee",
-              lineWidth: d.lineWidth,
-              layer: d.layer ?? "0",
-              properties: d.properties ?? {},
-            }
-          })
+              pts,
+              color: (d.color as string) || "#22d3ee",
+              lineWidth: d.lineWidth as number | undefined,
+              layer: (d.layer as string) ?? "0",
+              properties: (d.properties as Record<string, string>) ?? {},
+            })
+          } else if (r.object_type === "points") {
+            (rawPts as Record<string, unknown>[]).forEach((p, i) => {
+              const x = num(p.x), y = num(p.y)
+              if (!Number.isFinite(x) || !Number.isFinite(y)) return
+              restored.push({
+                id: `pt_${r.name}_${i}_${Math.random().toString(36).slice(2)}`,
+                type: "point",
+                label: (p.name as string) || `${r.name} #${i + 1}`,
+                pts: [[x, y]],
+                color: "#f59e0b",
+                layer: "Точки",
+                properties: { "Z": String(p.z ?? "") },
+              })
+            })
+          }
+        })
         skipDirtyRef.current = true
         setCanvasObjects(restored)
         setЕстьИзменения(false)
@@ -11715,7 +11735,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       .then(r => r.json())
       .then(raw => {
         // API может вернуть строку (двойная сериализация) или массив
-        const objs: {object_type:string;name:string;data?:Record<string,unknown>}[] = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
+        const rawObjs: {object_type:string;name:string;data?:Record<string,unknown>}[] = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : [])
+        // Игнорируем объекты старого формата без геометрии — используем только те, где есть pts
+        const objs = rawObjs.filter(r => {
+          const p = (r.data as {pts?:unknown} | undefined)?.pts
+          return Array.isArray(p) && p.length > 0
+        })
         setActiveProjectObjects(objs)
 
         // ── Восстанавливаем объекты на холсте из data ──────────────────────────
