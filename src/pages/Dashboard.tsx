@@ -805,10 +805,15 @@ export default function Dashboard() {
             </button>
           )}
           {store?.activeProject && (
-            <span className="text-[#0078d4] flex items-center gap-1">
+            <span className="text-[#0078d4] flex items-center gap-1 group">
               <span className="text-gray-600">·</span>
               <Icon name="FolderOpen" size={10} fallback="Folder" />
-              {store.activeProject.name}
+              <span className="max-w-[160px] truncate">{store.activeProject.name}</span>
+              <button title="Закрыть проект"
+                onClick={() => { store.setActiveProject(null); store.notify("Проект закрыт", "info") }}
+                className="ml-0.5 w-4 h-4 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-red-600/70 transition-colors">
+                <Icon name="X" size={11} />
+              </button>
             </span>
           )}
         </div>
