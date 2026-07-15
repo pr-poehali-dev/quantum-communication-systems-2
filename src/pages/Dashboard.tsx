@@ -142,14 +142,31 @@ const DIRECTIONS = [
 // ─── Данные последних файлов ─────────────────────────────────────────────────
 
 const ПОСЛЕДНИЕ_ФАЙЛЫ = [
+  // ── Инфраструктура и дороги ──
   { id: "civilcad", name: "Главная_парковка_Финал", ext: "dwg", date: "20 мая 2026 г. 14:32", size: "31 МБ", color: "#4f46e5", preview: "corridor" },
-  { id: "surfaces", name: "ЦМР_Съёмка_2024", ext: "tin", date: "19 мая 2026 г. 18:10", size: "8 МБ", color: "#059669", preview: "tin" },
+  { id: "roads", name: "Автодорога_М5_РД", ext: "dwg", date: "13 мая 2026 г. 08:15", size: "18 МБ", color: "#c2410c", preview: "road" },
   { id: "alignment", name: "Трасса_ШД-38_v2", ext: "xml", date: "18 мая 2026 г. 11:45", size: "2 МБ", color: "#d97706", preview: "align" },
   { id: "corridor", name: "Коридор_дорога", ext: "dwg", date: "17 мая 2026 г. 09:20", size: "14 МБ", color: "#7c3aed", preview: "cross" },
-  { id: "networks", name: "Ливневая_канализация", ext: "dwg", date: "16 мая 2026 г. 16:05", size: "5 МБ", color: "#0284c7", preview: "net" },
+  { id: "railway", name: "Ж-д_путь_Восточный", ext: "dwg", date: "12 мая 2026 г. 10:40", size: "9 МБ", color: "#c2410c", preview: "road" },
+  { id: "areas", name: "Генплан_участка_12га", ext: "dwg", date: "11 мая 2026 г. 15:20", size: "7 МБ", color: "#0891b2", preview: "corridor" },
+  { id: "publish", name: "Пакет_листов_РД", ext: "pdf", date: "10 мая 2026 г. 09:00", size: "12 МБ", color: "#e11d48", preview: "cross" },
+  // ── Геодезия и изыскания ──
+  { id: "surfaces", name: "ЦМР_Съёмка_2024", ext: "tin", date: "19 мая 2026 г. 18:10", size: "8 МБ", color: "#059669", preview: "tin" },
   { id: "geodesy", name: "Геодезия_изыскания", ext: "csv", date: "15 мая 2026 г. 10:30", size: "1 МБ", color: "#be185d", preview: "points" },
+  { id: "dtm", name: "Облако_точек_LiDAR", ext: "las", date: "14 мая 2026 г. 12:10", size: "148 МБ", color: "#8b5cf6", preview: "points" },
+  { id: "geodesy", name: "Тахеометрия_Полигон-7", ext: "sdr", date: "9 мая 2026 г. 11:25", size: "2 МБ", color: "#be185d", preview: "points" },
+  // ── Инженерные сети ──
+  { id: "networks", name: "Ливневая_канализация", ext: "dwg", date: "16 мая 2026 г. 16:05", size: "5 МБ", color: "#0284c7", preview: "net" },
+  { id: "networks", name: "Теплосеть_Квартал-3", ext: "dwg", date: "8 мая 2026 г. 14:15", size: "6 МБ", color: "#3b82f6", preview: "net" },
+  { id: "filemanager", name: "Водопровод_ВКС_расчёт", ext: "sdf", date: "7 мая 2026 г. 09:50", size: "4 МБ", color: "#0d9488", preview: "net" },
+  // ── BIM и архитектура ──
   { id: "bim", name: "BIM_Корпус_А", ext: "ifc", date: "14 мая 2026 г. 13:00", size: "22 МБ", color: "#7c3aed", preview: "bim" },
-  { id: "roads", name: "Автодорога_М5_РД", ext: "dwg", date: "13 мая 2026 г. 08:15", size: "18 МБ", color: "#c2410c", preview: "road" },
+  { id: "revar", name: "Revar_ЖК_Северный", ext: "rvr", date: "13 мая 2026 г. 16:30", size: "34 МБ", color: "#8b5cf6", preview: "bim" },
+  { id: "revar", name: "Архитектура_Школа-25", ext: "ifc", date: "6 мая 2026 г. 10:05", size: "28 МБ", color: "#a855f7", preview: "bim" },
+  // ── Машиностроение / САПР ──
+  { id: "sapr", name: "Деталь_Кронштейн", ext: "step", date: "12 мая 2026 г. 17:45", size: "3 МБ", color: "#0891b2", preview: "bim" },
+  { id: "saprpro", name: "Сборка_Редуктор_цилиндр", ext: "sldasm", date: "11 мая 2026 г. 13:20", size: "16 МБ", color: "#ef4444", preview: "bim" },
+  { id: "assembly", name: "Компрессор_КНД_сборка", ext: "a3d", date: "5 мая 2026 г. 15:40", size: "11 МБ", color: "#3a7bd5", preview: "bim" },
 ]
 
 const ШАБЛОНЫ = [
@@ -334,9 +351,13 @@ function FeedbackDialog({ тип, onClose }: { тип: "отзыв"|"ошибк�
 }
 
 // ─── Диалог «Открыть файл» ────────────────────────────────────────────────────
-function OpenDialog({ onClose, onOpen }: { onClose:()=>void; onOpen:(id:string)=>void }) {
+function OpenDialog({ onClose, onOpen, directionModules, directionLabel }: { onClose:()=>void; onOpen:(id:string)=>void; directionModules?: string[]; directionLabel?: string }) {
   const [search, setSearch] = useState("")
-  const filtered = ПОСЛЕДНИЕ_ФАЙЛЫ.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
+  const [всеНаправления, setВсеНаправления] = useState(false)
+  const поНаправлению = (directionModules && !всеНаправления)
+    ? ПОСЛЕДНИЕ_ФАЙЛЫ.filter(f => directionModules.includes(f.id))
+    : ПОСЛЕДНИЕ_ФАЙЛЫ
+  const filtered = поНаправлению.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -345,16 +366,27 @@ function OpenDialog({ onClose, onOpen }: { onClose:()=>void; onOpen:(id:string)=
         style={{background:"#1e1e2e",border:"1px solid #374151"}} onClick={e=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
           <span className="text-white font-bold text-[14px] flex items-center gap-2">
-            <Icon name="FolderOpen" size={16} className="text-[#0078d4]"/>Открыть проект
+            <Icon name="FolderOpen" size={16} className="text-[#0078d4]"/>
+            {directionModules && !всеНаправления && directionLabel ? `Проекты: ${directionLabel}` : "Открыть проект"}
           </span>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
         </div>
         <div className="p-4 space-y-3">
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск проектов..."
             className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4] placeholder-gray-600"/>
+          {directionModules && (
+            <button onClick={()=>setВсеНаправления(v=>!v)}
+              className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-white transition-colors">
+              <Icon name={всеНаправления ? "Filter" : "Layers"} size={12} className="text-[#0078d4]"/>
+              {всеНаправления ? "Показать только это направление" : "Показать все направления"}
+            </button>
+          )}
           <div className="space-y-1 max-h-64 overflow-y-auto">
-            {filtered.map(f=>(
-              <button key={f.id} onClick={()=>{onOpen(f.id);onClose()}}
+            {filtered.length === 0 && (
+              <div className="text-gray-500 text-[12px] text-center py-8">Проектов по этому направлению пока нет</div>
+            )}
+            {filtered.map((f,i)=>(
+              <button key={`${f.id}-${f.name}-${i}`} onClick={()=>{onOpen(f.id);onClose()}}
                 className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#252535] text-left border border-gray-800 hover:border-gray-600 transition-colors">
                 <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0"><ПревьюФайла тип={f.preview} цвет={f.color}/></div>
                 <div className="flex-1 min-w-0">
@@ -1251,7 +1283,8 @@ export default function Dashboard() {
       {/* Диалог «Открыть» */}
       <AnimatePresence>
         {showОткрыть && (
-          <OpenDialog onClose={() => setShowОткрыть(false)} onOpen={id => { setActiveModule(id); setShowОткрыть(false) }} />
+          <OpenDialog onClose={() => setShowОткрыть(false)} onOpen={id => { setActiveModule(id); setShowОткрыть(false) }}
+            directionModules={текущееНаправление?.modules} directionLabel={текущееНаправление?.label} />
         )}
       </AnimatePresence>
 
