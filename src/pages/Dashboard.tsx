@@ -384,6 +384,11 @@ export default function Dashboard() {
     setActiveModule(id); setПоискИнстр("")
   }
   const сброситьНаправление = () => { setDirection(null); localStorage.removeItem("civilpro_direction"); setActiveModule(null) }
+  // Навигация между модулями из самих модулей (кнопки "Редактор", "3D-вид" и т.п.)
+  const навигацияМодуль = (id: string | null) => {
+    if (id && !MODULES.find(m => m.id === id)) return
+    setActiveModule(id)
+  }
   const текущееНаправление = DIRECTIONS.find(d => d.id === direction)
   useEffect(() => {
     if (direction && !DIRECTIONS.find(d => d.id === direction)) {
@@ -391,6 +396,9 @@ export default function Dashboard() {
     }
   }, [direction])
   const модулиНаправления = текущееНаправление ? MODULES.filter(m => текущееНаправление.modules.includes(m.id)) : MODULES
+  const [показатьВсеМодули, setПоказатьВсеМодули] = useState(false)
+  // Список модулей для вкладки "Все модули": либо все 24, либо модули направления
+  const модулиДляВкладки = показатьВсеМодули ? MODULES : модулиНаправления
   const [homeВкладка, setHomeВкладка] = useState<"последние" | "возможности" | "модули" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
   const [viewGrid, setViewGrid] = useState(true)
@@ -799,7 +807,7 @@ export default function Dashboard() {
                 { id: "обучение", label: "Обучение", icon: "GraduationCap" },
               ].map(item => (
                 <button key={item.id}
-                  onClick={() => { setHomeВкладка(item.id as typeof homeВкладка); setActiveModule(null) }}
+                  onClick={() => { setHomeВкладка(item.id as typeof homeВкладка); setActiveModule(null); setПоказатьВсеМодули(item.id === "модули") }}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-[12px] text-left transition-colors ${homeВкладка === item.id && !activeModule ? "text-white font-semibold bg-[#1e1e30]" : "text-gray-400 hover:text-white hover:bg-[#1a1a28]"}`}>
                   <Icon name={item.icon} size={14} className={homeВкладка === item.id && !activeModule ? "text-[#0078d4]" : "text-gray-600"} fallback="Circle" />
                   {item.label}
@@ -982,14 +990,14 @@ export default function Dashboard() {
                     <div className="flex-1 overflow-y-auto p-6" style={{ minHeight: 0 }}>
                       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                          {текущееНаправление && (
+                          {текущееНаправление && !показатьВсеМодули && (
                             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${текущееНаправление.gradient} flex items-center justify-center shadow-lg`}>
                               <Icon name={текущееНаправление.icon} size={20} className="text-white" fallback="Square" />
                             </div>
                           )}
                           <div>
-                            <h2 className="text-white text-xl font-bold leading-tight">{текущееНаправление?.label ?? "Все модули"}</h2>
-                            <p className="text-gray-500 text-[12px]">{текущееНаправление?.desc}</p>
+                            <h2 className="text-white text-xl font-bold leading-tight">{показатьВсеМодули ? "Все модули" : (текущееНаправление?.label ?? "Все модули")}</h2>
+                            <p className="text-gray-500 text-[12px]">{показатьВсеМодули ? `${MODULES.length} инструментов платформы` : текущееНаправление?.desc}</p>
                           </div>
                         </div>
                         <button onClick={сброситьНаправление}
@@ -998,7 +1006,7 @@ export default function Dashboard() {
                         </button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {модулиНаправления.map((m, i) => (
+                        {модулиДляВкладки.map((m, i) => (
                           <motion.button key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.04 }}
                             onClick={() => setActiveModule(m.id)}
@@ -1176,7 +1184,7 @@ export default function Dashboard() {
                         <Icon name="Loader" size={20} className="animate-spin" />Загрузка модуля…
                       </div>
                     }>
-                      <current.component onNavigate={setActiveModule} />
+                      <current.component onNavigate={навигацияМодуль} />
                     </Suspense>
                   </ErrorBoundary>
                 ) : (
