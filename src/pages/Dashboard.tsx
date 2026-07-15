@@ -170,12 +170,26 @@ const ПОСЛЕДНИЕ_ФАЙЛЫ = [
 ]
 
 const ШАБЛОНЫ = [
+  // ── Инфраструктура и дороги ──
   { id: "civilcad", name: "Автодорога (СП 34)", icon: "Route", desc: "Трасса, профиль, коридор" },
-  { id: "networks", name: "Инженерные сети", icon: "Network", desc: "ВКС, ливневая, теплосеть" },
-  { id: "geodesy", name: "Геодезические изыскания", icon: "Mountain", desc: "Точки COGO, ЦМР, профиль" },
-  { id: "areas", name: "Генплан участка", icon: "LayoutDashboard", desc: "Площадной объект, ТЭП" },
+  { id: "roads", name: "Автодорога РД", icon: "Route", desc: "Категория, профиль, сечение" },
+  { id: "alignment", name: "Трасса и профиль", icon: "Spline", desc: "ВК, ГК, клотоиды, разбивка" },
+  { id: "corridor", name: "Коридор / поперечники", icon: "RoadHorizon", desc: "Assembly, автопоперечники, объёмы" },
   { id: "railway", name: "Железная дорога", icon: "Train", desc: "Путь, CANT, профиль" },
-  { id: "bim", name: "BIM-проект", icon: "Layers", desc: "IFC-модель, коллизии" },
+  { id: "areas", name: "Генплан участка", icon: "LayoutDashboard", desc: "Площадной объект, ТЭП" },
+  // ── Геодезия и изыскания ──
+  { id: "geodesy", name: "Геодезические изыскания", icon: "Mountain", desc: "Точки COGO, ЦМР, профиль" },
+  { id: "dtm", name: "ЦМР / Облако точек", icon: "ScanLine", desc: "LiDAR, GNSS, тахеометр" },
+  { id: "surfaces", name: "Поверхность TIN / Grid", icon: "Triangle", desc: "Триангуляция, горизонтали" },
+  // ── Инженерные сети ──
+  { id: "networks", name: "Инженерные сети", icon: "Network", desc: "ВКС, ливневая, теплосеть" },
+  // ── BIM и архитектура ──
+  { id: "revar", name: "BIM-проект (Revar)", icon: "Building2", desc: "Revit + ArchiCAD, дисциплины" },
+  { id: "bim", name: "BIM-модель (IFC)", icon: "Layers", desc: "IFC-модель, коллизии" },
+  // ── Машиностроение / САПР ──
+  { id: "sapr", name: "САПР-деталь", icon: "Cuboid", desc: "Параметрическая 3D-деталь, чертёж" },
+  { id: "saprpro", name: "САПР Про (сборка)", icon: "Boxes", desc: "SolidWorks-аналог: сборка, симуляция" },
+  { id: "assembly", name: "3D-сборка (КОМПАС)", icon: "Component", desc: "Сборки, сопряжения, коллизии" },
 ]
 
 // ─── Миниатюра файла ──────────────────────────────────────────────────────────
@@ -445,6 +459,16 @@ export default function Dashboard() {
   const [showПоискРез, setShowПоискРез] = useState(false)
   const [новыйПроект, setНовыйПроект] = useState({ name: "", template: "Автодорога (СП 34)" })
   const [создаётся, setСоздаётся] = useState(false)
+  const [всеШаблоны, setВсеШаблоны] = useState(false)
+  // При открытии диалога подставляем первый шаблон текущего направления
+  useEffect(() => {
+    if (!showНовыйПроект || !текущееНаправление || всеШаблоны) return
+    const доступные = ШАБЛОНЫ.filter(ш => текущееНаправление.modules.includes(ш.id))
+    if (доступные.length && !доступные.some(ш => ш.name === новыйПроект.template)) {
+      setНовыйПроект(p => ({ ...p, template: доступные[0].name }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showНовыйПроект, всеШаблоны, direction])
   const [недавниеПроекты, setНедавниеПроекты] = useState<RecentProject[]>([])
 
   const PROJECTS_URL = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
@@ -1256,13 +1280,33 @@ export default function Dashboard() {
                     placeholder="Мой проект"
                     className="w-full bg-[#2a2a3e] border border-gray-600 text-white text-[12px] px-3 py-2 rounded outline-none focus:border-[#0078d4]" />
                 </div>
-                <div>
-                  <label className="text-[11px] text-gray-400 block mb-1">Шаблон</label>
-                  <select value={новыйПроект.template} onChange={e => setНовыйПроект(p => ({ ...p, template: e.target.value }))}
-                    className="w-full bg-[#2a2a3e] border border-gray-600 text-gray-300 text-[12px] px-3 py-2 rounded outline-none cursor-pointer focus:border-[#0078d4]">
-                    {ШАБЛОНЫ.map(ш => <option key={ш.id}>{ш.name}</option>)}
-                  </select>
-                </div>
+                {(() => {
+                  const списокШаблонов = (текущееНаправление && !всеШаблоны)
+                    ? ШАБЛОНЫ.filter(ш => текущееНаправление.modules.includes(ш.id))
+                    : ШАБЛОНЫ
+                  const список = списокШаблонов.length ? списокШаблонов : ШАБЛОНЫ
+                  const выбран = список.some(ш => ш.name === новыйПроект.template) ? новыйПроект.template : список[0].name
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] text-gray-400">
+                          {текущееНаправление && !всеШаблоны ? `Шаблон — ${текущееНаправление.label}` : "Шаблон"}
+                        </label>
+                        {текущееНаправление && (
+                          <button type="button" onClick={() => setВсеШаблоны(v => !v)}
+                            className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-white transition-colors">
+                            <Icon name={всеШаблоны ? "Filter" : "Layers"} size={11} className="text-[#0078d4]" />
+                            {всеШаблоны ? "Только направление" : "Все шаблоны"}
+                          </button>
+                        )}
+                      </div>
+                      <select value={выбран} onChange={e => setНовыйПроект(p => ({ ...p, template: e.target.value }))}
+                        className="w-full bg-[#2a2a3e] border border-gray-600 text-gray-300 text-[12px] px-3 py-2 rounded outline-none cursor-pointer focus:border-[#0078d4]">
+                        {список.map(ш => <option key={ш.id}>{ш.name}</option>)}
+                      </select>
+                    </div>
+                  )
+                })()}
               </div>
               <div className="flex gap-2 justify-end pt-1">
                 <button onClick={() => setShowНовыйПроект(false)}
