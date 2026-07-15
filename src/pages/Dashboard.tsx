@@ -603,7 +603,9 @@ export default function Dashboard() {
     setСоздаётся(false)
     setShowНовыйПроект(false)
     setНовыйПроект({ name: "", template: "Автодорога (СП 34)" })
-    setActiveModule("civilcad")
+    // Открываем модуль, соответствующий выбранному шаблону (если такой есть), иначе — редактор
+    const модульШаблона = MODULES.find(m => m.id === шаблон.id)?.id || "civilcad"
+    setActiveModule(модульШаблона)
   }
 
   useEffect(() => {
