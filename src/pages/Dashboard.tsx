@@ -948,6 +948,21 @@ export default function Dashboard() {
                     <Icon name="RefreshCw" size={11} className="text-gray-600" />
                   </button>
                 )}
+                {избранныеМодули.length > 0 && (
+                  <div className="mx-2 mb-2 rounded-lg overflow-hidden" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.14),rgba(99,102,241,0.10))", border: "1px solid rgba(245,158,11,0.35)" }}>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5">
+                      <Icon name="Star" size={12} className="fill-amber-400 text-amber-400" />
+                      <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Избранное</span>
+                    </div>
+                    {избранныеМодули.map(m => (
+                      <button key={m.id} onClick={() => setActiveModule(m.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-left font-semibold transition-colors ${activeModule === m.id ? "text-white bg-amber-500/90" : "text-amber-100 hover:bg-amber-500/20"}`}>
+                        <Icon name={m.icon} size={12} className={activeModule === m.id ? "text-white" : "text-amber-400"} fallback="Square" />
+                        <span className="truncate">{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="px-4 py-1 text-[9px] text-gray-600 uppercase tracking-wider font-semibold">Модули направления</div>
                 {модулиНаправления.map(m => (
                   <button key={m.id} onClick={() => setActiveModule(m.id)}
