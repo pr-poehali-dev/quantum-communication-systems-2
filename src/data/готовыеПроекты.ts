@@ -12,10 +12,20 @@ export interface ГотовыйПроект {
   размер: string
   icon: string
   цвет: string
+  превью?: string              // ссылка на картинку-превью (иначе по направлению)
   demo?: string                // id модуля для открытия демо-сцены
   file?: string                // прямая ссылка на файл-образец
   source: string               // страница источника
   лицензия: string
+}
+
+// Превью-картинки по направлениям
+export const ПРЕВЬЮ_НАПРАВЛЕНИЯ: Record<string, string> = {
+  infra: "https://cdn.poehali.dev/projects/1be7b031-c724-4235-9d1d-e20b0b34064c/files/58ba997b-d1e4-4dfc-82f4-27b0b60b98b7.jpg",
+  survey: "https://cdn.poehali.dev/projects/1be7b031-c724-4235-9d1d-e20b0b34064c/files/d13cdde2-ccbc-45f7-af0d-801a1779368b.jpg",
+  networks: "https://cdn.poehali.dev/projects/1be7b031-c724-4235-9d1d-e20b0b34064c/files/82535554-8fbb-4c6e-89d9-37544aef92a6.jpg",
+  bim: "https://cdn.poehali.dev/projects/1be7b031-c724-4235-9d1d-e20b0b34064c/files/7014bb46-4ae0-41ec-981a-36bec3cc881f.jpg",
+  mechanical: "https://cdn.poehali.dev/projects/1be7b031-c724-4235-9d1d-e20b0b34064c/files/3d142a3b-b804-4adc-9000-b860a3bb4522.jpg",
 }
 
 export const ГОТОВЫЕ_ПРОЕКТЫ: ГотовыйПроект[] = [

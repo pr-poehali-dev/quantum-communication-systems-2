@@ -59,7 +59,7 @@ import SaprModule from "@/modules/SaprModule"
 import SaprProModule from "@/modules/SaprProModule"
 import RevarModule from "@/modules/RevarModule"
 import FeaturesShowcase from "@/components/FeaturesShowcase"
-import { ГОТОВЫЕ_ПРОЕКТЫ } from "@/data/готовыеПроекты"
+import { ГОТОВЫЕ_ПРОЕКТЫ, ПРЕВЬЮ_НАПРАВЛЕНИЯ } from "@/data/готовыеПроекты"
 
 
 const MODULES = [
@@ -776,10 +776,13 @@ export default function Dashboard() {
     <div className="flex flex-col" style={{ height: "100vh", background: "#1a1a2e", fontFamily: "Arial, sans-serif" }}>
 
       {/* ── Title bar (Civil 3D стиль) ── */}
-      <div className="flex items-center justify-between px-2 py-0.5 flex-shrink-0" style={{ background: "#0f0f1e", minHeight: 26 }}>
+      <div className="flex items-center justify-between px-2 py-0.5 flex-shrink-0" style={{ background: "#0f0f1e", minHeight: 30 }}>
         <div className="flex items-center gap-2">
           <button onClick={() => { setActiveModule(null); setHomeВкладка("последние") }}
-            className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm hover:bg-[#005fa3] transition-colors">Л</button>
+            title="На главную" className="flex flex-col items-start leading-none px-1.5 py-0.5 rounded hover:bg-white/5 transition-colors">
+            <span className="text-white font-extrabold text-[11px] tracking-tight">ЛАПА 3D</span>
+            <span className="text-[#0078d4] text-[8px] font-semibold">2026 · Версия 1.0</span>
+          </button>
           {activeModule && (
             <>
               <button title="Открыть проект" onClick={() => setShowОткрыть(true)} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">🗁</button>
@@ -1269,20 +1272,22 @@ export default function Dashboard() {
                         {список.map((p, i) => (
                           <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.05 }}
-                            className="flex flex-col p-5 rounded-xl border border-gray-700 hover:border-[#0078d4] transition-all"
+                            className="flex flex-col rounded-xl border border-gray-700 hover:border-[#0078d4] transition-all overflow-hidden"
                             style={{ background: "#111827" }}>
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${p.цвет}22` }}>
-                                <Icon name={p.icon} size={22} style={{ color: p.цвет }} fallback="Box" />
+                            <div className="relative h-32 overflow-hidden">
+                              <img src={p.превью || ПРЕВЬЮ_НАПРАВЛЕНИЯ[p.направление]} alt={p.название} loading="lazy"
+                                className="w-full h-full object-cover" />
+                              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(17,24,39,0.95), rgba(17,24,39,0.1))" }} />
+                              <div className="absolute top-2 left-2 w-9 h-9 rounded-lg flex items-center justify-center backdrop-blur-sm" style={{ background: `${p.цвет}cc` }}>
+                                <Icon name={p.icon} size={18} className="text-white" fallback="Box" />
                               </div>
-                              <div className="min-w-0">
-                                <div className="text-white text-[13px] font-bold leading-tight">{p.название}</div>
-                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold text-white" style={{ background: p.цвет }}>{p.формат}</span>
-                                  <span className="text-[10px] text-gray-500">{p.размер}</span>
-                                </div>
+                              <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+                                <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold text-white" style={{ background: p.цвет }}>{p.формат}</span>
+                                <span className="text-[10px] text-gray-300 bg-black/40 px-1.5 py-0.5 rounded">{p.размер}</span>
                               </div>
                             </div>
+                            <div className="flex flex-col p-4 flex-1">
+                            <div className="text-white text-[13px] font-bold leading-tight mb-2">{p.название}</div>
                             <p className="text-gray-400 text-[11px] leading-snug mb-3 flex-1">{p.описание}</p>
                             <div className="flex items-center gap-2 mb-2">
                               <button onClick={() => открытьГотовыйПроект(p)} disabled={загрузкаПроекта === p.id}
@@ -1301,6 +1306,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-[9px] text-gray-600 flex items-center gap-1">
                               <Icon name="ShieldCheck" size={10} className="text-gray-600" />{p.лицензия}
+                            </div>
                             </div>
                           </motion.div>
                         ))}
