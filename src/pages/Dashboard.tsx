@@ -12,7 +12,7 @@ interface BackendProject {
 
 interface RecentProject {
   id: string; projectId: number; name: string; ext: string; date: string; size: string
-  color: string; preview: string; type: CivilProject["type"]; description: string; status: CivilProject["status"]
+  color: string; preview: string; type: CivilProject["type"]; description: string; status: CivilProject["status"]; ts: number
 }
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean; msg: string }> {
@@ -478,7 +478,7 @@ export default function Dashboard() {
       .then(r => r.json())
       .then((data: unknown) => {
         const list: BackendProject[] = Array.isArray(data) ? data : []
-        setНедавниеПроекты(list.map(p => ({
+        const mapped = list.map(p => ({
           id: `db_${p.id}`,
           projectId: p.id,
           name: p.name,
@@ -490,7 +490,10 @@ export default function Dashboard() {
           type: (p.type as CivilProject["type"]) || "road",
           description: p.description || "",
           status: (p.status as CivilProject["status"]) || "active",
-        })))
+          ts: p.updated_at ? new Date(p.updated_at).getTime() : 0,
+        }))
+        mapped.sort((a, b) => b.ts - a.ts)
+        setНедавниеПроекты(mapped)
       })
       .catch(() => {})
   }
@@ -598,7 +601,9 @@ export default function Dashboard() {
     загрузитьПроекты()
   }
 
-  const всеФайлы = [...недавниеПроекты, ...ПОСЛЕДНИЕ_ФАЙЛЫ]
+  // «Последние» — только реальные проекты пользователя (свежие сверху).
+  // Демонстрационные файлы показываем лишь если реальных проектов ещё нет.
+  const всеФайлы = недавниеПроекты.length > 0 ? недавниеПроекты : ПОСЛЕДНИЕ_ФАЙЛЫ
   const отфильтрованныеФайлы = всеФайлы.filter(f =>
     f.name.toLowerCase().includes(поиск.toLowerCase())
   )
