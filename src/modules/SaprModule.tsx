@@ -263,6 +263,7 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
     const ctx = cv.getContext("2d")
     if (!ctx) return
     const W = cv.width, H = cv.height
+    if (!W || !H) return
     ctx.fillStyle = "#f4f6f9"
     ctx.fillRect(0, 0, W, H)
 
@@ -305,7 +306,8 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
       const projected = mesh.vertices.map(v => project([v[0] + ep[0], v[1] + ep[1], v[2] + ep[2]], [0, 0, 0], yaw, pitch, scale, W, H))
       mesh.faces.forEach(face => {
         const pts = face.map(idx => projected[idx])
-        const z = face.reduce((s, idx) => s + projected[idx].z, 0) / face.length
+        if (pts.length < 3 || pts.some(p => !p)) return
+        const z = face.reduce((s, idx) => s + (projected[idx]?.z ?? 0), 0) / face.length
         // грубая нормаль для затенения (по экранной ориентации)
         const [p0, p1, p2] = [pts[0], pts[1], pts[2]]
         const cross = (p1.x - p0.x) * (p2.y - p0.y) - (p1.y - p0.y) * (p2.x - p0.x)
@@ -333,15 +335,16 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
     })
   }, [features, selected, yaw, pitch, scale, shading, showEdges, explode, explodedPos])
 
-  useEffect(() => { render() }, [render])
+  useEffect(() => { try { render() } catch (e) { console.error("render error", e) } }, [render])
   useEffect(() => {
     const cv = canvasRef.current
     if (!cv) return
     const resize = () => {
-      const rect = cv.parentElement!.getBoundingClientRect()
+      const p = cv.parentElement; if (!p) return
+      const rect = p.getBoundingClientRect()
       cv.width = rect.width
       cv.height = rect.height
-      render()
+      try { render() } catch (e) { console.error("render error", e) }
     }
     resize()
     window.addEventListener("resize", resize)
@@ -987,6 +990,7 @@ function MiniView({ features, yaw, pitch, cut }: { features: Feature[]; yaw: num
       ctx.strokeStyle = cut ? "#b91c1c" : "#1f2937"
       ctx.lineWidth = 0.8
       m.faces.forEach(face => {
+        if (face.some(idx => !pr[idx])) return
         ctx.beginPath()
         face.forEach((idx, i) => i === 0 ? ctx.moveTo(pr[idx].x, pr[idx].y) : ctx.lineTo(pr[idx].x, pr[idx].y))
         ctx.closePath()

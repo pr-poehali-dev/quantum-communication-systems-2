@@ -127,6 +127,7 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
     const cv = canvasRef.current; if (!cv) return
     const ctx = cv.getContext("2d"); if (!ctx) return
     const W = cv.width, H = cv.height
+    if (!W || !H) return
     if (render) { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#1e2a3a"); g.addColorStop(1, "#0b1220"); ctx.fillStyle = g } else ctx.fillStyle = "#eef1f5"
     ctx.fillRect(0, 0, W, H)
     const sc = scale * cfgScale
@@ -165,10 +166,14 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
     })
   }, [features, selected, yaw, pitch, scale, shading, edges, render, cfgScale])
 
-  useEffect(() => { draw() }, [draw])
+  useEffect(() => { try { draw() } catch (e) { console.error("draw error", e) } }, [draw])
   useEffect(() => {
     const cv = canvasRef.current; if (!cv) return
-    const rz = () => { const r = cv.parentElement!.getBoundingClientRect(); cv.width = r.width; cv.height = r.height; draw() }
+    const rz = () => {
+      const p = cv.parentElement; if (!p) return
+      const r = p.getBoundingClientRect(); cv.width = r.width; cv.height = r.height
+      try { draw() } catch (e) { console.error("draw error", e) }
+    }
     rz(); window.addEventListener("resize", rz); return () => window.removeEventListener("resize", rz)
   }, [draw])
 
@@ -315,7 +320,7 @@ function FeaturesPanel({ tools, addFeature, applyMod, sel, updateSel }: { tools:
           <Slider label="Глубина / длина" v={sel.h} min={2} max={300} on={v => updateSel({ h: v })} />
           <div>
             <Label className="text-[11px]">Материал</Label>
-            <Select value={sel.material} onValueChange={v => updateSel({ material: v, color: MATERIALS[v].color })}>
+            <Select value={sel.material} onValueChange={v => updateSel({ material: v, color: (MATERIALS[v] ?? MATERIALS.steel).color })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{Object.entries(MATERIALS).map(([k, m]) => <SelectItem key={k} value={k}>{m.ru}</SelectItem>)}</SelectContent>
             </Select>
