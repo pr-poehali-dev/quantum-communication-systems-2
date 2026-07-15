@@ -733,10 +733,14 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <button onClick={() => { setActiveModule(null); setHomeВкладка("последние") }}
             className="w-5 h-5 bg-[#0078d4] flex items-center justify-center text-white font-bold text-[10px] rounded-sm hover:bg-[#005fa3] transition-colors">Л</button>
-          <button title="Открыть проект" onClick={() => setShowОткрыть(true)} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">🗁</button>
-          <button title="Сохранить" onClick={() => { if (activeModule) { /* toast */ } }} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">💾</button>
-          <button title="Отменить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↩</button>
-          <button title="Повторить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↪</button>
+          {activeModule && (
+            <>
+              <button title="Открыть проект" onClick={() => setShowОткрыть(true)} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">🗁</button>
+              <button title="Сохранить" onClick={() => { if (activeModule) { /* toast */ } }} className="text-gray-500 hover:text-white text-xs px-0.5 transition-colors">💾</button>
+              <button title="Отменить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↩</button>
+              <button title="Повторить" className="text-gray-600 text-xs px-0.5 cursor-not-allowed">↪</button>
+            </>
+          )}
         </div>
         <div className="text-[11px] text-gray-400 font-semibold tracking-wide select-none flex items-center gap-2">
           {activeModule && current ? `${current.label} — ЛАПА 3D 2027` : "ЛАПА 3D 2027 — Начало"}
@@ -832,25 +836,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* ── Вкладки документа ── */}
-      {!activeModule && (
-        <div className="flex items-center gap-0 px-2 flex-shrink-0" style={{ background: "#1e1e2e", borderBottom: "1px solid #111" }}>
-          <button onClick={() => { setActiveModule(null); setHomeВкладка("последние") }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-white border-b-2 border-[#0078d4] bg-[#252535]">
-            <Icon name="Home" size={11} className="text-[#0078d4]" />
-            Начало
-          </button>
-          {activeModule && current && (
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-gray-300 border-b-2 border-transparent hover:bg-[#252535]">
-              <Icon name={current.icon} size={11} className="text-[#0078d4]" fallback="File" />
-              {current.label}
-              <span onClick={() => setActiveModule(null)} className="ml-1 text-gray-500 hover:text-white">✕</span>
-            </button>
-          )}
-          <button className="px-2 py-1.5 text-[11px] text-gray-500 hover:text-white">+</button>
         </div>
       )}
 
