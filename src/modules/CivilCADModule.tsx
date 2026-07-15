@@ -11419,16 +11419,18 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [viewportLayout, setViewportLayout] = useState<"single"|"2h"|"2v"|"3"|"4">("single")
 
   // ── Start screen state ───────────────────────────────────────────────────
-  // Если редактор открыт из 3D-вьюера — пропускаем стартовый экран и сразу показываем холст
-  const [showStartScreen, setShowStartScreen] = useState(() => {
+  // Флаг: редактор открыт из 3D-вьюера (нажали кнопку «Редактор»). Читаем один раз.
+  const открытИзВьюераRef = useRef<boolean>((() => {
     try {
       if (sessionStorage.getItem("lapa_open_editor_canvas") === "1") {
         sessionStorage.removeItem("lapa_open_editor_canvas")
-        return false
+        return true
       }
     } catch { /* ignore */ }
-    return true
-  })
+    return false
+  })())
+  // Если редактор открыт из 3D-вьюера — пропускаем стартовый экран и сразу показываем холст
+  const [showStartScreen, setShowStartScreen] = useState(!открытИзВьюераRef.current)
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false)
   const [showGraphicsBanner, setShowGraphicsBanner] = useState(false)
   const [currentProjectId, setCurrentProjectId] = useState<number|null>(null)
@@ -11513,7 +11515,21 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [activeTool, setActiveTool] = useState<EditTool>("select")
   // Редактор всегда открывается с чистым холстом.
   // Сохранённый чертёж активного проекта подгружается отдельным эффектом ниже.
-  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>([])
+  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(() => {
+    // При переходе из 3D-вьюера восстанавливаем текущий чертёж из live-синхронизации
+    if (открытИзВьюераRef.current && store?.liveCanvasObjects?.length) {
+      return store.liveCanvasObjects.map((o): CanvasObject => {
+        const props: Record<string, string> = {}
+        if (o.properties) for (const k in o.properties) props[k] = String(o.properties[k])
+        return {
+          id: o.id, type: o.type as CanvasObjType, label: o.label,
+          pts: o.pts, color: o.color, lineWidth: o.lineWidth,
+          layer: o.layer, properties: props,
+        }
+      })
+    }
+    return []
+  })
   // Хранилище объектов по вкладкам чертежей — у каждой вкладки свой холст
   const tabObjectsRef = useRef<Record<string, CanvasObject[]>>({})
   // Демонстрационный фон (сетка-подложка с примерными трассами/точками/профилями).
