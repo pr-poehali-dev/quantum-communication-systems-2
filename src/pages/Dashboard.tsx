@@ -97,7 +97,7 @@ const DIRECTIONS = [
     icon: "Route",
     color: "#f97316",
     gradient: "from-orange-500 to-amber-600",
-    modules: ["civilcad", "alignment", "corridor", "roads", "railway", "areas", "viewer3d", "surfaces", "analysis", "specs", "standards", "dynamic"],
+    modules: ["civilcad", "viewer3d", "alignment", "corridor", "roads", "railway", "areas", "surfaces", "analysis", "specs", "standards", "dynamic", "publish", "projects"],
   },
   {
     id: "survey",
@@ -106,7 +106,7 @@ const DIRECTIONS = [
     icon: "Mountain",
     color: "#10b981",
     gradient: "from-emerald-500 to-teal-600",
-    modules: ["geodesy", "dtm", "surfaces", "analysis", "viewer3d", "alignment", "specs", "integration", "civilcad"],
+    modules: ["geodesy", "dtm", "surfaces", "viewer3d", "alignment", "analysis", "specs", "integration", "civilcad"],
   },
   {
     id: "networks",
@@ -115,7 +115,7 @@ const DIRECTIONS = [
     icon: "Network",
     color: "#3b82f6",
     gradient: "from-blue-500 to-indigo-600",
-    modules: ["networks", "areas", "analysis", "corridor", "surfaces", "bim", "specs", "standards", "viewer3d", "civilcad"],
+    modules: ["networks", "civilcad", "corridor", "areas", "analysis", "surfaces", "bim", "specs", "standards", "viewer3d", "filemanager"],
   },
   {
     id: "bim",
@@ -124,7 +124,7 @@ const DIRECTIONS = [
     icon: "Building2",
     color: "#8b5cf6",
     gradient: "from-violet-500 to-fuchsia-600",
-    modules: ["revar", "bim", "viewer3d", "areas", "sapr", "integration", "specs", "standards", "analysis"],
+    modules: ["revar", "viewer3d", "sapr", "bim", "areas", "integration", "specs", "standards", "analysis"],
   },
   {
     id: "mechanical",
@@ -133,34 +133,7 @@ const DIRECTIONS = [
     icon: "Boxes",
     color: "#ef4444",
     gradient: "from-rose-500 to-red-600",
-    modules: ["sapr", "saprpro", "viewer3d", "revar", "integration", "specs", "standards", "tools"],
-  },
-  {
-    id: "docs",
-    label: "Документация и вывод",
-    desc: "Ведомости, спецификации, публикация, печать, стандарты",
-    icon: "ClipboardList",
-    color: "#0ea5e9",
-    gradient: "from-sky-500 to-cyan-600",
-    modules: ["specs", "publish", "standards", "integration", "filemanager", "analysis", "projects", "tools"],
-  },
-  {
-    id: "management",
-    label: "Управление проектами",
-    desc: "Проекты, версии, команда, динамические модели, инструменты",
-    icon: "FolderKanban",
-    color: "#eab308",
-    gradient: "from-yellow-500 to-amber-500",
-    modules: ["projects", "dynamic", "tools", "filemanager", "integration", "specs", "publish", "standards"],
-  },
-  {
-    id: "all",
-    label: "Все модули",
-    desc: "Полный доступ ко всем инструментам платформы",
-    icon: "LayoutGrid",
-    color: "#64748b",
-    gradient: "from-slate-500 to-slate-700",
-    modules: MODULES.map(m => m.id),
+    modules: ["viewer3d", "sapr", "saprpro", "revar", "integration", "specs", "standards", "tools"],
   },
 ]
 
@@ -406,12 +379,17 @@ export default function Dashboard() {
   const [поискИнстр, setПоискИнстр] = useState("")
   const выбратьНаправление = (id: string) => { setDirection(id); localStorage.setItem("civilpro_direction", id); setActiveModule(null); setHomeВкладка("модули") }
   const открытьМодульНапрямую = (id: string) => {
-    const dir = DIRECTIONS.find(d => d.id !== "all" && d.modules.includes(id)) || DIRECTIONS.find(d => d.id === "all")!
+    const dir = DIRECTIONS.find(d => d.modules.includes(id)) || DIRECTIONS[0]
     setDirection(dir.id); localStorage.setItem("civilpro_direction", dir.id)
     setActiveModule(id); setПоискИнстр("")
   }
   const сброситьНаправление = () => { setDirection(null); localStorage.removeItem("civilpro_direction"); setActiveModule(null) }
   const текущееНаправление = DIRECTIONS.find(d => d.id === direction)
+  useEffect(() => {
+    if (direction && !DIRECTIONS.find(d => d.id === direction)) {
+      setDirection(null); localStorage.removeItem("civilpro_direction")
+    }
+  }, [direction])
   const модулиНаправления = текущееНаправление ? MODULES.filter(m => текущееНаправление.modules.includes(m.id)) : MODULES
   const [homeВкладка, setHomeВкладка] = useState<"последние" | "возможности" | "модули" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
