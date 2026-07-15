@@ -192,6 +192,26 @@ const ШАБЛОНЫ = [
   { id: "assembly", name: "3D-сборка (КОМПАС)", icon: "Component", desc: "Сборки, сопряжения, коллизии" },
 ]
 
+// ─── Относительное время «… назад» ───────────────────────────────────────────
+function относительноеВремя(ts?: number): string {
+  if (!ts) return ""
+  const diff = Date.now() - ts
+  if (diff < 0) return "только что"
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return "только что"
+  if (min < 60) return `${min} мин назад`
+  const hrs = Math.floor(min / 60)
+  if (hrs < 24) return `${hrs} ч назад`
+  const days = Math.floor(hrs / 24)
+  if (days === 1) return "вчера"
+  if (days < 7) return `${days} дн назад`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks} нед назад`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} мес назад`
+  return `${Math.floor(days / 365)} г назад`
+}
+
 // ─── Миниатюра файла ──────────────────────────────────────────────────────────
 
 function ПревьюФайла({ тип, цвет }: { тип: string; цвет: string }) {
@@ -754,8 +774,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Ribbon menu bar ── */}
-      {(!activeModule || !FULLSCREEN_MODULES.includes(activeModule)) && (
+      {/* ── Ribbon menu bar (только внутри открытого модуля, не на стартовом «Начало») ── */}
+      {activeModule && !FULLSCREEN_MODULES.includes(activeModule) && (
         <div className="flex-shrink-0" style={{ background: "#252535", borderBottom: "1px solid #1a1a2e" }}>
           {/* Вкладки ленты */}
           <div className="flex items-center gap-0 px-1" style={{ borderBottom: "1px solid #1a1a2e" }}>
@@ -999,7 +1019,11 @@ export default function Dashboard() {
                               {/* Инфо */}
                               <div className="p-3 border-t border-gray-700">
                                 <div className="text-white text-[12px] font-semibold truncate">{f.name}</div>
-                                <div className="text-gray-500 text-[10px] mt-1">{f.date}</div>
+                                <div className="text-gray-500 text-[10px] mt-1 flex items-center gap-1">
+                                  {"ts" in f && (f as RecentProject).ts
+                                    ? <span className="text-[#0078d4]">изменён {относительноеВремя((f as RecentProject).ts)}</span>
+                                    : <span>{f.date}</span>}
+                                </div>
                                 <div className="flex items-center gap-1 mt-1.5">
                                   <Icon name="Monitor" size={10} className="text-gray-600" />
                                   <span className="text-[9px] text-gray-600">{f.ext.toUpperCase()} · {f.size}</span>
@@ -1021,7 +1045,11 @@ export default function Dashboard() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-white text-[13px] font-semibold truncate">{f.name}.{f.ext}</div>
-                                <div className="text-gray-500 text-[11px]">{f.date} · {f.size}</div>
+                                <div className="text-gray-500 text-[11px]">
+                                  {"ts" in f && (f as RecentProject).ts
+                                    ? <><span className="text-[#0078d4]">изменён {относительноеВремя((f as RecentProject).ts)}</span> · {f.size}</>
+                                    : <>{f.date} · {f.size}</>}
+                                </div>
                               </div>
                               {"projectId" in f && (
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
