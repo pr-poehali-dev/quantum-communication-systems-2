@@ -765,6 +765,14 @@ export default function Dashboard() {
         </div>
         <div className="text-[11px] text-gray-400 font-semibold tracking-wide select-none flex items-center gap-2">
           {activeModule && current ? `${current.label} — ЛАПА 3D 2027` : "ЛАПА 3D 2027"}
+          {activeModule && (
+            <button onClick={() => переключитьИзбранное(activeModule)}
+              title={избранное.includes(activeModule) ? "Убрать из избранного" : "Добавить в избранное"}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:scale-105 ${избранное.includes(activeModule) ? "bg-amber-400/20 text-amber-300 border border-amber-400/50" : "bg-white/5 text-gray-400 border border-gray-600 hover:text-amber-300 hover:border-amber-400/50"}`}>
+              <Icon name="Star" size={11} className={избранное.includes(activeModule) ? "fill-amber-400 text-amber-400" : ""} />
+              {избранное.includes(activeModule) ? "В избранном" : "В избранное"}
+            </button>
+          )}
           {store?.activeProject && (
             <span className="text-[#0078d4] flex items-center gap-1">
               <span className="text-gray-600">·</span>
@@ -811,14 +819,20 @@ export default function Dashboard() {
             const m = MODULES.find(x => x.id === id)
             if (!m) return null
             const активна = activeModule === id
+            const вИзбранном = избранное.includes(id)
             return (
               <div key={id}
                 className={`group flex items-center gap-1.5 pl-3 pr-2 py-1.5 text-[11px] whitespace-nowrap border-b-2 cursor-pointer transition-colors ${активна ? "border-[#0078d4] text-white bg-[#1e1e2e]" : "border-transparent text-gray-400 hover:text-white hover:bg-[#1e1e30]"}`}
                 onClick={() => setActiveModule(id)}>
                 <Icon name={m.icon} size={12} className={активна ? "text-[#0078d4]" : "text-gray-500"} fallback="Square" />
                 <span className="max-w-[140px] truncate">{m.label}</span>
+                <span title={вИзбранном ? "Убрать из избранного" : "В избранное"}
+                  onClick={e => { e.stopPropagation(); переключитьИзбранное(id) }}
+                  className={`ml-1 w-4 h-4 flex items-center justify-center rounded transition-all hover:scale-110 ${вИзбранном ? "text-amber-400" : "text-gray-600 hover:text-amber-400"}`}>
+                  <Icon name="Star" size={11} className={вИзбранном ? "fill-amber-400 text-amber-400" : ""} />
+                </span>
                 <span onClick={e => { e.stopPropagation(); закрытьМодуль(id) }}
-                  className="ml-1 w-4 h-4 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-red-600/70 transition-colors">
+                  className="w-4 h-4 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-red-600/70 transition-colors">
                   <Icon name="X" size={11} />
                 </span>
               </div>
