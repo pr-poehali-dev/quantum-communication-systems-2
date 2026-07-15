@@ -172,6 +172,27 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
     if (store) liveObjsRef.current = store.liveCanvasObjects
   }, [store?.liveCanvasObjects])
 
+  // Вписать весь чертёж в экран (обзорный ракурс + дистанция по габаритам)
+  const вписатьВид = useCallback(() => {
+    const objs = store?.liveCanvasObjects ?? []
+    const pts = objs.flatMap(o => o.pts)
+    if (pts.length < 2) { cam.current = { yaw: 0.3, pitch: 0.52, dist: 48, tx: 0, tz: 0 }; return }
+    // Объекты проецируются в мировой диапазон ~40 ед. по большей стороне (см. toWorld3D в рендере).
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    pts.forEach(([px, py]) => {
+      if (px < minX) minX = px; if (px > maxX) maxX = px
+      if (py < minY) minY = py; if (py > maxY) maxY = py
+    })
+    const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
+    const scale3d = 40 / Math.max(rangeX, rangeY)
+    const w = rangeX * scale3d, d = rangeY * scale3d
+    const diag = Math.sqrt(w * w + d * d)
+    cam.current = { yaw: 0.6, pitch: 0.55, dist: Math.max(20, Math.min(130, diag * 1.35 + 12)), tx: 0, tz: 0 }
+  }, [store?.liveCanvasObjects])
+
+  // Авто-вписывание при открытии 3D-вида
+  useEffect(() => { вписатьВид() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [])
+
   const переключитьСлой = (k: keyof SloyState) => setСлои(s => ({ ...s, [k]: !s[k] }))
 
   // ── Рендер ──────────────────────────────────────────────────────────────────
@@ -931,6 +952,10 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
               <span>{store.alignments.length} трасс</span>
             </div>
           )}
+          <button onClick={вписатьВид} title="Вписать чертёж в экран"
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-gray-400 hover:bg-[#2d2d4e] hover:text-white transition-colors">
+            <Icon name="Maximize" size={12} fallback="Square" /> <span className="hidden sm:inline">Вписать</span>
+          </button>
           <button onClick={() => setShowПанель(s => !s)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-gray-400 hover:bg-[#2d2d4e] hover:text-white transition-colors">
             <Icon name={showПанель ? "PanelRightClose" : "PanelRight"} size={12} fallback="Layout" />
