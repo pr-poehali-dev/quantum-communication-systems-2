@@ -59,6 +59,7 @@ import SaprModule from "@/modules/SaprModule"
 import SaprProModule from "@/modules/SaprProModule"
 import RevarModule from "@/modules/RevarModule"
 import FeaturesShowcase from "@/components/FeaturesShowcase"
+import { ГОТОВЫЕ_ПРОЕКТЫ } from "@/data/готовыеПроекты"
 
 
 const MODULES = [
@@ -463,6 +464,31 @@ export default function Dashboard() {
     setActiveModule(id); setПоискИнстр("")
   }
   const сброситьНаправление = () => { setDirection(null); localStorage.removeItem("civilpro_direction"); setActiveModule(null) }
+  const [загрузкаПроекта, setЗагрузкаПроекта] = useState<string | null>(null)
+  const открытьГотовыйПроект = async (проект: typeof ГОТОВЫЕ_ПРОЕКТЫ[number]) => {
+    if (проект.file) {
+      try {
+        setЗагрузкаПроекта(проект.id)
+        const resp = await fetch(проект.file)
+        if (resp.ok) {
+          const blob = await resp.blob()
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.href = url
+          a.download = проект.file.split("/").pop() || `${проект.название}.${проект.формат.toLowerCase()}`
+          document.body.appendChild(a); a.click(); a.remove()
+          setTimeout(() => URL.revokeObjectURL(url), 4000)
+        } else {
+          window.open(проект.source, "_blank")
+        }
+      } catch {
+        window.open(проект.source, "_blank")
+      } finally {
+        setЗагрузкаПроекта(null)
+      }
+    }
+    if (проект.demo) setActiveModule(проект.demo)
+  }
   // Навигация между модулями из самих модулей (кнопки "Редактор", "3D-вид" и т.п.)
   const навигацияМодуль = (id: string | null) => {
     if (id && !MODULES.find(m => m.id === id)) return
@@ -488,7 +514,7 @@ export default function Dashboard() {
     return next
   })
   const избранныеМодули = MODULES.filter(m => избранное.includes(m.id))
-  const [homeВкладка, setHomeВкладка] = useState<"последние" | "возможности" | "модули" | "шаблоны" | "обучение">("последние")
+  const [homeВкладка, setHomeВкладка] = useState<"последние" | "возможности" | "модули" | "проекты" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
   const [viewGrid, setViewGrid] = useState(true)
   const [поиск, setПоиск] = useState("")
@@ -940,6 +966,7 @@ export default function Dashboard() {
                 { id: "последние", label: "Последние", icon: "Clock" },
                 { id: "возможности", label: "Возможности", icon: "Sparkles" },
                 { id: "модули", label: "Все модули", icon: "LayoutGrid" },
+                { id: "проекты", label: "Готовые проекты", icon: "FolderDown" },
                 { id: "шаблоны", label: "Шаблоны", icon: "FileText" },
                 { id: "обучение", label: "Обучение", icon: "GraduationCap" },
               ].map(item => (
@@ -1215,6 +1242,72 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
+
+                  {homeВкладка === "проекты" && (() => {
+                    const проектыНапр = (текущееНаправление && !всеШаблоны)
+                      ? ГОТОВЫЕ_ПРОЕКТЫ.filter(p => p.направление === текущееНаправление.id)
+                      : ГОТОВЫЕ_ПРОЕКТЫ
+                    const список = проектыНапр.length ? проектыНапр : ГОТОВЫЕ_ПРОЕКТЫ
+                    return (
+                    <div className="flex-1 overflow-y-auto p-6">
+                      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                        <div>
+                          <h2 className="text-white text-xl font-bold leading-tight">Готовые проекты</h2>
+                          <p className="text-gray-500 text-[12px]">
+                            {текущееНаправление && !всеШаблоны ? `Реальные примеры для «${текущееНаправление.label}»` : "Реальные проекты и открытые датасеты по всем направлениям"}
+                          </p>
+                        </div>
+                        {текущееНаправление && (
+                          <button onClick={() => setВсеШаблоны(v => !v)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 hover:text-white hover:border-[#0078d4] text-[12px] transition-colors">
+                            <Icon name={всеШаблоны ? "Filter" : "LayoutGrid"} size={13} />
+                            {всеШаблоны ? "Только направление" : "Все проекты"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {список.map((p, i) => (
+                          <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                            className="flex flex-col p-5 rounded-xl border border-gray-700 hover:border-[#0078d4] transition-all"
+                            style={{ background: "#111827" }}>
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${p.цвет}22` }}>
+                                <Icon name={p.icon} size={22} style={{ color: p.цвет }} fallback="Box" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-white text-[13px] font-bold leading-tight">{p.название}</div>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold text-white" style={{ background: p.цвет }}>{p.формат}</span>
+                                  <span className="text-[10px] text-gray-500">{p.размер}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-gray-400 text-[11px] leading-snug mb-3 flex-1">{p.описание}</p>
+                            <div className="flex items-center gap-2 mb-2">
+                              <button onClick={() => открытьГотовыйПроект(p)} disabled={загрузкаПроекта === p.id}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                                style={{ background: p.цвет }}>
+                                {загрузкаПроекта === p.id
+                                  ? <><Icon name="Loader" size={13} className="animate-spin" />Загрузка…</>
+                                  : p.file
+                                    ? <><Icon name="Download" size={13} />Загрузить и открыть</>
+                                    : <><Icon name="Play" size={13} />Открыть проект</>}
+                              </button>
+                              <a href={p.source} target="_blank" rel="noreferrer" title="Источник данных"
+                                className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-[#0078d4] transition-colors shrink-0">
+                                <Icon name="ExternalLink" size={14} />
+                              </a>
+                            </div>
+                            <div className="text-[9px] text-gray-600 flex items-center gap-1">
+                              <Icon name="ShieldCheck" size={10} className="text-gray-600" />{p.лицензия}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                    )
+                  })()}
 
                   {homeВкладка === "шаблоны" && (() => {
                     const шаблоныНапр = (текущееНаправление && !всеШаблоны)
