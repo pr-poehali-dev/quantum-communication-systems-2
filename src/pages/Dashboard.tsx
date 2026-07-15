@@ -443,6 +443,17 @@ export default function Dashboard() {
   const store = useContext(ProjectContext)
 
   const [activeModule, setActiveModule] = useState<string | null>(null)
+  const [открытыеМодули, setОткрытыеМодули] = useState<string[]>([])
+  useEffect(() => {
+    if (activeModule) setОткрытыеМодули(prev => prev.includes(activeModule) ? prev : [...prev, activeModule])
+  }, [activeModule])
+  const закрытьМодуль = (id: string) => {
+    setОткрытыеМодули(prev => {
+      const next = prev.filter(m => m !== id)
+      if (activeModule === id) setActiveModule(next.length ? next[next.length - 1] : null)
+      return next
+    })
+  }
   const [direction, setDirection] = useState<string | null>(() => localStorage.getItem("civilpro_direction"))
   const [поискИнстр, setПоискИнстр] = useState("")
   const выбратьНаправление = (id: string) => { setDirection(id); localStorage.setItem("civilpro_direction", id); setActiveModule(null); setHomeВкладка("модули") }
@@ -743,7 +754,7 @@ export default function Dashboard() {
           )}
         </div>
         <div className="text-[11px] text-gray-400 font-semibold tracking-wide select-none flex items-center gap-2">
-          {activeModule && current ? `${current.label} — ЛАПА 3D 2027` : "ЛАПА 3D 2027 — Начало"}
+          {activeModule && current ? `${current.label} — ЛАПА 3D 2027` : "ЛАПА 3D 2027"}
           {store?.activeProject && (
             <span className="text-[#0078d4] flex items-center gap-1">
               <span className="text-gray-600">·</span>
@@ -777,6 +788,34 @@ export default function Dashboard() {
             className="text-gray-500 hover:text-white text-xs px-2 py-0.5 transition-colors">?</button>
         </div>
       </div>
+
+      {/* ── Строка открытых модулей (вкладки-окна) ── */}
+      {открытыеМодули.length > 0 && (
+        <div className="flex items-stretch gap-0 px-1 flex-shrink-0 overflow-x-auto" style={{ background: "#161622", borderBottom: "1px solid #0f0f1e" }}>
+          <button onClick={() => setActiveModule(null)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] whitespace-nowrap border-b-2 transition-colors ${!activeModule ? "border-[#0078d4] text-white bg-[#1e1e2e]" : "border-transparent text-gray-400 hover:text-white hover:bg-[#1e1e30]"}`}>
+            <Icon name="Home" size={12} className={!activeModule ? "text-[#0078d4]" : "text-gray-500"} />
+            Начало
+          </button>
+          {открытыеМодули.map(id => {
+            const m = MODULES.find(x => x.id === id)
+            if (!m) return null
+            const активна = activeModule === id
+            return (
+              <div key={id}
+                className={`group flex items-center gap-1.5 pl-3 pr-2 py-1.5 text-[11px] whitespace-nowrap border-b-2 cursor-pointer transition-colors ${активна ? "border-[#0078d4] text-white bg-[#1e1e2e]" : "border-transparent text-gray-400 hover:text-white hover:bg-[#1e1e30]"}`}
+                onClick={() => setActiveModule(id)}>
+                <Icon name={m.icon} size={12} className={активна ? "text-[#0078d4]" : "text-gray-500"} fallback="Square" />
+                <span className="max-w-[140px] truncate">{m.label}</span>
+                <span onClick={e => { e.stopPropagation(); закрытьМодуль(id) }}
+                  className="ml-1 w-4 h-4 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-red-600/70 transition-colors">
+                  <Icon name="X" size={11} />
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Ribbon menu bar (только внутри открытого модуля, не на стартовом «Начало») ── */}
       {activeModule && !FULLSCREEN_MODULES.includes(activeModule) && (
