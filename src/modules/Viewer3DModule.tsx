@@ -936,7 +936,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
             <Icon name={showПанель ? "PanelRightClose" : "PanelRight"} size={12} fallback="Layout" />
           </button>
           {onNavigate && (
-            <button onClick={() => onNavigate("civilcad")}
+            <button onClick={() => { try { sessionStorage.setItem("lapa_open_editor_canvas", "1") } catch { /* ignore */ } onNavigate("civilcad") }}
               className="flex items-center gap-1 px-2 py-1 rounded text-[11px] border border-[#0078d4]/50 text-[#60a5fa] hover:bg-[#0078d4] hover:text-white transition-colors">
               <Icon name="Monitor" size={12} /> <span className="hidden sm:inline">Редактор</span>
             </button>

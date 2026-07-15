@@ -11419,7 +11419,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [viewportLayout, setViewportLayout] = useState<"single"|"2h"|"2v"|"3"|"4">("single")
 
   // ── Start screen state ───────────────────────────────────────────────────
-  const [showStartScreen, setShowStartScreen] = useState(true)
+  // Если редактор открыт из 3D-вьюера — пропускаем стартовый экран и сразу показываем холст
+  const [showStartScreen, setShowStartScreen] = useState(() => {
+    try {
+      if (sessionStorage.getItem("lapa_open_editor_canvas") === "1") {
+        sessionStorage.removeItem("lapa_open_editor_canvas")
+        return false
+      }
+    } catch { /* ignore */ }
+    return true
+  })
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false)
   const [showGraphicsBanner, setShowGraphicsBanner] = useState(false)
   const [currentProjectId, setCurrentProjectId] = useState<number|null>(null)
