@@ -77,6 +77,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
     const cv = canvasRef.current; if (!cv) return
     const ctx = cv.getContext("2d"); if (!ctx) return
     const W = cv.width, H = cv.height
+    if (!W || !H) return
     ctx.fillStyle = "#f7f8fa"; ctx.fillRect(0, 0, W, H)
     // сетка
     ctx.strokeStyle = "#e5e8ec"; ctx.lineWidth = 1
@@ -111,6 +112,7 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
     const cv = canvasRef.current; if (!cv) return
     const ctx = cv.getContext("2d"); if (!ctx) return
     const W = cv.width, H = cv.height
+    if (!W || !H) return
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#cfe0f0"); g.addColorStop(1, "#eef2f6")
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch)
@@ -165,17 +167,18 @@ export default function RevarModule({ onNavigate }: { onNavigate?: (id: string) 
     })
   }, [visibleElems, selected, yaw, pitch, levels])
 
-  const redraw = useCallback(() => { view === "plan" ? drawPlan() : draw3d() }, [view, drawPlan, draw3d])
+  const redraw = useCallback(() => { try { view === "plan" ? drawPlan() : draw3d() } catch (e) { console.error("redraw error", e) } }, [view, drawPlan, draw3d])
   useEffect(() => { redraw() }, [redraw])
   useEffect(() => {
     const cv = canvasRef.current; if (!cv) return
-    const rz = () => { const r = cv.parentElement!.getBoundingClientRect(); cv.width = r.width; cv.height = r.height; redraw() }
+    const rz = () => { const p = cv.parentElement; if (!p) return; const r = p.getBoundingClientRect(); cv.width = r.width; cv.height = r.height; redraw() }
     rz(); window.addEventListener("resize", rz); return () => window.removeEventListener("resize", rz)
   }, [redraw])
 
   // Клики по плану: рисование элементов
   const toModel = (e: React.MouseEvent) => {
-    const cv = canvasRef.current!, r = cv.getBoundingClientRect()
+    const cv = canvasRef.current; if (!cv) return { x: 0, y: 0 }
+    const r = cv.getBoundingClientRect()
     const S = 0.05, ox = cv.width / 2, oy = cv.height / 2
     return { x: (e.clientX - r.left - ox) / S, y: (e.clientY - r.top - oy) / S }
   }

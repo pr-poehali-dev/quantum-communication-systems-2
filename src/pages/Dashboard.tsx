@@ -478,6 +478,16 @@ export default function Dashboard() {
   const [показатьВсеМодули, setПоказатьВсеМодули] = useState(false)
   // Список модулей для вкладки "Все модули": либо все 24, либо модули направления
   const модулиДляВкладки = показатьВсеМодули ? MODULES : модулиНаправления
+  // Избранные модули (сохраняются в браузере)
+  const [избранное, setИзбранное] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("civilpro_favorites") || "[]") } catch { return [] }
+  })
+  const переключитьИзбранное = (id: string) => setИзбранное(prev => {
+    const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    localStorage.setItem("civilpro_favorites", JSON.stringify(next))
+    return next
+  })
+  const избранныеМодули = MODULES.filter(m => избранное.includes(m.id))
   const [homeВкладка, setHomeВкладка] = useState<"последние" | "возможности" | "модули" | "шаблоны" | "обучение">("последние")
   const [sortBy, setSortBy] = useState("Последнее открытие")
   const [viewGrid, setViewGrid] = useState(true)
@@ -885,9 +895,15 @@ export default function Dashboard() {
         {(!activeModule || !FULLSCREEN_MODULES.includes(activeModule)) && (
           <aside className="flex flex-col flex-shrink-0" style={{ width: 192, background: "#141420", borderRight: "1px solid #0f0f1e" }}>
             {/* Логотип */}
-            <div className="px-4 py-5 border-b border-gray-800">
+            <div className="px-4 py-4 border-b border-gray-800">
               <div className="text-white font-extrabold text-lg leading-tight">ЛАПА 3D</div>
-              <div className="text-gray-500 text-[10px] mt-0.5">2026 · Версия 1.0</div>
+              <div className="text-gray-500 text-[10px] mt-0.5 mb-2.5">2026 · Версия 1.0</div>
+              <button onClick={() => { setHomeВкладка("возможности"); setActiveModule(null) }}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold text-white shadow-lg transition-all hover:brightness-110 hover:-translate-y-0.5"
+                style={{ background: "linear-gradient(135deg,#0078d4,#8b5cf6)", boxShadow: "0 4px 14px rgba(99,102,241,0.45)" }}>
+                <Icon name="Sparkles" size={14} className="text-white" />
+                Возможности
+              </button>
             </div>
 
             {/* Кнопки Открыть / Создать */}
@@ -1120,32 +1136,84 @@ export default function Dashboard() {
                           <Icon name="RefreshCw" size={13} />Сменить направление
                         </button>
                       </div>
+                      {избранныеМодули.length > 0 && (
+                        <div className="mb-6">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Icon name="Star" size={15} className="text-amber-400" />
+                            <h3 className="text-white text-[14px] font-bold">Избранное</h3>
+                            <span className="text-gray-500 text-[11px]">{избранныеМодули.length}</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {избранныеМодули.map(m => (
+                              <div key={m.id} onClick={() => setActiveModule(m.id)}
+                                className="relative text-left p-4 rounded-xl border border-amber-500/40 hover:border-amber-400 transition-all cursor-pointer group"
+                                style={{ background: "linear-gradient(135deg,#1a1710,#111827)" }}>
+                                <button title="Убрать из избранного" onClick={e => { e.stopPropagation(); переключитьИзбранное(m.id) }}
+                                  className="absolute top-2 right-2 text-amber-400 hover:scale-110 transition-transform">
+                                  <Icon name="Star" size={16} className="fill-amber-400 text-amber-400" />
+                                </button>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "#f59e0b20" }}>
+                                  <Icon name={m.icon} size={20} className="text-amber-400" fallback="Square" />
+                                </div>
+                                <div className="text-white text-[13px] font-semibold leading-tight">{m.label}</div>
+                                <div className="text-gray-500 text-[11px] mt-1 leading-tight">{m.desc}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {модулиДляВкладки.map((m, i) => (
-                          <motion.button key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        {модулиДляВкладки.map((m, i) => {
+                          const вИзбранном = избранное.includes(m.id)
+                          return (
+                          <motion.div key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.04 }}
                             onClick={() => setActiveModule(m.id)}
-                            className="text-left p-4 rounded-xl border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e1e30] transition-all group"
+                            className="relative text-left p-4 rounded-xl border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e1e30] transition-all group cursor-pointer"
                             style={{ background: "#111827" }}>
+                            <button title={вИзбранном ? "Убрать из избранного" : "В избранное"} onClick={e => { e.stopPropagation(); переключитьИзбранное(m.id) }}
+                              className={`absolute top-2 right-2 transition-all hover:scale-110 ${вИзбранном ? "text-amber-400" : "text-gray-600 opacity-0 group-hover:opacity-100 hover:text-amber-400"}`}>
+                              <Icon name="Star" size={16} className={вИзбранном ? "fill-amber-400 text-amber-400" : ""} />
+                            </button>
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "#0078d420" }}>
                               <Icon name={m.icon} size={20} className="text-[#0078d4]" fallback="Square" />
                             </div>
                             <div className="text-white text-[13px] font-semibold leading-tight">{m.label}</div>
                             <div className="text-gray-500 text-[11px] mt-1 leading-tight">{m.desc}</div>
-                          </motion.button>
-                        ))}
+                          </motion.div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {homeВкладка === "шаблоны" && (
+                  {homeВкладка === "шаблоны" && (() => {
+                    const шаблоныНапр = (текущееНаправление && !всеШаблоны)
+                      ? ШАБЛОНЫ.filter(ш => текущееНаправление.modules.includes(ш.id))
+                      : ШАБЛОНЫ
+                    const список = шаблоныНапр.length ? шаблоныНапр : ШАБЛОНЫ
+                    return (
                     <div className="flex-1 overflow-y-auto p-6">
-                      <h2 className="text-white text-xl font-bold mb-5">Шаблоны проектов</h2>
+                      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+                        <div>
+                          <h2 className="text-white text-xl font-bold leading-tight">Шаблоны проектов</h2>
+                          <p className="text-gray-500 text-[12px]">
+                            {текущееНаправление && !всеШаблоны ? `Для направления «${текущееНаправление.label}»` : "Все шаблоны платформы"}
+                          </p>
+                        </div>
+                        {текущееНаправление && (
+                          <button onClick={() => setВсеШаблоны(v => !v)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 hover:text-white hover:border-[#0078d4] text-[12px] transition-colors">
+                            <Icon name={всеШаблоны ? "Filter" : "LayoutGrid"} size={13} />
+                            {всеШаблоны ? "Только направление" : "Все шаблоны"}
+                          </button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {ШАБЛОНЫ.map((ш, i) => (
+                        {список.map((ш, i) => (
                           <motion.button key={ш.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.06 }}
-                            onClick={() => { setАктивнаяВкладкаModule(ш.id) }}
+                            onClick={() => { setНовыйПроект(p => ({ ...p, template: ш.name })); setShowНовыйПроект(true) }}
                             className="text-left p-5 rounded-xl border border-gray-700 hover:border-[#0078d4] hover:bg-[#1e1e30] transition-all"
                             style={{ background: "#111827" }}>
                             <div className="flex items-center gap-3 mb-3">
@@ -1162,7 +1230,8 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
-                  )}
+                    )
+                  })()}
 
                   {homeВкладка === "обучение" && (
                     <div className="flex-1 overflow-y-auto p-6 space-y-5">

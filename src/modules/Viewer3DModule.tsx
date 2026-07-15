@@ -774,6 +774,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const onDown = (e: React.MouseEvent) => {
     if (showЗамер) {
       const canvas = canvasRef.current; if (!canvas) return
+      if (!canvas.offsetWidth || !canvas.offsetHeight) return
       const rect = canvas.getBoundingClientRect()
       const mx = (e.clientX - rect.left) / canvas.offsetWidth * canvas.width
       const my = (e.clientY - rect.top) / canvas.offsetHeight * canvas.height

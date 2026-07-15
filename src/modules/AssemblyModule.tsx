@@ -864,6 +864,10 @@ export default function AssemblyModule({ variant = "kompas" }: { variant?: Varia
           <button key={m} onClick={() => setOpenMenu(openMenu === m ? null : m)}
             className={`px-2.5 h-9 ${TH.hover} ${openMenu === m ? TH.hover.replace("hover:", "") : ""}`}>{m}</button>
         ))}
+        <button onClick={newAssembly} title="Создать новую сборку"
+          className={`ml-2 flex items-center gap-1.5 px-3 h-7 rounded text-[12px] font-bold text-white shadow ${variant === "sw" ? "bg-[#0078d4] hover:bg-[#005fa3]" : "bg-emerald-600 hover:bg-emerald-700"}`}>
+          <Icon name="Plus" size={13} />Создать
+        </button>
         <div className="ml-auto flex items-center gap-1 pr-2">
           <button title="Компоновка видов" onClick={() => flash("Компоновка видов")} className={`w-8 h-9 flex items-center justify-center ${TH.hover}`}><Icon name="LayoutTemplate" size={15} /></button>
           <button title="Настройки" onClick={() => flash("Настройки сборки")} className={`w-8 h-9 flex items-center justify-center ${TH.hover}`}><Icon name="Settings" size={15} /></button>

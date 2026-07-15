@@ -99,6 +99,13 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
     setSelected(id)
     showToast(`${name}: элемент добавлен в дерево`)
   }
+  const новыйДокумент = () => {
+    const id = ++uid
+    setFeatures([{ id, kind: "box", name: "Бобышка-Вытянуть1", op: "Выдавливание", w: 100, d: 70, h: 24, sides: 6, material: "steel", color: MATERIALS.steel.color, visible: true, pos: [0, 0, 0] }])
+    setSelected(id)
+    setCm("features")
+    showToast("Создана новая деталь")
+  }
   const updateSel = (p: Partial<Feature>) => setFeatures(prev => prev.map(f => f.id === selected ? { ...f, ...p } : f))
   const removeFeature = (id: number) => setFeatures(prev => prev.filter(f => f.id !== id))
 
@@ -203,6 +210,10 @@ export default function SaprProModule({ onNavigate }: { onNavigate?: (id: string
           <div className="w-6 h-6 rounded bg-gradient-to-br from-red-500 to-rose-700 flex items-center justify-center"><Icon name="Boxes" size={13} className="text-white" /></div>
           <span className="text-[13px] font-bold text-gray-900">САПР Про</span>
           <span className="text-[10px] text-gray-400">Premium · параметрическое моделирование · Simulation · PDM</span>
+          <button onClick={новыйДокумент}
+            className="ml-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow transition-all">
+            <Icon name="Plus" size={14} />Создать
+          </button>
           <div className="ml-auto flex items-center gap-1.5">
             <Select value={String(activeConfig)} onValueChange={v => { setActiveConfig(+v); showToast(`Активна конфигурация: ${configs.find(c => c.id === +v)?.name}`) }}>
               <SelectTrigger className="h-7 text-xs w-44"><SelectValue /></SelectTrigger>

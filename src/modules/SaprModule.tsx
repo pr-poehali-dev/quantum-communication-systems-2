@@ -227,6 +227,15 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
     showToast(`Добавлен элемент: ${nf.name} (${op})`)
   }
 
+  const новыйДокумент = () => {
+    const id = ++uid
+    const заготовка: Feature = { id, kind: "box", name: "Основание", op: "Выдавливание", w: 100, d: 70, h: 20, sides: 6, material: "steel", color: MATERIALS.steel.color, visible: true, pos: [0, 0, 0] }
+    setFeatures([заготовка])
+    setSelected(id)
+    setTab("model")
+    showToast("Создана новая деталь")
+  }
+
   const updateSel = (patch: Partial<Feature>) =>
     setFeatures(prev => prev.map(f => f.id === selected ? { ...f, ...patch } : f))
   const removeFeature = (id: number) =>
@@ -431,6 +440,10 @@ export default function SaprModule({ onNavigate: _onNavigate }: { onNavigate?: (
             <div className="text-[10px] text-gray-400">Параметрическое 3D-моделирование</div>
           </div>
         </div>
+        <button onClick={новыйДокумент}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow transition-all">
+          <Icon name="Plus" size={14} />Создать
+        </button>
         <div className="h-6 w-px bg-gray-200" />
         {([["model", "3D-модель", "Box"], ["assembly", "Сборка", "Combine"], ["draw", "2D-чертёж", "PenTool"], ["analysis", "Анализ", "Gauge"], ["spec", "Спецификация", "ClipboardList"], ["exchange", "Обмен", "ArrowLeftRight"]] as [Tab, string, string][]).map(([id, l, ic]) => (
           <button key={id} onClick={() => setTab(id)}

@@ -262,7 +262,9 @@ function SurfaceCanvas({ surf, points, analysisMode, selId, onPick, onDragPoint,
   useEffect(() => { draw() }, [draw])
 
   const toCanvas = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const c = canvasRef.current!; const rect = c.getBoundingClientRect()
+    const c = canvasRef.current; if (!c) return null
+    const rect = c.getBoundingClientRect()
+    if (!rect.width || !rect.height) return null
     return { c, mx: (e.clientX - rect.left) * (c.width / rect.width), my: (e.clientY - rect.top) * (c.height / rect.height) }
   }
   // Экран → координаты местности (обратная проекция)
@@ -288,7 +290,8 @@ function SurfaceCanvas({ surf, points, analysisMode, selId, onPick, onDragPoint,
 
   const onMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!points.length || (!onPick && !onDragPoint)) return
-    const { c, mx, my } = toCanvas(e)
+    const r = toCanvas(e); if (!r) return
+    const { c, mx, my } = r
     const id = nearestPoint(c, mx, my)
     if (id < 0) return
     onPick?.(id)
@@ -296,7 +299,8 @@ function SurfaceCanvas({ surf, points, analysisMode, selId, onPick, onDragPoint,
   }
   const onMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (dragId.current == null || !onDragPoint) return
-    const { c, mx, my } = toCanvas(e)
+    const r = toCanvas(e); if (!r) return
+    const { c, mx, my } = r
     const { x, y } = screenToWorld(c, mx, my)
     onDragPoint(dragId.current, +x.toFixed(2), +y.toFixed(2))
   }
