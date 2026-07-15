@@ -12101,6 +12101,13 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   useEffect(() => {
     if (!открытИзВьюераRef.current || восстановленоИзLiveRef.current) return
     восстановленоИзLiveRef.current = true
+    // Открываем вкладку активного проекта (тот же чертёж, что был в 3D-вьюере)
+    const имя = store?.activeProject?.name
+    if (имя) {
+      const tabName = имя.endsWith(".dwg") ? имя : `${имя}.dwg`
+      setDrawingTabs(prev => prev.includes(tabName) ? prev : [...prev, tabName])
+      setActiveDrawingTab(tabName)
+    }
     if (canvasObjects.length === 0) {
       const restored = восстановитьИзLive()
       if (restored.length) { setShowDemo(false); setCanvasObjects(restored) }
