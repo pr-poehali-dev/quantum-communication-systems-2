@@ -34,6 +34,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean;
 }
 
 import Viewer3DModule from "@/modules/Viewer3DModule"
+import AssemblyModule from "@/modules/AssemblyModule"
 import GeodesyModule from "@/modules/GeodesyModule"
 import RoadsModule from "@/modules/RoadsModule"
 import NetworksModule from "@/modules/NetworksModule"
@@ -63,6 +64,7 @@ import FeaturesShowcase from "@/components/FeaturesShowcase"
 const MODULES = [
   { id: "civilcad", icon: "Monitor", label: "ЛАПА — Редактор", desc: "Полноценный редактор инфраструктурных проектов", component: CivilCADModule },
   { id: "viewer3d", icon: "Box", label: "3D-вьюер", desc: "Рельеф, дорога, сети, здания в 3D", component: Viewer3DModule },
+  { id: "assembly", icon: "Component", label: "3D-сборка и разборка", desc: "КОМПАС-стиль: сборки, сопряжения, разнесённый вид, коллизии", component: () => <AssemblyModule variant="kompas" /> },
   { id: "sapr", icon: "Cuboid", label: "САПР (3D-моделирование)", desc: "Параметрические детали, чертежи, спецификации, обмен STEP/STL/DXF", component: SaprModule },
   { id: "saprpro", icon: "Boxes", label: "САПР Про (Premium)", desc: "SolidWorks-аналог: элементы, эскизы, листовой металл, Simulation, Flow, CAM, PDM", component: SaprProModule },
   { id: "revar", icon: "Building2", label: "Revar (BIM)", desc: "Revit + ArchiCAD 2-в-1: BIM-модель, дисциплины, анализ, IFC, AI-ассистент", component: RevarModule },
