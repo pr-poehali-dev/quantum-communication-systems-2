@@ -11513,23 +11513,25 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   // ── Edit state ───────────────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<EditTool>("select")
+  // Восстановление чертежа из live-синхронизации 3D-вьюера
+  const восстановитьИзLive = (): CanvasObject[] => {
+    const live = store?.liveCanvasObjects
+    if (!live?.length) return []
+    return live.map((o): CanvasObject => {
+      const props: Record<string, string> = {}
+      if (o.properties) for (const k in o.properties) props[k] = String(o.properties[k])
+      return {
+        id: o.id, type: o.type as CanvasObjType, label: o.label,
+        pts: o.pts, color: o.color, lineWidth: o.lineWidth,
+        layer: o.layer, properties: props,
+      }
+    })
+  }
   // Редактор всегда открывается с чистым холстом.
-  // Сохранённый чертёж активного проекта подгружается отдельным эффектом ниже.
-  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(() => {
-    // При переходе из 3D-вьюера восстанавливаем текущий чертёж из live-синхронизации
-    if (открытИзВьюераRef.current && store?.liveCanvasObjects?.length) {
-      return store.liveCanvasObjects.map((o): CanvasObject => {
-        const props: Record<string, string> = {}
-        if (o.properties) for (const k in o.properties) props[k] = String(o.properties[k])
-        return {
-          id: o.id, type: o.type as CanvasObjType, label: o.label,
-          pts: o.pts, color: o.color, lineWidth: o.lineWidth,
-          layer: o.layer, properties: props,
-        }
-      })
-    }
-    return []
-  })
+  // При переходе из 3D-вьюера восстанавливаем текущий чертёж (см. эффект ниже).
+  const [canvasObjects, setCanvasObjects] = useState<CanvasObject[]>(() =>
+    открытИзВьюераRef.current ? восстановитьИзLive() : []
+  )
   // Хранилище объектов по вкладкам чертежей — у каждой вкладки свой холст
   const tabObjectsRef = useRef<Record<string, CanvasObject[]>>({})
   // Демонстрационный фон (сетка-подложка с примерными трассами/точками/профилями).
@@ -12090,13 +12092,27 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   useEffect(() => { draw() }, [draw])
 
+  const storeRef = useRef(store)
+  storeRef.current = store
+
+  // ── Восстановление чертежа при переходе из 3D-вьюера ──────────────────────
+  // Страховка на случай, если live-объекты появились в store уже после монтирования.
+  const восстановленоИзLiveRef = useRef(false)
+  useEffect(() => {
+    if (!открытИзВьюераRef.current || восстановленоИзLiveRef.current) return
+    восстановленоИзLiveRef.current = true
+    if (canvasObjects.length === 0) {
+      const restored = восстановитьИзLive()
+      if (restored.length) { setShowDemo(false); setCanvasObjects(restored) }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── Синхронизация canvasObjects → store (live 3D) ─────────────────────────
   // Если холст пуст (только демо-сцена) — отдаём в 3D демонстрационные объекты,
   // чтобы 3D-вьюер не был пустым.
   // Зависим ТОЛЬКО от canvasObjects: store читаем через ref, иначе объект store
   // пересоздаётся каждый рендер провайдера и вызывает цикл setState.
-  const storeRef = useRef(store)
-  storeRef.current = store
   useEffect(() => {
     const s = storeRef.current
     if (!s) return
