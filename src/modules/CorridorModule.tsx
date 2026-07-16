@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts"
-import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортDXF, экспортDWG, экспортIFC, экспортТекст } from "@/utils/exportImport"
 
 interface CorridorStation {
   pk: number
@@ -140,6 +140,28 @@ export default function CorridorModule() {
       ]),
       "corridor_volumes.csv"
     )
+  }
+
+  const exportCorridorReport = () => {
+    const строки: string[] = []
+    строки.push("ОТЧЁТ ПО КОРИДОРУ")
+    строки.push(`Дата: ${new Date().toLocaleString("ru-RU")}`)
+    строки.push("")
+    строки.push("Параметры:")
+    строки.push(`Тип поперечника\t${asm.label}`)
+    строки.push(`Длина, м\t${length}`)
+    строки.push(`Шаг, м\t${step}`)
+    строки.push(`Начальная отметка, м\t${startElev}`)
+    строки.push(`Уклон 1, ‰\t${slope1}`)
+    строки.push(`Уклон 2, ‰\t${slope2}`)
+    строки.push(`Общий объём выемки, м³\t${totalCut.toFixed(1)}`)
+    строки.push(`Общий объём насыпи, м³\t${totalFill.toFixed(1)}`)
+    строки.push("")
+    строки.push("Пикет\tОтм.земли\tОтм.проект\tПл.выемки м²\tПл.насыпи м²")
+    stations.forEach(s => {
+      строки.push(`${formatPK(s.pk)}\t${s.groundElev.toFixed(2)}\t${s.designElev.toFixed(2)}\t${s.cutArea.toFixed(2)}\t${s.fillArea.toFixed(2)}`)
+    })
+    экспортТекст(строки, "corridor_report.txt")
   }
 
   const exportCrossSections = () => {
@@ -338,6 +360,9 @@ export default function CorridorModule() {
               </Button>
               <Button onClick={exportCrossSections} variant="outline" className="gap-2 justify-start" disabled={!computed}>
                 <Icon name="Download" size={16} /> CSV — поперечные сечения
+              </Button>
+              <Button onClick={exportCorridorReport} variant="outline" className="gap-2 justify-start" disabled={!computed}>
+                <Icon name="FileText" size={16} /> TXT отчёт
               </Button>
               <Button onClick={exportCorridorDXF} variant="outline" className="gap-2 justify-start" disabled={!computed}>
                 <Icon name="Download" size={16} /> DXF — профиль (AutoCAD)

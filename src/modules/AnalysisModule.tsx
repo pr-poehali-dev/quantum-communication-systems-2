@@ -118,6 +118,23 @@ export default function AnalysisModule() {
     )
   }
 
+  const exportEarthworksReport = () => {
+    const строки: string[] = []
+    строки.push("ОТЧЁТ ПО ОБЪЁМАМ ЗЕМЛЯНЫХ РАБОТ")
+    строки.push(`Дата: ${new Date().toLocaleString("ru-RU")}`)
+    строки.push("")
+    строки.push(`Общий объём выемки, м³\t${totalCut.toFixed(1)}`)
+    строки.push(`Общий объём насыпи, м³\t${totalFill.toFixed(1)}`)
+    строки.push(`Баланс грунта, м³\t${balance.toFixed(1)} (${balance > 0 ? "избыток → вывоз" : "дефицит → завоз"})`)
+    строки.push("")
+    строки.push("Участок\tДлина м\tОткос\tПл.выемки м²\tПл.насыпи м²\tОб.выемки м³\tОб.насыпи м³")
+    sections.forEach(s => {
+      const vol = calcSectionVolume(s)
+      строки.push(`${s.name}\t${s.area}\t1:1.5\t${vol.cut > 0 ? vol.cut : 0}\t${vol.fill > 0 ? vol.fill : 0}\t${(vol.cut * 20).toFixed(0)}\t${(vol.fill * 20).toFixed(0)}`)
+    })
+    экспортТекст(строки, "earthworks_report.txt")
+  }
+
   const earthChartData = sections.map(s => ({
     name: s.name,
     выемка: calcSectionVolume(s).cut,
@@ -202,6 +219,9 @@ export default function AnalysisModule() {
           </div>
           <Button onClick={exportEarthworksCSV} variant="outline" className="gap-2">
             <Icon name="Download" size={15} /> Экспорт CSV — объёмы по сечениям
+          </Button>
+          <Button onClick={exportEarthworksReport} variant="outline" className="gap-2">
+            <Icon name="FileText" size={15} /> TXT отчёт
           </Button>
         </TabsContent>
 

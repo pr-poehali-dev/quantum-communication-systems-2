@@ -1173,6 +1173,7 @@ export default function SurfacesModule() {
                         { fmt: "LandXML", desc: "Обмен с ГИС-системами", icon: "Globe" },
                         { fmt: "DWG",     desc: "3D-грани и полилинии",   icon: "FileText" },
                         { fmt: "CSV",     desc: "Таблица отметок и уклонов", icon: "Table" },
+                        { fmt: "TXT",     desc: "Текстовой отчёт с координатами", icon: "FileText" },
                         { fmt: "SDR",     desc: "Sokkia/Topcon для тахеометров", icon: "MapPin" },
                         { fmt: "GeoTIFF", desc: "Растр для ГИС",          icon: "Map" },
                         { fmt: "IFC",     desc: "BIM-формат для Revit",    icon: "Layers" },
@@ -1208,6 +1209,7 @@ export default function SurfacesModule() {
                     <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 mt-2" onClick={() => {
                       if (exportFormat === "LandXML") doЭкспортLandXML()
                       else if (exportFormat === "CSV") doЭкспортCSV()
+                      else if (exportFormat === "TXT") doЭкспортОтчёт()
                       else if (exportFormat === "SDR") doЭкспортSDR()
                       else if (exportFormat === "GeoTIFF") doЭкспортCSV()
                       else if (exportFormat === "IFC") doЭкспортLandXML()

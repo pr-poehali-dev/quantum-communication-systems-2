@@ -10,7 +10,7 @@ import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
-import { импортФайл, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
+import { импортФайл, импортLandXML, импортSDR, экспортSDR, экспортТекст } from "@/utils/exportImport"
 
 interface Point {
   id: number
@@ -302,6 +302,19 @@ export default function GeodesyModule() {
     import("@/utils/exportImport").then(({ скачать }) =>
       скачать(строки.join("\n"), "points.txt", "text/plain")
     )
+  }
+
+  const exportPointsReport = () => {
+    const строки: string[] = []
+    строки.push("ОТЧЁТ ПО ТОЧКАМ COGO — ЛАПА 3D")
+    строки.push(`Дата: ${new Date().toLocaleString("ru-RU")}`)
+    строки.push(`Всего точек: ${points.length}`)
+    строки.push("")
+    строки.push("Имя\tX\tY\tZ\tКод")
+    points.forEach(p => {
+      строки.push(`${p.name || p.id}\t${p.x.toFixed(3)}\t${p.y.toFixed(3)}\t${p.z.toFixed(3)}\t${p.code || "TOPO"}`)
+    })
+    экспортТекст(строки, "points_report.txt")
   }
 
   const exportPointsSDR = () => экспортSDR(points, "points.sdr", "Съёмка COGO")
@@ -891,6 +904,7 @@ export default function GeodesyModule() {
                 { fmt: "LandXML", desc: "Обмен с Civil 3D, InfraWorks", color: "bg-blue-50 border-blue-200", btn: "bg-blue-600", fn: exportPointsLandXML },
                 { fmt: "CSV", desc: "Excel, таблицы, расчёты", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: exportPointsCSV },
                 { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsTXT },
+                { fmt: "TXT отчёт", desc: "Табличный отчёт по точкам", color: "bg-amber-50 border-amber-200", btn: "bg-amber-600", fn: exportPointsReport, icon: "FileText" },
                 { fmt: "SDR", desc: "Sokkia, Topcon, Nikon, Trimble", color: "bg-teal-50 border-teal-200", btn: "bg-teal-600", fn: exportPointsSDR },
                 { fmt: "DXF", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsDXF },
                 { fmt: "DWG", desc: "AutoCAD, nanoCAD, КОМПАС", color: "bg-indigo-50 border-indigo-200", btn: "bg-indigo-600", fn: exportPointsDWG },
@@ -900,7 +914,7 @@ export default function GeodesyModule() {
                   <div className="text-xs text-gray-500">{f.desc}</div>
                   <div className="text-xs text-gray-400">{points.length} точек</div>
                   <Button onClick={f.fn} className={`w-full text-white text-xs ${f.btn} hover:opacity-90 gap-2`}>
-                    <Icon name="Download" size={13} />Скачать {f.fmt}
+                    <Icon name={("icon" in f ? f.icon : "Download") as string} size={13} />Скачать {f.fmt}
                   </Button>
                 </div>
               ))}

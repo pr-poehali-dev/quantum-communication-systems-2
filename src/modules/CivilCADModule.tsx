@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import type { CategoryId } from "@/modules/versions-catalog"
 import { computeVolume, pointInPolygon, pileColor, fmtM3, type VolumePoint, type VolumeResult } from "@/utils/volumeCalc"
+import { экспортCSV, экспортExcel, экспортТекст } from "@/utils/exportImport"
 
 interface VolumePileUI { id: string; name: string; color: string; count: number; result: VolumeResult }
 
@@ -4736,13 +4737,27 @@ ${pts.map(p=>`    <CgPoint name="${p.label}" oID="${p.id}" code="${p.properties?
         w.document.close()
         setTimeout(()=>w.print(), 400)
       }
+    } else if (format === "TXT отчёт") {
+      const pts = canvasObjects.filter(o=>o.type==="point")
+      const lines: string[] = [
+        "ЛАПА — Отчёт по чертежу",
+        `Дата: ${new Date().toLocaleString("ru-RU")}`,
+        `Всего объектов: ${canvasObjects.length} · Точек: ${pts.length} · Масштаб: ${mapScale}`,
+        "",
+        "СЪЁМОЧНЫЕ ТОЧКИ (Имя, X, Y, Z):",
+        ...pts.map(p=>`${p.label}\t${p.pts[0][0].toFixed(3)}\t${p.pts[0][1].toFixed(3)}\t${(p.z ?? 0).toFixed?.(3) ?? "0.000"}`),
+        "",
+        "ОБЪЕКТЫ (Тип, Имя, Слой, Точек):",
+        ...canvasObjects.map(o=>`${o.type}\t${o.label}\t${o.layer||"0"}\t${o.pts.length}`),
+      ]
+      saveBlob(lines.join("\n"), "drawing_report.txt", "text/plain")
     }
     onOK({ format })
   }
 
-  const EXPORT_FORMATS = ["DXF","GeoJSON","CSV точек","LandXML","IFC","OBJ","glTF","PDF"]
+  const EXPORT_FORMATS = ["DXF","GeoJSON","CSV точек","TXT отчёт","LandXML","IFC","OBJ","glTF","PDF"]
   const PRINT_FORMATS = ["PDF","DWF","PNG (300 DPI)","SVG"]
-  const REAL_FORMATS = ["DXF","GeoJSON","CSV точек","LandXML","OBJ","glTF","PDF"]
+  const REAL_FORMATS = ["DXF","GeoJSON","CSV точек","TXT отчёт","LandXML","OBJ","glTF","PDF"]
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -15368,6 +15383,29 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     </div>
                   </div>
                 )}
+
+                {/* Экспорт ведомости объёмов */}
+                {(total || volumePiles.length > 0) && (() => {
+                  const заголовки = ["Раздел", "Наименование", "Точек", "Насыпь, м³", "Выемка, м³", "Баланс, м³", "Площадь, м²"]
+                  const строки: (string|number)[][] = []
+                  if (total) строки.push(["Общий", "Все точки", total.pointCount, total.fill, total.cut, total.net, total.area2d])
+                  volumePiles.forEach(p => строки.push(["Куча", p.name, p.count, p.result.fill, p.result.cut, p.result.net, p.result.area2d]))
+                  byCode.forEach(c => строки.push(["Код", c.code, c.res.pointCount, c.res.fill, c.res.cut, c.res.net, c.res.area2d]))
+                  const txtLines = ["ВЕДОМОСТЬ ЗЕМЛЯНЫХ ОБЪЁМОВ", `Дата: ${new Date().toLocaleString("ru-RU")}`, "", заголовки.join("\t"), ...строки.map(r => r.join("\t"))]
+                  return (
+                    <div className="bg-[#20203a] rounded p-2">
+                      <div className="text-gray-400 uppercase text-[9px] font-bold mb-1">Экспорт ведомости</div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button onClick={()=>{экспортExcel(заголовки, строки, "Объёмы", "vedomost_obemov.xls"); showToast("Ведомость выгружена в Excel")}}
+                          className="flex items-center justify-center gap-1 bg-[#16733a] hover:bg-[#1c8f49] text-white rounded px-1 py-1.5 text-[9px]"><Icon name="Table" size={10}/>Excel</button>
+                        <button onClick={()=>{экспортCSV(заголовки, строки, "vedomost_obemov.csv"); showToast("Ведомость выгружена в CSV")}}
+                          className="flex items-center justify-center gap-1 bg-[#2a2a44] hover:bg-[#3a3a55] text-gray-200 rounded px-1 py-1.5 text-[9px]"><Icon name="FileSpreadsheet" size={10} fallback="Table"/>CSV</button>
+                        <button onClick={()=>{экспортТекст(txtLines, "vedomost_obemov.txt"); showToast("Ведомость выгружена в TXT")}}
+                          className="flex items-center justify-center gap-1 bg-[#2a2a44] hover:bg-[#3a3a55] text-gray-200 rounded px-1 py-1.5 text-[9px]"><Icon name="FileText" size={10}/>TXT</button>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { экспортCSV, экспортLandXML } from "@/utils/exportImport"
+import { экспортCSV, экспортLandXML, экспортТекст } from "@/utils/exportImport"
 
 interface Pipe {
   id: number
@@ -259,6 +259,25 @@ export default function NetworksModule() {
       nodes.map(n => [n.name, n.kind, n.ground.toFixed(2), n.invert.toFixed(2), (n.ground - n.invert).toFixed(2)]),
       `${networkType}_nodes.csv`
     )
+  }
+
+  const exportNetworkReport = () => {
+    const строки: string[] = []
+    строки.push(`ОТЧЁТ ПО ИНЖЕНЕРНОЙ СЕТИ — ${cfg.label}`)
+    строки.push(`Дата: ${new Date().toLocaleString("ru-RU")}`)
+    строки.push("")
+    строки.push(`${cfg.isElectric ? "Кабели" : "Трубопроводы"}:`)
+    строки.push(`ID\tОт\tДо\tДлина м\t${cfg.isElectric ? "Сечение мм²" : "Диаметр мм"}\tМатериал\t${cfg.flowLabel} ${cfg.flowUnit}`)
+    pipes.forEach(p => {
+      строки.push(`${p.id}\t${p.from}\t${p.to}\t${p.length}\t${p.diameter}\t${p.material}\t${p.flow}`)
+    })
+    строки.push("")
+    строки.push(`${cfg.nodeName}ы:`)
+    строки.push("Имя\tТип\tОтм. земли м\tОтм. лотка м\tГлубина м")
+    nodes.forEach(n => {
+      строки.push(`${n.name}\t${n.kind}\t${n.ground.toFixed(2)}\t${n.invert.toFixed(2)}\t${(n.ground - n.invert).toFixed(2)}`)
+    })
+    экспортТекст(строки, `${networkType}_report.txt`)
   }
 
   const exportNetworkLandXML = () => {
@@ -518,6 +537,9 @@ export default function NetworksModule() {
               </Button>
               <Button onClick={exportNodesCSV} variant="outline" className="gap-2 justify-start">
                 <Icon name="Download" size={16} /> CSV — {cfg.nodeName.toLowerCase()}ы и отметки
+              </Button>
+              <Button onClick={exportNetworkReport} variant="outline" className="gap-2 justify-start">
+                <Icon name="FileText" size={16} /> TXT отчёт
               </Button>
               <Button onClick={exportNetworkLandXML} variant="outline" className="gap-2 justify-start">
                 <Icon name="Download" size={16} /> LandXML — {cfg.label}
