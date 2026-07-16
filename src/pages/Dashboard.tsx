@@ -974,7 +974,6 @@ export default function Dashboard() {
             <nav className="flex-1 py-2 overflow-y-auto">
               {[
                 { id: "последние", label: "Последние", icon: "Clock" },
-                { id: "возможности", label: "Возможности", icon: "Sparkles" },
                 { id: "модули", label: "Все модули", icon: "LayoutGrid" },
                 { id: "проекты", label: "Готовые проекты", icon: "FolderDown" },
                 { id: "шаблоны", label: "Шаблоны", icon: "FileText" },
