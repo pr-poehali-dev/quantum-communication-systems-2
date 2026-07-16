@@ -13388,6 +13388,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
         <div className="flex items-center gap-1 ml-auto">
           {/* Кнопки навигации между модулями */}
+          <button onClick={() => { setActiveTool("volumelasso"); setLassoPts([]); setShowVolumePanel(true); setStatusMsg("Объёмы: обведите точки съёмки маркером, двойной клик — замкнуть") }}
+            title="Земляные объёмы по точкам — обведите точки маркером (двойной клик — замкнуть)"
+            className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors border ${activeTool === "volumelasso" ? "bg-amber-500 text-black border-amber-400" : "text-amber-300 border-amber-600/60 hover:text-black hover:bg-amber-500"}`}>
+            <Icon name="Lasso" size={11} fallback="Spline"/>
+            <span>Объёмы</span>
+          </button>
           <button onClick={() => onNavigate?.("viewer3d")} title="Открыть 3D-вьюер"
             className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-[#0078d4]/50 border border-gray-700 hover:border-[#0078d4]">
             <Icon name="Box" size={11} fallback="Square"/>
