@@ -11797,6 +11797,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showProperties, setShowProperties] = useState(false)
   const [editingProp, setEditingProp] = useState<{id:string, key:string, val:string} | null>(null)
   const moveRef = useRef<{objId:string; startMouse:[number,number]; startPts:[number,number][]} | null>(null)
+  const lassoDrawing = useRef(false)
+  const lassoPtsRef = useRef<[number,number][]>([])
+  useEffect(() => { lassoPtsRef.current = lassoPts }, [lassoPts])
 
   const pushUndo = (label: string) => {
     setUndoStack(prev => [...prev, label])
@@ -12457,11 +12460,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const pt: [number,number] = snapped ?? [wx, wy]
 
     if (activeTool === "volumelasso") {
-      if (e.detail === 2 && lassoPts.length >= 3) {
-        finishLasso([...lassoPts])
-      } else {
-        setLassoPts(prev => [...prev, [wx, wy]])
-      }
+      lassoDrawing.current = true
+      setLassoPts([[wx, wy]])
       return
     }
     if (activeTool === "pan" || (activeTool === "select" && e.button === 1)) {
@@ -12670,6 +12670,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       setCursorScreen({ x: e.clientX - containerRect.left, y: e.clientY - containerRect.top })
     }
 
+    if (lassoDrawing.current) {
+      setLassoPts(prev => {
+        const last = prev[prev.length - 1]
+        if (last && Math.hypot(wx - last[0], wy - last[1]) < 2 / zoom) return prev
+        return [...prev, [wx, wy]]
+      })
+      return
+    }
     if (moveRef.current) {
       const { objId, startMouse, startPts } = moveRef.current
       const dx = wx - startMouse[0], dy = wy - startMouse[1]
@@ -12698,20 +12706,29 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   // Завершение лассо: собираем точки внутри полигона (по координатам холста) и считаем объём
   const finishLasso = (poly: [number,number][]) => {
+    setLassoPts([])
+    if (poly.length < 3) return
     const inside = canvasObjects.filter(o => o.type === "point" && o.pts[0] && pointInPolygon(o.pts[0][0], o.pts[0][1], poly))
     const vpts = inside.map(realPoint).filter(Boolean) as VolumePoint[]
-    setLassoPts([])
     if (vpts.length < 3) { showToast("Обведите минимум 3 точки съёмки"); return }
     const res = computeVolume(vpts, baseFor())
-    const idx = volumePiles.length
-    const pile: VolumePileUI = { id: `pile_${Date.now()}`, name: `Куча ${idx + 1}`, color: pileColor(idx), count: vpts.length, result: res }
-    setVolumePiles(prev => [...prev, pile])
+    setVolumePiles(prev => {
+      const idx = prev.length
+      const pile: VolumePileUI = { id: `pile_${Date.now()}`, name: `Куча ${idx + 1}`, color: pileColor(idx), count: vpts.length, result: res }
+      showToast(`Куча ${idx + 1}: навал ${fmtM3(res.fill)} · выемка ${fmtM3(res.cut)} · ${vpts.length} точек`)
+      return [...prev, pile]
+    })
     setShowVolumePanel(true)
-    setActiveTool("select")
-    showToast(`Куча ${idx + 1}: навал ${fmtM3(res.fill)} · ${vpts.length} точек`)
+    // Инструмент остаётся активным — можно сразу обвести следующую кучу
   }
 
   const onMouseUp = (e: React.MouseEvent) => {
+    if (lassoDrawing.current) {
+      lassoDrawing.current = false
+      finishLasso([...lassoPtsRef.current])
+      void e
+      return
+    }
     if (moveRef.current) {
       const obj = canvasObjects.find(o => o.id === moveRef.current!.objId)
       if (obj) {
@@ -13403,8 +13420,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
         <div className="flex items-center gap-1 ml-auto">
           {/* Кнопки навигации между модулями */}
-          <button onClick={() => { setActiveTool("volumelasso"); setLassoPts([]); setShowVolumePanel(true); setStatusMsg("Объёмы: обведите точки съёмки маркером, двойной клик — замкнуть") }}
-            title="Земляные объёмы по точкам — обведите точки маркером (двойной клик — замкнуть)"
+          <button onClick={() => { setActiveTool("volumelasso"); setLassoPts([]); setShowVolumePanel(true); setStatusMsg("Объёмы: зажмите и обведите точки съёмки маркером") }}
+            title="Земляные объёмы по точкам — зажмите и обведите точки маркером, объём посчитается сразу"
             className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors border ${activeTool === "volumelasso" ? "bg-amber-500 text-black border-amber-400" : "text-amber-300 border-amber-600/60 hover:text-black hover:bg-amber-500"}`}>
             <Icon name="Lasso" size={11} fallback="Spline"/>
             <span>Объёмы</span>
@@ -13645,8 +13662,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${showProperties ? "bg-[#0078d4] text-white" : "text-gray-400 hover:text-white hover:bg-[#3a3a4e]"}`}>
             <Icon name="ListFilter" size={12} fallback="List" />
           </button>
-          <button title="Объёмы по точкам — обведите точки маркером (двойной клик — замкнуть)"
-            onClick={() => { setActiveTool("volumelasso"); setLassoPts([]); setShowVolumePanel(true); setStatusMsg("Объёмы: обведите точки съёмки, двойной клик — замкнуть") }}
+          <button title="Объёмы по точкам — зажмите и обведите точки маркером, объём посчитается сразу"
+            onClick={() => { setActiveTool("volumelasso"); setLassoPts([]); setShowVolumePanel(true); setStatusMsg("Объёмы: зажмите и обведите точки съёмки") }}
             className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${activeTool === "volumelasso" ? "bg-amber-500 text-white" : "text-gray-400 hover:text-white hover:bg-amber-600"}`}>
             <Icon name="Lasso" size={12} fallback="Spline" />
           </button>
@@ -14527,7 +14544,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 {activeTool === "delete" && "Кликните объект для удаления"}
                 {activeTool === "move" && "Кликните объект и перетащите"}
                 {activeTool === "measure" && "Кликните для измерения расстояния"}
-                {activeTool === "volumelasso" && "Обведите точки съёмки маркером · двойной клик — замкнуть контур кучи"}
+                {activeTool === "volumelasso" && "Зажмите и обведите точки съёмки маркером — объём посчитается сразу"}
                 &nbsp;· Esc — отмена
               </div>
             )}
@@ -15346,7 +15363,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 <div className="bg-[#20203a] rounded p-2">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-gray-400 uppercase text-[9px] font-bold">По кучкам ({volumePiles.length})</span>
-                    <button onClick={()=>{ setActiveTool("volumelasso"); setLassoPts([]); setStatusMsg("Обведите точки кучи, двойной клик — замкнуть") }}
+                    <button onClick={()=>{ setActiveTool("volumelasso"); setLassoPts([]); setStatusMsg("Зажмите и обведите точки кучи маркером") }}
                       className="text-amber-400 hover:text-amber-300 flex items-center gap-0.5 text-[9px]"><Icon name="Lasso" size={10} fallback="Plus"/>обвести</button>
                   </div>
                   {volumePiles.length === 0 && <div className="text-gray-500 text-[9px]">Обведите точки маркером — каждая обводка = отдельная куча</div>}
@@ -15359,7 +15376,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                           <span className="text-gray-500">{p.count} т.</span>
                           <button onClick={()=>setVolumePiles(prev=>prev.filter(x=>x.id!==p.id))} className="text-gray-500 hover:text-red-400"><Icon name="X" size={10}/></button>
                         </div>
-                        <div className="flex justify-between"><span className="text-emerald-400">навал</span><b className="text-emerald-300 font-mono">{fmtM3(p.result.fill)}</b></div>
+                        <div className="flex justify-between"><span className="text-emerald-400">насыпь/навал</span><b className="text-emerald-300 font-mono">{fmtM3(p.result.fill)}</b></div>
+                        <div className="flex justify-between"><span className="text-rose-400">выемка</span><b className="text-rose-300 font-mono">{fmtM3(p.result.cut)}</b></div>
+                        <div className="flex justify-between"><span className="text-gray-400">баланс</span><b className="text-white font-mono">{fmtM3(p.result.net)}</b></div>
                       </div>
                     ))}
                     {volumePiles.length > 1 && (
@@ -15374,10 +15393,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     <div className="text-gray-400 uppercase text-[9px] font-bold mb-1">По кодам (COD)</div>
                     <div className="space-y-1">
                       {byCode.map(c=>(
-                        <div key={c.code} className="flex items-center gap-1">
-                          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:c.color}}/>
-                          <span className="text-gray-200 flex-1 truncate">{c.code}</span>
-                          <b className="text-emerald-300 font-mono">{fmtM3(c.res.fill)}</b>
+                        <div key={c.code} className="bg-[#141420] rounded p-1.5">
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:c.color}}/>
+                            <span className="text-gray-200 flex-1 truncate">{c.code}</span>
+                            <span className="text-gray-500">{c.res.pointCount} т.</span>
+                          </div>
+                          <div className="flex justify-between"><span className="text-emerald-400">насыпь</span><b className="text-emerald-300 font-mono">{fmtM3(c.res.fill)}</b></div>
+                          <div className="flex justify-between"><span className="text-rose-400">выемка</span><b className="text-rose-300 font-mono">{fmtM3(c.res.cut)}</b></div>
                         </div>
                       ))}
                     </div>

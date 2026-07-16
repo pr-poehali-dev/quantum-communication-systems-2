@@ -169,6 +169,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const [активноЛассо, setАктивноЛассо] = useState(false)
   const [объёмрезультат, setОбъёмРезультат] = useState<null | { fill: number; cut: number; net: number; count: number; minZ: number; maxZ: number }>(null)
   const лассоRef = useRef<[number, number][]>([])
+  const лассоDrawingRef = useRef(false)
   useEffect(() => { лассоRef.current = лассо }, [лассо])
   useEffect(() => { слоиRef.current = слои }, [слои])
   useEffect(() => { режимRef.current = режим; if (режим === "Каркас") setСлои(s => ({ ...s, каркас: true })) }, [режим])
@@ -815,8 +816,9 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   const завершитьЛассо3D = (poly: [number, number][]) => {
+    setЛассо([])
+    if (poly.length < 3) return
     const inside = screenPtsRef.current.filter(p => pointInPolygon(p.sx, p.sy, poly))
-    setЛассо([]); setАктивноЛассо(false)
     if (inside.length < 3) { setОбъёмРезультат(null); return }
     const vpts: VolumePoint[] = inside.map(p => ({ x: p.x, y: p.y, z: p.z, code: p.code, no: p.label }))
     const res = computeVolume(vpts, { kind: "min" })
@@ -826,8 +828,8 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const onDown = (e: React.MouseEvent) => {
     if (активноЛассо) {
       const cp = canvasPos(e); if (!cp) return
-      if (e.detail === 2 && лассоRef.current.length >= 3) завершитьЛассо3D([...лассоRef.current])
-      else setЛассо(prev => [...prev, cp])
+      лассоDrawingRef.current = true
+      setЛассо([cp])
       return
     }
     if (showЗамер) {
@@ -870,6 +872,13 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
     drag.current = { x: e.clientX, y: e.clientY, btn: e.button }
   }
   const onMove = (e: React.MouseEvent) => {
+    if (лассоDrawingRef.current) {
+      const cp = canvasPos(e); if (!cp) return
+      const last = лассоRef.current[лассоRef.current.length - 1]
+      if (last && Math.hypot(cp[0] - last[0], cp[1] - last[1]) < 4) return
+      setЛассо(prev => [...prev, cp])
+      return
+    }
     if (!drag.current) return
     const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y
     drag.current = { ...drag.current, x: e.clientX, y: e.clientY }
@@ -882,7 +891,14 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
       cam.current.pitch = Math.max(0.05, Math.min(1.48, cam.current.pitch + dy * 0.005))
     }
   }
-  const onUp = () => { drag.current = null }
+  const onUp = () => {
+    if (лассоDrawingRef.current) {
+      лассоDrawingRef.current = false
+      завершитьЛассо3D([...лассоRef.current])
+      return
+    }
+    drag.current = null
+  }
   const onWheel = (e: React.WheelEvent) => {
     cam.current.dist = Math.max(5, Math.min(140, cam.current.dist + e.deltaY * 0.05))
   }
@@ -1047,7 +1063,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
           {/* Лассо-объём: подсказка и результат */}
           {активноЛассо && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#0f1117cc] border border-amber-500 rounded-lg px-4 py-2 text-[12px] text-amber-400 font-mono">
-              Обведите точки маркером · двойной клик — замкнуть контур
+              Зажмите и обведите точки маркером — объём (насыпь/выемка) посчитается сразу
             </div>
           )}
           {объёмрезультат && (
