@@ -15312,7 +15312,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                       <div className="flex justify-between text-gray-500"><span>Площадь</span><span className="font-mono">{total.area2d.toLocaleString("ru-RU",{maximumFractionDigits:0})} м²</span></div>
                       <div className="flex justify-between text-gray-500"><span>Отметки</span><span className="font-mono">{total.minZ}…{total.maxZ}</span></div>
                     </div>
-                  ) : <div className="text-gray-500">Нужно ≥3 точки съёмки на холсте</div>}
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="text-gray-500">На холсте нет точек съёмки (нужно ≥3).</div>
+                      <button onClick={()=>setShowPointsImport(true)}
+                        className="w-full flex items-center justify-center gap-1 bg-[#0078d4] hover:bg-[#0066b3] text-white rounded px-2 py-1.5 text-[10px] font-semibold transition-colors">
+                        <Icon name="Upload" size={11} fallback="Plus"/> Импортировать точки (TXT/CSV)
+                      </button>
+                      <button onClick={()=>загрузитьПример()}
+                        className="w-full flex items-center justify-center gap-1 bg-[#2a2a44] hover:bg-[#3a3a55] text-gray-200 rounded px-2 py-1.5 text-[10px] transition-colors">
+                        <Icon name="FileStack" size={11} fallback="Files"/> Загрузить пример точек
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* По кучкам (лассо) */}
