@@ -989,13 +989,14 @@ export default function Dashboard() {
 
               <div className="border-t border-gray-800 mt-2 pt-2">
                 {текущееНаправление && (
-                  <button onClick={сброситьНаправление}
-                    className="w-full flex items-center gap-2 px-4 py-2 mb-1 text-[11px] text-left text-gray-300 hover:text-white hover:bg-[#1a1a28] transition-colors">
-                    <div className={`w-5 h-5 rounded bg-gradient-to-br ${текущееНаправление.gradient} flex items-center justify-center shrink-0`}>
-                      <Icon name={текущееНаправление.icon} size={11} className="text-white" fallback="Square" />
+                  <button onClick={сброситьНаправление} title="Сменить направление"
+                    className={`w-full flex items-center gap-2 px-3 py-2 mb-1.5 mx-0 rounded-lg text-[11px] text-left text-white font-bold shadow-lg bg-gradient-to-r ${текущееНаправление.gradient} hover:brightness-110 transition-all`}
+                    style={{ boxShadow: `0 4px 14px ${текущееНаправление.color}55` }}>
+                    <div className="w-6 h-6 rounded-md bg-white/20 ring-2 ring-white/40 flex items-center justify-center shrink-0">
+                      <Icon name={текущееНаправление.icon} size={12} className="text-white" fallback="Square" />
                     </div>
-                    <span className="flex-1 truncate font-semibold">{текущееНаправление.label}</span>
-                    <Icon name="RefreshCw" size={11} className="text-gray-600" />
+                    <span className="flex-1 truncate">{текущееНаправление.label}</span>
+                    <Icon name="RefreshCw" size={11} className="text-white/80" />
                   </button>
                 )}
                 {избранныеМодули.length > 0 && (
@@ -1185,17 +1186,28 @@ export default function Dashboard() {
                   {homeВкладка === "модули" && (
                     <div className="flex-1 overflow-y-auto p-6" style={{ minHeight: 0 }}>
                       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-                        <div className="flex items-center gap-3">
-                          {текущееНаправление && !показатьВсеМодули && (
-                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${текущееНаправление.gradient} flex items-center justify-center shadow-lg`}>
-                              <Icon name={текущееНаправление.icon} size={20} className="text-white" fallback="Square" />
+                        {текущееНаправление && !показатьВсеМодули ? (
+                          <div className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 border-2 shadow-xl bg-gradient-to-r ${текущееНаправление.gradient}`}
+                            style={{ boxShadow: `0 8px 28px ${текущееНаправление.color}55` }}>
+                            <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0 ring-2 ring-white/40">
+                              <Icon name={текущееНаправление.icon} size={22} className="text-white" fallback="Square" />
                             </div>
-                          )}
-                          <div>
-                            <h2 className="text-white text-xl font-bold leading-tight">{показатьВсеМодули ? "Все модули" : (текущееНаправление?.label ?? "Все модули")}</h2>
-                            <p className="text-gray-500 text-[12px]">{показатьВсеМодули ? `${MODULES.length} инструментов платформы` : текущееНаправление?.desc}</p>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] uppercase tracking-wider font-bold text-white/80 bg-white/15 px-2 py-0.5 rounded-full">Направление</span>
+                              </div>
+                              <h2 className="text-white text-xl font-extrabold leading-tight drop-shadow">{текущееНаправление.label}</h2>
+                              <p className="text-white/85 text-[12px]">{текущееНаправление.desc}</p>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <h2 className="text-white text-xl font-bold leading-tight">Все модули</h2>
+                              <p className="text-gray-500 text-[12px]">{MODULES.length} инструментов платформы</p>
+                            </div>
+                          </div>
+                        )}
                         <button onClick={сброситьНаправление}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 hover:text-white hover:border-[#0078d4] text-[12px] transition-colors">
                           <Icon name="RefreshCw" size={13} />Сменить направление
