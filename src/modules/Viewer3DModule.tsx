@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback, useContext } from "react"
 import Icon from "@/components/ui/icon"
 import { VersionFeaturesInline } from "@/modules/VersionFeaturesPanel"
 import { ProjectContext } from "@/hooks/useProjectStore"
+import { computeVolume, pointInPolygon, fmtM3, type VolumePoint } from "@/utils/volumeCalc"
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,13 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const солнцеRef = useRef(высотаСолнца)
   // Ref для live-объектов из редактора (чтобы анимационный цикл всегда видел актуальное)
   const liveObjsRef = useRef<import("@/hooks/useProjectStore").CanvasObject[]>([])
+  // Экранные позиции точек текущего кадра (для лассо-выделения объёмов в 3D)
+  const screenPtsRef = useRef<{ sx: number; sy: number; x: number; y: number; z: number; code?: string; label: string }[]>([])
+  const [лассо, setЛассо] = useState<[number, number][]>([])
+  const [активноЛассо, setАктивноЛассо] = useState(false)
+  const [объёмрезультат, setОбъёмРезультат] = useState<null | { fill: number; cut: number; net: number; count: number; minZ: number; maxZ: number }>(null)
+  const лассоRef = useRef<[number, number][]>([])
+  useEffect(() => { лассоRef.current = лассо }, [лассо])
   useEffect(() => { слоиRef.current = слои }, [слои])
   useEffect(() => { режимRef.current = режим; if (режим === "Каркас") setСлои(s => ({ ...s, каркас: true })) }, [режим])
   useEffect(() => { видRef.current = вид }, [вид])
@@ -247,6 +255,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
     const cz = tz + Math.cos(cam.current.yaw) * dist * Math.cos(cam.current.pitch)
     const fov = Math.min(W, Hc) * 1.45
     const prj = (p: Vec3) => проецировать(p, cx, cy, cz, cam.current.yaw, cam.current.pitch, fov, W, Hc)
+    screenPtsRef.current = []
 
     const ночь = реж === "Ночной" || высотаСолнца < 12 || высотаСолнца > 168
 
@@ -588,6 +597,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
         const base = prj({ x: p.x, y: gy, z: p.z }), tip = prj({ x: p.x, y: gy + 4.5, z: p.z })
         if (!base || !tip) return
         const color = codeColor[p.code] || "#f59e0b"
+        screenPtsRef.current.push({ sx: base.sx, sy: base.sy, x: p.x, y: p.z, z: p.e, code: p.code, label: p.n })
         ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(tip.sx, tip.sy)
         ctx.strokeStyle = color; ctx.lineWidth = 1.5
         if (ночь) { ctx.shadowColor = color; ctx.shadowBlur = 4 }
@@ -632,6 +642,15 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
           const base = prj(p3)
           const tip = prj({ x: p3.x, y: p3.y + 3.5, z: p3.z })
           if (!base) return
+          const rpx = obj.properties?.["X"], rpy = obj.properties?.["Y"], rph = obj.properties?.["H"]
+          screenPtsRef.current.push({
+            sx: base.sx, sy: base.sy,
+            x: rpx != null ? parseFloat(String(rpx)) : p3.x,
+            y: rpy != null ? parseFloat(String(rpy)) : p3.z,
+            z: rph != null ? parseFloat(String(rph)) : (obj.z ?? p3.y),
+            code: obj.properties?.["Код"] ? String(obj.properties["Код"]) : undefined,
+            label: obj.label,
+          })
           ctx.beginPath(); ctx.arc(base.sx, base.sy, 5, 0, Math.PI * 2)
           ctx.fillStyle = color; ctx.fill()
           ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.stroke()
@@ -745,6 +764,24 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
         }
       }
     }
+
+    // Лассо-выделение точек для объёмов
+    const lp = лассоRef.current
+    if (lp.length > 0) {
+      ctx.setLineDash([8, 4]); ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2
+      ctx.fillStyle = "rgba(245,158,11,0.14)"
+      ctx.beginPath(); ctx.moveTo(lp[0][0], lp[0][1])
+      for (let i = 1; i < lp.length; i++) ctx.lineTo(lp[i][0], lp[i][1])
+      ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.setLineDash([])
+      lp.forEach(([px, py]) => { ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fillStyle = "#f59e0b"; ctx.fill() })
+      // Подсвечиваем точки внутри
+      screenPtsRef.current.forEach(p => {
+        if (pointInPolygon(p.sx, p.sy, lp)) {
+          ctx.beginPath(); ctx.arc(p.sx, p.sy, 7, 0, Math.PI * 2)
+          ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2; ctx.stroke()
+        }
+      })
+    }
   }, [высотаСолнца])
 
   // ── Анимационный цикл ──────────────────────────────────────────────────────
@@ -771,7 +808,28 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
 
   // ── Управление мышью ──────────────────────────────────────────────────────
 
+  const canvasPos = (e: React.MouseEvent): [number, number] | null => {
+    const canvas = canvasRef.current; if (!canvas || !canvas.offsetWidth) return null
+    const rect = canvas.getBoundingClientRect()
+    return [(e.clientX - rect.left) / canvas.offsetWidth * canvas.width, (e.clientY - rect.top) / canvas.offsetHeight * canvas.height]
+  }
+
+  const завершитьЛассо3D = (poly: [number, number][]) => {
+    const inside = screenPtsRef.current.filter(p => pointInPolygon(p.sx, p.sy, poly))
+    setЛассо([]); setАктивноЛассо(false)
+    if (inside.length < 3) { setОбъёмРезультат(null); return }
+    const vpts: VolumePoint[] = inside.map(p => ({ x: p.x, y: p.y, z: p.z, code: p.code, no: p.label }))
+    const res = computeVolume(vpts, { kind: "min" })
+    setОбъёмРезультат({ fill: res.fill, cut: res.cut, net: res.net, count: vpts.length, minZ: res.minZ, maxZ: res.maxZ })
+  }
+
   const onDown = (e: React.MouseEvent) => {
+    if (активноЛассо) {
+      const cp = canvasPos(e); if (!cp) return
+      if (e.detail === 2 && лассоRef.current.length >= 3) завершитьЛассо3D([...лассоRef.current])
+      else setЛассо(prev => [...prev, cp])
+      return
+    }
     if (showЗамер) {
       const canvas = canvasRef.current; if (!canvas) return
       if (!canvas.offsetWidth || !canvas.offsetHeight) return
@@ -913,6 +971,11 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
             className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${showЗамер ? "bg-[#22d3ee] text-black" : "text-gray-400 hover:bg-[#2d2d4e] hover:text-white"}`}>
             <Icon name="Ruler" size={12} /> <span className="hidden sm:inline">Замер</span>
           </button>
+          <button title="Объём по точкам — обведите точки маркером (двойной клик — замкнуть)"
+            onClick={() => { setАктивноЛассо(a => !a); setЛассо([]); setОбъёмРезультат(null); setShowЗамер(false) }}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${активноЛассо ? "bg-amber-500 text-black" : "text-gray-400 hover:bg-[#2d2d4e] hover:text-white"}`}>
+            <Icon name="Lasso" size={12} fallback="Spline" /> <span className="hidden sm:inline">Объём</span>
+          </button>
           <button title="Поперечное сечение" onClick={() => setShowСечение(s => !s)}
             className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${showСечение ? "bg-[#fb923c] text-black" : "text-gray-400 hover:bg-[#2d2d4e] hover:text-white"}`}>
             <Icon name="Minus" size={12} /> <span className="hidden sm:inline">Сечение</span>
@@ -976,10 +1039,32 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
         {/* Canvas */}
         <div className="flex-1 relative overflow-hidden">
           <canvas ref={canvasRef} className="w-full h-full block"
-            style={{ cursor: showЗамер ? "crosshair" : "grab" }}
+            style={{ cursor: (showЗамер || активноЛассо) ? "crosshair" : "grab" }}
             onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
             onWheel={onWheel} onContextMenu={e => e.preventDefault()}
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => { touch.current = null }} />
+
+          {/* Лассо-объём: подсказка и результат */}
+          {активноЛассо && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#0f1117cc] border border-amber-500 rounded-lg px-4 py-2 text-[12px] text-amber-400 font-mono">
+              Обведите точки маркером · двойной клик — замкнуть контур
+            </div>
+          )}
+          {объёмрезультат && (
+            <div className="absolute top-14 right-3 bg-[#1a1a2e] border border-amber-500 rounded-xl p-3 w-56 text-[11px]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-amber-400 font-bold flex items-center gap-1"><Icon name="Boxes" size={12} />Объём выделения</span>
+                <button onClick={() => setОбъёмРезультат(null)} className="text-gray-500 hover:text-white">✕</button>
+              </div>
+              <div className="space-y-0.5 font-mono">
+                <div className="flex justify-between"><span className="text-emerald-400">Насыпь / навал</span><b className="text-emerald-300">{fmtM3(объёмрезультат.fill)}</b></div>
+                <div className="flex justify-between"><span className="text-rose-400">Выемка</span><b className="text-rose-300">{fmtM3(объёмрезультат.cut)}</b></div>
+                <div className="flex justify-between border-t border-gray-700 pt-0.5 mt-0.5"><span className="text-gray-300">Баланс</span><b className="text-white">{fmtM3(объёмрезультат.net)}</b></div>
+                <div className="flex justify-between text-gray-500"><span>Точек</span><span>{объёмрезультат.count}</span></div>
+                <div className="flex justify-between text-gray-500"><span>Отметки</span><span>{объёмрезультат.minZ}…{объёмрезультат.maxZ}</span></div>
+              </div>
+            </div>
+          )}
 
           {/* Замер результат */}
           {showЗамер && (

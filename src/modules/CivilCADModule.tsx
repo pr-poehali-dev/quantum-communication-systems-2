@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import type { CategoryId } from "@/modules/versions-catalog"
+import { computeVolume, pointInPolygon, pileColor, fmtM3, type VolumePoint, type VolumeResult } from "@/utils/volumeCalc"
+
+interface VolumePileUI { id: string; name: string; color: string; count: number; result: VolumeResult }
 
 // Соответствие вкладок ленты категориям функций 2022–2027
 const MENU_TAB_CATEGORIES: Record<string, CategoryId[]> = {
@@ -1000,10 +1003,11 @@ interface CanvasObject {
   lineWidth?: number
   layer?: string
   selected?: boolean
-  properties?: Record<string, string>
+  z?: number
+  properties?: Record<string, string | number>
 }
 
-type EditTool = "select" | "move" | "line" | "polyline" | "point" | "text" | "rect" | "circle" | "arc" | "delete" | "pan" | "measure"
+type EditTool = "select" | "move" | "line" | "polyline" | "point" | "text" | "rect" | "circle" | "arc" | "delete" | "pan" | "measure" | "volumelasso"
 
 interface CorridorRow {
   alignment: string; profile: string; assembly: string
@@ -11769,6 +11773,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [drawingPts, setDrawingPts] = useState<[number,number][]>([])
   const [cursorCanvasPos, setCursorCanvasPos] = useState<[number,number] | null>(null)
   const [snapPos, setSnapPos] = useState<[number,number] | null>(null)
+  // ── Лассо-выделение точек для расчёта объёмов ────────────────────────────────
+  const [lassoPts, setLassoPts] = useState<[number,number][]>([])
+  const [showVolumePanel, setShowVolumePanel] = useState(false)
+  const [volumeBaseMode, setVolumeBaseMode] = useState<"min"|"fixed"|"surface">("min")
+  const [volumeFixedElev, setVolumeFixedElev] = useState(0)
+  const [volumePiles, setVolumePiles] = useState<VolumePileUI[]>([])
   const [showProperties, setShowProperties] = useState(false)
   const [editingProp, setEditingProp] = useState<{id:string, key:string, val:string} | null>(null)
   const moveRef = useRef<{objId:string; startMouse:[number,number]; startPts:[number,number][]} | null>(null)
@@ -12291,6 +12301,19 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       ctx.setLineDash([])
     }
 
+    // Лассо-выделение объёмов
+    if (lassoPts.length > 0) {
+      ctx.setLineDash([8/zoom, 4/zoom])
+      ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2/zoom
+      ctx.fillStyle = "rgba(245,158,11,0.12)"
+      ctx.beginPath(); ctx.moveTo(lassoPts[0][0], lassoPts[0][1])
+      for (let i = 1; i < lassoPts.length; i++) ctx.lineTo(lassoPts[i][0], lassoPts[i][1])
+      if (cursorCanvasPos) ctx.lineTo(cursorCanvasPos[0], cursorCanvasPos[1])
+      ctx.closePath(); ctx.fill(); ctx.stroke()
+      ctx.setLineDash([])
+      lassoPts.forEach(([px,py]) => { ctx.beginPath(); ctx.arc(px, py, 3/zoom, 0, Math.PI*2); ctx.fillStyle = "#f59e0b"; ctx.fill() })
+    }
+
     // Snap indicator
     if (snapPos) {
       ctx.beginPath()
@@ -12302,7 +12325,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     }
 
     ctx.restore()
-  }, [canvasObjects, selectedObjId, drawingPts, cursorCanvasPos, snapPos, pan, zoom])
+  }, [canvasObjects, selectedObjId, drawingPts, cursorCanvasPos, snapPos, pan, zoom, lassoPts])
 
   const draw = useCallback(() => {
     const c = canvasRef.current; if (!c || c.width < 10) return
@@ -12363,7 +12386,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         const obj = canvasObjects.find(o => o.id === selectedObjId)
         if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); deleteCanvasObject(selectedObjId); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
       }
-      if (e.key === "Escape") { setDrawingPts([]); setActiveTool("select"); setSelectedObjId(null) }
+      if (e.key === "Escape") { setDrawingPts([]); setLassoPts([]); setActiveTool("select"); setSelectedObjId(null) }
       if ((e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault()
         сохранитьЧертёж()
@@ -12418,6 +12441,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const snapped = findSnap(wx, wy)
     const pt: [number,number] = snapped ?? [wx, wy]
 
+    if (activeTool === "volumelasso") {
+      if (e.detail === 2 && lassoPts.length >= 3) {
+        finishLasso([...lassoPts])
+      } else {
+        setLassoPts(prev => [...prev, [wx, wy]])
+      }
+      return
+    }
     if (activeTool === "pan" || (activeTool === "select" && e.button === 1)) {
       drag.current = { x: e.clientX, y: e.clientY }
       return
@@ -12634,6 +12665,35 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y
     drag.current = { x: e.clientX, y: e.clientY }
     setPan(p => ({ x: p.x + dx, y: p.y + dy }))
+  }
+
+  // Реальные координаты точки-объекта холста (из свойств импорта или z)
+  const realPoint = (o: CanvasObject): VolumePoint | null => {
+    if (o.type !== "point") return null
+    const px = o.properties?.["X"], py = o.properties?.["Y"], ph = o.properties?.["H"]
+    const x = px != null ? parseFloat(String(px)) : o.pts[0]?.[0]
+    const y = py != null ? parseFloat(String(py)) : o.pts[0]?.[1]
+    const z = ph != null ? parseFloat(String(ph)) : (o.z ?? 0)
+    if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return null
+    return { x, y, z, code: o.properties?.["Код"] ? String(o.properties["Код"]) : undefined, no: o.label }
+  }
+
+  const baseFor = () => volumeBaseMode === "fixed" ? { kind: "fixed" as const, elevation: volumeFixedElev }
+    : { kind: "min" as const }
+
+  // Завершение лассо: собираем точки внутри полигона (по координатам холста) и считаем объём
+  const finishLasso = (poly: [number,number][]) => {
+    const inside = canvasObjects.filter(o => o.type === "point" && o.pts[0] && pointInPolygon(o.pts[0][0], o.pts[0][1], poly))
+    const vpts = inside.map(realPoint).filter(Boolean) as VolumePoint[]
+    setLassoPts([])
+    if (vpts.length < 3) { showToast("Обведите минимум 3 точки съёмки"); return }
+    const res = computeVolume(vpts, baseFor())
+    const idx = volumePiles.length
+    const pile: VolumePileUI = { id: `pile_${Date.now()}`, name: `Куча ${idx + 1}`, color: pileColor(idx), count: vpts.length, result: res }
+    setVolumePiles(prev => [...prev, pile])
+    setShowVolumePanel(true)
+    setActiveTool("select")
+    showToast(`Куча ${idx + 1}: навал ${fmtM3(res.fill)} · ${vpts.length} точек`)
   }
 
   const onMouseUp = (e: React.MouseEvent) => {
@@ -13564,6 +13624,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${showProperties ? "bg-[#0078d4] text-white" : "text-gray-400 hover:text-white hover:bg-[#3a3a4e]"}`}>
             <Icon name="ListFilter" size={12} fallback="List" />
           </button>
+          <button title="Объёмы по точкам — обведите точки маркером (двойной клик — замкнуть)"
+            onClick={() => { setActiveTool("volumelasso"); setLassoPts([]); setShowVolumePanel(true); setStatusMsg("Объёмы: обведите точки съёмки, двойной клик — замкнуть") }}
+            className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${activeTool === "volumelasso" ? "bg-amber-500 text-white" : "text-gray-400 hover:text-white hover:bg-amber-600"}`}>
+            <Icon name="Lasso" size={12} fallback="Spline" />
+          </button>
           <div className="w-full border-t border-gray-700 my-0.5"/>
           <button title="Сохранить чертёж в проект"
             onClick={сохранитьЧертёж} disabled={сохраняется}
@@ -14441,6 +14506,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 {activeTool === "delete" && "Кликните объект для удаления"}
                 {activeTool === "move" && "Кликните объект и перетащите"}
                 {activeTool === "measure" && "Кликните для измерения расстояния"}
+                {activeTool === "volumelasso" && "Обведите точки съёмки маркером · двойной клик — замкнуть контур кучи"}
                 &nbsp;· Esc — отмена
               </div>
             )}
@@ -15190,6 +15256,105 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         </div>
 
         {/* ── Right: Properties Panel ── */}
+        {showVolumePanel && (() => {
+          const allPts = canvasObjects.map(realPoint).filter(Boolean) as VolumePoint[]
+          const total = allPts.length >= 3 ? computeVolume(allPts, baseFor()) : null
+          const byCode: { code: string; res: VolumeResult; color: string }[] = []
+          if (allPts.length >= 3) {
+            const groups: Record<string, VolumePoint[]> = {}
+            allPts.forEach(p => { const k = (p.code || "Без кода").toString().trim() || "Без кода"; (groups[k] ||= []).push(p) })
+            Object.keys(groups).forEach((k, i) => { const g = groups[k]; if (g.length >= 3) byCode.push({ code: k, res: computeVolume(g, baseFor()), color: pileColor(i) }) })
+          }
+          const pilesFill = volumePiles.reduce((s, p) => s + p.result.fill, 0)
+          return (
+            <div className="bg-[#1a1a2e] border-l border-gray-700 flex flex-col flex-shrink-0 overflow-hidden" style={{width:230}}>
+              <div className="bg-[#252535] px-2 py-1.5 border-b border-gray-600 flex items-center justify-between">
+                <span className="text-[11px] text-white font-bold flex items-center gap-1.5">
+                  <Icon name="Boxes" size={11} className="text-amber-400"/> Земляные объёмы
+                </span>
+                <button onClick={()=>setShowVolumePanel(false)} className="text-gray-500 hover:text-white text-xs">✕</button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-2 text-[10px]">
+                {/* База отсчёта */}
+                <div className="bg-[#20203a] rounded p-2 space-y-1.5">
+                  <div className="text-gray-400 uppercase text-[9px] font-bold">База отсчёта</div>
+                  <div className="flex gap-1">
+                    {([["min","Мин. точка"],["fixed","Отметка"],["surface","Поверхн."]] as const).map(([m,l])=>(
+                      <button key={m} onClick={()=>setVolumeBaseMode(m)}
+                        className={`flex-1 px-1 py-1 rounded text-[9px] ${volumeBaseMode===m?"bg-amber-500 text-white":"bg-[#2a2a44] text-gray-400 hover:text-white"}`}>{l}</button>
+                    ))}
+                  </div>
+                  {volumeBaseMode==="fixed" && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">H₀ =</span>
+                      <input type="number" step="0.1" value={volumeFixedElev} onChange={e=>setVolumeFixedElev(parseFloat(e.target.value)||0)}
+                        className="w-full bg-[#111827] border border-gray-600 text-white px-1.5 py-0.5 rounded outline-none font-mono"/>
+                      <span className="text-gray-500">м</span>
+                    </div>
+                  )}
+                  {volumeBaseMode==="surface" && <div className="text-gray-500 text-[9px]">Между чёрной и красной поверхностью (по демо-рельефу)</div>}
+                </div>
+
+                {/* ОБЩИЙ объём */}
+                <div className="bg-[#20203a] rounded p-2">
+                  <div className="text-gray-400 uppercase text-[9px] font-bold mb-1">Общий объём ({allPts.length} точек)</div>
+                  {total ? (
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between"><span className="text-emerald-400">Насыпь / навал</span><b className="text-emerald-300 font-mono">{fmtM3(total.fill)}</b></div>
+                      <div className="flex justify-between"><span className="text-rose-400">Выемка</span><b className="text-rose-300 font-mono">{fmtM3(total.cut)}</b></div>
+                      <div className="flex justify-between border-t border-gray-700 pt-0.5 mt-0.5"><span className="text-gray-300">Баланс</span><b className="text-white font-mono">{fmtM3(total.net)}</b></div>
+                      <div className="flex justify-between text-gray-500"><span>Площадь</span><span className="font-mono">{total.area2d.toLocaleString("ru-RU",{maximumFractionDigits:0})} м²</span></div>
+                      <div className="flex justify-between text-gray-500"><span>Отметки</span><span className="font-mono">{total.minZ}…{total.maxZ}</span></div>
+                    </div>
+                  ) : <div className="text-gray-500">Нужно ≥3 точки съёмки на холсте</div>}
+                </div>
+
+                {/* По кучкам (лассо) */}
+                <div className="bg-[#20203a] rounded p-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-gray-400 uppercase text-[9px] font-bold">По кучкам ({volumePiles.length})</span>
+                    <button onClick={()=>{ setActiveTool("volumelasso"); setLassoPts([]); setStatusMsg("Обведите точки кучи, двойной клик — замкнуть") }}
+                      className="text-amber-400 hover:text-amber-300 flex items-center gap-0.5 text-[9px]"><Icon name="Lasso" size={10} fallback="Plus"/>обвести</button>
+                  </div>
+                  {volumePiles.length === 0 && <div className="text-gray-500 text-[9px]">Обведите точки маркером — каждая обводка = отдельная куча</div>}
+                  <div className="space-y-1">
+                    {volumePiles.map(p=>(
+                      <div key={p.id} className="bg-[#141420] rounded p-1.5">
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:p.color}}/>
+                          <span className="text-gray-200 flex-1">{p.name}</span>
+                          <span className="text-gray-500">{p.count} т.</span>
+                          <button onClick={()=>setVolumePiles(prev=>prev.filter(x=>x.id!==p.id))} className="text-gray-500 hover:text-red-400"><Icon name="X" size={10}/></button>
+                        </div>
+                        <div className="flex justify-between"><span className="text-emerald-400">навал</span><b className="text-emerald-300 font-mono">{fmtM3(p.result.fill)}</b></div>
+                      </div>
+                    ))}
+                    {volumePiles.length > 1 && (
+                      <div className="flex justify-between border-t border-gray-700 pt-1"><span className="text-gray-300">Σ по кучам</span><b className="text-amber-300 font-mono">{fmtM3(pilesFill)}</b></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* По кодам (автогруппы) */}
+                {byCode.length > 0 && (
+                  <div className="bg-[#20203a] rounded p-2">
+                    <div className="text-gray-400 uppercase text-[9px] font-bold mb-1">По кодам (COD)</div>
+                    <div className="space-y-1">
+                      {byCode.map(c=>(
+                        <div key={c.code} className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:c.color}}/>
+                          <span className="text-gray-200 flex-1 truncate">{c.code}</span>
+                          <b className="text-emerald-300 font-mono">{fmtM3(c.res.fill)}</b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {showProperties && (() => {
           const selObj = canvasObjects.find(o => o.id === selectedObjId)
           return (

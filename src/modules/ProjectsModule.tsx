@@ -43,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = { active: "В работе", review: "На проверке", approved: "Утверждён", archived: "Архив" }
 
 const API = "https://functions.poehali.dev/0413bfb5-1eee-4ebd-91f9-66e74d563887"
+const DOCS_API = "https://functions.poehali.dev/09706d70-2ba6-4779-85ab-5ba69c802c9b"
 
 export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const store = useContext(ProjectContext)
@@ -57,50 +58,87 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
 
-  // Папки документации по проектам (договоры, ТЗ, отчёты, согласования)
-  interface DocFile { name: string; ext: string; size: string; date: string }
+  // Папки документации по проектам (документы хранятся на сервере: S3 + БД)
+  interface DocFile { id?: number; name: string; ext: string; size: string; date: string; url?: string }
   interface DocFolder { name: string; files: DocFile[] }
+  const DEFAULT_DOC_FOLDERS = ["Общая документация", "Договоры", "Согласования", "Сметы"]
   const [docsByProject, setDocsByProject] = useState<Record<number, DocFolder[]>>({})
+  const [extraFolders, setExtraFolders] = useState<Record<number, string[]>>({})
   const [activeDocFolder, setActiveDocFolder] = useState<string>("Общая документация")
+  const [docsLoading, setDocsLoading] = useState(false)
   const docUploadRef = useRef<HTMLInputElement>(null)
 
-  const defaultDocFolders = (): DocFolder[] => [
-    { name: "Общая документация", files: [
-      { name: "Техническое_задание.pdf", ext: "PDF", size: "1.1 МБ", date: "05.05.2026" },
-      { name: "Пояснительная_записка.docx", ext: "DOCX", size: "820 КБ", date: "12.05.2026" },
-    ]},
-    { name: "Договоры", files: [{ name: "Договор_подряда.pdf", ext: "PDF", size: "640 КБ", date: "01.04.2026" }] },
-    { name: "Согласования", files: [] },
-    { name: "Сметы", files: [{ name: "Смета_объекта.xlsx", ext: "XLSX", size: "310 КБ", date: "18.05.2026" }] },
-  ]
-  const projectDocs = (pid: number): DocFolder[] => docsByProject[pid] ?? defaultDocFolders()
-
   const docHumanSize = (bytes: number) => bytes < 1024 ? `${bytes} Б` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} КБ` : `${(bytes / 1048576).toFixed(1)} МБ`
+
+  // Загрузка документов проекта с сервера
+  const loadDocs = async (pid: number) => {
+    setDocsLoading(true)
+    try {
+      const r = await fetch(`${DOCS_API}?project_id=${pid}`)
+      const data = await r.json()
+      const folderNames = [...DEFAULT_DOC_FOLDERS, ...(extraFolders[pid] || [])]
+      const folders: DocFolder[] = folderNames.map(name => ({ name, files: [] }))
+      for (const d of (data.documents || [])) {
+        let fo = folders.find(f => f.name === d.folder)
+        if (!fo) { fo = { name: d.folder, files: [] }; folders.push(fo) }
+        fo.files.push({ id: d.id, name: d.file_name, ext: d.ext || "FILE", size: docHumanSize(d.size_bytes || 0), date: d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString("ru-RU") : "", url: d.cdn_url })
+      }
+      setDocsByProject(prev => ({ ...prev, [pid]: folders }))
+    } catch { /* offline */ }
+    finally { setDocsLoading(false) }
+  }
+
+  const projectDocs = (pid: number): DocFolder[] => docsByProject[pid] ?? [...DEFAULT_DOC_FOLDERS, ...(extraFolders[pid] || [])].map(name => ({ name, files: [] }))
 
   const addDocFolder = (pid: number) => {
     const name = window.prompt("Название папки документации:", "Новая папка")
     if (!name || !name.trim()) return
     const list = projectDocs(pid)
     if (list.some(f => f.name === name.trim())) { window.alert("Такая папка уже есть"); return }
+    setExtraFolders(prev => ({ ...prev, [pid]: [...(prev[pid] || []), name.trim()] }))
     setDocsByProject(prev => ({ ...prev, [pid]: [...list, { name: name.trim(), files: [] }] }))
     setActiveDocFolder(name.trim())
   }
   const removeDocFolder = (pid: number, name: string) => {
     if (!window.confirm(`Удалить папку «${name}»?`)) return
+    setExtraFolders(prev => ({ ...prev, [pid]: (prev[pid] || []).filter(n => n !== name) }))
     setDocsByProject(prev => ({ ...prev, [pid]: projectDocs(pid).filter(f => f.name !== name) }))
   }
-  const uploadDocs = (pid: number, fileList: FileList | null) => {
+
+  const fileToBase64 = (f: File): Promise<string> => new Promise((res, rej) => {
+    const rd = new FileReader()
+    rd.onload = () => res(String(rd.result || "").split(",", 2)[1] || "")
+    rd.onerror = rej
+    rd.readAsDataURL(f)
+  })
+
+  const uploadDocs = async (pid: number, fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return
-    const today = new Date().toLocaleDateString("ru-RU")
-    const added: DocFile[] = Array.from(fileList).map(f => ({ name: f.name, ext: (f.name.split(".").pop() || "FILE").toUpperCase(), size: docHumanSize(f.size), date: today }))
-    setDocsByProject(prev => ({ ...prev, [pid]: projectDocs(pid).map(fo => fo.name === activeDocFolder ? { ...fo, files: [...added, ...fo.files] } : fo) }))
+    setDocsLoading(true)
+    for (const f of Array.from(fileList)) {
+      try {
+        const content_base64 = await fileToBase64(f)
+        await fetch(DOCS_API, { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: pid, folder: activeDocFolder, file_name: f.name, content_base64 }) })
+      } catch { /* skip */ }
+    }
+    await loadDocs(pid)
   }
-  const removeDoc = (pid: number, folderName: string, fileName: string) => {
-    setDocsByProject(prev => ({ ...prev, [pid]: projectDocs(pid).map(fo => fo.name === folderName ? { ...fo, files: fo.files.filter(fl => fl.name !== fileName) } : fo) }))
+  const removeDoc = async (pid: number, _folderName: string, file: DocFile) => {
+    if (file.id != null) {
+      try { await fetch(`${DOCS_API}?id=${file.id}`, { method: "DELETE" }) } catch { /* skip */ }
+    }
+    await loadDocs(pid)
   }
   const DOC_COLORS: Record<string, string> = { PDF: "#ef4444", DOCX: "#2563eb", DOC: "#2563eb", XLSX: "#16a34a", XLS: "#16a34a", XML: "#0284c7", ZIP: "#a16207", DWG: "#0078d4" }
 
   const current = projects.find(p => p.id === activeProject)
+
+  // Подгружаем документы при открытии проекта
+  useEffect(() => {
+    if (activeProject != null && docsByProject[activeProject] === undefined) loadDocs(activeProject)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject])
 
   // Загрузка проектов из БД
   useEffect(() => {
@@ -420,6 +458,7 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                     <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
                       <Icon name="Folder" size={15} className="text-indigo-600" />
                       <span className="text-[13px] font-semibold text-gray-800">{activeDocFolder}</span>
+                      {docsLoading && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Icon name="Loader" size={11} className="animate-spin" />загрузка…</span>}
                       <Button size="sm" variant="outline" className="ml-auto text-[11px] h-7 gap-1" onClick={() => docUploadRef.current?.click()}>
                         <Icon name="Upload" size={12} />Загрузить документ
                       </Button>
@@ -436,14 +475,14 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                         return cur.files.map(file => {
                           const col = DOC_COLORS[file.ext] || "#64748b"
                           return (
-                            <div key={file.name} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                            <div key={file.id ?? file.name} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
                               <div className="w-8 h-8 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: col + "18", color: col }}>{file.ext.slice(0, 3)}</div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-[12px] text-gray-800 font-medium truncate">{file.name}</div>
                                 <div className="text-[10px] text-gray-400">{file.size} · {file.date}</div>
                               </div>
-                              <button className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors" title="Скачать"><Icon name="Download" size={13} /></button>
-                              <button onClick={() => removeDoc(current.id, activeDocFolder, file.name)} className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors" title="Удалить"><Icon name="Trash2" size={13} /></button>
+                              <a href={file.url || "#"} target="_blank" rel="noreferrer" className={`p-1 rounded transition-colors ${file.url ? "hover:bg-green-100 text-gray-400 hover:text-green-600" : "text-gray-200 pointer-events-none"}`} title="Скачать"><Icon name="Download" size={13} /></a>
+                              <button onClick={() => removeDoc(current.id, activeDocFolder, file)} className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors" title="Удалить"><Icon name="Trash2" size={13} /></button>
                             </div>
                           )
                         })

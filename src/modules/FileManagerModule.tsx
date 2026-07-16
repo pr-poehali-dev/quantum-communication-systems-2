@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -218,7 +218,8 @@ const PROJECT_STRUCTURE = [
   },
 ]
 
-interface ProjectFile { name: string; ext: string; size: string; date: string; modified: boolean }
+interface ProjectFile { name: string; ext: string; size: string; date: string; modified: boolean; id?: number; url?: string }
+const DOCS_API = "https://functions.poehali.dev/09706d70-2ba6-4779-85ab-5ba69c802c9b"
 interface ProjectFolder { folder: string; icon: string; color: string; files: ProjectFile[] }
 
 // Папка для хранения документации проекта (договоры, ТЗ, отчёты, согласования)
@@ -281,22 +282,57 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
 
   const humanSize = (bytes: number) => bytes < 1024 ? `${bytes} Б` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} КБ` : `${(bytes / 1048576).toFixed(1)} МБ`
 
-  const onUploadFiles = (fileList: FileList | null) => {
+  const fileToBase64 = (f: File): Promise<string> => new Promise((res, rej) => {
+    const rd = new FileReader()
+    rd.onload = () => res(String(rd.result || "").split(",", 2)[1] || "")
+    rd.onerror = rej
+    rd.readAsDataURL(f)
+  })
+
+  // Подгружаем ранее загруженные документы с сервера (общие, без привязки к проекту)
+  useEffect(() => {
+    fetch(DOCS_API).then(r => r.json()).then(data => {
+      const serverFiles: Record<string, ProjectFile[]> = {}
+      for (const d of (data.documents || [])) {
+        if (d.project_id != null) continue
+        ;(serverFiles[d.folder] ||= []).push({ id: d.id, name: d.file_name, ext: d.ext || "FILE", size: humanSize(d.size_bytes || 0), date: d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString("ru-RU") : "", modified: false, url: d.cdn_url })
+      }
+      if (Object.keys(serverFiles).length === 0) return
+      setFolders(prev => {
+        const next = [...prev]
+        for (const [folderName, files] of Object.entries(serverFiles)) {
+          let fo = next.find(f => f.folder === folderName)
+          if (!fo) { fo = { folder: folderName, icon: "FolderOpen", color: "#e11d48", files: [] }; next.push(fo) }
+          fo.files = [...files, ...fo.files.filter(x => x.id == null)]
+        }
+        return next
+      })
+    }).catch(() => { /* offline */ })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const onUploadFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return
     const today = new Date().toLocaleDateString("ru-RU")
-    const newFiles: ProjectFile[] = Array.from(fileList).map(f => ({
-      name: f.name,
-      ext: (f.name.split(".").pop() || "FILE").toUpperCase(),
-      size: humanSize(f.size),
-      date: today,
-      modified: true,
-    }))
-    setFolders(prev => prev.map(fo => fo.folder === activeFolder ? { ...fo, files: [...newFiles, ...fo.files] } : fo))
-    setExpandedFolders(prev => prev.includes(activeFolder) ? prev : [...prev, activeFolder])
+    const targetFolder = activeFolder
+    for (const f of Array.from(fileList)) {
+      const local: ProjectFile = { name: f.name, ext: (f.name.split(".").pop() || "FILE").toUpperCase(), size: humanSize(f.size), date: today, modified: true }
+      setFolders(prev => prev.map(fo => fo.folder === targetFolder ? { ...fo, files: [local, ...fo.files] } : fo))
+      try {
+        const content_base64 = await fileToBase64(f)
+        const r = await fetch(DOCS_API, { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: null, folder: targetFolder, file_name: f.name, content_base64 }) })
+        const saved = await r.json()
+        setFolders(prev => prev.map(fo => fo.folder === targetFolder
+          ? { ...fo, files: fo.files.map(x => x === local ? { ...x, id: saved.id, url: saved.cdn_url, modified: false } : x) } : fo))
+      } catch { /* offline — остаётся локально */ }
+    }
+    setExpandedFolders(prev => prev.includes(targetFolder) ? prev : [...prev, targetFolder])
   }
 
-  const deleteFile = (folderName: string, fileName: string) => {
-    setFolders(prev => prev.map(fo => fo.folder === folderName ? { ...fo, files: fo.files.filter(fl => fl.name !== fileName) } : fo))
+  const deleteFile = async (folderName: string, file: ProjectFile) => {
+    setFolders(prev => prev.map(fo => fo.folder === folderName ? { ...fo, files: fo.files.filter(fl => fl !== file) } : fo))
+    if (file.id != null) { try { await fetch(`${DOCS_API}?id=${file.id}`, { method: "DELETE" }) } catch { /* skip */ } }
   }
 
   const filtered = FILE_TYPES.filter(f => {
@@ -484,10 +520,11 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
                         <button className="p-1 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors" title="Открыть">
                           <Icon name="FolderOpen" size={12} />
                         </button>
-                        <button className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors" title="Скачать">
+                        <a href={file.url || "#"} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          className={`p-1 rounded transition-colors ${file.url ? "hover:bg-green-100 text-gray-400 hover:text-green-600" : "text-gray-200 pointer-events-none"}`} title="Скачать">
                           <Icon name="Download" size={12} />
-                        </button>
-                        <button onClick={e => { e.stopPropagation(); deleteFile(activeFolder, file.name) }}
+                        </a>
+                        <button onClick={e => { e.stopPropagation(); deleteFile(activeFolder, file) }}
                           className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors" title="Удалить">
                           <Icon name="Trash2" size={12} />
                         </button>

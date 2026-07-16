@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Список документов",
+      "method": "GET",
+      "path": "/?project_id=999999",
+      "expectedStatus": 200,
+      "expectedBody": {"documents": []},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Загрузка документа",
+      "method": "POST",
+      "path": "/",
+      "body": {"project_id": 1, "folder": "Общая документация", "file_name": "test_tz.txt", "content_base64": "0KLQtdGB0YLQvtCy0YvQuSDQtNC+0LrRg9C80LXQvdGC"},
+      "expectedStatus": 200,
+      "expectedBody": {"file_name": "test_tz.txt", "ext": "TXT"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
