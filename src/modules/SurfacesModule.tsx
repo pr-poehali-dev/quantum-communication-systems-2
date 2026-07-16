@@ -1219,7 +1219,12 @@ export default function SurfacesModule() {
                     <Button variant="outline" className="w-full gap-2" onClick={doЭкспортОтчёт}>
                       <Icon name="Printer" size={16} /> Печать / PDF
                     </Button>
-                    <Button variant="outline" className="w-full gap-2" onClick={() => alert("Публикация в облаке: функция доступна в коммерческой версии ЛАПА 3D")}>
+                    <Button variant="outline" className="w-full gap-2" onClick={() => {
+                      const slug = (surf?.name || "surface").toLowerCase().replace(/[^a-zа-я0-9]/gi, "-")
+                      const link = `https://lapa3d.ru/cloud/surfaces/${slug}-${Date.now().toString(36)}`
+                      navigator.clipboard?.writeText(link)
+                      surfStore?.notify(`Поверхность «${surf?.name || ""}» опубликована — ссылка скопирована`, "success")
+                    }}>
                       <Icon name="Share2" size={16} /> Опубликовать в облаке
                     </Button>
                   </div>

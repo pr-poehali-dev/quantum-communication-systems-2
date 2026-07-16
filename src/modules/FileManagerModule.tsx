@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -218,7 +218,24 @@ const PROJECT_STRUCTURE = [
   },
 ]
 
+interface ProjectFile { name: string; ext: string; size: string; date: string; modified: boolean }
+interface ProjectFolder { folder: string; icon: string; color: string; files: ProjectFile[] }
+
+// Папка для хранения документации проекта (договоры, ТЗ, отчёты, согласования)
+const DOCS_FOLDER: ProjectFolder = {
+  folder: "Документация",
+  icon: "FolderOpen",
+  color: "#e11d48",
+  files: [
+    { name: "Техническое_задание.pdf", ext: "PDF", size: "1.1 МБ", date: "05.05.2026", modified: false },
+    { name: "Пояснительная_записка.docx", ext: "DOCX", size: "820 КБ", date: "12.05.2026", modified: false },
+    { name: "Договор_подряда.pdf", ext: "PDF", size: "640 КБ", date: "01.04.2026", modified: false },
+    { name: "Смета_объекта.xlsx", ext: "XLSX", size: "310 КБ", date: "18.05.2026", modified: false },
+  ],
+}
+
 const EXT_COLORS: Record<string, string> = {
+  DOCX: "#2563eb", XLSX: "#16a34a", DOC: "#2563eb", XLS: "#16a34a", ZIP: "#a16207", RAR: "#a16207",
   DWG: "#0078d4", DWT: "#059669", DWS: "#7c3aed", BAK: "#d97706",
   XML: "#0284c7", CSV: "#16a34a", TXT: "#6b7280", SDF: "#ec4899",
   ADSKLIB: "#8b5cf6", DXF: "#ea580c", IFC: "#0078d4", PDF: "#ef4444",
@@ -240,8 +257,47 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [selectedType, setSelectedType] = useState<typeof FILE_TYPES[0] | null>(null)
-  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Чертежи", "Данные"])
+  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Чертежи", "Документация"])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [folders, setFolders] = useState<ProjectFolder[]>([...PROJECT_STRUCTURE, DOCS_FOLDER])
+  const [activeFolder, setActiveFolder] = useState<string>("Документация")
+  const uploadRef = useRef<HTMLInputElement>(null)
+
+  const FOLDER_COLORS = ["#0078d4", "#059669", "#7c3aed", "#d97706", "#e11d48", "#0284c7", "#16a34a", "#6b7280"]
+
+  const createFolder = () => {
+    const name = window.prompt("Название новой папки:", "Новая папка")
+    if (!name || !name.trim()) return
+    if (folders.some(f => f.folder === name.trim())) { window.alert("Папка с таким именем уже существует"); return }
+    setFolders(prev => [...prev, { folder: name.trim(), icon: "FolderOpen", color: FOLDER_COLORS[prev.length % FOLDER_COLORS.length], files: [] }])
+    setExpandedFolders(prev => [...prev, name.trim()])
+    setActiveFolder(name.trim())
+  }
+
+  const deleteFolder = (name: string) => {
+    if (!window.confirm(`Удалить папку «${name}» и всё её содержимое?`)) return
+    setFolders(prev => prev.filter(f => f.folder !== name))
+  }
+
+  const humanSize = (bytes: number) => bytes < 1024 ? `${bytes} Б` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} КБ` : `${(bytes / 1048576).toFixed(1)} МБ`
+
+  const onUploadFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return
+    const today = new Date().toLocaleDateString("ru-RU")
+    const newFiles: ProjectFile[] = Array.from(fileList).map(f => ({
+      name: f.name,
+      ext: (f.name.split(".").pop() || "FILE").toUpperCase(),
+      size: humanSize(f.size),
+      date: today,
+      modified: true,
+    }))
+    setFolders(prev => prev.map(fo => fo.folder === activeFolder ? { ...fo, files: [...newFiles, ...fo.files] } : fo))
+    setExpandedFolders(prev => prev.includes(activeFolder) ? prev : [...prev, activeFolder])
+  }
+
+  const deleteFile = (folderName: string, fileName: string) => {
+    setFolders(prev => prev.map(fo => fo.folder === folderName ? { ...fo, files: fo.files.filter(fl => fl.name !== fileName) } : fo))
+  }
 
   const filtered = FILE_TYPES.filter(f => {
     const matchCat = categoryFilter === "all" || f.category === categoryFilter
@@ -267,14 +323,16 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" className="text-xs gap-1.5">
+          <input ref={uploadRef} type="file" multiple className="hidden"
+            onChange={e => { onUploadFiles(e.target.files); if (e.target) e.target.value = "" }} />
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={createFolder}>
             <Icon name="FolderPlus" size={13} />Новая папка
           </Button>
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onNavigate?.("civilcad")}>
             <Icon name="Monitor" size={13} />Редактор
           </Button>
-          <Button size="sm" className="text-xs gap-1.5 bg-blue-600 hover:bg-blue-700">
-            <Icon name="Upload" size={13} />Импортировать файл
+          <Button size="sm" className="text-xs gap-1.5 bg-blue-600 hover:bg-blue-700" onClick={() => uploadRef.current?.click()}>
+            <Icon name="Upload" size={13} />Загрузить в «{activeFolder}»
           </Button>
         </div>
       </div>
@@ -311,20 +369,24 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
                 <button className="text-gray-400 hover:text-gray-600"><Icon name="RefreshCw" size={12} /></button>
               </div>
               <div className="p-2 space-y-0.5">
-                {PROJECT_STRUCTURE.map(folder => (
+                {folders.map(folder => (
                   <div key={folder.folder}>
-                    <button
-                      onClick={() => toggleFolder(folder.folder)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 text-left transition-colors"
+                    <div
+                      onClick={() => { toggleFolder(folder.folder); setActiveFolder(folder.folder) }}
+                      className={`group w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${activeFolder === folder.folder ? "bg-blue-50" : "hover:bg-gray-50"}`}
                     >
                       <Icon
                         name={expandedFolders.includes(folder.folder) ? "ChevronDown" : "ChevronRight"}
                         size={12} className="text-gray-400 flex-shrink-0"
                       />
                       <Icon name="Folder" size={15} style={{ color: folder.color }} className="flex-shrink-0" />
-                      <span className="text-[12px] text-gray-700 font-medium">{folder.folder}</span>
+                      <span className={`text-[12px] font-medium ${activeFolder === folder.folder ? "text-blue-700" : "text-gray-700"}`}>{folder.folder}</span>
                       <span className="ml-auto text-[10px] text-gray-400">{folder.files.length}</span>
-                    </button>
+                      <button onClick={e => { e.stopPropagation(); deleteFolder(folder.folder) }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-all" title="Удалить папку">
+                        <Icon name="Trash2" size={11} />
+                      </button>
+                    </div>
                     <AnimatePresence>
                       {expandedFolders.includes(folder.folder) && (
                         <motion.div
@@ -359,11 +421,15 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
             {/* Содержимое папки */}
             <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-                <Input placeholder="Поиск файлов..." className="h-8 text-xs w-64"
+                <span className="text-[12px] font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Icon name="Folder" size={14} style={{ color: folders.find(f => f.folder === activeFolder)?.color }} />{activeFolder}
+                </span>
+                <Input placeholder="Поиск файлов..." className="h-8 text-xs w-56"
                   value={search} onChange={e => setSearch(e.target.value)} />
-                <div className="ml-auto flex items-center gap-1">
-                  <button className="p-1.5 rounded hover:bg-gray-100"><Icon name="LayoutGrid" size={13} className="text-gray-500" /></button>
-                  <button className="p-1.5 rounded bg-gray-100"><Icon name="List" size={13} className="text-gray-600" /></button>
+                <div className="ml-auto flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="text-[11px] gap-1 h-7" onClick={() => uploadRef.current?.click()}>
+                    <Icon name="Upload" size={12} />Загрузить
+                  </Button>
                 </div>
               </div>
               <div className="divide-y divide-gray-50">
@@ -375,10 +441,18 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
                   <span>Дата</span>
                   <span>Действия</span>
                 </div>
-                {PROJECT_STRUCTURE.flatMap(folder =>
-                  folder.files.filter(f =>
-                    !search || f.name.toLowerCase().includes(search.toLowerCase())
-                  ).map(file => (
+                {(() => {
+                  const cur = folders.find(f => f.folder === activeFolder)
+                  const list = (cur?.files || []).filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()))
+                  if (list.length === 0) return (
+                    <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-400">
+                      <Icon name="FolderOpen" size={28} />
+                      <span className="text-[12px]">Папка пуста — загрузите документы кнопкой «Загрузить»</span>
+                    </div>
+                  )
+                  return list.map(file => {
+                    const col = EXT_COLORS[file.ext] || "#64748b"
+                    return (
                     <motion.div
                       key={file.name}
                       initial={{ opacity: 0 }}
@@ -388,19 +462,19 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                          style={{ background: EXT_COLORS[file.ext] + "18", color: EXT_COLORS[file.ext] }}>
+                          style={{ background: col + "18", color: col }}>
                           {file.ext.slice(0, 3)}
                         </div>
                         <div>
                           <div className="text-[12px] text-gray-800 font-medium flex items-center gap-1.5">
                             {file.name}
-                            {file.modified && <span className="text-[9px] text-orange-500 font-semibold">● изменён</span>}
+                            {file.modified && <span className="text-[9px] text-orange-500 font-semibold">● новый</span>}
                           </div>
                         </div>
                       </div>
                       <div>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: EXT_COLORS[file.ext] + "18", color: EXT_COLORS[file.ext] }}>
+                          style={{ background: col + "18", color: col }}>
                           .{file.ext.toLowerCase()}
                         </span>
                       </div>
@@ -413,13 +487,14 @@ export default function FileManagerModule({ onNavigate }: { onNavigate?: (id: st
                         <button className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors" title="Скачать">
                           <Icon name="Download" size={12} />
                         </button>
-                        <button className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors" title="Удалить">
+                        <button onClick={e => { e.stopPropagation(); deleteFile(activeFolder, file.name) }}
+                          className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors" title="Удалить">
                           <Icon name="Trash2" size={12} />
                         </button>
                       </div>
                     </motion.div>
-                  ))
-                )}
+                  )})
+                })()}
               </div>
             </div>
           </div>

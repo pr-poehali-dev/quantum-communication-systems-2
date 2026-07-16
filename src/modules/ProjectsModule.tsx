@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react"
+import { useState, useEffect, useContext, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,6 +56,49 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
   const [versionComment, setVersionComment] = useState("")
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
+
+  // Папки документации по проектам (договоры, ТЗ, отчёты, согласования)
+  interface DocFile { name: string; ext: string; size: string; date: string }
+  interface DocFolder { name: string; files: DocFile[] }
+  const [docsByProject, setDocsByProject] = useState<Record<number, DocFolder[]>>({})
+  const [activeDocFolder, setActiveDocFolder] = useState<string>("Общая документация")
+  const docUploadRef = useRef<HTMLInputElement>(null)
+
+  const defaultDocFolders = (): DocFolder[] => [
+    { name: "Общая документация", files: [
+      { name: "Техническое_задание.pdf", ext: "PDF", size: "1.1 МБ", date: "05.05.2026" },
+      { name: "Пояснительная_записка.docx", ext: "DOCX", size: "820 КБ", date: "12.05.2026" },
+    ]},
+    { name: "Договоры", files: [{ name: "Договор_подряда.pdf", ext: "PDF", size: "640 КБ", date: "01.04.2026" }] },
+    { name: "Согласования", files: [] },
+    { name: "Сметы", files: [{ name: "Смета_объекта.xlsx", ext: "XLSX", size: "310 КБ", date: "18.05.2026" }] },
+  ]
+  const projectDocs = (pid: number): DocFolder[] => docsByProject[pid] ?? defaultDocFolders()
+
+  const docHumanSize = (bytes: number) => bytes < 1024 ? `${bytes} Б` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} КБ` : `${(bytes / 1048576).toFixed(1)} МБ`
+
+  const addDocFolder = (pid: number) => {
+    const name = window.prompt("Название папки документации:", "Новая папка")
+    if (!name || !name.trim()) return
+    const list = projectDocs(pid)
+    if (list.some(f => f.name === name.trim())) { window.alert("Такая папка уже есть"); return }
+    setDocsByProject(prev => ({ ...prev, [pid]: [...list, { name: name.trim(), files: [] }] }))
+    setActiveDocFolder(name.trim())
+  }
+  const removeDocFolder = (pid: number, name: string) => {
+    if (!window.confirm(`Удалить папку «${name}»?`)) return
+    setDocsByProject(prev => ({ ...prev, [pid]: projectDocs(pid).filter(f => f.name !== name) }))
+  }
+  const uploadDocs = (pid: number, fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return
+    const today = new Date().toLocaleDateString("ru-RU")
+    const added: DocFile[] = Array.from(fileList).map(f => ({ name: f.name, ext: (f.name.split(".").pop() || "FILE").toUpperCase(), size: docHumanSize(f.size), date: today }))
+    setDocsByProject(prev => ({ ...prev, [pid]: projectDocs(pid).map(fo => fo.name === activeDocFolder ? { ...fo, files: [...added, ...fo.files] } : fo) }))
+  }
+  const removeDoc = (pid: number, folderName: string, fileName: string) => {
+    setDocsByProject(prev => ({ ...prev, [pid]: projectDocs(pid).map(fo => fo.name === folderName ? { ...fo, files: fo.files.filter(fl => fl.name !== fileName) } : fo) }))
+  }
+  const DOC_COLORS: Record<string, string> = { PDF: "#ef4444", DOCX: "#2563eb", DOC: "#2563eb", XLSX: "#16a34a", XLS: "#16a34a", XML: "#0284c7", ZIP: "#a16207", DWG: "#0078d4" }
 
   const current = projects.find(p => p.id === activeProject)
 
@@ -292,6 +335,7 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
               <TabsList>
                 <TabsTrigger value="info">Информация</TabsTrigger>
                 <TabsTrigger value="versions">Версии ({current.versions.length})</TabsTrigger>
+                <TabsTrigger value="docs">Документы</TabsTrigger>
                 <TabsTrigger value="team">Команда</TabsTrigger>
                 <TabsTrigger value="reports">Отчёты</TabsTrigger>
                 <TabsTrigger value="cat-collab">Совместная работа</TabsTrigger>
@@ -343,6 +387,69 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                       {v.size !== "—" && <div className="text-xs text-gray-400 mt-1">{v.size}</div>}
                     </div>
                   ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="docs" className="mt-4">
+                <input ref={docUploadRef} type="file" multiple className="hidden"
+                  onChange={e => { uploadDocs(current.id, e.target.files); if (e.target) e.target.value = "" }} />
+                <div className="flex gap-4">
+                  {/* Папки документации проекта */}
+                  <div className="w-60 shrink-0 rounded-xl border border-gray-200 bg-white overflow-hidden">
+                    <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Папки</span>
+                      <button onClick={() => addDocFolder(current.id)} className="text-indigo-600 hover:text-indigo-800" title="Новая папка">
+                        <Icon name="FolderPlus" size={14} />
+                      </button>
+                    </div>
+                    <div className="p-1.5 space-y-0.5">
+                      {projectDocs(current.id).map(f => (
+                        <div key={f.name} onClick={() => setActiveDocFolder(f.name)}
+                          className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${activeDocFolder === f.name ? "bg-indigo-50" : "hover:bg-gray-50"}`}>
+                          <Icon name="Folder" size={15} className={activeDocFolder === f.name ? "text-indigo-600" : "text-gray-400"} />
+                          <span className={`text-[12px] truncate flex-1 ${activeDocFolder === f.name ? "text-indigo-700 font-medium" : "text-gray-700"}`}>{f.name}</span>
+                          <span className="text-[10px] text-gray-400">{f.files.length}</span>
+                          <button onClick={e => { e.stopPropagation(); removeDocFolder(current.id, f.name) }}
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"><Icon name="Trash2" size={11} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Файлы активной папки */}
+                  <div className="flex-1 rounded-xl border border-gray-200 bg-white overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
+                      <Icon name="Folder" size={15} className="text-indigo-600" />
+                      <span className="text-[13px] font-semibold text-gray-800">{activeDocFolder}</span>
+                      <Button size="sm" variant="outline" className="ml-auto text-[11px] h-7 gap-1" onClick={() => docUploadRef.current?.click()}>
+                        <Icon name="Upload" size={12} />Загрузить документ
+                      </Button>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {(() => {
+                        const cur = projectDocs(current.id).find(f => f.name === activeDocFolder)
+                        if (!cur || cur.files.length === 0) return (
+                          <div className="flex flex-col items-center justify-center gap-2 py-12 text-gray-400">
+                            <Icon name="FileText" size={26} />
+                            <span className="text-[12px]">Нет документов — загрузите договоры, ТЗ, отчёты</span>
+                          </div>
+                        )
+                        return cur.files.map(file => {
+                          const col = DOC_COLORS[file.ext] || "#64748b"
+                          return (
+                            <div key={file.name} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                              <div className="w-8 h-8 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: col + "18", color: col }}>{file.ext.slice(0, 3)}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[12px] text-gray-800 font-medium truncate">{file.name}</div>
+                                <div className="text-[10px] text-gray-400">{file.size} · {file.date}</div>
+                              </div>
+                              <button className="p-1 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors" title="Скачать"><Icon name="Download" size={13} /></button>
+                              <button onClick={() => removeDoc(current.id, activeDocFolder, file.name)} className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors" title="Удалить"><Icon name="Trash2" size={13} /></button>
+                            </div>
+                          )
+                        })
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 

@@ -4494,14 +4494,7 @@ function PointsTxtImportDialog({ onClose, onImport }: {
 }
 
 // ─── Общий доступ ──────────────────────────────────────────────────────────────
-function ShareDialog({ project, onClose, onDone }: { project: string; onClose: () => void; onDone: (m:string)=>void }) {
-  const [email, setEmail] = useState("")
-  const [access, setAccess] = useState("Просмотр")
-  const link = `https://lapa3d.ru/share/${(project||"drawing").toLowerCase().replace(/[^a-zа-я0-9]/gi,"-")}`
-  const [members] = useState([
-    { name: "maksim.efremov", role: "Владелец", color: "#0078d4" },
-    { name: "geodesist@company.ru", role: "Редактор", color: "#16a34a" },
-  ])
+function ShareDialog({ project, onClose }: { project: string; onClose: () => void; onDone: (m:string)=>void }) {
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl" style={{width:460}}>
@@ -4509,39 +4502,9 @@ function ShareDialog({ project, onClose, onDone }: { project: string; onClose: (
           <span className="text-white font-bold text-[13px] flex items-center gap-2"><Icon name="Share2" size={14} className="text-[#0078d4]" fallback="Send"/>Общий доступ — {project||"Чертёж"}</span>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
-        <div className="p-4 space-y-3 text-[11px]">
-          <div>
-            <div className="text-gray-400 mb-1">Пригласить участника</div>
-            <div className="flex gap-2">
-              <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@company.ru"
-                className="flex-1 bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#0078d4]"/>
-              <select value={access} onChange={e=>setAccess(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 rounded outline-none focus:border-[#0078d4]">
-                {["Просмотр","Редактор","Владелец"].map(r=><option key={r}>{r}</option>)}
-              </select>
-              <button onClick={()=>onDone(email?`Приглашение отправлено: ${email} (${access})`:"Укажите email")}
-                className="px-3 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">Отпр.</button>
-            </div>
-          </div>
-          <div>
-            <div className="text-gray-400 mb-1">Участники проекта</div>
-            <div className="rounded border border-gray-700 divide-y divide-gray-800">
-              {members.map(m=>(
-                <div key={m.name} className="flex items-center gap-2 px-2 py-1.5">
-                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{background:m.color}}>{m.name[0].toUpperCase()}</span>
-                  <span className="flex-1 text-gray-200 truncate">{m.name}</span>
-                  <span className="text-gray-500">{m.role}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-gray-400 mb-1">Ссылка для доступа</div>
-            <div className="flex gap-2">
-              <input readOnly value={link} className="flex-1 bg-[#111827] border border-gray-700 text-gray-300 px-2 py-1.5 rounded outline-none font-mono text-[10px]"/>
-              <button onClick={()=>{navigator.clipboard?.writeText(link);onDone("Ссылка скопирована в буфер обмена")}}
-                className="px-3 py-1.5 bg-[#2a2a3e] text-gray-200 hover:bg-[#3a3a4e] rounded flex items-center gap-1"><Icon name="Copy" size={11}/>Копировать</button>
-            </div>
-          </div>
+        <div className="p-8 flex flex-col items-center justify-center text-center gap-2" style={{minHeight:120}}>
+          <Icon name="Share2" size={28} className="text-gray-600" fallback="Send"/>
+          <span className="text-gray-500 text-[11px]">Раздел в разработке</span>
         </div>
       </div>
     </motion.div>

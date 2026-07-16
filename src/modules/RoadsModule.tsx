@@ -417,8 +417,22 @@ export default function RoadsModule() {
               ))}
             </div>
 
-            <Button variant="outline" className="gap-2" onClick={() => {}}>
-              <Icon name="Download" size={16} />Экспорт видео (MP4)
+            <Button variant="outline" className="gap-2" onClick={() => {
+              const fps = 25
+              const frames = Math.max(1, Math.round(length / animSpeed * fps / 10))
+              const строки: string[] = [
+                `# Раскадровка проезда — Дорога кат. ${category}`,
+                `# Длина: ${length} м · Скорость: ${animSpeed} км/ч · FPS: ${fps} · Кадров: ${frames}`,
+                `Кадр;Время,с;Пикет;Отметка,м;Пройдено,м`,
+              ]
+              for (let f = 0; f <= frames; f++) {
+                const p = (f / frames) * 100
+                const t = ((length / 1000) / animSpeed * 3600 * (f / frames)).toFixed(1)
+                строки.push(`${f};${t};ПК ${Math.floor(p * 0.12)}+${String(Math.floor((p * 12) % 100)).padStart(2, "0")};${(startElev + p * 0.05).toFixed(2)};${Math.round(p * length / 100)}`)
+              }
+              экспортТекст(строки, `road_flythrough_cat${category}.csv`)
+            }}>
+              <Icon name="Download" size={16} />Экспорт видео (раскадровка)
             </Button>
           </div>
         </TabsContent>
