@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, useContext, useMemo } from "react"
+import { useRef, useState, useEffect, useCallback, useContext, useMemo, Fragment } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
@@ -4314,6 +4314,184 @@ const IMPORT_FORMATS = [
   { id:"Shapefile", icon:"Map",          color:"#059669", ext:".shp",     desc:"Геопространственные данные ESRI" },
   { id:"GeoJSON",   icon:"Globe",        color:"#0ea5e9", ext:".geojson", desc:"Геометрия с атрибутами (RFC 7946)" },
 ]
+
+// ─── Импорт точек из текстового файла (МенюГЕО-стиль) ──────────────────────────
+interface ImportedPoint { no: string; x: number; y: number; z: number; code: string; desc: string }
+const SEPARATORS: { id: string; label: string; ch: string }[] = [
+  { id: "space", label: "Пробел [ _ ]", ch: " " },
+  { id: "tab",   label: "Табуляция",    ch: "\t" },
+  { id: "comma", label: "Запятая [ , ]", ch: "," },
+  { id: "semi",  label: "Точка с запятой [ ; ]", ch: ";" },
+]
+const FIELD_ORDER = ["no", "x", "y", "z", "code"] as const
+type FieldKey = typeof FIELD_ORDER[number]
+
+function PointsTxtImportDialog({ onClose, onImport }: {
+  onClose: () => void
+  onImport: (pts: ImportedPoint[], opts: { piketLayer: string; piketColor: string; noLayer: string; noColor: string; zLayer: string; zColor: string; descLayer: string; descColor: string; textH: number }) => void
+}) {
+  const [fileName, setFileName] = useState("")
+  const [raw, setRaw] = useState("vt1ska 3847.373 16017.096 1183.813\nfyn 3854.849 16013.754 1182.163\nfyn0 3860.459 16011.289 1182.716\nfyn1 3835.580 15915.275 1178.588\ntecfyn2 3845.845 16018.112 1182.739")
+  const [sep, setSep] = useState("space")
+  const [order, setOrder] = useState<Record<FieldKey, number>>({ no: 0, x: 1, y: 2, z: 3, code: 4 })
+  const [showNo, setShowNo] = useState(true)
+  const [showZ, setShowZ] = useState(true)
+  const [showDesc, setShowDesc] = useState(false)
+  const [textH, setTextH] = useState(0.200)
+  const [piketColor, setPiketColor] = useState("#facc15")
+  const [noColor, setNoColor] = useState("#22d3ee")
+  const [zColor, setZColor] = useState("#e879f9")
+  const [descColor, setDescColor] = useState("#ffffff")
+  const [piketLayer, setPiketLayer] = useState("Точки COGO")
+  const [noLayer, setNoLayer] = useState("Точки COGO")
+  const [zLayer, setZLayer] = useState("Точки COGO")
+  const [descLayer, setDescLayer] = useState("Аннотации")
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const sepCh = SEPARATORS.find(s => s.id === sep)?.ch || " "
+  const rows = raw.split(/\r?\n/).filter(l => l.trim()).map(l => l.trim().split(sep === "space" ? /\s+/ : sepCh).map(c => c.trim()))
+
+  const parsed: ImportedPoint[] = rows.map(cols => ({
+    no: cols[order.no] ?? "",
+    x: parseFloat(cols[order.x]) || 0,
+    y: parseFloat(cols[order.y]) || 0,
+    z: parseFloat(cols[order.z]) || 0,
+    code: cols[order.code] ?? "",
+    desc: cols[order.code] ?? "",
+  }))
+
+  const handleFile = (f: File) => {
+    setFileName(f.name)
+    const reader = new FileReader()
+    reader.onload = () => setRaw(String(reader.result || ""))
+    reader.readAsText(f)
+  }
+
+  const OrderSel = ({ fk }: { fk: FieldKey }) => (
+    <select value={order[fk]} onChange={e => setOrder({ ...order, [fk]: parseInt(e.target.value) })}
+      className="bg-[#252535] border border-gray-600 text-white px-1.5 py-0.5 rounded outline-none focus:border-[#0078d4] text-[10px]">
+      {[0,1,2,3,4,5,6].map(i => <option key={i} value={i}>{i + 1}</option>)}
+    </select>
+  )
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl flex flex-col" style={{width:620,maxHeight:"92%"}}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg">
+          <span className="text-white font-bold text-[13px] flex items-center gap-2">
+            <Icon name="FileInput" size={14} className="text-[#0078d4]" fallback="Upload"/>Импорт точек из файла
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 space-y-3 text-[11px] overflow-y-auto">
+          {/* Файл + разделитель */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <div className="text-gray-400 mb-1">Файл</div>
+              <div className="flex gap-2">
+                <input readOnly value={fileName || "dddtecn.txt"}
+                  className="flex-1 bg-[#252535] border border-gray-600 text-gray-300 px-2 py-1 rounded outline-none font-mono text-[10px]"/>
+                <button onClick={()=>fileRef.current?.click()}
+                  className="px-3 py-1 bg-[#2a2a3e] text-gray-200 hover:bg-[#3a3a4e] rounded">Открыть…</button>
+                <input ref={fileRef} type="file" accept=".txt,.csv,.sdr,.dat" className="hidden"
+                  onChange={e=>{if(e.target.files?.[0])handleFile(e.target.files[0])}}/>
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-400 mb-1">Разделитель</div>
+              <select value={sep} onChange={e=>setSep(e.target.value)}
+                className="bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded outline-none focus:border-[#0078d4]">
+                {SEPARATORS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Предпросмотр исходного текста */}
+          <div>
+            <div className="text-gray-400 mb-1">Содержимое файла</div>
+            <textarea value={raw} onChange={e=>setRaw(e.target.value)} spellCheck={false}
+              className="w-full h-24 bg-[#111827] border border-gray-700 text-emerald-300 px-2 py-1 rounded outline-none focus:border-[#0078d4] font-mono text-[10px] resize-none"/>
+          </div>
+
+          {/* Таблица разбора */}
+          <div className="rounded border border-gray-700 overflow-hidden">
+            <table className="w-full text-[10px]">
+              <thead className="bg-[#0d1a2e] text-gray-300">
+                <tr>
+                  {(["№","X","Y","H","COD"] as string[]).map((h,i)=>(
+                    <th key={h} className="px-2 py-1 text-left border-r border-gray-700 last:border-0">
+                      <div>{h}</div><div className="mt-0.5"><OrderSel fk={FIELD_ORDER[i]}/></div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="text-gray-300 font-mono">
+                {parsed.slice(0,4).map((p,i)=>(
+                  <tr key={i} className="border-t border-gray-800">
+                    <td className="px-2 py-0.5 border-r border-gray-800">{p.no}</td>
+                    <td className="px-2 py-0.5 border-r border-gray-800">{p.x.toFixed(3)}</td>
+                    <td className="px-2 py-0.5 border-r border-gray-800">{p.y.toFixed(3)}</td>
+                    <td className="px-2 py-0.5 border-r border-gray-800">{p.z.toFixed(3)}</td>
+                    <td className="px-2 py-0.5">{p.code}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Объекты: слой + цвет */}
+          <div className="grid grid-cols-[80px_1fr_1fr_28px] gap-2 items-center">
+            <div className="col-span-1 text-gray-500 text-[9px] uppercase">Объекты</div>
+            <div className="text-gray-500 text-[9px] uppercase">Слой</div>
+            <div className="text-gray-500 text-[9px] uppercase"></div>
+            <div className="text-gray-500 text-[9px] uppercase text-center">Цвет</div>
+
+            {([
+              {label:"Пикет", on:true, setOn:(_v:boolean)=>{}, layer:piketLayer, setLayer:setPiketLayer, color:piketColor, setColor:setPiketColor, toggleable:false, checked:true},
+              {label:"Номер", on:showNo, setOn:setShowNo, layer:noLayer, setLayer:setNoLayer, color:noColor, setColor:setNoColor, toggleable:true, checked:showNo},
+              {label:"Отметка", on:showZ, setOn:setShowZ, layer:zLayer, setLayer:setZLayer, color:zColor, setColor:setZColor, toggleable:true, checked:showZ},
+              {label:"Описание", on:showDesc, setOn:setShowDesc, layer:descLayer, setLayer:setDescLayer, color:descColor, setColor:setDescColor, toggleable:true, checked:showDesc},
+            ] as const).map(r=>(
+              <Fragment key={r.label}>
+                <label className="flex items-center gap-1.5 text-gray-300">
+                  {r.toggleable
+                    ? <input type="checkbox" checked={r.checked} onChange={e=>r.setOn(e.target.checked)} className="accent-[#0078d4]"/>
+                    : <span className="w-3 h-3 rounded-sm bg-[#0078d4] inline-block"/>}
+                  {r.label}
+                </label>
+                <select value={r.layer} onChange={e=>r.setLayer(e.target.value)} disabled={!r.checked}
+                  className="bg-[#252535] border border-gray-600 text-white px-1.5 py-0.5 rounded outline-none focus:border-[#0078d4] text-[10px] disabled:opacity-40">
+                  {["Точки COGO","Аннотации","Рельеф","0"].map(l=><option key={l}>{l}</option>)}
+                </select>
+                <span/>
+                <input type="color" value={r.color} onChange={e=>r.setColor(e.target.value)} disabled={!r.checked}
+                  className="w-7 h-6 rounded cursor-pointer bg-transparent disabled:opacity-40"/>
+              </Fragment>
+            ))}
+          </div>
+
+          {/* Высота текста */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Высота текста</span>
+            <input type="number" step="0.05" value={textH} onChange={e=>setTextH(parseFloat(e.target.value)||0)}
+              className="w-24 bg-[#252535] border border-gray-600 text-white px-2 py-1 rounded outline-none focus:border-[#0078d4] font-mono"/>
+            <span className="text-gray-500">м · Всего точек: <b className="text-white">{parsed.length}</b></span>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="px-4 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded">Отмена</button>
+            <button onClick={()=>onImport(parsed,{piketLayer,piketColor,noLayer,noColor,zLayer,zColor,descLayer,descColor,textH})}
+              className="px-5 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded flex items-center gap-1 disabled:opacity-50"
+              disabled={parsed.length===0}>
+              <Icon name="Check" size={12}/>OK
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
 
 function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format:string;file:string}) => void }) {
   const [format, setFormat] = useState("LandXML")
@@ -11248,6 +11426,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [analysisType, setAnalysisType] = useState("Анализ уклонов")
   const [showLayers, setShowLayers] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showPointsImport, setShowPointsImport] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [exportMode, setExportMode] = useState<"export"|"print">("export")
   const [showVolume, setShowVolume] = useState(false)
@@ -12539,8 +12718,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if ((k.includes("трасс") && !k.includes("ж/д")) || k.includes("alignment")) { setShowAlignment(true) }
     else if (k.includes("профиль") || k.includes("вид профил")) { setShowProfile(true) }
     else if (k.includes("типовое") || k.includes("тип. сечение") || k.includes("тип.") || k.includes("assembly") || k.includes("виды попереч") || k.includes("попереч")) { setShowAssembly(true) }
+    // Импорт точек из текстового файла (TXT/CSV) — отдельный диалог с настройкой колонок
+    else if (k.includes("импорт точ") || k.includes("импорт данных съёмки") || k.includes("точки csv") || k.includes("точки txt")) { setShowPointsImport(true) }
     // Точки
-    else if (k.includes("точк") || k.includes("геодез") || k.includes("импорт точ") || k.includes("теодолит")) { setShowPoints(true) }
+    else if (k.includes("точк") || k.includes("геодез") || k.includes("теодолит")) { setShowPoints(true) }
     // Сети
     else if (k.includes("труб") || k.includes("сеть") || k.includes("канализ") || k.includes("гидравл")) { setShowPipeNet(true) }
     // Пересечения / Roundabout
@@ -13504,7 +13685,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                   </div>
                 ))}
                 <div className="pt-1 flex flex-col gap-1">
-                  <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#0078d4]/20 px-2 py-1 rounded border border-gray-700 text-left transition-colors">
+                  <button onClick={()=>setShowPointsImport(true)} className="text-[9px] text-gray-400 hover:text-white hover:bg-[#0078d4]/20 px-2 py-1 rounded border border-gray-700 text-left transition-colors">
                     + Импорт точек (CSV/TXT)
                   </button>
                   <button className="text-[9px] text-gray-400 hover:text-white hover:bg-[#0078d4]/20 px-2 py-1 rounded border border-gray-700 text-left transition-colors">
@@ -14442,6 +14623,23 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showVolume && <VolumeDialog scene={civilScene} onClose={()=>setShowVolume(false)} onOK={()=>{setShowVolume(false);showToast("Ведомость объёмов экспортирована в CSV")}}/>}
             {showLayers && <LayersDialog onClose={()=>setShowLayers(false)}/>}
             {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{setShowImport(false);setStatusMsg(`Импорт ${d.format}: ${d.file} завершён`)}}/>}
+            {showPointsImport && <PointsTxtImportDialog onClose={()=>setShowPointsImport(false)} onImport={(pts,opts)=>{
+              setShowPointsImport(false)
+              const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y)
+              const minX=Math.min(...xs), minY=Math.min(...ys)
+              const span=Math.max(Math.max(...xs)-minX, Math.max(...ys)-minY)||1
+              const sc=800/span
+              const objs:CanvasObject[]=pts.map((p,i)=>({
+                id:`impt_${Date.now()}_${i}`, type:"point" as const,
+                label:opts.textH>0?p.no:"", color:opts.piketColor, lineWidth:1, layer:opts.piketLayer,
+                pts:[[(p.x-minX)*sc,(p.y-minY)*sc]] as [number,number][], z:p.z,
+                properties:{"Тип":"Точка съёмки","Пикет":p.no,"X":p.x.toFixed(3),"Y":p.y.toFixed(3),"H":p.z.toFixed(3),"Код":p.code,"Слой":opts.piketLayer},
+              }))
+              setCanvasObjects(prev=>[...prev,...objs])
+              pts.forEach((p,i)=>store?.addPoint({id:`cp_${Date.now()}_${i}`,no:parseInt(p.no)||i+1,x:p.x,y:p.y,z:p.z,code:p.code,desc:p.desc,layer:opts.piketLayer}))
+              store?.notify(`Импортировано точек: ${pts.length} — доступны в Геодезии, Поверхностях и 3D`,"success")
+              setStatusMsg(`Импорт точек завершён: ${pts.length} шт.`)
+            }}/>}
             {showExport && <ExportDialog mode={exportMode} canvasObjects={canvasObjects} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
             {showDrawingSettings && <DrawingSettingsDialog onClose={()=>setShowDrawingSettings(false)}/>}
             {showDraw2D && (

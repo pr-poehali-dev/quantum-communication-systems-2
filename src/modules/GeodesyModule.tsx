@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useContext, useEffect } from "react"
+import { ProjectContext } from "@/hooks/useProjectStore"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,6 +45,18 @@ export default function GeodesyModule() {
     { id: 3, x: 50, y: 50, z: 119.8, name: "ТН-3" },
     { id: 4, x: 0, y: 50, z: 121.3, name: "ТН-4" },
   ])
+  const store = useContext(ProjectContext)
+  // Подхватываем точки, импортированные в редакторе (общий store) — синхронизация между модулями
+  useEffect(() => {
+    if (!store || store.points.length === 0) return
+    setPoints(prev => {
+      const names = new Set(prev.map(p => p.name))
+      const add = store.points
+        .filter(sp => !names.has(sp.no ? String(sp.no) : sp.code))
+        .map((sp, i) => ({ id: Date.now() + i, x: sp.x, y: sp.y, z: sp.z, name: sp.no ? String(sp.no) : sp.code || `Т${i}`, code: sp.code }))
+      return add.length ? [...prev, ...add] : prev
+    })
+  }, [store, store?.points])
   const [form, setForm] = useState({ name: "", x: "", y: "", z: "" })
   const [activePoint, setActivePoint] = useState<number | null>(null)
   const [ptCode, setPtCode] = useState("TOPO")

@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useContext } from "react"
+import { ProjectContext } from "@/hooks/useProjectStore"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -317,6 +318,18 @@ export default function SurfacesModule() {
   const [surfaces, setSurfaces] = useState<Surface[]>(INIT_SURFACES)
   const [activeSurf, setActiveSurf] = useState<number>(1)
   const [points, setPoints] = useState<SurfPoint[]>(INIT_POINTS)
+  const surfStore = useContext(ProjectContext)
+  // Синхронизация: точки, импортированные в редакторе, доступны для построения TIN/Grid
+  useEffect(() => {
+    if (!surfStore || surfStore.points.length === 0) return
+    setPoints(prev => {
+      const names = new Set(prev.map(p => p.name))
+      const add = surfStore.points
+        .filter(sp => !names.has(sp.no ? String(sp.no) : sp.code))
+        .map((sp, i) => ({ id: Date.now() + i, name: sp.no ? String(sp.no) : sp.code || `Т${i}`, x: sp.x, y: sp.y, z: sp.z, code: sp.code || "TOPO", group: "Импорт" }))
+      return add.length ? [...prev, ...add] : prev
+    })
+  }, [surfStore, surfStore?.points])
   const [analysisMode, setAnalysisMode] = useState("")
   const [showNewSurf, setShowNewSurf] = useState(false)
   const [newSurf, setNewSurf] = useState({ name: "", description: "", type: "TIN" as Surface["type"], style: "Горизонтали 1м", layer: "C-TOPO", gridStep: 10 })
