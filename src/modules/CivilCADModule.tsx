@@ -15371,10 +15371,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                     {volumePiles.map(p=>(
                       <div key={p.id} className="bg-[#141420] rounded p-1.5">
                         <div className="flex items-center gap-1 mb-0.5">
-                          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{background:p.color}}/>
-                          <span className="text-gray-200 flex-1">{p.name}</span>
-                          <span className="text-gray-500">{p.count} т.</span>
-                          <button onClick={()=>setVolumePiles(prev=>prev.filter(x=>x.id!==p.id))} className="text-gray-500 hover:text-red-400"><Icon name="X" size={10}/></button>
+                          <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{background:p.color}}/>
+                          <input value={p.name} title="Нажмите, чтобы переименовать кучу"
+                            onChange={e=>{ const v=e.target.value; setVolumePiles(prev=>prev.map(x=>x.id===p.id?{...x,name:v}:x)) }}
+                            className="flex-1 min-w-0 bg-transparent text-gray-200 outline-none border-b border-transparent hover:border-gray-600 focus:border-amber-500 px-0.5"/>
+                          <span className="text-gray-500 shrink-0">{p.count} т.</span>
+                          <button onClick={()=>setVolumePiles(prev=>prev.filter(x=>x.id!==p.id))} className="text-gray-500 hover:text-red-400 shrink-0"><Icon name="X" size={10}/></button>
                         </div>
                         <div className="flex justify-between"><span className="text-emerald-400">насыпь/навал</span><b className="text-emerald-300 font-mono">{fmtM3(p.result.fill)}</b></div>
                         <div className="flex justify-between"><span className="text-rose-400">выемка</span><b className="text-rose-300 font-mono">{fmtM3(p.result.cut)}</b></div>
