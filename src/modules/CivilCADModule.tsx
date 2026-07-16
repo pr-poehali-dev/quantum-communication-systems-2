@@ -4493,6 +4493,90 @@ function PointsTxtImportDialog({ onClose, onImport }: {
   )
 }
 
+// ─── Общий доступ ──────────────────────────────────────────────────────────────
+function ShareDialog({ project, onClose, onDone }: { project: string; onClose: () => void; onDone: (m:string)=>void }) {
+  const [email, setEmail] = useState("")
+  const [access, setAccess] = useState("Просмотр")
+  const link = `https://lapa3d.ru/share/${(project||"drawing").toLowerCase().replace(/[^a-zа-я0-9]/gi,"-")}`
+  const [members] = useState([
+    { name: "maksim.efremov", role: "Владелец", color: "#0078d4" },
+    { name: "geodesist@company.ru", role: "Редактор", color: "#16a34a" },
+  ])
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl" style={{width:460}}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg">
+          <span className="text-white font-bold text-[13px] flex items-center gap-2"><Icon name="Share2" size={14} className="text-[#0078d4]" fallback="Send"/>Общий доступ — {project||"Чертёж"}</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 space-y-3 text-[11px]">
+          <div>
+            <div className="text-gray-400 mb-1">Пригласить участника</div>
+            <div className="flex gap-2">
+              <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@company.ru"
+                className="flex-1 bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#0078d4]"/>
+              <select value={access} onChange={e=>setAccess(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 rounded outline-none focus:border-[#0078d4]">
+                {["Просмотр","Редактор","Владелец"].map(r=><option key={r}>{r}</option>)}
+              </select>
+              <button onClick={()=>onDone(email?`Приглашение отправлено: ${email} (${access})`:"Укажите email")}
+                className="px-3 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded">Отпр.</button>
+            </div>
+          </div>
+          <div>
+            <div className="text-gray-400 mb-1">Участники проекта</div>
+            <div className="rounded border border-gray-700 divide-y divide-gray-800">
+              {members.map(m=>(
+                <div key={m.name} className="flex items-center gap-2 px-2 py-1.5">
+                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{background:m.color}}>{m.name[0].toUpperCase()}</span>
+                  <span className="flex-1 text-gray-200 truncate">{m.name}</span>
+                  <span className="text-gray-500">{m.role}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-gray-400 mb-1">Ссылка для доступа</div>
+            <div className="flex gap-2">
+              <input readOnly value={link} className="flex-1 bg-[#111827] border border-gray-700 text-gray-300 px-2 py-1.5 rounded outline-none font-mono text-[10px]"/>
+              <button onClick={()=>{navigator.clipboard?.writeText(link);onDone("Ссылка скопирована в буфер обмена")}}
+                className="px-3 py-1.5 bg-[#2a2a3e] text-gray-200 hover:bg-[#3a3a4e] rounded flex items-center gap-1"><Icon name="Copy" size={11}/>Копировать</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── Вход в облачные службы ──────────────────────────────────────────────────
+function SignInDialog({ onClose, onDone }: { onClose: () => void; onDone: (m:string)=>void }) {
+  const [login, setLogin] = useState("")
+  const [pass, setPass] = useState("")
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-[#1e1e2e] border border-gray-600 rounded-lg shadow-2xl" style={{width:360}}>
+        <div className="bg-[#0d1a2e] px-4 py-2 flex items-center justify-between border-b border-gray-700 rounded-t-lg">
+          <span className="text-white font-bold text-[13px] flex items-center gap-2"><Icon name="LogIn" size={14} className="text-[#0078d4]" fallback="User"/>Вход в облачные службы</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 space-y-3 text-[11px]">
+          <div className="flex flex-col items-center gap-1 pb-1">
+            <svg viewBox="0 0 32 32" width="28" height="28" fill="none"><ellipse cx="16" cy="22" rx="7" ry="6" fill="#4fc3f7"/><ellipse cx="10" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="22" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="16" cy="8" rx="2.5" ry="2.8" fill="#4fc3f7"/></svg>
+            <span className="text-gray-400">Единая учётная запись ЛАПА 3D</span>
+          </div>
+          <input value={login} onChange={e=>setLogin(e.target.value)} placeholder="Логин или email"
+            className="w-full bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#0078d4]"/>
+          <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Пароль"
+            className="w-full bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#0078d4]"/>
+          <button onClick={()=>onDone(login?`Выполнен вход: ${login}`:"Введите логин")}
+            className="w-full px-4 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded font-semibold">Войти</button>
+          <div className="text-center text-gray-500">Нет учётной записи? <span className="text-[#4fc3f7] cursor-pointer hover:underline">Регистрация</span></div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format:string;file:string}) => void }) {
   const [format, setFormat] = useState("LandXML")
   const [fileName, setFileName] = useState("")
@@ -11427,6 +11511,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showLayers, setShowLayers] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showPointsImport, setShowPointsImport] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [showSignIn, setShowSignIn] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [exportMode, setExportMode] = useState<"export"|"print">("export")
   const [showVolume, setShowVolume] = useState(false)
@@ -13261,6 +13347,15 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           <option value="ЛАПА 3D">ЛАПА 3D</option>
           <option value="ЛАПА 2D">ЛАПА 2D</option>
         </select>
+        <button onClick={()=>{setExportMode("print");setShowExport(true)}} title="Печать"
+          className="ml-0.5 text-gray-400 hover:text-white hover:bg-[#0078d4] rounded px-1 py-0.5 transition-colors">
+          <Icon name="Printer" size={13} fallback="Printer"/>
+        </button>
+        <button onClick={()=>setShowShare(true)} title="Общий доступ"
+          className="ml-1 flex items-center gap-1 text-[10px] text-gray-300 hover:text-white hover:bg-[#0078d4]/50 rounded px-1.5 py-0.5 transition-colors border border-gray-700 hover:border-[#0078d4]">
+          <Icon name="Share2" size={11} fallback="Send"/>
+          <span>Общий доступ</span>
+        </button>
         <div className="flex-1 text-center text-[11px] text-gray-300 font-semibold tracking-wide select-none flex items-center justify-center gap-1.5">
           <svg viewBox="0 0 32 32" width="12" height="12" fill="none"><ellipse cx="16" cy="22" rx="7" ry="6" fill="#4fc3f7"/><ellipse cx="10" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="22" cy="13" rx="3" ry="3.5" fill="#4fc3f7"/><ellipse cx="7" cy="18" rx="2.5" ry="3" fill="#4fc3f7"/><ellipse cx="25" cy="18" rx="2.5" ry="3" fill="#4fc3f7"/><ellipse cx="16" cy="8" rx="2.5" ry="2.8" fill="#4fc3f7"/></svg>
           <span className="text-white">ЛАПА — Редактор</span>
@@ -13281,6 +13376,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             <span>Проекты</span>
           </button>
           <input placeholder="Введите ключевое слово или фразу" className="bg-[#2a2a3a] border border-gray-600 text-[10px] text-gray-400 px-2 py-0.5 w-36 rounded-sm placeholder-gray-600 outline-none focus:border-blue-500 ml-1" />
+          <button onClick={()=>setShowSignIn(true)} title="Вход в облачные службы"
+            className="ml-1 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-[#0078d4]/40 border border-gray-700 hover:border-[#0078d4]">
+            <Icon name="LogIn" size={11} fallback="User"/>
+            <span>Вход в службы</span>
+          </button>
           <button onClick={()=>setShowAssistant(p=>!p)} title="ЛАПА-Ассистент AI"
             className={`ml-1 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors ${showAssistant?"bg-[#0078d4] text-white":"text-gray-400 hover:text-white hover:bg-[#0078d4]/40"}`}>
             <Icon name="Bot" size={11} fallback="HelpCircle"/>
@@ -14641,6 +14741,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               setStatusMsg(`Импорт точек завершён: ${pts.length} шт.`)
             }}/>}
             {showExport && <ExportDialog mode={exportMode} canvasObjects={canvasObjects} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
+            {showShare && <ShareDialog project={currentProjectName} onClose={()=>setShowShare(false)} onDone={m=>{setShowShare(false);showToast(m)}}/>}
+            {showSignIn && <SignInDialog onClose={()=>setShowSignIn(false)} onDone={m=>{setShowSignIn(false);showToast(m)}}/>}
             {showDrawingSettings && <DrawingSettingsDialog onClose={()=>setShowDrawingSettings(false)}/>}
             {showDraw2D && (
               <Draw2DDialog onClose={()=>setShowDraw2D(false)} onOK={obj=>{
