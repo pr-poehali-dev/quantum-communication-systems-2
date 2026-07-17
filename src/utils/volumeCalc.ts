@@ -6,6 +6,7 @@ export interface VolumePoint { x: number; y: number; z: number; code?: string; n
 
 export type VolumeBase =
   | { kind: "min" }                       // от минимальной отметки выделения
+  | { kind: "avg" }                       // от средней отметки точек
   | { kind: "fixed"; elevation: number }  // от заданной отметки
   | { kind: "surface"; getZ: (x: number, y: number) => number | null } // между поверхностями
 
@@ -48,7 +49,10 @@ export function computeVolume(points: VolumePoint[], base: VolumeBase): VolumeRe
   const zs = points.map(p => p.z)
   const minZ = Math.min(...zs)
   const maxZ = Math.max(...zs)
-  const baseElev = base.kind === "min" ? minZ : base.kind === "fixed" ? base.elevation : 0
+  const avgZ = zs.reduce((s, z) => s + z, 0) / zs.length
+  const baseElev = base.kind === "min" ? minZ
+    : base.kind === "avg" ? avgZ
+    : base.kind === "fixed" ? base.elevation : 0
 
   const tris: TinTriangle[] = delaunayTriangulation(points.map(p => ({ x: p.x, y: p.y, z: p.z })))
 

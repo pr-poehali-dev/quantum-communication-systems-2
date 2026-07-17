@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
+import { computeVolume, type VolumeBase, type VolumeResult } from "@/utils/volumeCalc"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -338,8 +339,10 @@ export default function SurfacesModule() {
   const [pointForm, setPointForm] = useState({ name: "", x: "", y: "", z: "", code: "TOPO", group: "Съёмка_2024" })
   const [ptSearch, setPtSearch] = useState("")
   const [exportFormat, setExportFormat] = useState("LandXML")
-  const [volumeResult, setVolumeResult] = useState<null|{cut:number;fill:number;balance:number}>(null)
+  const [volumeResult, setVolumeResult] = useState<VolumeResult|null>(null)
   const [calcVolume, setCalcVolume] = useState(false)
+  const [volBaseMode, setVolBaseMode] = useState<"min"|"avg"|"fixed">("min")
+  const [volFixedElev, setVolFixedElev] = useState(0)
   const [selPoint, setSelPoint] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [rebuildKey, setRebuildKey] = useState(0)
@@ -446,13 +449,16 @@ export default function SurfacesModule() {
   }
 
   const runVolumeCalc = () => {
+    if (points.length < 3) { alert("Для расчёта объёма нужно минимум 3 точки поверхности. Добавьте или импортируйте точки."); return }
     setCalcVolume(true)
     setTimeout(() => {
-      const cut = +(Math.random() * 8000 + 2000).toFixed(1)
-      const fill = +(Math.random() * 6000 + 1500).toFixed(1)
-      setVolumeResult({ cut, fill, balance: +(cut - fill).toFixed(1) })
+      const base: VolumeBase = volBaseMode === "fixed" ? { kind: "fixed", elevation: volFixedElev }
+        : volBaseMode === "avg" ? { kind: "avg" } : { kind: "min" }
+      // Точный расчёт: триангуляция Делоне поверхности + метод призм над базой
+      const res = computeVolume(points.map(p => ({ x: p.x, y: p.y, z: p.z, code: p.code, no: p.name })), base)
+      setVolumeResult(res)
       setCalcVolume(false)
-    }, 1200)
+    }, 300)
   }
 
   const doЭкспортLandXML = () => {
@@ -961,21 +967,26 @@ export default function SurfacesModule() {
                 {/* Volume calc */}
                 <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
                   <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2"><Icon name="Scale" size={14} className="text-indigo-600" />Объёмы земляных работ</h4>
+                  <p className="text-[11px] text-gray-500 -mt-1">Поверхность «{surf.name}» · {points.length} точек · триангуляция Делоне + метод призм</p>
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-500 w-24">Поверхность 1:</span>
-                      <Select defaultValue="Существующая поверхность">
-                        <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>{surfaces.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <span className="text-gray-500 w-24">База отсчёта:</span>
+                      <div className="flex gap-1 flex-1">
+                        {([["min","Минимум"],["avg","Средняя"],["fixed","Задать"]] as const).map(([m,lbl]) => (
+                          <button key={m} onClick={() => setVolBaseMode(m)}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${volBaseMode===m ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}>
+                            {lbl}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500 w-24">Поверхность 2:</span>
-                      <Select defaultValue="Проектная поверхность">
-                        <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>{surfaces.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
+                    {volBaseMode === "fixed" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-24">Отметка базы:</span>
+                        <Input type="number" value={volFixedElev} onChange={e => setVolFixedElev(parseFloat(e.target.value) || 0)} className="h-7 text-xs flex-1" />
+                        <span className="text-gray-400">м</span>
+                      </div>
+                    )}
                   </div>
                   <Button onClick={runVolumeCalc} disabled={calcVolume} variant="outline" className="w-full gap-2">
                     {calcVolume ? <><Icon name="Loader" size={14} className="animate-spin" />Расчёт…</> : <><Icon name="Calculator" size={14} />Рассчитать объёмы</>}
@@ -985,13 +996,19 @@ export default function SurfacesModule() {
                       {[
                         { label: "Выемка", value: volumeResult.cut, color: "text-blue-700", bg: "bg-blue-50", icon: "ArrowDown" },
                         { label: "Насыпь", value: volumeResult.fill, color: "text-orange-700", bg: "bg-orange-50", icon: "ArrowUp" },
-                        { label: "Баланс", value: Math.abs(volumeResult.balance), color: volumeResult.balance > 0 ? "text-blue-700" : "text-green-700", bg: "bg-gray-50", icon: "Scale" },
+                        { label: "Баланс", value: Math.abs(volumeResult.net), color: volumeResult.net > 0 ? "text-blue-700" : "text-green-700", bg: "bg-gray-50", icon: "Scale" },
                       ].map(r => (
                         <div key={r.label} className={`flex items-center justify-between px-3 py-2 rounded-lg ${r.bg}`}>
                           <span className="text-xs font-semibold text-gray-700 flex items-center gap-1"><Icon name={r.icon} size={12} fallback="ArrowRight" />{r.label}</span>
-                          <span className={`text-sm font-bold ${r.color}`}>{r.value.toLocaleString()} м³</span>
+                          <span className={`text-sm font-bold ${r.color}`}>{r.value.toLocaleString("ru-RU")} м³</span>
                         </div>
                       ))}
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-500 px-1">
+                        <div>База: <b className="text-gray-700">{volumeResult.baseElev.toFixed(2)} м</b></div>
+                        <div>Треугольников: <b className="text-gray-700">{volumeResult.triangles}</b></div>
+                        <div>Площадь основания: <b className="text-gray-700">{volumeResult.area2d.toLocaleString("ru-RU")} м²</b></div>
+                        <div>Площадь поверхности: <b className="text-gray-700">{volumeResult.area3d.toLocaleString("ru-RU")} м²</b></div>
+                      </div>
                       <div className="h-24">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={[{ name: "Объёмы", Выемка: volumeResult.cut, Насыпь: volumeResult.fill }]}>

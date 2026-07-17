@@ -11,6 +11,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
 import { импортФайл, импортLandXML, импортSDR, экспортSDR, экспортТекст, скачать, экспортExcel, экспортDXF, экспортDWG } from "@/utils/exportImport"
+import { computeVolume, type VolumeBase } from "@/utils/volumeCalc"
 
 interface Point {
   id: number
@@ -19,36 +20,6 @@ interface Point {
   z: number
   name: string
   code?: string
-}
-
-// Площадь замкнутого контура точек (метод Гаусса), м²
-function polygonArea(points: Point[]): number {
-  if (points.length < 3) return 0
-  const area = points.reduce((sum, p, i) => {
-    const next = points[(i + 1) % points.length]
-    return sum + p.x * next.y - next.x * p.y
-  }, 0)
-  return Math.abs(area) / 2
-}
-
-// Расчёт объёма земляных работ относительно базовой отметки.
-// Насыпь — где отметка выше базы, выемка — ниже. Возвращает м³.
-function calcVolumeFull(points: Point[], base: number) {
-  if (points.length < 3) return { fill: 0, cut: 0, net: 0, area: 0 }
-  const area = polygonArea(points)
-  const cell = area / points.length // средняя площадь на точку
-  let fill = 0, cut = 0
-  points.forEach(p => {
-    const dh = p.z - base
-    if (dh > 0) fill += dh * cell
-    else cut += -dh * cell
-  })
-  return {
-    fill: +fill.toFixed(2),
-    cut: +cut.toFixed(2),
-    net: +(fill - cut).toFixed(2),
-    area: +area.toFixed(2),
-  }
 }
 
 function calcSlope(p1: Point, p2: Point): number {
@@ -477,9 +448,15 @@ export default function GeodesyModule() {
   const minZ = Math.min(...points.map((p) => p.z))
   const maxZ = Math.max(...points.map((p) => p.z))
   const avgZ = points.length ? points.reduce((s, p) => s + p.z, 0) / points.length : 0
-  const volBase = volumeBaseMode === "fixed" ? volumeFixedElev
-    : volumeBaseMode === "avg" ? avgZ : minZ
-  const volumeRes = calcVolumeFull(points, volBase)
+  // Единый точный расчёт объёма (триангуляция Делоне + призмы) — тот же движок,
+  // что в редакторе и 3D-виде. База: минимум / средняя / заданная отметка.
+  const volBaseSpec: VolumeBase = volumeBaseMode === "fixed" ? { kind: "fixed", elevation: volumeFixedElev }
+    : volumeBaseMode === "avg" ? { kind: "avg" } : { kind: "min" }
+  const volumeRes = useMemo(() => computeVolume(
+    points.map(p => ({ x: p.x, y: p.y, z: p.z, code: p.code, no: p.name })),
+    volBaseSpec
+  ), [points, volumeBaseMode, volumeFixedElev])
+  const volBase = volumeRes.baseElev
   const volume = volumeRes.net
 
   return (
@@ -596,9 +573,12 @@ export default function GeodesyModule() {
         <TabsContent value="analysis">
           {/* Расчёт объёма земляных работ */}
           <div className="rounded-xl border border-gray-200 bg-white p-5 mb-4">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-1">
               <Icon name="Box" size={16} className="text-indigo-600" />Расчёт объёма земляных работ по точкам
             </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Триангуляция Делоне + метод призм. Учитываются все {points.length} точек — введённые вручную и импортированные (CSV, LandXML, SDR, GeoJSON и др.). Для расчёта загрузите точки во вкладке «Импорт».
+            </p>
             <div className="flex flex-wrap items-end gap-3 mb-4">
               <div>
                 <Label className="text-xs mb-1 block">База отсчёта</Label>
@@ -620,7 +600,7 @@ export default function GeodesyModule() {
                 </div>
               )}
               <div className="text-xs text-gray-500">
-                База: <b className="text-gray-800">{volBase.toFixed(2)} м</b> · Площадь контура: <b className="text-gray-800">{volumeRes.area.toLocaleString("ru-RU")} м²</b>
+                База: <b className="text-gray-800">{volBase.toFixed(2)} м</b> · Площадь основания: <b className="text-gray-800">{volumeRes.area2d.toLocaleString("ru-RU")} м²</b> · Площадь поверхности: <b className="text-gray-800">{volumeRes.area3d.toLocaleString("ru-RU")} м²</b> · Треугольников: <b className="text-gray-800">{volumeRes.triangles}</b>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
