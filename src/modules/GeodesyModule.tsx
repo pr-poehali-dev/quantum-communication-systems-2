@@ -11,7 +11,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
 import { импортФайл, импортLandXML, импортSDR, экспортSDR, экспортТекст, скачать, экспортExcel, экспортDXF, экспортDWG } from "@/utils/exportImport"
-import { computeVolume, type VolumeBase } from "@/utils/volumeCalc"
+import { computeVolume, groupByCode, pileColor, type VolumeBase, type VolumeResult } from "@/utils/volumeCalc"
 
 interface Point {
   id: number
@@ -459,6 +459,16 @@ export default function GeodesyModule() {
   const volBase = volumeRes.baseElev
   const volume = volumeRes.net
 
+  // Объёмы по кучкам — группировка точек по коду (COD). Каждая группа считается
+  // отдельно тем же движком (триангуляция Делоне + призмы) от той же базы.
+  const volumeByCode = useMemo<{ code: string; color: string; count: number; res: VolumeResult }[]>(() => {
+    const groups = groupByCode(points.map(p => ({ x: p.x, y: p.y, z: p.z, code: p.code, no: p.name })))
+    return Object.keys(groups)
+      .map((code, i) => ({ code, color: pileColor(i), count: groups[code].length, res: computeVolume(groups[code], volBaseSpec) }))
+      .filter(g => g.count >= 3)
+      .sort((a, b) => b.res.fill - a.res.fill)
+  }, [points, volumeBaseMode, volumeFixedElev])
+
   return (
     <motion.div
       className="space-y-6"
@@ -617,6 +627,60 @@ export default function GeodesyModule() {
                 <div className={`text-2xl font-extrabold ${volume >= 0 ? "text-indigo-700" : "text-rose-700"}`}>{volume >= 0 ? "+" : ""}{volume.toLocaleString("ru-RU")} <span className="text-sm font-normal">м³</span></div>
               </div>
             </div>
+          </div>
+
+          {/* Объёмы по кучкам (группировка по коду точки) */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 mb-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-1">
+              <Icon name="Boxes" size={16} className="text-indigo-600" />Объёмы по кучкам (по кодам точек)
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Точки автоматически группируются по коду (TOPO, EDGE, HIGH…). Каждая кучка — отдельный навал/выемка от той же базы «{volumeBaseMode === "fixed" ? `${volumeFixedElev} м` : volumeBaseMode === "avg" ? "средняя" : "минимум"}».
+            </p>
+            {volumeByCode.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+                Недостаточно данных для разбивки по кучкам. Нужно минимум 3 точки с одинаковым кодом.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs font-semibold">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Кучка (код)</th>
+                      <th className="px-3 py-2 text-right">Точек</th>
+                      <th className="px-3 py-2 text-right">Насыпь, м³</th>
+                      <th className="px-3 py-2 text-right">Выемка, м³</th>
+                      <th className="px-3 py-2 text-right">Баланс, м³</th>
+                      <th className="px-3 py-2 text-right">Площадь, м²</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {volumeByCode.map((g, i) => (
+                      <tr key={g.code} className={`border-t border-gray-100 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                        <td className="px-3 py-2 font-medium text-gray-800 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: g.color }} />{g.code}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.count}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-emerald-700">{g.res.fill.toLocaleString("ru-RU")}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-rose-700">{g.res.cut.toLocaleString("ru-RU")}</td>
+                        <td className={`px-3 py-2 text-right font-semibold ${g.res.net >= 0 ? "text-indigo-700" : "text-rose-700"}`}>{g.res.net >= 0 ? "+" : ""}{g.res.net.toLocaleString("ru-RU")}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{g.res.area2d.toLocaleString("ru-RU")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-200 bg-indigo-50/60 font-bold">
+                      <td className="px-3 py-2 text-gray-900">ИТОГО ({volumeByCode.length} кучек)</td>
+                      <td className="px-3 py-2 text-right text-gray-700">{volumeByCode.reduce((s, g) => s + g.count, 0)}</td>
+                      <td className="px-3 py-2 text-right text-emerald-700">{volumeByCode.reduce((s, g) => s + g.res.fill, 0).toLocaleString("ru-RU")}</td>
+                      <td className="px-3 py-2 text-right text-rose-700">{volumeByCode.reduce((s, g) => s + g.res.cut, 0).toLocaleString("ru-RU")}</td>
+                      <td className="px-3 py-2 text-right text-indigo-700">{volumeByCode.reduce((s, g) => s + g.res.net, 0).toLocaleString("ru-RU")}</td>
+                      <td className="px-3 py-2 text-right text-gray-700">{volumeByCode.reduce((s, g) => s + g.res.area2d, 0).toLocaleString("ru-RU")}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
