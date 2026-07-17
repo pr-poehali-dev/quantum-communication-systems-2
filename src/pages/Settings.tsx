@@ -110,7 +110,7 @@ export default function Settings() {
     setTimeout(() => setPwdMsg(""), 3000)
   }
 
-  const initials = name.trim().split(" ").slice(0, 2).map(w => w[0]?.toUpperCase()).join("") || "???"
+  const initials = name.trim().split(" ").slice(0, 2).map((w: any) => w[0]?.toUpperCase()).join("") || "???"
 
   return (
     <div className="min-h-screen bg-gray-50">

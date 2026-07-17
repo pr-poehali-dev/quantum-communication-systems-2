@@ -189,7 +189,7 @@ export default function RailwayModule() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="pk" tickFormatter={v => `${v}м`} tick={{ fontSize: 10 }} />
                   <YAxis domain={[minE - 2, maxE + 2]} unit=" м" tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => [`${v} м`, "Отметка"]} />
+                  <Tooltip formatter={(v: any) => [`${v} м`, "Отметка"]} />
                   <ReferenceLine y={(minE + maxE) / 2} stroke="#e5e7eb" strokeDasharray="4 4" />
                   <Line type="monotone" dataKey="elev" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 5, fill: "#6366f1" }} />
                 </LineChart>

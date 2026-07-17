@@ -36,8 +36,7 @@ const MENU_TAB_CATEGORIES: Record<string, CategoryId[]> = {
 import { ProjectContext } from "@/hooks/useProjectStore"
 import {
   buildDemoScene, stationToPoint, getDesignElevation,
-  computeTraverse, computePrismatoidVolumes,
-  type CivilScene, type ProfilePoint, type CrossSection,
+  type CivilScene,
 } from "./civil3d-engine"
 import {
   WhatsNewVersionsDialog, CorridorExtractionDialog, OffsetProfileDialog,
@@ -993,7 +992,7 @@ interface Alignment {
 
 // ─── Canvas Object types ────────────────────────────────────────────────────
 
-type CanvasObjType = "line" | "polyline" | "point" | "text" | "alignment" | "surface" | "corridor" | "pipe" | "rect"
+type CanvasObjType = "line" | "polyline" | "point" | "text" | "alignment" | "surface" | "corridor" | "pipe" | "rect" | "circle" | "arc"
 
 interface CanvasObject {
   id: string
@@ -1210,7 +1209,7 @@ const FEATURE_LINES: FeatureLine[] = [
 const MENU_ITEMS = ["Главная","Вставка","Аннотации","Редактирование","Анализ","Вид","Управление","Вывод","Съёмка","Железная дорога","Прозрачность","InfraWorks","Совместная работа","Справка","Надстройки","Express Tools","Отслеживание транспорта","Избранные приложения","Геопозиционирование","Геолокация"]
 
 // size: "lg" = большая кнопка с иконкой сверху, "sm" = маленькая кнопка строчкой
-interface RibbonItem { label: string; icon: string; size: "lg" | "sm"; drop?: string }
+interface RibbonItem { label: string; icon: string; size: "lg" | "sm"; drop?: string; fallback?: string }
 interface RibbonGroup { label: string; items: RibbonItem[] }
 
 const TOOLBAR_BY_MENU: Record<string, RibbonGroup[]> = {
@@ -3028,7 +3027,7 @@ function ProfileDialog({ onClose, onOK, alignments }: { onClose: () => void; onO
                   const minE = Math.min(...def.pvcs.map(p=>parseFloat(p.elev)||0))
                   const maxE = Math.max(...def.pvcs.map(p=>parseFloat(p.elev)||0))
                   const range = maxE-minE || 1
-                  const y = 110 - ((parseFloat(p.elev)||0)-minE)/range*80
+                  const y = 110 - ((parseFloat(p.elev)||0)-minE)/range*80; void y
                   return <text key={i} x={x} y="133" fill="#6b7280" fontSize="7" textAnchor="middle">{p.station}</text>
                 })}
                 <polyline
@@ -3247,7 +3246,7 @@ function drawAssemblyPreview(
   let lx = cx, rx = cx
   subs.forEach(s => {
     const w = parseFloat(s.params["Ширина"] || s.params["Ширина основания, м"] || "3") * sc
-    const slope = parseFloat(s.params["Заложение"] || "0")
+    const slope = parseFloat(s.params["Заложение"] || "0"); void slope
     const isSlope = s.type.includes("Откос") || s.type === "Кювет" || s.type === "Дно канала"
     const col = COLORS[s.type] || "#374151"
     const depth = 14
@@ -3439,7 +3438,7 @@ function AssemblyDialog({ onClose, onOK }: {
               ].map(([lbl, field, opts]) => (
                 <div key={field as string} className="flex items-center gap-2">
                   <label className="w-36 text-xs text-gray-700 shrink-0">{lbl as string}</label>
-                  <select value={(def as Record<string,string>)[field as string]} onChange={e => setDef(d => ({ ...d, [field as string]: e.target.value }))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                  <select value={(def as unknown as Record<string,string>)[field as string]} onChange={e => setDef(d => ({ ...d, [field as string]: e.target.value }))} className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white">
                     {(opts as string[]).map(o => <option key={o}>{o}</option>)}
                   </select>
                   <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
@@ -3453,7 +3452,7 @@ function AssemblyDialog({ onClose, onOK }: {
                 {[["Смещение по умолчанию:", "defaultOffset"],["Поправка по высоте:", "defaultElevAdj"]].map(([lbl, field]) => (
                   <div key={field} className="flex items-center gap-1 flex-1">
                     <label className="text-xs text-gray-700 shrink-0">{lbl}</label>
-                    <input value={(def as Record<string,string>)[field]} onChange={e => setDef(d => ({ ...d, [field]: e.target.value }))} className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
+                    <input value={(def as unknown as Record<string,string>)[field]} onChange={e => setDef(d => ({ ...d, [field]: e.target.value }))} className="w-20 border border-gray-400 px-2 py-0.5 text-xs bg-white font-mono" />
                   </div>
                 ))}
               </div>
@@ -6833,7 +6832,7 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
   // SVG план трассы с кривыми
   const AlignmentPreviewSVG = () => {
     const W=340, H=180
-    const pts = surveyPts.map((p,i)=>({
+    const pts = surveyPts.map((p)=>({
       x:parseFloat(p.x)/220*(W-40)+20,
       y:H-parseFloat(p.y)/200*(H-40)-20,
     }))
@@ -8445,9 +8444,9 @@ function VolumeDashboardDialog({ onClose }: { onClose: ()=>void }) {
         <line x1="10" y1={H/2} x2={W-10} y2={H/2} stroke="#374151" strokeWidth="0.8" strokeDasharray="4 2"/>
         <polyline points={pts.map((v,i)=>`${10+i*(W-20)/(pts.length-1)},${H-10-((v-min)/range)*(H-20)}`).join(" ")}
           fill="none" stroke="#4fc3f7" strokeWidth="1.5"/>
-        {pts.filter((v,i)=>i>0&&(pts[i-1]>0)!==(v>0)).map((v,i)=>(
+        {pts.filter((v,i)=>i>0&&(pts[i-1]>0)!==(v>0)).map((v,i)=>{ void v; return (
           <circle key={i} cx={10+i*(W-20)/(pts.length-1)} cy={H/2} r="3" fill="none" stroke="#facc15" strokeWidth="1.5"/>
-        ))}
+        )})}
         <text x="12" y="8" fill="#4fc3f7" fontSize="6">Кривая масс Брикнера</text>
       </svg>
     )
@@ -9206,7 +9205,7 @@ function TunnelDialog({ onClose, onOK }: { onClose: ()=>void; onOK: (d:{name:str
   const [cover, setCover] = useState("15.0")
   const [alignment, setAlignment] = useState("Трасса ШД-38")
 
-  const Len = parseFloat(length)||420
+  const Len = parseFloat(length)||420; void Len
   const W = parseFloat(width)||10.5
   const H = parseFloat(height)||7.2
   const Cover = parseFloat(cover)||15
@@ -10199,7 +10198,7 @@ function IntersectionWizardDialog({ onClose, onOK }: { onClose: ()=>void; onOK: 
     const isT = intType === "Т-образное"
     const isY = intType === "Y-образное"
     const ang = parseFloat(angle) || 90
-    const rad = (ang * Math.PI) / 180
+    const rad = (ang * Math.PI) / 180; void rad
     return (
       <svg width="180" height="180" viewBox="-90 -90 180 180" style={{background:"#080e18",borderRadius:8}}>
         {/* Земля */}
@@ -11444,6 +11443,7 @@ const NAV_MODULES = [
   { id: "standards",  icon: "BookCheck",      label: "Стандарты проектирования" },
   { id: "dynamic",    icon: "RefreshCw",      label: "Динамические модели" },
 ]
+void [MENU_ITEMS, TOOLBAR_GROUPS, DROPDOWN_ITEMS, NAV_MODULES, CrossSectionPanel, PipeNetDialog]
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
@@ -11623,8 +11623,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       showToast("✓ Скрипт выполнен успешно")
     }, 600)
   }
-  const [draw2DObjects, setDraw2DObjects] = useState<{type:string;name:string;id:string}[]>([])
-  const [activeProjectObjects, setActiveProjectObjects] = useState<{object_type:string;name:string;data:Record<string,unknown>}[]>([])
+  const [draw2DObjects, setDraw2DObjects] = useState<{type:string;name:string;id:string}[]>([]); void draw2DObjects
+  const [activeProjectObjects, setActiveProjectObjects] = useState<{object_type:string;name:string;data:Record<string,unknown>}[]>([]); void activeProjectObjects
   const [viewDimension, setViewDimension] = useState<"3D"|"2D">("3D")
   const [undoStack, setUndoStack] = useState<string[]>(["Начальное состояние"])
   const [redoStack, setRedoStack] = useState<string[]>([])
@@ -11799,7 +11799,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const moveRef = useRef<{objId:string; startMouse:[number,number]; startPts:[number,number][]} | null>(null)
   const lassoDrawing = useRef(false)
   const lassoPtsRef = useRef<[number,number][]>([])
-  useEffect(() => { lassoPtsRef.current = lassoPts }, [lassoPts])
+  const lassoRaf = useRef<number | null>(null)
 
   const pushUndo = (label: string) => {
     setUndoStack(prev => [...prev, label])
@@ -12112,7 +12112,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
           const p = (r.data as {pts?:unknown} | undefined)?.pts
           return Array.isArray(p) && p.length > 0
         })
-        setActiveProjectObjects(objs)
+        setActiveProjectObjects(objs as any)
 
         // ── Восстанавливаем объекты на холсте из data ──────────────────────────
         // Поддерживаем 2 формата pts:
@@ -12461,6 +12461,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
     if (activeTool === "volumelasso") {
       lassoDrawing.current = true
+      lassoPtsRef.current = [[wx, wy]]
       setLassoPts([[wx, wy]])
       return
     }
@@ -12661,6 +12662,24 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const onMouseMove = (e: React.MouseEvent) => {
     const rect = getCanvasRect(e)
     const [wx, wy] = toWorld(e.clientX, e.clientY, rect)
+
+    // ── Лассо: быстрый путь без тяжёлых setState (snap/coords) и без ре-рендера на каждый кадр ──
+    if (lassoDrawing.current) {
+      const arr = lassoPtsRef.current
+      const last = arr[arr.length - 1]
+      if (!last || Math.hypot(wx - last[0], wy - last[1]) >= 2 / zoom) {
+        arr.push([wx, wy])
+        // Обновляем видимый контур не чаще одного раза за кадр (throttle через rAF)
+        if (lassoRaf.current == null) {
+          lassoRaf.current = requestAnimationFrame(() => {
+            lassoRaf.current = null
+            setLassoPts(lassoPtsRef.current.slice())
+          })
+        }
+      }
+      return
+    }
+
     setCursorCoords({ x: Math.round(wx*10)/10, y: Math.round(wy*10)/10 })
     const snp = findSnap(wx, wy)
     setSnapPos(snp)
@@ -12670,14 +12689,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       setCursorScreen({ x: e.clientX - containerRect.left, y: e.clientY - containerRect.top })
     }
 
-    if (lassoDrawing.current) {
-      setLassoPts(prev => {
-        const last = prev[prev.length - 1]
-        if (last && Math.hypot(wx - last[0], wy - last[1]) < 2 / zoom) return prev
-        return [...prev, [wx, wy]]
-      })
-      return
-    }
     if (moveRef.current) {
       const { objId, startMouse, startPts } = moveRef.current
       const dx = wx - startMouse[0], dy = wy - startMouse[1]
@@ -12706,6 +12717,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   // Завершение лассо: собираем точки внутри полигона (по координатам холста) и считаем объём
   const finishLasso = (poly: [number,number][]) => {
+    if (lassoRaf.current != null) { cancelAnimationFrame(lassoRaf.current); lassoRaf.current = null }
+    lassoPtsRef.current = []
     setLassoPts([])
     if (poly.length < 3) return
     const inside = canvasObjects.filter(o => o.type === "point" && o.pts[0] && pointInPolygon(o.pts[0][0], o.pts[0][1], poly))
@@ -12833,7 +12846,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setCommandLine("")
   }
 
-  const toggleLayer = (key: keyof typeof visLayers) => setVisLayers(v => ({ ...v, [key]: !v[key] }))
+  const toggleLayer = (key: keyof typeof visLayers) => setVisLayers(v => ({ ...v, [key]: !v[key] })); void toggleLayer
 
   const активироватьИнструмент = (tool: EditTool, подсказка: string) => {
     setActiveTool(tool)
@@ -13693,7 +13706,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {id:"settings",label:"Настройки"},
             {id:"survey",label:"Геодезия"},
             {id:"toolbox",label:"Инструменты"},
-          ] as const).map((t,i) => (
+          ] as const).map((t) => (
             <button key={t.id} onClick={() => setToolspaceTab(t.id)}
               className={`text-[8px] font-semibold px-0 py-3 border-b border-gray-700 transition-colors select-none
                 ${toolspaceTab===t.id?"text-white bg-[#0078d4]":"text-gray-500 hover:text-gray-300 hover:bg-[#3a3a4e]"}`}
@@ -14076,7 +14089,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               const renderPlanView = (w: number, h: number) => {
                 const sc = civilScene
                 const al = sc.alignment
-                const minX = 80, minY = 300, scaleF = Math.min(w,h) / 700
+                const minX = 80, minY = 300, scaleF = Math.min(w,h) / 700; void minY
                 const tx = (x: number) => (x - minX) * scaleF
                 const ty = (y: number) => h - (y - 200) * scaleF
 
@@ -15474,7 +15487,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                           />
                         ) : (
                           <span className="flex-1 text-[10px] text-white px-1.5 py-0.5 truncate cursor-text group-hover:bg-[#2a2a3e]"
-                            onDoubleClick={() => setEditingProp({id: selObj.id, key, val})}>
+                            onDoubleClick={() => setEditingProp({id: selObj.id, key, val: String(val)})}>
                             {val}
                           </span>
                         )}
@@ -15529,7 +15542,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
               <span className="text-white text-[11px] font-bold">Координаты и режимы</span>
               <button onClick={()=>setShowGeoMenu(false)} className="text-gray-400 hover:text-white text-xs">✕</button>
             </div>
-            {(Object.entries(geoSettings) as [string,boolean][]).reduce<(string|null)[]>((acc, [k], i, arr) => {
+            {(Object.entries(geoSettings) as [string,boolean][]).reduce<(string|null)[]>((acc, [k], i) => {
               const separators = [3, 10, 16, 19, 24]
               if (separators.includes(i)) acc.push(null)
               acc.push(k)

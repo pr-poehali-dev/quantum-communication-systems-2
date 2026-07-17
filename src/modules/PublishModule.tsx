@@ -69,6 +69,7 @@ const PLOTTERS = [
 ]
 
 export default function PublishModule({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  void onNavigate
   const [tab, setTab] = useState("sheets")
   const [sheets, setSheets] = useState(SHEETS)
   const [selectedPlotter, setSelectedPlotter] = useState("pdf")

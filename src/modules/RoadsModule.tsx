@@ -281,7 +281,7 @@ export default function RoadsModule() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="pk" tickFormatter={v => `ПК${(v / 100).toFixed(0)}+${v % 100 < 10 ? "0" : ""}${v % 100}`} tick={{ fontSize: 10 }} />
                   <YAxis domain={["auto", "auto"]} unit=" м" tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number, n: string) => [`${v} м`, n === "elev" ? "Рельеф" : "Проектная линия"]} labelFormatter={v => `ПК${Math.floor(+v / 100)}+${+v % 100}`} />
+                  <Tooltip formatter={(v: any, n: any) => [`${v} м`, n === "elev" ? "Рельеф" : "Проектная линия"]} labelFormatter={v => `ПК${Math.floor(+v / 100)}+${+v % 100}`} />
                   <ReferenceLine y={startElev} stroke="#ccc" strokeDasharray="4 4" />
                   <Line type="monotone" dataKey="elev" stroke="#64748b" strokeWidth={2} dot={false} name="elev" />
                   <Line type="monotone" dataKey="design" stroke="#6366f1" strokeWidth={2.5} dot={false} strokeDasharray="6 3" name="design" />

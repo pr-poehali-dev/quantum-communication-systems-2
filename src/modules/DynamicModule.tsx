@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Icon from "@/components/ui/icon"
@@ -61,7 +60,7 @@ export default function DynamicModule() {
     {id:"volumes", label:"Объёмы земл. работ", type:"Анализ", status:"ok", deps:["specs"]},
     {id:"specs", label:"Ведомость объёмов", type:"Спецификация", status:"updated", deps:[]},
   ])
-  const [triggerUpdate, setTriggerUpdate] = useState<string | null>(null)
+  const [triggerUpdate, setTriggerUpdate] = useState<string | null>(null); void triggerUpdate
 
   const симулироватьОбновление = (startId: string) => {
     const chain = assocChain
@@ -134,7 +133,7 @@ export default function DynamicModule() {
   const STATUS_COLOR = { ok: "text-green-600 bg-green-50 border-green-200", warn: "text-yellow-700 bg-yellow-50 border-yellow-200", error: "text-red-600 bg-red-50 border-red-200" }
   const STATUS_ICON = { ok: "CheckCircle", warn: "AlertTriangle", error: "XCircle" }
 
-  const chartParam = params.find(p => p.id === "slope")!
+  const chartParam = params.find(p => p.id === "slope")!; void chartParam
   const chartData = Array.from({ length: 20 }, (_, i) => {
     const s = 0.5 + i * 0.75
     const v = Math.sqrt(2 * 9.81 * get("depth") * s / 100)
@@ -291,7 +290,7 @@ export default function DynamicModule() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="slope" unit="%" tick={{ fontSize: 10 }} label={{ value: "Уклон (%)", position: "insideBottom", offset: -2, fontSize: 11 }} />
                   <YAxis unit=" м/с" tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => [`${v} м/с`, "Скорость"]} />
+                  <Tooltip formatter={(v: any) => [`${v} м/с`, "Скорость"]} />
                   <Line type="monotone" dataKey="velocity" stroke="#6366f1" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>

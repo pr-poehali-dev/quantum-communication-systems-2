@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 
@@ -250,7 +249,6 @@ export default function ToolsModule({ onNavigate }: { onNavigate?: (id: string) 
   const [tab, setTab] = useState("lsp")
   const [catFilter, setCatFilter] = useState("all")
   const [search, setSearch] = useState("")
-  const [selected, setSelected] = useState<string | null>(null)
   const [command, setCommand] = useState("")
   const [toast, setToast] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])

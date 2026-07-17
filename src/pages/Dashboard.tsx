@@ -1,7 +1,6 @@
 import { useEffect, useState, Suspense, Component, ReactNode, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { Button } from "@/components/ui/button"
 import Icon from "@/components/ui/icon"
 import { ProjectContext, type CivilProject } from "@/hooks/useProjectStore"
 
@@ -1638,4 +1637,5 @@ export default function Dashboard() {
   )
 
   function setАктивнаяВкладкаModule(id: string) { setActiveModule(id) }
+  void setАктивнаяВкладкаModule
 }

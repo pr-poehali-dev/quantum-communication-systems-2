@@ -31,7 +31,7 @@ const СЛОИ: { key: keyof SloyState; label: string; icon: string; color: stri
 ]
 
 const РЕЖИМЫ_ОТОБРАЖЕНИЯ = ["Тонирование", "Каркас", "Горизонтали", "Уклоны", "Высоты", "Ночной"]
-const ВИДЫ = ["3D перспектива", "Сверху (план)", "Спереди", "Сбоку", "Изометрия"]
+const ВИДЫ = ["3D перспектива", "Сверху (план)", "Спереди", "Сбоку", "Изометрия"]; void ВИДЫ
 const АНИМАЦИИ = ["Облёт объекта", "Проезд по трассе", "Облёт вертолёта"]
 
 // ─── Рельеф ──────────────────────────────────────────────────────────────────
@@ -110,6 +110,8 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   const cam = useRef<Cam>({ yaw: 0.3, pitch: 0.52, dist: 48, tx: 0, tz: 0 })
   const touch = useRef<{ x: number; y: number; d: number } | null>(null)
   const animRef = useRef<{ active: boolean; t: number; type: string }>({ active: false, t: 0, type: "" })
+  const needsRender = useRef(true)
+  const invalidate = () => { needsRender.current = true }
   const измерRef = useRef<{ pts: Vec3[]; active: boolean }>({ pts: [], active: false })
 
   const [слои, setСлои] = useState<SloyState>({
@@ -214,7 +216,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
     const реж = режимRef.current
     const лр = слоиRef.current
     const rw = ширRef.current
-    const { yaw, pitch, dist, tx, tz } = cam.current
+    const { yaw, pitch, dist, tx, tz } = cam.current; void yaw; void pitch
     const sA = (солнцеRef.current / 180) * Math.PI
 
     // Анимация камеры
@@ -789,10 +791,21 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
 
   useEffect(() => {
     let id: number
-    const loop = () => { рендер(); id = requestAnimationFrame(loop) }
+    const loop = () => {
+      // Рендерим только когда есть анимация, замер, лассо или взведён флаг «нужна перерисовка».
+      // Иначе холст статичен — не жжём CPU/GPU на 60fps впустую.
+      if (animRef.current.active || needsRender.current || лассоDrawingRef.current || измерRef.current.pts.length > 0) {
+        needsRender.current = false
+        рендер()
+      }
+      id = requestAnimationFrame(loop)
+    }
     id = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(id)
   }, [рендер])
+
+  // Любое изменение слоёв/режима/вида/солнца/данных требует перерисовки
+  useEffect(() => { invalidate() })
 
   // ── Размер canvas ──────────────────────────────────────────────────────────
 
@@ -800,7 +813,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
     const canvas = canvasRef.current; if (!canvas) return
     const sync = () => {
       const { offsetWidth: w, offsetHeight: h } = canvas
-      if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h }
+      if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; invalidate() }
     }
     const ro = new ResizeObserver(sync)
     ro.observe(canvas); sync(); setTimeout(sync, 80)
@@ -826,6 +839,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   const onDown = (e: React.MouseEvent) => {
+    invalidate()
     if (активноЛассо) {
       const cp = canvasPos(e); if (!cp) return
       лассоDrawingRef.current = true
@@ -890,6 +904,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
       cam.current.yaw += dx * 0.007
       cam.current.pitch = Math.max(0.05, Math.min(1.48, cam.current.pitch + dy * 0.005))
     }
+    invalidate()
   }
   const onUp = () => {
     if (лассоDrawingRef.current) {
@@ -901,6 +916,7 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
   }
   const onWheel = (e: React.WheelEvent) => {
     cam.current.dist = Math.max(5, Math.min(140, cam.current.dist + e.deltaY * 0.05))
+    invalidate()
   }
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, d: 0 }
@@ -924,11 +940,13 @@ export default function Viewer3DModule({ onNavigate }: { onNavigate?: (id: strin
       cam.current.dist = Math.max(5, Math.min(140, cam.current.dist - (d - touch.current.d) * 0.1))
       touch.current = { ...touch.current, d }
     }
+    invalidate()
   }
 
   const сброситьКамеру = () => {
     cam.current = { yaw: 0.3, pitch: 0.52, dist: 48, tx: 0, tz: 0 }
     setВид("3D перспектива")
+    invalidate()
   }
 
   const переключитьАним = () => {

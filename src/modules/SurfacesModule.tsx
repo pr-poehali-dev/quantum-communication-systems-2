@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Icon from "@/components/ui/icon"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -952,7 +952,7 @@ export default function SurfacesModule() {
                         <Pie data={slopePie} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value">
                           {slopeData.map((s, i) => <Cell key={i} fill={s.color} />)}
                         </Pie>
-                        <Tooltip formatter={(v: number) => [`${v.toLocaleString()} м²`]} />
+                        <Tooltip formatter={(v: any) => [`${v.toLocaleString()} м²`]} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>

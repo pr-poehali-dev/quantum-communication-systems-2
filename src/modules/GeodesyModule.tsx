@@ -10,7 +10,7 @@ import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from "recharts"
-import { импортФайл, импортLandXML, импортSDR, экспортSDR, экспортТекст } from "@/utils/exportImport"
+import { импортФайл, импортLandXML, импортSDR, экспортSDR, экспортТекст, скачать, экспортExcel, экспортDXF, экспортDWG } from "@/utils/exportImport"
 
 interface Point {
   id: number
@@ -21,15 +21,34 @@ interface Point {
   code?: string
 }
 
-function calcVolume(points: Point[]): number {
+// Площадь замкнутого контура точек (метод Гаусса), м²
+function polygonArea(points: Point[]): number {
   if (points.length < 3) return 0
   const area = points.reduce((sum, p, i) => {
     const next = points[(i + 1) % points.length]
     return sum + p.x * next.y - next.x * p.y
   }, 0)
-  const baseArea = Math.abs(area) / 2
-  const avgZ = points.reduce((s, p) => s + p.z, 0) / points.length
-  return parseFloat((baseArea * avgZ * 0.001).toFixed(2))
+  return Math.abs(area) / 2
+}
+
+// Расчёт объёма земляных работ относительно базовой отметки.
+// Насыпь — где отметка выше базы, выемка — ниже. Возвращает м³.
+function calcVolumeFull(points: Point[], base: number) {
+  if (points.length < 3) return { fill: 0, cut: 0, net: 0, area: 0 }
+  const area = polygonArea(points)
+  const cell = area / points.length // средняя площадь на точку
+  let fill = 0, cut = 0
+  points.forEach(p => {
+    const dh = p.z - base
+    if (dh > 0) fill += dh * cell
+    else cut += -dh * cell
+  })
+  return {
+    fill: +fill.toFixed(2),
+    cut: +cut.toFixed(2),
+    net: +(fill - cut).toFixed(2),
+    area: +area.toFixed(2),
+  }
 }
 
 function calcSlope(p1: Point, p2: Point): number {
@@ -59,9 +78,9 @@ export default function GeodesyModule() {
   }, [store, store?.points])
   const [form, setForm] = useState({ name: "", x: "", y: "", z: "" })
   const [activePoint, setActivePoint] = useState<number | null>(null)
-  const [ptCode, setPtCode] = useState("TOPO")
+  const [volumeBaseMode, setVolumeBaseMode] = useState<"min" | "avg" | "fixed">("min")
+  const [volumeFixedElev, setVolumeFixedElev] = useState(0)
   const [importText, setImportText] = useState("")
-  const [ptFilter, setPtFilter] = useState("")
   const [groups, setGroups] = useState([
     { id: 1, name: "Все точки", filter: "*", style: "Стандарт" },
     { id: 2, name: "TOPO — рельеф", filter: "TOPO", style: "Рельеф" },
@@ -191,6 +210,29 @@ export default function GeodesyModule() {
     if (format.startsWith("SDR")) {
       return импортSDR(text).map((p, i) => ({ id: Date.now() + i, name: p.name || `ТЧК-${i + 1}`, x: p.x, y: p.y, z: p.z, code: p.code }))
     }
+    if (format.startsWith("GeoJSON")) {
+      try {
+        const geo = JSON.parse(text)
+        const feats = geo.features || (geo.type === "Feature" ? [geo] : [])
+        return feats
+          .filter((f: any) => f?.geometry?.type === "Point")
+          .map((f: any, i: number) => {
+            const c = f.geometry.coordinates || []
+            return { id: Date.now() + i, name: f.properties?.name || `ТЧК-${i + 1}`, x: +c[0] || 0, y: +c[1] || 0, z: +c[2] || +f.properties?.z || 0, code: f.properties?.code || "TOPO" }
+          })
+      } catch { return [] }
+    }
+    if (format.startsWith("KML")) {
+      const pts: Point[] = []
+      const matches = text.matchAll(/<Placemark>[\s\S]*?<name>([^<]*)<\/name>[\s\S]*?<coordinates>\s*([^<]+?)\s*<\/coordinates>[\s\S]*?<\/Placemark>/g)
+      let i = 0
+      for (const m of matches) {
+        const c = m[2].trim().split(",").map(Number)
+        pts.push({ id: Date.now() + i, name: m[1].trim() || `ТЧК-${i + 1}`, x: c[0] || 0, y: c[1] || 0, z: c[2] || 0, code: "TOPO" })
+        i++
+      }
+      return pts
+    }
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'))
     // пропускаем строку-заголовок, если она не числовая (например "Имя,X,Y,Z,Код")
     const dataLines = lines.filter((l, idx) => {
@@ -216,6 +258,8 @@ export default function GeodesyModule() {
   const importFromFile = (format: string) => {
     const accept = format.startsWith("LandXML") ? ".xml,.landxml"
       : format.startsWith("SDR") ? ".sdr"
+      : format.startsWith("GeoJSON") ? ".geojson,.json"
+      : format.startsWith("KML") ? ".kml"
       : format.startsWith("Excel") ? ".csv,.txt,.xls,.xlsx"
       : format.startsWith("TXT") || format.startsWith("Тахеометр") ? ".txt,.csv"
       : ".csv,.txt"
@@ -299,9 +343,36 @@ export default function GeodesyModule() {
         `${p.y.toFixed(3)}\t${p.x.toFixed(3)}\t${p.z.toFixed(3)}\t${p.name || p.id}\t${p.code || "TOPO"}`
       ),
     ]
-    import("@/utils/exportImport").then(({ скачать }) =>
-      скачать(строки.join("\n"), "points.txt", "text/plain")
-    )
+    скачать(строки.join("\n"), "points.txt", "text/plain")
+  }
+
+  // Excel (.xls) — таблица точек
+  const exportPointsExcel = () => {
+    const заголовки = ["Имя", "X (E)", "Y (N)", "Z (H)", "Код"]
+    const строки = points.map(p => [p.name || String(p.id), p.x, p.y, p.z, p.code || "TOPO"])
+    экспортExcel(заголовки, строки, "Точки COGO", "points_cogo.xls")
+  }
+
+  // GeoJSON — для ГИС (QGIS, ArcGIS, Mapbox, Leaflet)
+  const exportPointsGeoJSON = () => {
+    const geo = {
+      type: "FeatureCollection",
+      features: points.map(p => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [p.x, p.y, p.z] },
+        properties: { name: p.name || String(p.id), code: p.code || "TOPO", z: p.z },
+      })),
+    }
+    скачать(JSON.stringify(geo, null, 2), "points.geojson", "application/geo+json")
+  }
+
+  // KML — для Google Earth / Google Maps
+  const exportPointsKML = () => {
+    const placemarks = points.map(p =>
+      `    <Placemark>\n      <name>${(p.name || p.id)}</name>\n      <description>Код: ${p.code || "TOPO"}, H=${p.z}</description>\n      <Point><coordinates>${p.x},${p.y},${p.z}</coordinates></Point>\n    </Placemark>`
+    ).join("\n")
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>Точки COGO — ЛАПА 3D</name>\n${placemarks}\n  </Document>\n</kml>`
+    скачать(kml, "points.kml", "application/vnd.google-earth.kml+xml")
   }
 
   const exportPointsReport = () => {
@@ -393,13 +464,9 @@ export default function GeodesyModule() {
     ...линииCADОбъекты(),
   ]
 
-  const exportPointsDXF = () => {
-    import("@/utils/exportImport").then(({ экспортDXF }) => экспортDXF(pointsCADОбъекты(), "points.dxf"))
-  }
+  const exportPointsDXF = () => экспортDXF(pointsCADОбъекты(), "points.dxf")
 
-  const exportPointsDWG = () => {
-    import("@/utils/exportImport").then(({ экспортDWG }) => экспортDWG(pointsCADОбъекты(), "points.dwg"))
-  }
+  const exportPointsDWG = () => экспортDWG(pointsCADОбъекты(), "points.dwg")
 
   const addGroup = () => {
     if (!groupForm.name) return
@@ -407,9 +474,13 @@ export default function GeodesyModule() {
     setGroupForm({ name: "", filter: "", style: "Стандарт" })
   }
 
-  const volume = calcVolume(points)
   const minZ = Math.min(...points.map((p) => p.z))
   const maxZ = Math.max(...points.map((p) => p.z))
+  const avgZ = points.length ? points.reduce((s, p) => s + p.z, 0) / points.length : 0
+  const volBase = volumeBaseMode === "fixed" ? volumeFixedElev
+    : volumeBaseMode === "avg" ? avgZ : minZ
+  const volumeRes = calcVolumeFull(points, volBase)
+  const volume = volumeRes.net
 
   return (
     <motion.div
@@ -514,7 +585,7 @@ export default function GeodesyModule() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis domain={[minZ - 2, maxZ + 2]} tick={{ fontSize: 12 }} unit=" м" />
-                <Tooltip formatter={(v: number) => [`${v} м`, "Отметка"]} />
+                <Tooltip formatter={(v: any) => [`${v} м`, "Отметка"]} />
                 <Area type="monotone" dataKey="z" stroke="#6366f1" strokeWidth={2} fill="url(#zGrad)" dot={{ r: 5, fill: "#6366f1" }} />
               </AreaChart>
             </ResponsiveContainer>
@@ -523,16 +594,61 @@ export default function GeodesyModule() {
 
         {/* ANALYSIS */}
         <TabsContent value="analysis">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <div className="text-xs text-muted-foreground mb-1">Объём земляных работ</div>
-              <div className="text-3xl font-extrabold text-indigo-600">{volume} <span className="text-base font-normal text-gray-500">м³</span></div>
-              <div className="text-xs text-gray-400 mt-1">по методу средних площадей</div>
+          {/* Расчёт объёма земляных работ */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 mb-4">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
+              <Icon name="Box" size={16} className="text-indigo-600" />Расчёт объёма земляных работ по точкам
+            </h3>
+            <div className="flex flex-wrap items-end gap-3 mb-4">
+              <div>
+                <Label className="text-xs mb-1 block">База отсчёта</Label>
+                <div className="flex gap-1">
+                  {([["min", "Минимум"], ["avg", "Средняя"], ["fixed", "Задать"]] as const).map(([m, lbl]) => (
+                    <button key={m} onClick={() => setVolumeBaseMode(m)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${volumeBaseMode === m ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {volumeBaseMode === "fixed" && (
+                <div>
+                  <Label className="text-xs mb-1 block">Отметка базы, м</Label>
+                  <Input type="number" value={volumeFixedElev}
+                    onChange={e => setVolumeFixedElev(parseFloat(e.target.value) || 0)}
+                    className="w-32" />
+                </div>
+              )}
+              <div className="text-xs text-gray-500">
+                База: <b className="text-gray-800">{volBase.toFixed(2)} м</b> · Площадь контура: <b className="text-gray-800">{volumeRes.area.toLocaleString("ru-RU")} м²</b>
+              </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <div className="text-xs text-emerald-700 mb-1">Насыпь (выше базы)</div>
+                <div className="text-2xl font-extrabold text-emerald-700">{volumeRes.fill.toLocaleString("ru-RU")} <span className="text-sm font-normal">м³</span></div>
+              </div>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                <div className="text-xs text-rose-700 mb-1">Выемка (ниже базы)</div>
+                <div className="text-2xl font-extrabold text-rose-700">{volumeRes.cut.toLocaleString("ru-RU")} <span className="text-sm font-normal">м³</span></div>
+              </div>
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                <div className="text-xs text-indigo-700 mb-1">Баланс (насыпь − выемка)</div>
+                <div className={`text-2xl font-extrabold ${volume >= 0 ? "text-indigo-700" : "text-rose-700"}`}>{volume >= 0 ? "+" : ""}{volume.toLocaleString("ru-RU")} <span className="text-sm font-normal">м³</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <div className="text-xs text-muted-foreground mb-1">Перепад отметок</div>
               <div className="text-3xl font-extrabold text-gray-900">{(maxZ - minZ).toFixed(2)} <span className="text-base font-normal text-gray-500">м</span></div>
               <div className="text-xs text-gray-400 mt-1">мин {minZ} м → макс {maxZ} м</div>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="text-xs text-muted-foreground mb-1">Средняя отметка</div>
+              <div className="text-3xl font-extrabold text-gray-900">{avgZ.toFixed(2)} <span className="text-base font-normal text-gray-500">м</span></div>
+              <div className="text-xs text-gray-400 mt-1">по {points.length} точкам</div>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <div className="text-xs text-muted-foreground mb-1">Точек съёмки</div>
@@ -548,7 +664,7 @@ export default function GeodesyModule() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis unit="%" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [`${v}%`, "Уклон"]} />
+                <Tooltip formatter={(v: any) => [`${v}%`, "Уклон"]} />
                 <Line type="monotone" dataKey="slope" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4, fill: "#f59e0b" }} />
               </LineChart>
             </ResponsiveContainer>
@@ -807,7 +923,7 @@ export default function GeodesyModule() {
               </div>
             )}
             <div className="grid grid-cols-3 gap-3">
-              {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)", "SDR (Sokkia/тахеометр)"].map(f => (
+              {["CSV (Имя,X,Y,Z,Код)", "TXT (X Y Z)", "LandXML", "Excel", "Тахеометр (TXT)", "SDR (Sokkia/тахеометр)", "GeoJSON (ГИС)", "KML (Google Earth)"].map(f => (
                 <button key={f} onClick={() => importFromFile(f)} className="p-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-sm font-medium text-gray-700 transition-all text-left">
                   <Icon name="FileText" size={14} className="text-indigo-600 mb-1" />
                   <div>{f}</div>
@@ -905,9 +1021,12 @@ export default function GeodesyModule() {
                 { fmt: "CSV", desc: "Excel, таблицы, расчёты", color: "bg-green-50 border-green-200", btn: "bg-green-600", fn: exportPointsCSV },
                 { fmt: "TXT", desc: "Тахеометры, геодезические приборы", color: "bg-orange-50 border-orange-200", btn: "bg-orange-600", fn: exportPointsTXT },
                 { fmt: "TXT отчёт", desc: "Табличный отчёт по точкам", color: "bg-amber-50 border-amber-200", btn: "bg-amber-600", fn: exportPointsReport, icon: "FileText" },
+                { fmt: "Excel", desc: "MS Excel (.xls), таблица точек", color: "bg-emerald-50 border-emerald-200", btn: "bg-emerald-600", fn: exportPointsExcel, icon: "Table" },
                 { fmt: "SDR", desc: "Sokkia, Topcon, Nikon, Trimble", color: "bg-teal-50 border-teal-200", btn: "bg-teal-600", fn: exportPointsSDR },
                 { fmt: "DXF", desc: "AutoCAD, чертёж с точками", color: "bg-purple-50 border-purple-200", btn: "bg-purple-600", fn: exportPointsDXF },
                 { fmt: "DWG", desc: "AutoCAD, nanoCAD, КОМПАС", color: "bg-indigo-50 border-indigo-200", btn: "bg-indigo-600", fn: exportPointsDWG },
+                { fmt: "GeoJSON", desc: "QGIS, ArcGIS, Mapbox, Leaflet", color: "bg-cyan-50 border-cyan-200", btn: "bg-cyan-600", fn: exportPointsGeoJSON, icon: "Globe" },
+                { fmt: "KML", desc: "Google Earth, Google Maps", color: "bg-rose-50 border-rose-200", btn: "bg-rose-600", fn: exportPointsKML, icon: "MapPin" },
               ].map(f => (
                 <div key={f.fmt} className={`rounded-xl border p-4 ${f.color} space-y-2`}>
                   <div className="font-bold text-gray-900">{f.fmt}</div>

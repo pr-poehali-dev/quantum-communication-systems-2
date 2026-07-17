@@ -766,7 +766,7 @@ export function generateDemoVPIs(alignment: Alignment, surfacePoints: ProfilePoi
     kValue: 50,
     curveLength: i > 0 && i < stepElevs.length-1 ? 60 : 0,
     curveType: (i % 2 === 0 ? "crest_curve" : "sag_curve") as "crest_curve" | "sag_curve",
-  }))
+  })) as unknown as ProfileVPI[]
 }
 
 // Детерминированный генератор псевдослучайных чисел
