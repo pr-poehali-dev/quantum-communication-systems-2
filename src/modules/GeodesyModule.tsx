@@ -12,6 +12,7 @@ import {
 } from "recharts"
 import { импортФайл, импортLandXML, импортSDR, экспортSDR, экспортТекст, скачать, экспортExcel, экспортDXF, экспортDWG } from "@/utils/exportImport"
 import { computeVolume, groupByCode, pileColor, type VolumeBase, type VolumeResult } from "@/utils/volumeCalc"
+import { DEMO_PROJECTS, type DemoProject } from "@/modules/demoProjects"
 
 interface Point {
   id: number
@@ -49,7 +50,7 @@ export default function GeodesyModule() {
   }, [store, store?.points])
   const [form, setForm] = useState({ name: "", x: "", y: "", z: "" })
   const [activePoint, setActivePoint] = useState<number | null>(null)
-  const [volumeBaseMode, setVolumeBaseMode] = useState<"min" | "avg" | "fixed">("min")
+  const [volumeBaseMode, setVolumeBaseMode] = useState<"min" | "avg" | "fixed">("avg")
   const [volumeFixedElev, setVolumeFixedElev] = useState(0)
   const [importText, setImportText] = useState("")
   const [groups, setGroups] = useState([
@@ -211,6 +212,12 @@ export default function GeodesyModule() {
       const cells = l.split(/[,;\t\s]+/)
       return cells.some(c => !isNaN(parseFloat(c)))
     })
+    // Извлечение кода-кучки из имени точки: буквенный префикс до первой цифры.
+    // Bry1n0 → BRY, marina57 → MARINA, ydsk10.n. → YDSK, Bry3.4.n45 → BRY
+    const codeFromName = (name: string): string => {
+      const m = /^([A-Za-zА-Яа-я]+)/.exec(name.trim())
+      return m ? m[1].toUpperCase() : "TOPO"
+    }
     return dataLines.map((line, i) => {
       const parts = line.split(/[,;\t]+|\s{1,}/).map(s => s.trim()).filter(Boolean)
       if (format.startsWith("TXT")) {
@@ -218,11 +225,13 @@ export default function GeodesyModule() {
         return { id: Date.now() + i, name: `ТЧК-${i + 1}`, x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1]) || 0, z: parseFloat(parts[2]) || 0, code: "TOPO" }
       }
       if (format.startsWith("Тахеометр")) {
-        // Формат тахеометра: Имя X Y Z [Код]
-        return { id: Date.now() + i, name: parts[0] || `ТЧК-${i + 1}`, x: parseFloat(parts[1]) || 0, y: parseFloat(parts[2]) || 0, z: parseFloat(parts[3]) || 0, code: parts[4] || "TOPO" }
+        // Формат тахеометра: Имя X Y Z [Код]. Если код не задан — берём префикс имени как кучку.
+        const nm = parts[0] || `ТЧК-${i + 1}`
+        return { id: Date.now() + i, name: nm, x: parseFloat(parts[1]) || 0, y: parseFloat(parts[2]) || 0, z: parseFloat(parts[3]) || 0, code: parts[4] || codeFromName(nm) }
       }
       // CSV / Excel: Имя,X,Y,Z,Код
-      return { id: Date.now() + i, name: parts[0] || `ТЧК-${i + 1}`, x: parseFloat(parts[1]) || 0, y: parseFloat(parts[2]) || 0, z: parseFloat(parts[3]) || 0, code: parts[4] || "TOPO" }
+      const nm = parts[0] || `ТЧК-${i + 1}`
+      return { id: Date.now() + i, name: nm, x: parseFloat(parts[1]) || 0, y: parseFloat(parts[2]) || 0, z: parseFloat(parts[3]) || 0, code: parts[4] || codeFromName(nm) }
     })
   }
 
@@ -286,6 +295,16 @@ export default function GeodesyModule() {
   const loadDemoPoints = () => importCSV(
     "ТЧК-101,150.25,200.10,121.55,TOPO\nТЧК-102,155.30,205.80,122.10,EDGE\nТЧК-103,148.90,210.50,119.80,LOW\nТЧК-104,160.00,215.20,124.30,HIGH\nТЧК-105,152.50,220.00,121.90,TOPO"
   )
+
+  // Загрузка реального демо-проекта (тахеосъёмка) — точки с кодами-кучками из имён
+  const loadDemoProject = (proj: DemoProject) => {
+    const newPts = parsePointsByFormat("Тахеометр", proj.data)
+    if (newPts.length === 0) { alert("Не удалось загрузить демо-проект."); return }
+    setPoints(newPts)
+    registerCodes(newPts, "демо-проект")
+    setImportInfo(`Загружен проект «${proj.name}»: ${newPts.length} точек. Перейдите во вкладку «Анализ DTM» — объёмы по кучкам рассчитаны автоматически.`)
+    setTimeout(() => setImportInfo(""), 8000)
+  }
 
   const exportPointsCSV = () => {
     const header = "Имя,X,Y,Z,Код"
@@ -600,6 +619,9 @@ export default function GeodesyModule() {
                     </button>
                   ))}
                 </div>
+                {volumeBaseMode === "min" && (
+                  <p className="text-[11px] text-amber-600 mt-1 max-w-xs">При базе «Минимум» выемки нет (все точки выше или на уровне низшей). Для насыпи и выемки одновременно выберите «Средняя» или задайте проектную отметку.</p>
+                )}
               </div>
               {volumeBaseMode === "fixed" && (
                 <div>
@@ -994,6 +1016,25 @@ export default function GeodesyModule() {
                 <Icon name="Database" size={16} />Загрузить демо (5 точек)
               </Button>
             </div>
+
+            {/* Готовые реальные проекты (полевая съёмка) */}
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
+              <div className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                <Icon name="FolderOpen" size={14} className="text-emerald-600" />Готовые проекты с реальными точками
+              </div>
+              {DEMO_PROJECTS.map(proj => (
+                <div key={proj.id} className="flex items-center justify-between gap-3 rounded-md bg-white border border-emerald-200 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-800 truncate">{proj.name}</div>
+                    <div className="text-[11px] text-gray-500 truncate">{proj.description}</div>
+                  </div>
+                  <Button size="sm" onClick={() => loadDemoProject(proj)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shrink-0">
+                    <Icon name="Download" size={14} />Загрузить
+                  </Button>
+                </div>
+              ))}
+            </div>
+
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 text-xs text-gray-500">
               <div className="font-semibold text-gray-700 mb-1">Поддерживаемые форматы:</div>
               <div>• CSV: Имя,X(E),Y(N),Z,Код — разделитель запятая</div>

@@ -3080,7 +3080,7 @@ function TreeItem({ node, depth, selected, onSelect, onToggle, onAction }: {
         className={`flex items-center gap-0.5 cursor-pointer select-none transition-colors
           ${selected === node.id ? "bg-[#0078d4]" : "hover:bg-[#2a2a3e]"}`}
         style={{ paddingLeft: `${depth * 16 + 2}px`, paddingTop: 1, paddingBottom: 1, paddingRight: 4 }}
-        onClick={() => onSelect(node.id)}
+        onClick={() => { onSelect(node.id); if (node.children) onToggle(node.id); else onAction?.(node) }}
         onDoubleClick={() => { if (node.children) onToggle(node.id); else onAction?.(node) }}
         onContextMenu={e => { e.preventDefault(); onAction?.(node) }}
       >
@@ -12982,10 +12982,25 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   const handleTreeNodeAction = (node: TreeNode) => {
-    if (node.id === "surfaces" || node.id.startsWith("s") || node.id === "ds1") { setShowSurface(true) }
-    else if (node.id === "alignments" || node.id.startsWith("a") || node.id === "ds2") { setShowAlignment(true) }
-    else if (node.id === "corridors" || node.id === "c1" || node.id === "ds5") { setShowCorridor(true) }
-    else if (node.id === "assemblies" || node.id.startsWith("asm_")) { setShowAssembly(true) }
+    const id = node.id
+    // Поверхности
+    if (id === "surfaces" || id === "s1" || id === "s2" || id === "ds1" || id === "util_surf2" || id === "rep_surf") { setShowSurface(true) }
+    // Трассы
+    else if (id === "alignments" || id === "a1" || id === "a2" || id === "a3" || id === "ds2" || id === "rep_align") { setShowAlignment(true) }
+    // Коридоры
+    else if (id === "corridors" || id === "c1" || id === "ds5" || id === "rep_corr") { setShowCorridor(true) }
+    // Типовые сечения / подсечения
+    else if (id === "assemblies" || id === "subassemblies" || id.startsWith("asm_")) { setShowAssembly(true) }
+    // Инженерные сети, каналы, водосборы, ливневая канализация, водоёмы, трубы — диалог трубопроводной сети
+    else if (["catchments","channels","stormobj","pipenet","pressnet","ds3","ds4","ds_wtr","rep_pipe"].includes(id)) {
+      setShowPipeNet(true)
+      setStatusMsg(`Инженерные сети: ${node.label}`)
+    }
+    // Точки и группы точек
+    else if (id === "points" || id === "ptgroups" || id === "survey" || id === "util_cogo" || id === "util_base" || id === "rep_pts" || id === "rep_surv") {
+      setToolspaceTab("prospector")
+      setStatusMsg(`${node.label} — управление во вкладке «Точки»`)
+    }
     else { setStatusMsg(`Объект: ${node.label}`) }
   }
 

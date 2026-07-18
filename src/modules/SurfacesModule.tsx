@@ -341,7 +341,7 @@ export default function SurfacesModule() {
   const [exportFormat, setExportFormat] = useState("LandXML")
   const [volumeResult, setVolumeResult] = useState<VolumeResult|null>(null)
   const [calcVolume, setCalcVolume] = useState(false)
-  const [volBaseMode, setVolBaseMode] = useState<"min"|"avg"|"fixed">("min")
+  const [volBaseMode, setVolBaseMode] = useState<"min"|"avg"|"fixed">("avg")
   const [volFixedElev, setVolFixedElev] = useState(0)
   const [selPoint, setSelPoint] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
