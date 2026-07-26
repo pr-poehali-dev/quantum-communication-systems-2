@@ -4,8 +4,7 @@ import Icon from "@/components/ui/icon"
 import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import type { CategoryId } from "@/modules/versions-catalog"
 import { computeVolume, pointInPolygon, pileColor, fmtM3, type VolumePoint, type VolumeResult } from "@/utils/volumeCalc"
-import { экспортCSV, экспортExcel, экспортТекст } from "@/utils/exportImport"
-import { DEMO_PROJECTS } from "@/modules/demoProjects"
+import { экспортCSV, экспортExcel, экспортТекст, импортФайл } from "@/utils/exportImport"
 
 interface VolumePileUI { id: string; name: string; color: string; count: number; result: VolumeResult }
 
@@ -11918,30 +11917,38 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setStatusMsg("Демо-чертёж загружен")
   }
 
-  // Загрузка реального демо-проекта (полевая тахеосъёмка) на холст редактора
+  // Загрузка реального файла проекта/чертежа с компьютера (DXF, DWG, LandXML,
+  // CSV/TXT-точки, GeoJSON, данные съёмки) прямо на холст редактора.
   const загрузитьРеальныйПроект = () => {
-    const proj = DEMO_PROJECTS[0]
-    const raw = parseImportedDrawing("Данные съёмки", proj.data)
-    if (raw.length === 0) { showToast("Не удалось загрузить проект"); return }
-    const all = raw.flatMap(o => o.pts)
-    const xs = all.map(p => p[0]), ys = all.map(p => p[1])
-    const minX = Math.min(...xs), minY = Math.min(...ys)
-    const span = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY) || 1
-    const sc = 800 / span
-    const objs: CanvasObject[] = raw.map((o, i) => ({
-      id: `demo_${Date.now()}_${i}`, type: "point", label: "", color: "#facc15", lineWidth: 1, layer: "Точки COGO", z: o.z,
-      pts: o.pts.map(([x, y]) => [(x - minX) * sc, (y - minY) * sc] as [number, number]),
-      properties: o.properties,
-    }))
-    setShowDemo(false)
-    setShowStartScreen(false)
-    setSelectedObjId(null)
-    setCanvasObjects(objs)
-    вписатьВидПоОбъектам(objs)
-    raw.forEach((o, i) => { if (o.pts[0]) store?.addPoint({ id: `demo_cp_${Date.now()}_${i}`, no: i + 1, x: o.pts[0][0], y: o.pts[0][1], z: o.z || 0, code: String(o.properties?.["Имя"] || "TOPO"), desc: o.label, layer: "Точки COGO" }) })
-    store?.notify(`Загружен проект «${proj.name}»: ${objs.length} точек`, "success")
-    showToast(`✓ Загружен реальный проект: ${objs.length} точек`)
-    setStatusMsg(`Проект «${proj.name}» загружен: ${objs.length} точек`)
+    импортФайл(".dxf,.dwg,.xml,.landxml,.csv,.txt,.geojson,.json,.sdr,.dat", (содержимое, имя) => {
+      const ext = (имя.split(".").pop() || "").toLowerCase()
+      const fmt = ext === "dxf" ? "DXF" : ext === "dwg" ? "DWG"
+        : (ext === "xml" || ext === "landxml") ? "LandXML"
+        : (ext === "geojson" || ext === "json") ? "GeoJSON" : "Данные съёмки"
+      const raw = parseImportedDrawing(fmt, содержимое)
+      if (raw.length === 0) { showToast(`Не удалось распознать объекты в «${имя}»`); return }
+      const all = raw.flatMap(o => o.pts)
+      const xs = all.map(p => p[0]), ys = all.map(p => p[1])
+      const minX = Math.min(...xs), minY = Math.min(...ys)
+      const span = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY) || 1
+      const sc = 800 / span
+      const objs: CanvasObject[] = raw.map((o, i) => ({
+        id: `real_${Date.now()}_${i}`, type: o.type, label: o.label || "",
+        color: o.type === "point" ? "#facc15" : o.type === "text" ? "#ffffff" : "#22d3ee",
+        lineWidth: 1, layer: o.layer || "Точки COGO", z: o.z,
+        pts: o.pts.map(([x, y]) => [(x - minX) * sc, (y - minY) * sc] as [number, number]),
+        properties: o.properties,
+      }))
+      setShowDemo(false)
+      setShowStartScreen(false)
+      setSelectedObjId(null)
+      setCanvasObjects(objs)
+      вписатьВидПоОбъектам(objs)
+      raw.forEach((o, i) => { if (o.type === "point" && o.pts[0]) store?.addPoint({ id: `real_cp_${Date.now()}_${i}`, no: i + 1, x: o.pts[0][0], y: o.pts[0][1], z: o.z || 0, code: String(o.properties?.["Код"] || "TOPO"), desc: o.label, layer: o.layer || "Точки COGO" }) })
+      store?.notify(`Загружен файл «${имя}»: ${objs.length} объектов`, "success")
+      showToast(`✓ Загружен проект «${имя}»: ${objs.length} объектов`)
+      setStatusMsg(`Файл «${имя}» загружен: ${objs.length} объектов`)
+    })
   }
 
   const [сохраняется, setСохраняется] = useState(false)
@@ -13840,6 +13847,11 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             onClick={загрузитьПример}
             className="w-6 h-6 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-white hover:bg-[#3a3a4e]">
             <Icon name="FileStack" size={12} fallback="Files" />
+          </button>
+          <button title="Открыть реальный файл проекта (DXF, DWG, LandXML, CSV, точки съёмки)"
+            onClick={загрузитьРеальныйПроект}
+            className="w-6 h-6 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-white hover:bg-[#0078d4]">
+            <Icon name="FolderOpen" size={12} fallback="Upload" />
           </button>
         </div>
 
