@@ -5,6 +5,7 @@ import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import type { CategoryId } from "@/modules/versions-catalog"
 import { computeVolume, pointInPolygon, pileColor, fmtM3, type VolumePoint, type VolumeResult } from "@/utils/volumeCalc"
 import { экспортCSV, экспортExcel, экспортТекст } from "@/utils/exportImport"
+import { DEMO_PROJECTS } from "@/modules/demoProjects"
 
 interface VolumePileUI { id: string; name: string; color: string; count: number; result: VolumeResult }
 
@@ -4544,16 +4545,22 @@ function SignInDialog({ onClose, onDone }: { onClose: () => void; onDone: (m:str
   )
 }
 
-function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format:string;file:string}) => void }) {
+function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format:string;file:string;content:string}) => void }) {
   const [format, setFormat] = useState("LandXML")
   const [fileName, setFileName] = useState("")
+  const [fileContent, setFileContent] = useState("")
   const [epsg, setEpsg] = useState("20870")
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const fmt = IMPORT_FORMATS.find(f=>f.id===format) || IMPORT_FORMATS[0]
 
-  const handleFile = (f: File) => { setFileName(f.name) }
+  const handleFile = (f: File) => {
+    setFileName(f.name)
+    const reader = new FileReader()
+    reader.onload = () => setFileContent(String(reader.result || ""))
+    reader.readAsText(f)
+  }
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
@@ -4610,7 +4617,7 @@ function ImportDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{format
 
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 hover:bg-[#3a3a4e] rounded text-[11px]">Отмена</button>
-            <button onClick={()=>onOK({format,file:fileName||`sample${fmt.ext}`})}
+            <button onClick={()=>onOK({format,file:fileName||`sample${fmt.ext}`,content:fileContent})}
               className="px-4 py-1.5 bg-[#0078d4] text-white hover:bg-[#0066b3] rounded text-[11px] flex items-center gap-1">
               <Icon name="Upload" size={12}/>Импортировать
             </button>
@@ -4652,6 +4659,89 @@ function generateDXF(objects: CanvasObject[]): string {
   })
   h(0,"ENDSEC"); h(0,"EOF")
   return lines.join("\n")
+}
+
+// ─── Парсер импортируемых чертежей/точек в объекты холста ────────────────────
+// Возвращает объекты в ИСХОДНЫХ мировых координатах (без нормализации).
+// Поддержка: DXF, LandXML, CSV/TXT-точки, GeoJSON, SDR. Обработчик потом
+// нормализует координаты и вписывает вид.
+type RawObj = { type: CanvasObjType; pts: [number, number][]; label: string; z?: number; layer?: string; properties?: Record<string, string | number> }
+
+function parseImportedDrawing(format: string, content: string): RawObj[] {
+  const objs: RawObj[] = []
+  if (!content || !content.trim()) return objs
+  const fmt = format.toUpperCase()
+
+  // ── DXF / DWG (текстовый DXF) ──
+  if (fmt.includes("DXF") || fmt.includes("DWG")) {
+    const lines = content.split(/\r?\n/).map(s => s.trim())
+    // Читаем пары код/значение
+    const pairs: [number, string][] = []
+    for (let i = 0; i + 1 < lines.length; i += 2) pairs.push([parseInt(lines[i]), lines[i + 1]])
+    let i = 0
+    while (i < pairs.length) {
+      const [code, val] = pairs[i]
+      if (code === 0 && (val === "LINE" || val === "LWPOLYLINE" || val === "POLYLINE" || val === "POINT" || val === "TEXT" || val === "CIRCLE")) {
+        const ent = val
+        const g: Record<number, number[]> = {}
+        let layer = "0"; let text = ""
+        i++
+        while (i < pairs.length && pairs[i][0] !== 0) {
+          const [c, v] = pairs[i]
+          if (c === 8) layer = v
+          else if (c === 1) text = v
+          else if (c === 10 || c === 20 || c === 11 || c === 21 || c === 40) { (g[c] ||= []).push(parseFloat(v)) }
+          i++
+        }
+        const xs = g[10] || [], ys = g[20] || []
+        if (ent === "POINT" && xs.length) objs.push({ type: "point", pts: [[xs[0], ys[0]]], label: "", layer, properties: { "Тип": "Точка", "Слой": layer } })
+        else if (ent === "TEXT" && xs.length) objs.push({ type: "text", pts: [[xs[0], ys[0]]], label: text, layer })
+        else if (ent === "LINE" && (g[10]?.length && g[11]?.length)) objs.push({ type: "line", pts: [[g[10][0], g[20][0]], [g[11][0], g[21][0]]], label: "", layer })
+        else if ((ent === "LWPOLYLINE" || ent === "POLYLINE") && xs.length >= 2) objs.push({ type: "polyline", pts: xs.map((x, k) => [x, ys[k]] as [number, number]), label: "", layer })
+        else if (ent === "CIRCLE" && xs.length) objs.push({ type: "circle", pts: [[xs[0], ys[0]]], label: "", layer, properties: { "Радиус": g[40]?.[0] ?? 0 } })
+      } else i++
+    }
+    return objs
+  }
+
+  // ── LandXML: CgPoint (точки) + PntList2D (контуры) ──
+  if (fmt.includes("LANDXML") || fmt.includes("XML")) {
+    const ptMatches = content.matchAll(/<CgPoint[^>]*(?:name="([^"]*)")?[^>]*>([^<]+)<\/CgPoint>/g)
+    for (const m of ptMatches) {
+      const parts = m[2].trim().split(/\s+/).map(Number)
+      if (parts.length >= 2) objs.push({ type: "point", pts: [[parts[1], parts[0]]], label: m[1] || "", z: parts[2] ?? 0, layer: "Точки COGO", properties: { "Тип": "Точка съёмки", "X": (parts[1] ?? 0).toFixed(3), "Y": (parts[0] ?? 0).toFixed(3), "H": (parts[2] ?? 0).toFixed(3) } })
+    }
+    return objs
+  }
+
+  // ── GeoJSON ──
+  if (fmt.includes("GEOJSON") || fmt.includes("JSON")) {
+    try {
+      const geo = JSON.parse(content)
+      const feats = geo.features || (geo.type === "Feature" ? [geo] : [])
+      for (const f of feats) {
+        const g = f.geometry; if (!g) continue
+        if (g.type === "Point") objs.push({ type: "point", pts: [[g.coordinates[0], g.coordinates[1]]], label: f.properties?.name || "", z: g.coordinates[2] ?? 0 })
+        else if (g.type === "LineString") objs.push({ type: "polyline", pts: g.coordinates.map((c: number[]) => [c[0], c[1]] as [number, number]), label: f.properties?.name || "" })
+        else if (g.type === "Polygon" && g.coordinates[0]) objs.push({ type: "polyline", pts: g.coordinates[0].map((c: number[]) => [c[0], c[1]] as [number, number]), label: f.properties?.name || "" })
+      }
+    } catch { /* не JSON */ }
+    return objs
+  }
+
+  // ── Точки CSV / TXT / SDR / данные съёмки: "Имя X Y Z [Код]" или "X Y Z" ──
+  const rows = content.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith("#") && !/^0[028]/.test(l) && !/[<>]/.test(l))
+  for (const line of rows) {
+    const parts = line.trim().split(/[,;\t]+|\s+/).filter(Boolean)
+    const nums = parts.map(p => parseFloat(p))
+    // Находим первые 2-3 числовых поля (координаты)
+    let name = "", x = NaN, y = NaN, z = 0
+    if (!isNaN(nums[0]) && !isNaN(nums[1])) { x = nums[0]; y = nums[1]; z = nums[2] || 0 }
+    else if (isNaN(nums[0]) && !isNaN(nums[1]) && !isNaN(nums[2])) { name = parts[0]; x = nums[1]; y = nums[2]; z = nums[3] || 0 }
+    if (isNaN(x) || isNaN(y)) continue
+    objs.push({ type: "point", pts: [[x, y]], label: name, z, layer: "Точки COGO", properties: { "Тип": "Точка съёмки", "Имя": name, "X": x.toFixed(3), "Y": y.toFixed(3), "H": z.toFixed(3) } })
+  }
+  return objs
 }
 
 // ─── Export/Print Dialog ──────────────────────────────────────────────────────
@@ -11828,6 +11918,32 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     setStatusMsg("Демо-чертёж загружен")
   }
 
+  // Загрузка реального демо-проекта (полевая тахеосъёмка) на холст редактора
+  const загрузитьРеальныйПроект = () => {
+    const proj = DEMO_PROJECTS[0]
+    const raw = parseImportedDrawing("Данные съёмки", proj.data)
+    if (raw.length === 0) { showToast("Не удалось загрузить проект"); return }
+    const all = raw.flatMap(o => o.pts)
+    const xs = all.map(p => p[0]), ys = all.map(p => p[1])
+    const minX = Math.min(...xs), minY = Math.min(...ys)
+    const span = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY) || 1
+    const sc = 800 / span
+    const objs: CanvasObject[] = raw.map((o, i) => ({
+      id: `demo_${Date.now()}_${i}`, type: "point", label: "", color: "#facc15", lineWidth: 1, layer: "Точки COGO", z: o.z,
+      pts: o.pts.map(([x, y]) => [(x - minX) * sc, (y - minY) * sc] as [number, number]),
+      properties: o.properties,
+    }))
+    setShowDemo(false)
+    setShowStartScreen(false)
+    setSelectedObjId(null)
+    setCanvasObjects(objs)
+    вписатьВидПоОбъектам(objs)
+    raw.forEach((o, i) => { if (o.pts[0]) store?.addPoint({ id: `demo_cp_${Date.now()}_${i}`, no: i + 1, x: o.pts[0][0], y: o.pts[0][1], z: o.z || 0, code: String(o.properties?.["Имя"] || "TOPO"), desc: o.label, layer: "Точки COGO" }) })
+    store?.notify(`Загружен проект «${proj.name}»: ${objs.length} точек`, "success")
+    showToast(`✓ Загружен реальный проект: ${objs.length} точек`)
+    setStatusMsg(`Проект «${proj.name}» загружен: ${objs.length} точек`)
+  }
+
   const [сохраняется, setСохраняется] = useState(false)
   const [естьИзменения, setЕстьИзменения] = useState(false)
   const skipDirtyRef = useRef(true) // первый рендер и программные загрузки не считаем изменением
@@ -11931,6 +12047,20 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     const c = canvasRef.current
     const cw = c?.width || 900, ch = c?.height || 600
     return [(cw / 2 - pan.x) / zoom, (ch / 2 - pan.y) / zoom]
+  }
+
+  // Вписать вид (zoom + pan) в габариты набора объектов — «показать всё»
+  const вписатьВидПоОбъектам = (objs: CanvasObject[]) => {
+    const pts = objs.flatMap(o => o.pts)
+    if (!pts.length) return
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1])
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    const c = canvasRef.current
+    const cw = c?.width || 900, ch = c?.height || 600
+    const z = Math.max(0.05, Math.min(50, 0.85 * Math.min(cw / (maxX - minX + 1), ch / (maxY - minY + 1))))
+    setZoom(z)
+    setPan({ x: cw / 2 - ((minX + maxX) / 2) * z, y: ch / 2 - ((minY + maxY) / 2) * z })
   }
 
   // Генерация геометрии по типу объекта (относительно центра вида, масштаб в мировых ед.)
@@ -14817,7 +14947,42 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showAnalysis && <AnalysisDialog type={analysisType} onClose={()=>setShowAnalysis(false)} onOK={d=>{setShowAnalysis(false);setStatusMsg(`${d.type}: выполнен для ${d.surface}`)}}/>}
             {showVolume && <VolumeDialog scene={civilScene} onClose={()=>setShowVolume(false)} onOK={()=>{setShowVolume(false);showToast("Ведомость объёмов экспортирована в CSV")}}/>}
             {showLayers && <LayersDialog onClose={()=>setShowLayers(false)}/>}
-            {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{setShowImport(false);setStatusMsg(`Импорт ${d.format}: ${d.file} завершён`)}}/>}
+            {showImport && <ImportDialog onClose={()=>setShowImport(false)} onOK={d=>{
+              setShowImport(false)
+              if (!d.content || !d.content.trim()) {
+                showToast(`Выберите файл для импорта (${d.format})`)
+                setStatusMsg(`Импорт ${d.format}: файл не выбран`)
+                return
+              }
+              const raw = parseImportedDrawing(d.format, d.content)
+              if (raw.length === 0) {
+                showToast(`Не удалось распознать объекты в файле «${d.file}»`)
+                setStatusMsg(`Импорт ${d.format}: объекты не найдены`)
+                return
+              }
+              // Нормализация координат к экранному масштабу (габарит ~800 ед.)
+              const all = raw.flatMap(o=>o.pts)
+              const xs=all.map(p=>p[0]), ys=all.map(p=>p[1])
+              const minX=Math.min(...xs), minY=Math.min(...ys)
+              const span=Math.max(Math.max(...xs)-minX, Math.max(...ys)-minY)||1
+              const sc=800/span
+              const objs:CanvasObject[] = raw.map((o,i)=>({
+                id:`imp_${Date.now()}_${i}`, type:o.type, label:o.label||"",
+                color: o.type==="point"?"#facc15":o.type==="text"?"#ffffff":"#22d3ee",
+                lineWidth:1, layer:o.layer||"0", z:o.z,
+                pts:o.pts.map(([x,y])=>[(x-minX)*sc,(y-minY)*sc] as [number,number]),
+                properties:o.properties,
+              }))
+              setShowDemo(false)
+              setShowStartScreen(false)
+              setCanvasObjects(prev=>[...prev,...objs])
+              вписатьВидПоОбъектам(objs)
+              // Точки — в общий store (Геодезия, Поверхности, 3D)
+              raw.forEach((o,i)=>{ if(o.type==="point"&&o.pts[0]) store?.addPoint({id:`imp_cp_${Date.now()}_${i}`,no:i+1,x:o.pts[0][0],y:o.pts[0][1],z:o.z||0,code:String(o.properties?.["Код"]||"TOPO"),desc:o.label,layer:o.layer||"0"}) })
+              store?.notify(`Импорт ${d.format}: ${objs.length} объектов из «${d.file}»`,"success")
+              setStatusMsg(`Импорт ${d.format} завершён: ${objs.length} объектов`)
+              showToast(`✓ Импортировано ${objs.length} объектов (${d.format}) — вид вписан`)
+            }}/>}
             {showPointsImport && <PointsTxtImportDialog onClose={()=>setShowPointsImport(false)} onImport={(pts,opts)=>{
               setShowPointsImport(false)
               const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y)
@@ -14830,10 +14995,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 pts:[[(p.x-minX)*sc,(p.y-minY)*sc]] as [number,number][], z:p.z,
                 properties:{"Тип":"Точка съёмки","Пикет":p.no,"X":p.x.toFixed(3),"Y":p.y.toFixed(3),"H":p.z.toFixed(3),"Код":p.code,"Слой":opts.piketLayer},
               }))
-              setCanvasObjects(prev=>[...prev,...objs])
+              // Убираем стартовый экран/демо, иначе холст перекрыт и объектов не видно
+              setShowDemo(false)
+              setShowStartScreen(false)
+              setCanvasObjects(prev=>{ const next=[...prev,...objs]; return next })
+              // Показать все импортированные точки (вписать вид в их габариты)
+              вписатьВидПоОбъектам(objs)
               pts.forEach((p,i)=>store?.addPoint({id:`cp_${Date.now()}_${i}`,no:parseInt(p.no)||i+1,x:p.x,y:p.y,z:p.z,code:p.code,desc:p.desc,layer:opts.piketLayer}))
               store?.notify(`Импортировано точек: ${pts.length} — доступны в Геодезии, Поверхностях и 3D`,"success")
               setStatusMsg(`Импорт точек завершён: ${pts.length} шт.`)
+              showToast(`✓ Импортировано ${pts.length} точек — вид вписан по объектам`)
             }}/>}
             {showExport && <ExportDialog mode={exportMode} canvasObjects={canvasObjects} onClose={()=>setShowExport(false)} onOK={d=>{setShowExport(false);showToast(`${exportMode==="print"?"Печать":"Экспорт"} в ${d.format} завершён`)}}/>}
             {showShare && <ShareDialog project={currentProjectName} onClose={()=>setShowShare(false)} onDone={m=>{setShowShare(false);showToast(m)}}/>}
