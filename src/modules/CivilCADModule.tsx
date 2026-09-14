@@ -12195,7 +12195,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   useEffect(() => {
     if (!активныйProjectId) return
     setCurrentProjectId(активныйProjectId)
-    setCurrentProjectName(store?.activeProject?.name || "")
+    const имяПроекта = store?.activeProject?.name || ""
+    setCurrentProjectName(имяПроекта)
+    // Проект открыт из «Управления проектами» — сразу показываем чертёж,
+    // минуя стартовый экран «Последние».
+    setShowStartScreen(false)
+    const tabName = имяПроекта ? (имяПроекта.endsWith(".dwg") ? имяПроекта : имяПроекта + ".dwg") : "Новый чертёж.dwg"
+    setDrawingTabs(prev => prev.includes(tabName) ? prev : [...prev, tabName])
+    setActiveDrawingTab(tabName)
     fetch(`${API}?project_id=${активныйProjectId}`)
       .then(r => r.json())
       .then((raw: unknown) => {
@@ -12239,6 +12246,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         skipDirtyRef.current = true
         setCanvasObjects(restored)
         setЕстьИзменения(false)
+        setShowStartScreen(false)
+        if (restored.length > 0) вписатьВидПоОбъектам(restored)
       })
       .catch(() => {})
   }, [активныйProjectId])
