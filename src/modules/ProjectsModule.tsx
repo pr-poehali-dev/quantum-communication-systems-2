@@ -67,6 +67,8 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
   const [activeDocFolder, setActiveDocFolder] = useState<string>("Общая документация")
   const [docsLoading, setDocsLoading] = useState(false)
   const docUploadRef = useRef<HTMLInputElement>(null)
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (clickTimer.current) clearTimeout(clickTimer.current) }, [])
 
   const docHumanSize = (bytes: number) => bytes < 1024 ? `${bytes} Б` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} КБ` : `${(bytes / 1048576).toFixed(1)} МБ`
 
@@ -229,6 +231,24 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  // Открыть проект в редакторе: запоминаем его в общем store и переходим
+  const openInEditor = (p: Project) => {
+    if (store) {
+      store.setActiveProject({
+        id: p.id,
+        name: p.name,
+        description: p.stage,
+        type: "road",
+        status: "active",
+        created_at: p.created,
+        updated_at: p.updated,
+        objects_count: p.versions.length,
+      })
+      store.notify(`Проект «${p.name}» открыт в редакторе`, "success")
+    }
+    onNavigate?.("civilcad")
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center py-24 text-muted-foreground gap-3">
       <Icon name="Loader" size={20} className="animate-spin" /> Загрузка проектов…
@@ -280,6 +300,12 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
             </div>
 
             {/* Project cards */}
+            {filtered.length > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Icon name="MousePointerClick" size={13} fallback="Info" />
+                Двойной клик по проекту — открыть в редакторе
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filtered.map((p, i) => (
                 <motion.div
@@ -287,7 +313,18 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                   className={`rounded-2xl border bg-white p-5 hover:shadow-md transition-all ${p.status === "archived" ? "border-gray-100 opacity-70" : "border-gray-200 hover:border-indigo-300"}`}
                 >
-                  <div className="flex items-start justify-between mb-3 cursor-pointer" onClick={() => setActiveProject(p.id)}>
+                  <div
+                    className="flex items-start justify-between mb-3 cursor-pointer"
+                    title="Клик — карточка проекта, двойной клик — открыть в редакторе"
+                    onClick={() => {
+                      // Ждём возможный второй клик: двойной — открыть в редакторе
+                      if (clickTimer.current) clearTimeout(clickTimer.current)
+                      clickTimer.current = setTimeout(() => { clickTimer.current = null; setActiveProject(p.id) }, 220)
+                    }}
+                    onDoubleClick={() => {
+                      if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null }
+                      openInEditor(p)
+                    }}>
                     <div className="flex-1">
                       <div className="font-bold text-gray-900 text-sm leading-tight">{p.name}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{p.type} · {p.stage.split("—")[0].trim()}</div>
@@ -300,6 +337,10 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
                     <span className="flex items-center gap-1"><Icon name="Users" size={11} />{p.team.length} уч.</span>
                     <span className="ml-auto">{p.updated}</span>
                     <div className="flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
+                      <button title="Открыть в редакторе" onClick={() => openInEditor(p)}
+                        className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-[#0078d4] transition-colors">
+                        <Icon name="Monitor" size={14} />
+                      </button>
                       {p.status === "archived" ? (
                         <button title="Восстановить" onClick={() => restoreProject(p.id)}
                           className="p-1 rounded hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors">
@@ -333,22 +374,7 @@ export default function ProjectsModule({ onNavigate }: { onNavigate?: (id: strin
               {/* Открыть в редакторе — синхронизирует проект в store и переходит */}
               <button
                 title="Открыть в ЛАПА — Редакторе"
-                onClick={() => {
-                  if (store) {
-                    store.setActiveProject({
-                      id: current.id,
-                      name: current.name,
-                      description: current.stage,
-                      type: "road",
-                      status: "active",
-                      created_at: current.created,
-                      updated_at: current.updated,
-                      objects_count: current.versions.length,
-                    })
-                    store.notify(`Проект «${current.name}» открыт в редакторе`, "success")
-                  }
-                  onNavigate?.("civilcad")
-                }}
+                onClick={() => openInEditor(current)}
                 className="flex items-center gap-1.5 text-xs text-white border border-[#0078d4] bg-[#0078d4] rounded-lg px-3 py-1.5 hover:bg-[#005fa3] transition-colors">
                 <Icon name="Monitor" size={13} /> Открыть в редакторе
               </button>
