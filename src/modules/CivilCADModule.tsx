@@ -11878,7 +11878,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [cursorCanvasPos, setCursorCanvasPos] = useState<[number,number] | null>(null)
   const [snapPos, setSnapPos] = useState<[number,number] | null>(null)
   // ── Лассо-выделение точек для расчёта объёмов ────────────────────────────────
-  const [lassoPts, setLassoPts] = useState<[number,number][]>([])
+  const [, setLassoPts] = useState<[number,number][]>([])
   const [showVolumePanel, setShowVolumePanel] = useState(false)
   const [volumeBaseMode, setVolumeBaseMode] = useState<"min"|"fixed"|"surface">("min")
   const [volumeFixedElev, setVolumeFixedElev] = useState(0)
@@ -11889,6 +11889,28 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const lassoDrawing = useRef(false)
   const lassoPtsRef = useRef<[number,number][]>([])
   const lassoRaf = useRef<number | null>(null)
+  const lassoCanvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Отрисовка лассо на отдельном overlay-слое — основной чертёж не трогаем,
+  // поэтому обводка идёт плавно даже на тысячах точек.
+  const drawLassoOverlay = useCallback((pts: [number,number][], cursor?: [number,number] | null) => {
+    const c = lassoCanvasRef.current; if (!c) return
+    const ctx = c.getContext("2d"); if (!ctx) return
+    ctx.clearRect(0, 0, c.width, c.height)
+    if (pts.length === 0) return
+    ctx.save()
+    ctx.translate(pan.x, pan.y); ctx.scale(zoom, zoom)
+    ctx.setLineDash([8/zoom, 4/zoom])
+    ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2/zoom
+    ctx.fillStyle = "rgba(245,158,11,0.12)"
+    ctx.lineJoin = "round"; ctx.lineCap = "round"
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1])
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+    if (cursor) ctx.lineTo(cursor[0], cursor[1])
+    ctx.closePath(); ctx.fill(); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+  }, [pan, zoom])
 
   const pushUndo = (label: string) => {
     setUndoStack(prev => [...prev, label])
@@ -12456,19 +12478,6 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       ctx.setLineDash([])
     }
 
-    // Лассо-выделение объёмов
-    if (lassoPts.length > 0) {
-      ctx.setLineDash([8/zoom, 4/zoom])
-      ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2/zoom
-      ctx.fillStyle = "rgba(245,158,11,0.12)"
-      ctx.beginPath(); ctx.moveTo(lassoPts[0][0], lassoPts[0][1])
-      for (let i = 1; i < lassoPts.length; i++) ctx.lineTo(lassoPts[i][0], lassoPts[i][1])
-      if (cursorCanvasPos) ctx.lineTo(cursorCanvasPos[0], cursorCanvasPos[1])
-      ctx.closePath(); ctx.fill(); ctx.stroke()
-      ctx.setLineDash([])
-      lassoPts.forEach(([px,py]) => { ctx.beginPath(); ctx.arc(px, py, 3/zoom, 0, Math.PI*2); ctx.fillStyle = "#f59e0b"; ctx.fill() })
-    }
-
     // Snap indicator
     if (snapPos) {
       ctx.beginPath()
@@ -12480,7 +12489,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     }
 
     ctx.restore()
-  }, [canvasObjects, selectedObjId, drawingPts, cursorCanvasPos, snapPos, pan, zoom, lassoPts])
+  }, [canvasObjects, selectedObjId, drawingPts, cursorCanvasPos, snapPos, pan, zoom])
 
   const draw = useCallback(() => {
     const c = canvasRef.current; if (!c || c.width < 10) return
@@ -12491,12 +12500,31 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return
-    const ro = new ResizeObserver(() => { c.width = c.offsetWidth; c.height = c.offsetHeight; draw() })
-    ro.observe(c); c.width = c.offsetWidth; c.height = c.offsetHeight; draw()
+    // Overlay лассо всегда повторяет размер основного холста
+    const syncOverlay = () => {
+      const lc = lassoCanvasRef.current
+      if (lc && (lc.width !== c.offsetWidth || lc.height !== c.offsetHeight)) {
+        lc.width = c.offsetWidth; lc.height = c.offsetHeight
+      }
+    }
+    const ro = new ResizeObserver(() => { c.width = c.offsetWidth; c.height = c.offsetHeight; syncOverlay(); draw() })
+    ro.observe(c); c.width = c.offsetWidth; c.height = c.offsetHeight; syncOverlay(); draw()
     return () => ro.disconnect()
   }, [draw])
 
   useEffect(() => { draw() }, [draw])
+
+  // Завершаем обводку, даже если кнопку отпустили за пределами холста —
+  // иначе лассо «зависает» и не закрывается.
+  useEffect(() => {
+    const up = () => {
+      if (!lassoDrawing.current) return
+      lassoDrawing.current = false
+      finishLasso([...lassoPtsRef.current])
+    }
+    window.addEventListener("mouseup", up)
+    return () => window.removeEventListener("mouseup", up)
+  })
 
   const storeRef = useRef(store)
   storeRef.current = store
@@ -12541,7 +12569,14 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         const obj = canvasObjects.find(o => o.id === selectedObjId)
         if (obj) { pushUndo(`Удалено: ${obj.label}`); setCanvasObjects(prev => prev.filter(o => o.id !== selectedObjId)); deleteCanvasObject(selectedObjId); setSelectedObjId(null); showToast(`Удалён объект: ${obj.label}`) }
       }
-      if (e.key === "Escape") { setDrawingPts([]); setLassoPts([]); setActiveTool("select"); setSelectedObjId(null) }
+      if (e.key === "Escape") {
+        setDrawingPts([]); setLassoPts([]); setActiveTool("select"); setSelectedObjId(null)
+        lassoDrawing.current = false
+        if (lassoRaf.current != null) { cancelAnimationFrame(lassoRaf.current); lassoRaf.current = null }
+        lassoPtsRef.current = []
+        const lc = lassoCanvasRef.current
+        if (lc) lc.getContext("2d")?.clearRect(0, 0, lc.width, lc.height)
+      }
       if ((e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault()
         сохранитьЧертёж()
@@ -12806,11 +12841,12 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       const last = arr[arr.length - 1]
       if (!last || Math.hypot(wx - last[0], wy - last[1]) >= 2 / zoom) {
         arr.push([wx, wy])
-        // Обновляем видимый контур не чаще одного раза за кадр (throttle через rAF)
+        // Рисуем контур прямо на overlay-слое (без setState и без ре-рендера React),
+        // не чаще одного раза за кадр — обводка идёт плавно на любом объёме точек.
         if (lassoRaf.current == null) {
           lassoRaf.current = requestAnimationFrame(() => {
             lassoRaf.current = null
-            setLassoPts(lassoPtsRef.current.slice())
+            drawLassoOverlay(lassoPtsRef.current, [wx, wy])
           })
         }
       }
@@ -12857,6 +12893,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     if (lassoRaf.current != null) { cancelAnimationFrame(lassoRaf.current); lassoRaf.current = null }
     lassoPtsRef.current = []
     setLassoPts([])
+    drawLassoOverlay([])
     if (poly.length < 3) return
     const inside = canvasObjects.filter(o => o.type === "point" && o.pts[0] && pointInPolygon(o.pts[0][0], o.pts[0][1], poly))
     const vpts = inside.map(realPoint).filter(Boolean) as VolumePoint[]
@@ -14758,7 +14795,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 activeTool === "select" ? "default" : "crosshair"
               }}
               onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove}
-              onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+              onMouseUp={onMouseUp}
+              onMouseLeave={e => { if (!lassoDrawing.current) onMouseUp(e) }}
               onContextMenu={e => {
                 e.preventDefault()
                 if (drawingPts.length > 0) { setDrawingPts([]); setStatusMsg("Черчение отменено"); return }
@@ -14768,6 +14806,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 setContextMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, wx, wy })
               }}
             />
+            {/* Overlay-слой лассо: рисуется отдельно, чтобы не перерисовывать весь чертёж */}
+            <canvas ref={lassoCanvasRef} className="absolute inset-0 w-full h-full block pointer-events-none" />
 
             {/* ── Context menu (right click) ── */}
             {contextMenu && (
