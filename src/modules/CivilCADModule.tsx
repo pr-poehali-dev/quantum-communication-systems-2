@@ -11890,6 +11890,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const lassoPtsRef = useRef<[number,number][]>([])
   const lassoRaf = useRef<number | null>(null)
   const lassoCanvasRef = useRef<HTMLCanvasElement>(null)
+  const lassoRectRef = useRef<DOMRect | null>(null)
 
   // Отрисовка лассо на отдельном overlay-слое — основной чертёж не трогаем,
   // поэтому обводка идёт плавно даже на тысячах точек.
@@ -12628,15 +12629,20 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const onMouseDown = (e: React.MouseEvent) => {
     const rect = getCanvasRect(e)
     const [wx, wy] = toWorld(e.clientX, e.clientY, rect)
-    const snapped = findSnap(wx, wy)
-    const pt: [number,number] = snapped ?? [wx, wy]
 
+    // Лассо — самым первым, БЕЗ поиска привязок и без setState:
+    // иначе на тысячах точек обводка стартует с задержкой.
     if (activeTool === "volumelasso") {
       lassoDrawing.current = true
       lassoPtsRef.current = [[wx, wy]]
-      setLassoPts([[wx, wy]])
+      lassoRectRef.current = rect
+      drawLassoOverlay(lassoPtsRef.current, [wx, wy])
       return
     }
+
+    const snapped = findSnap(wx, wy)
+    const pt: [number,number] = snapped ?? [wx, wy]
+
     if (activeTool === "pan" || (activeTool === "select" && e.button === 1)) {
       drag.current = { x: e.clientX, y: e.clientY }
       return
@@ -12832,7 +12838,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   }
 
   const onMouseMove = (e: React.MouseEvent) => {
-    const rect = getCanvasRect(e)
+    // Во время обводки используем закэшированный rect — getBoundingClientRect()
+    // на каждое движение мыши вызывает пересчёт вёрстки и заметно тормозит.
+    const rect = lassoDrawing.current ? (lassoRectRef.current ?? getCanvasRect(e)) : getCanvasRect(e)
     const [wx, wy] = toWorld(e.clientX, e.clientY, rect)
 
     // ── Лассо: быстрый путь без тяжёлых setState (snap/coords) и без ре-рендера на каждый кадр ──
