@@ -703,6 +703,511 @@ export const drawingUpgrades: Record<string, Upgrade> = {
       }
     },
   },
+
+  // ─── ПЯТАЯ ВОЛНА: редактирование, аннотации, слои, блоки, xref, печать, обмен ──
+
+  "acad-modify-mirror": {
+    desc: "Зеркальное отражение относительно оси: координаты отражённых точек.",
+    fields: [f("x", "X точки", "60"), f("y", "Y точки", "40"), sel("axis", "Ось", "Вертикальная", ["Вертикальная", "Горизонтальная"]), f("ax", "X оси", "0"), f("ay", "Y оси", "0")],
+    outputLabel: "Зеркало",
+    compute: v => {
+      const x = num(v.x), y = num(v.y), ax = num(v.ax), ay = num(v.ay)
+      const mx = v.axis === "Вертикальная" ? 2 * ax - x : x
+      const my = v.axis === "Горизонтальная" ? 2 * ay - y : y
+      return [
+        { label: "Ось отражения", value: v.axis },
+        { label: "Исходная точка", value: `${fx(x, 2)}, ${fx(y, 2)}` },
+        { label: "Отражённая точка", value: `${fx(mx, 2)}, ${fx(my, 2)}` },
+      ]
+    },
+    buildLabel: "Показать отражение",
+    build: (v, anchor) => {
+      const s = 40
+      const src = rectPts([anchor[0] - s, anchor[1] - s / 2], s, s / 2)
+      const axisX = v.axis === "Вертикальная" ? anchor[0] : anchor[0] - s * 1.5
+      const mirrored = src.map(([x, y]): P2 => v.axis === "Вертикальная" ? [2 * axisX - x, y] : [x, 2 * anchor[1] - y])
+      return {
+        objects: [
+          mk("polyline", src, "Исходный объект", "#6b7280", "0", {}),
+          mk("polyline", mirrored, "Зеркальная копия", "#22d3ee", "0", { "Ось": v.axis }),
+        ],
+        message: `Зеркальное отражение относительно ${v.axis.toLowerCase()} оси построено`,
+      }
+    },
+  },
+
+  "acad-modify-trim": {
+    desc: "Обрезка объектов по режущим кромкам: сколько отрезков получится после обрезки.",
+    fields: [f("n", "Объектов обрезать", "5"), f("edges", "Режущих кромок", "2")],
+    outputLabel: "Обрезка",
+    compute: v => {
+      const n = Math.max(0, Math.round(num(v.n))), e = Math.max(1, Math.round(num(v.edges)))
+      return [
+        { label: "Обрезано объектов", value: `${n}` },
+        { label: "Режущих кромок", value: `${e}` },
+        { label: "Получится сегментов", value: `${n * (e + 1)}` },
+      ]
+    },
+  },
+
+  "acad-modify-extend": {
+    desc: "Удлинение объектов до граничной кромки: новая длина и координата конца.",
+    fields: [f("L", "Текущая длина", "80", "мм"), f("d", "Удлинение", "18", "мм")],
+    outputLabel: "Удлинение",
+    compute: v => {
+      const L = num(v.L), d = num(v.d)
+      return [
+        { label: "Исходная длина", value: `${fx(L)} мм` },
+        { label: "Новая длина", value: `${fx(L + d)} мм` },
+        { label: "Прирост", value: `${fx(L > 0 ? (d / L) * 100 : 0, 1)} %` },
+      ]
+    },
+    buildLabel: "Показать удлинение",
+    build: (v, anchor) => {
+      const L = num(v.L), d = num(v.d)
+      return {
+        objects: [
+          mk("line", [[anchor[0], anchor[1]], [anchor[0] + L, anchor[1]]], "Исходный отрезок", "#6b7280", "0", {}),
+          mk("line", [[anchor[0] + L, anchor[1]], [anchor[0] + L + d, anchor[1]]], `Удлинение +${fx(d)}`, "#22d3ee", "0", { "Удлинение": fx(d) + " мм" }),
+        ],
+        message: `Отрезок удлинён на ${fx(d)} мм`,
+      }
+    },
+  },
+
+  "acad-modify-stretch": {
+    desc: "Растяжение части объекта рамкой выбора: новые габариты фигуры.",
+    fields: [f("w", "Ширина исходная", "80", "мм"), f("h", "Высота исходная", "50", "мм"), f("d", "Величина растяжения", "25", "мм")],
+    outputLabel: "Растяжение",
+    compute: v => {
+      const w = num(v.w), h = num(v.h), d = num(v.d)
+      return [
+        { label: "Исходные габариты", value: `${fx(w)} × ${fx(h)} мм` },
+        { label: "Новые габариты", value: `${fx(w + d)} × ${fx(h)} мм` },
+        { label: "Прирост площади", value: `${fmtBig(d * h)} мм²` },
+      ]
+    },
+    buildLabel: "Показать растяжение",
+    build: (v, anchor) => {
+      const w = num(v.w), h = num(v.h), d = num(v.d)
+      return {
+        objects: [
+          mk("polyline", rectPts([anchor[0] - w / 2, anchor[1] - h / 2], w, h), "До растяжения", "#6b7280", "0", {}),
+          mk("polyline", rectPts([anchor[0] - w / 2, anchor[1] - h / 2], w + d, h), "После растяжения", "#22d3ee", "0", { "Растяжение": fx(d) + " мм" }),
+        ],
+        message: `Растяжение на ${fx(d)} мм построено`,
+      }
+    },
+  },
+
+  "acad-modify-explode": {
+    desc: "Расчленение блока/полилинии на примитивы: количество получаемых отрезков.",
+    fields: [f("n", "Вершин полилинии", "8")],
+    outputLabel: "Расчленение",
+    compute: v => {
+      const n = Math.max(2, Math.round(num(v.n)))
+      return [
+        { label: "Вершин в полилинии", value: `${n}` },
+        { label: "Получено отрезков", value: `${n - 1}` },
+      ]
+    },
+  },
+
+  "acad-draw-spline": {
+    desc: "Сплайн по опорным точкам: длина кривой, число сегментов, степень NURBS.",
+    fields: [txt("pts", "Опорные точки «x,y; …»", "0,0; 30,25; 70,-10; 110,30; 150,0")],
+    outputLabel: "Сплайн",
+    compute: v => {
+      const pts = parseXY(v.pts)
+      return [
+        { label: "Опорных точек", value: `${pts.length}` },
+        { label: "Сегментов", value: `${Math.max(1, pts.length - 1)}` },
+        { label: "Степень NURBS", value: "3 (кубический)" },
+        { label: "Длина ломаной (оценка)", value: `${fx(polyLength(pts))} мм` },
+      ]
+    },
+    buildLabel: "Начертить сплайн",
+    build: v => {
+      const ctrl = parseXY(v.pts)
+      if (ctrl.length < 2) return { objects: [], message: "Нужно минимум 2 точки" }
+      const smooth = catmullRom(ctrl)
+      return {
+        objects: [mk("polyline", smooth, "Сплайн", "#22d3ee", "0", { "Опорных точек": String(ctrl.length) })],
+        message: `Сплайн по ${ctrl.length} точкам построен`,
+      }
+    },
+  },
+
+  "acad-anno-table": {
+    desc: "Таблица данных: число ячеек, габариты, площадь на листе.",
+    fields: [f("rows", "Строк", "10"), f("cols", "Столбцов", "5"), f("rw", "Ширина столбца", "30", "мм"), f("rh", "Высота строки", "8", "мм")],
+    outputLabel: "Таблица",
+    compute: v => {
+      const rows = Math.max(1, Math.round(num(v.rows))), cols = Math.max(1, Math.round(num(v.cols)))
+      return [
+        { label: "Ячеек", value: `${rows * cols}` },
+        { label: "Габарит таблицы", value: `${fx(cols * num(v.rw))} × ${fx(rows * num(v.rh))} мм` },
+      ]
+    },
+    buildLabel: "Построить таблицу",
+    build: (v, anchor) => {
+      const rows = Math.max(1, Math.round(num(v.rows))), cols = Math.max(1, Math.round(num(v.cols)))
+      const rw = num(v.rw), rh = num(v.rh)
+      const objs: CanvasObject[] = []
+      for (let i = 0; i <= rows; i++)
+        objs.push(mk("line", [[anchor[0], anchor[1] - i * rh], [anchor[0] + cols * rw, anchor[1] - i * rh]], "", "#9ca3af", "Таблицы", {}))
+      for (let j = 0; j <= cols; j++)
+        objs.push(mk("line", [[anchor[0] + j * rw, anchor[1]], [anchor[0] + j * rw, anchor[1] - rows * rh]], "", "#9ca3af", "Таблицы", {}))
+      return { objects: objs, message: `Таблица ${rows}×${cols} построена` }
+    },
+  },
+
+  "acad-anno-field": {
+    desc: "Динамическое поле: подставляемое значение по выбранному типу.",
+    fields: [sel("type", "Тип поля", "Площадь", ["Площадь", "Периметр", "Дата", "Имя файла", "Автор"]), f("val", "Текущее значение", "1250.5")],
+    outputLabel: "Поле",
+    compute: v => [
+      { label: "Тип поля", value: v.type },
+      { label: "Текущее значение", value: v.type === "Дата" ? new Date().toLocaleDateString("ru-RU") : v.type === "Автор" || v.type === "Имя файла" ? "—" : `${fx(num(v.val))} ${v.type === "Площадь" ? "м²" : "м"}` },
+    ],
+  },
+
+  "acad-anno-dimstyle": {
+    desc: "Настройка размерного стиля по стандарту: высота текста, стрелки, точность.",
+    fields: [sel("std", "Стандарт", "ГОСТ 2.307", ["ГОСТ 2.307", "ISO-25", "ANSI", "DIN"]), f("h", "Высота текста", "3.5", "мм")],
+    outputLabel: "Стиль размеров",
+    compute: v => {
+      const h = num(v.h)
+      const arrow: Record<string, number> = { "ГОСТ 2.307": 3, "ISO-25": 2.5, "ANSI": 3, "DIN": 2.5 }
+      return [
+        { label: "Стандарт", value: v.std },
+        { label: "Высота текста", value: `${fx(h)} мм` },
+        { label: "Размер стрелки", value: `${fx(arrow[v.std] ?? 3)} мм` },
+      ]
+    },
+  },
+
+  "acad-layer-iso": {
+    desc: "Изоляция слоёв: сколько слоёв затемняется/гасится при работе.",
+    fields: [f("total", "Всего слоёв в чертеже", "24"), f("n", "Слоёв изолировать", "3")],
+    outputLabel: "Изоляция слоёв",
+    compute: v => {
+      const total = Math.max(1, Math.round(num(v.total))), n = Math.max(0, Math.round(num(v.n)))
+      return [
+        { label: "Активных слоёв", value: `${Math.min(n, total)}` },
+        { label: "Затемнено/скрыто", value: `${Math.max(total - n, 0)}` },
+      ]
+    },
+  },
+
+  "acad-layer-merge": {
+    desc: "Объединение слоёв: перенос объектов в целевой слой и удаление пустых.",
+    fields: [f("from", "Из слоёв", "4"), txt("to", "В слой", "Основной"), f("objs", "Объектов на слой", "35")],
+    outputLabel: "Объединение слоёв",
+    compute: v => {
+      const from = Math.max(1, Math.round(num(v.from))), objs = Math.max(0, Math.round(num(v.objs)))
+      return [
+        { label: "Объединено слоёв", value: `${from} → «${v.to}»` },
+        { label: "Перенесено объектов", value: `${from * objs}` },
+      ]
+    },
+  },
+
+  "acad-layer-state": {
+    desc: "Сохранение состояния слоёв: количество параметров, снятых в снимок.",
+    fields: [txt("name", "Имя состояния", "Печать_План"), f("total", "Слоёв в чертеже", "24")],
+    outputLabel: "Состояние слоёв",
+    compute: v => [
+      { label: "Состояние сохранено", value: v.name },
+      { label: "Слоёв в снимке", value: `${Math.max(1, Math.round(num(v.total)))}` },
+    ],
+  },
+
+  "acad-layer-freeze-vp": {
+    desc: "Замораживание слоёв в видовом экране: сколько слоёв скрыто именно на листе.",
+    fields: [f("n", "Заморозить слоёв", "2"), f("total", "Всего слоёв", "24")],
+    outputLabel: "Слои в ВЭ",
+    compute: v => {
+      const n = Math.max(0, Math.round(num(v.n))), total = Math.max(1, Math.round(num(v.total)))
+      return [
+        { label: "Заморожено в ВЭ", value: `${n} слоёв` },
+        { label: "Видно на листе", value: `${Math.max(total - n, 0)} слоёв` },
+      ]
+    },
+  },
+
+  "acad-block-define": {
+    desc: "Определение блока из объектов: базовая точка, состав, оценка размера.",
+    fields: [txt("name", "Имя блока", "ДВЕРЬ_900"), f("objs", "Объектов", "6"), f("w", "Ширина", "900", "мм"), f("h", "Высота", "2100", "мм")],
+    outputLabel: "Блок",
+    compute: v => [
+      { label: "Блок", value: `«${v.name}»` },
+      { label: "Объектов в блоке", value: `${Math.max(1, Math.round(num(v.objs)))}` },
+      { label: "Габарит", value: `${fx(num(v.w))} × ${fx(num(v.h))} мм` },
+    ],
+    buildLabel: "Показать габарит блока",
+    build: (v, anchor) => ({
+      objects: [mk("rect", rectPts([anchor[0] - num(v.w) / 2000, anchor[1]], num(v.w) / 1000, num(v.h) / 1000), `Блок «${v.name}»`, "#f59e0b", "Блоки", { "Объектов": v.objs })],
+      message: `Блок «${v.name}» определён`,
+    }),
+  },
+
+  "acad-block-attdef": {
+    desc: "Текстовый атрибут блока: тег, значение по умолчанию, длина хранимой строки.",
+    fields: [txt("tag", "Тег", "МАРКА"), txt("val", "Значение по умолч.", "М1")],
+    outputLabel: "Атрибут",
+    compute: v => [
+      { label: `Атрибут ${v.tag}`, value: `по умолч. «${v.val}»` },
+      { label: "Длина значения", value: `${String(v.val).length} симв.` },
+    ],
+  },
+
+  "acad-block-dynamic": {
+    desc: "Динамический блок: параметры и число состояний видимости.",
+    fields: [f("states", "Состояний видимости", "3"), f("params", "Параметров растяжения", "2")],
+    outputLabel: "Динамический блок",
+    compute: v => {
+      const s = Math.max(1, Math.round(num(v.states))), p = Math.max(0, Math.round(num(v.params)))
+      return [
+        { label: "Вариантов отображения", value: `${s}` },
+        { label: "Параметров растяжения", value: `${p}` },
+      ]
+    },
+  },
+
+  "acad-block-battman": {
+    desc: "Массовое редактирование атрибутов блоков: сколько экземпляров обновится.",
+    fields: [f("n", "Блоков обновить", "48"), f("attrs", "Атрибутов на блок", "3")],
+    outputLabel: "Атрибуты",
+    compute: v => {
+      const n = Math.max(0, Math.round(num(v.n))), a = Math.max(1, Math.round(num(v.attrs)))
+      return [
+        { label: "Обновлено блоков", value: `${n}` },
+        { label: "Изменено значений атрибутов", value: `${n * a}` },
+      ]
+    },
+  },
+
+  "acad-block-wblock": {
+    desc: "Экспорт блока в отдельный файл: оценка размера DWG.",
+    fields: [txt("name", "Имя файла", "Дверь_900.dwg"), f("objs", "Объектов в блоке", "6")],
+    outputLabel: "Экспорт блока",
+    compute: v => {
+      const objs = Math.max(1, Math.round(num(v.objs)))
+      return [
+        { label: "Сохранён файл", value: v.name },
+        { label: "Оценка размера", value: `${fx(20 + objs * 1.2, 1)} КБ` },
+      ]
+    },
+  },
+
+  "acad-xref-attach": {
+    desc: "Присоединение внешней ссылки: масштаб, поворот, точка вставки.",
+    fields: [txt("name", "Файл", "Подоснова.dwg"), f("scale", "Масштаб", "1"), f("rot", "Поворот", "0", "°")],
+    outputLabel: "Внешняя ссылка",
+    compute: v => [
+      { label: "Присоединён файл", value: v.name },
+      { label: "Масштаб / поворот", value: `${fx(num(v.scale), 2)}× / ${fx(num(v.rot), 1)}°` },
+    ],
+  },
+
+  "acad-xref-clip": {
+    desc: "Обрезка внешней ссылки границей: видимая площадь после обрезки.",
+    fields: [f("w", "Ширина границы", "200", "м"), f("h", "Высота границы", "150", "м")],
+    outputLabel: "Обрезка Xref",
+    compute: v => [
+      { label: "Видимая площадь", value: `${fmtBig(num(v.w) * num(v.h))} м²` },
+    ],
+    buildLabel: "Показать границу",
+    build: (v, anchor) => ({
+      objects: [mk("rect", rectPts([anchor[0] - num(v.w) / 2, anchor[1] - num(v.h) / 2], num(v.w), num(v.h)), "Граница обрезки Xref", "#6366f1", "Xref", { "Площадь": fmtBig(num(v.w) * num(v.h)) + " м²" })],
+      message: "Граница обрезки Xref построена",
+    }),
+  },
+
+  "acad-xref-manager": {
+    desc: "Диспетчер внешних ссылок: сводка состояния присоединённых файлов.",
+    fields: [f("total", "Присоединено Xref", "5"), f("missing", "Отсутствует файлов", "0")],
+    outputLabel: "Внешние ссылки",
+    compute: v => {
+      const total = Math.max(0, Math.round(num(v.total))), missing = Math.max(0, Math.round(num(v.missing)))
+      return [
+        { label: "Всего Xref", value: `${total}` },
+        { label: "В норме", value: `${Math.max(total - missing, 0)}` },
+        { label: "Статус", value: missing === 0 ? "✓ все ссылки найдены" : "✗ есть потерянные ссылки" },
+      ]
+    },
+  },
+
+  "acad-xref-underlay": {
+    desc: "Подложка растрового/PDF-файла: масштаб пересчёта в единицы чертежа.",
+    fields: [f("dpi", "Разрешение", "300", "dpi"), f("w", "Ширина листа", "297", "мм")],
+    outputLabel: "Подложка",
+    compute: v => {
+      const px = (num(v.w) / 25.4) * num(v.dpi)
+      return [
+        { label: "Пикселей по ширине", value: `${fx(px, 0)}` },
+        { label: "Размер пикселя в натуре", value: `${fx(num(v.w) / px, 4)} мм` },
+      ]
+    },
+  },
+
+  "acad-xref-bind": {
+    desc: "Присоединение (bind) внешней ссылки: перевод в постоянные блоки/слои.",
+    fields: [txt("name", "Xref", "Подоснова.dwg"), f("layers", "Слоёв во Xref", "12")],
+    outputLabel: "Bind Xref",
+    compute: v => [
+      { label: "Присоединён (bind)", value: v.name },
+      { label: "Слоёв переименовано", value: `${Math.max(0, Math.round(num(v.layers)))} (Xref$0$...)` },
+    ],
+  },
+
+  "acad-xref-compare": {
+    desc: "Сравнение ревизий Xref: количество отличий между версиями.",
+    fields: [f("added", "Добавлено объектов", "12"), f("removed", "Удалено объектов", "5"), f("changed", "Изменено", "8")],
+    outputLabel: "Сравнение ревизий",
+    compute: v => {
+      const a = num(v.added), r = num(v.removed), c = num(v.changed)
+      return [
+        { label: "Добавлено", value: `+${a}` },
+        { label: "Удалено", value: `−${r}` },
+        { label: "Всего отличий", value: `${a + r + c}` },
+      ]
+    },
+  },
+
+  "acad-plot-layout": {
+    desc: "Компоновка листа: видовые экраны, масштаб печати, рамка формата.",
+    fields: [sel("sheet", "Формат", "A3", ["A0", "A1", "A2", "A3", "A4"]), sel("scale", "Масштаб", "1:500", ["1:100", "1:200", "1:500", "1:1000"])],
+    outputLabel: "Компоновка листа",
+    compute: v => {
+      const sheets: Record<string, [number, number]> = { A0: [1189, 841], A1: [841, 594], A2: [594, 420], A3: [420, 297], A4: [297, 210] }
+      const [w, h] = sheets[v.sheet]
+      const k = scaleFactor(v.scale)
+      return [
+        { label: "Формат", value: `${v.sheet} (${w}×${h} мм)` },
+        { label: "Область печати в натуре", value: `${fx((w * k) / 1000)} × ${fx((h * k) / 1000)} м` },
+      ]
+    },
+  },
+
+  "acad-plot-vport": {
+    desc: "Видовые экраны листа: масштаб и площадь показа каждого.",
+    fields: [f("n", "Видовых экранов", "3"), sel("scale", "Масштаб основного", "1:500", ["1:100", "1:200", "1:500", "1:1000"])],
+    outputLabel: "Видовые экраны",
+    compute: v => [
+      { label: "Видовых экранов", value: `${Math.max(1, Math.round(num(v.n)))}` },
+      { label: "Масштаб детали (×2)", value: `1:${fx(scaleFactor(v.scale) / 2, 0)}` },
+    ],
+  },
+
+  "acad-plot-pagesetup": {
+    desc: "Настройки страницы: поля печати, ориентация, зона вывода.",
+    fields: [sel("sheet", "Формат", "A3", ["A0", "A1", "A2", "A3", "A4"]), sel("orient", "Ориентация", "Альбомная", ["Альбомная", "Книжная"]), f("margin", "Поля", "5", "мм")],
+    outputLabel: "Параметры страницы",
+    compute: v => {
+      const sheets: Record<string, [number, number]> = { A0: [1189, 841], A1: [841, 594], A2: [594, 420], A3: [420, 297], A4: [297, 210] }
+      let [w, h] = sheets[v.sheet]
+      if (v.orient === "Книжная") [w, h] = [h, w]
+      const m = num(v.margin)
+      return [{ label: "Печатная зона", value: `${fx(w - 2 * m)} × ${fx(h - 2 * m)} мм` }]
+    },
+  },
+
+  "acad-plot-print": {
+    desc: "Печать листа: реальные размеры вывода и коэффициент масштаба печати.",
+    fields: [sel("scale", "Масштаб", "1:500", ["1:100", "1:200", "1:500", "1:1000"]), f("copies", "Экземпляров", "2")],
+    outputLabel: "Печать",
+    compute: v => {
+      const k = scaleFactor(v.scale)
+      return [
+        { label: "Масштаб печати", value: `${fx(1000 / k, 4)} мм = 1 м` },
+        { label: "Экземпляров", value: `${Math.max(1, Math.round(num(v.copies)))}` },
+      ]
+    },
+  },
+
+  "acad-plot-pdf": {
+    desc: "Экспорт листов в PDF: оценка суммарного размера файла.",
+    fields: [f("sheets", "Листов", "8"), sel("quality", "Качество", "Высокое", ["Черновое", "Обычное", "Высокое"])],
+    outputLabel: "Экспорт PDF",
+    compute: v => {
+      const n = Math.max(1, Math.round(num(v.sheets)))
+      const kb: Record<string, number> = { "Черновое": 200, "Обычное": 500, "Высокое": 1200 }
+      return [{ label: "Оценка размера файла", value: `${fx((n * (kb[v.quality] ?? 500)) / 1024, 2)} МБ` }]
+    },
+  },
+
+  "acad-plot-dwf": {
+    desc: "Публикация в DWF: сжатый векторный формат для просмотра.",
+    fields: [f("sheets", "Листов", "8")],
+    outputLabel: "Публикация DWF",
+    compute: v => [{ label: "Оценка размера", value: `${fx(Math.max(1, Math.round(num(v.sheets))) * 80 / 1024, 2)} МБ` }],
+  },
+
+  "acad-plot-sheetset": {
+    desc: "Набор листов проекта: структура подшивки и общий объём.",
+    fields: [f("sheets", "Листов в наборе", "24"), f("subsets", "Разделов", "4")],
+    outputLabel: "Набор листов",
+    compute: v => {
+      const n = Math.max(1, Math.round(num(v.sheets))), s = Math.max(1, Math.round(num(v.subsets)))
+      return [{ label: "Листов на раздел (сред.)", value: `${fx(n / s, 1)}` }]
+    },
+  },
+
+  "acad-plot-batch": {
+    desc: "Пакетная печать: суммарное время печати подшивки.",
+    fields: [f("sheets", "Листов", "24"), f("t", "Время на лист", "45", "с")],
+    outputLabel: "Пакетная печать",
+    compute: v => {
+      const total = Math.max(1, Math.round(num(v.sheets))) * num(v.t)
+      return [{ label: "Суммарное время", value: `${Math.floor(total / 60)} мин ${Math.round(total % 60)} с` }]
+    },
+  },
+
+  "acad-plot-transmittal": {
+    desc: "Комплект передачи (eTransmit): состав файлов и оценка объёма архива.",
+    fields: [f("dwg", "Чертежей DWG", "6"), f("xref", "Присоединённых Xref", "3")],
+    outputLabel: "Комплект передачи",
+    compute: v => [{ label: "Оценка размера", value: `${fx((num(v.dwg) + num(v.xref)) * 1.8, 1)} МБ` }],
+  },
+
+  "acad-plot-cloud": {
+    desc: "Облачная печать: очередь заданий и оценка времени рендера.",
+    fields: [f("jobs", "Заданий в очереди", "5"), f("t", "Время рендера листа", "12", "с")],
+    outputLabel: "Облачная печать",
+    compute: v => [{ label: "Ожидаемое время", value: `${fx((Math.max(1, Math.round(num(v.jobs))) * num(v.t)) / 60, 1)} мин` }],
+  },
+
+  "interop-dwg-import": {
+    desc: "Импорт DWG: объекты, слои, версии формата.",
+    fields: [f("objs", "Объектов в файле", "1200"), sel("ver", "Версия DWG", "2018", ["2013", "2018", "2021", "2024"])],
+    outputLabel: "Импорт DWG",
+    compute: v => [
+      { label: "Импортировано объектов", value: `${Math.max(0, Math.round(num(v.objs)))}` },
+      { label: "Версия формата", value: `AutoCAD ${v.ver}` },
+    ],
+  },
+
+  "interop-dwg-export": {
+    desc: "Экспорт в DWG: совместимость с целевой версией формата.",
+    fields: [f("objs", "Объектов на экспорт", "1200"), sel("ver", "Целевая версия", "2018", ["2013", "2018", "2021", "2024"])],
+    outputLabel: "Экспорт DWG",
+    compute: v => [
+      { label: "Экспортировано объектов", value: `${Math.max(0, Math.round(num(v.objs)))}` },
+      { label: "Оценка размера", value: `${fx((Math.max(0, num(v.objs)) * 0.4) / 1024, 2)} МБ` },
+    ],
+  },
+
+  "interop-dgn": {
+    desc: "Обмен MicroStation DGN: пересчёт единиц и элементов.",
+    fields: [f("elems", "Элементов", "800"), sel("units", "Единицы DGN", "мм", ["мм", "м", "футы"])],
+    outputLabel: "Обмен DGN",
+    compute: v => {
+      const k: Record<string, number> = { "мм": 1, "м": 1000, "футы": 304.8 }
+      return [{ label: "1 единица DGN", value: `${fx(k[v.units], 1)} мм` }]
+    },
+  },
 }
 
 // ─── Вспомогательные ─────────────────────────────────────────────────────────
@@ -720,4 +1225,23 @@ function centroidOf(pts: P2[]): P2 {
   if (!pts.length) return [0, 0]
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1])
   return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
+}
+
+/** Сглаживающая кривая Catmull-Rom по опорным точкам (аппроксимация сплайна) */
+function catmullRom(pts: P2[], seg = 12): P2[] {
+  if (pts.length < 3) return pts
+  const p = [pts[0], ...pts, pts[pts.length - 1]]
+  const out: P2[] = []
+  for (let i = 0; i < p.length - 3; i++) {
+    const [p0, p1, p2, p3] = [p[i], p[i + 1], p[i + 2], p[i + 3]]
+    for (let t = 0; t < seg; t++) {
+      const tt = t / seg
+      const tt2 = tt * tt, tt3 = tt2 * tt
+      const x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * tt + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * tt2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * tt3)
+      const y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * tt + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * tt2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * tt3)
+      out.push([x, y])
+    }
+  }
+  out.push(pts[pts.length - 1])
+  return out
 }

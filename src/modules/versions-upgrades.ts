@@ -24,6 +24,8 @@ import {
 } from "@/utils/featureActions"
 import { drawingUpgrades } from "./upgrades-drawing"
 import { mechUpgrades } from "./upgrades-mech"
+import { bimUpgrades } from "./upgrades-bim"
+import { mgmtUpgrades } from "./upgrades-mgmt"
 
 type V = Record<string, string>
 type Rows = { label: string; value: string }[]
@@ -1168,6 +1170,10 @@ export const UPGRADES: Record<string, Upgrade> = {
   ...wave2,
   ...drawUpgrades,
   ...editUpgrades,
+  ...drawingUpgrades,
+  ...mechUpgrades,
+  ...bimUpgrades,
+  ...mgmtUpgrades,
 }
 
 /** Применить усиление к функции каталога */

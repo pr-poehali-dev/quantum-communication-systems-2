@@ -423,3 +423,126 @@ export const boq = (items: { name: string; qty: number; unit: string; price?: nu
   const total = items.reduce((a, i) => a + i.qty * (i.price ?? 0), 0)
   return { items, total, count: items.length }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Машиностроение: прочность, листовой металл, передачи, литьё, CFD, раскрой
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Плотность материалов, кг/м³ */
+export const DENSITY: Record<string, number> = {
+  "Сталь": 7850, "Чугун": 7200, "Алюминий": 2700, "Титан": 4500,
+  "Медь": 8960, "Латунь": 8500, "Пластик": 1100,
+  "ABS": 1050, "PP": 905, "PA6": 1140, "PC": 1200, "POM": 1410,
+}
+
+/** Модуль упругости (Юнга) материалов, МПа */
+export const YOUNG: Record<string, number> = {
+  "Сталь": 210000, "Чугун": 110000, "Алюминий": 70000, "Титан": 110000,
+  "Медь": 120000, "Латунь": 100000, "Пластик": 2500,
+}
+
+/** Усадка материалов при литье, % */
+export const SHRINKAGE: Record<string, number> = {
+  "Сталь": 2.0, "Чугун": 1.0, "Алюминий": 1.2, "Титан": 1.5,
+  "Медь": 1.6, "Латунь": 1.5, "Пластик": 0.5,
+  "ABS": 0.5, "PP": 1.8, "PA6": 1.2, "PC": 0.6, "POM": 2.0,
+}
+
+/** Нормальное напряжение σ = F / A (МПа при Н и мм²) */
+export const stress = (force: number, area: number): number => (area > 0 ? force / area : 0)
+
+/** Коэффициент запаса прочности n = предел / напряжение */
+export const safetyFactor = (limit: number, s: number): number => (s > 0 ? limit / s : Infinity)
+
+/** Закон Гука: деформация и удлинение стержня */
+export const hooke = (s: number, E: number, L: number) => {
+  const strain = E > 0 ? s / E : 0
+  return { strainPct: strain * 100, elongation: strain * L }
+}
+
+/** Момент инерции прямоугольного сечения, мм⁴ */
+export const inertiaRect = (b: number, h: number): number => (b * h ** 3) / 12
+
+/** Прогиб балки: шарнирная (simple) или консольная (console) схема */
+export const beamDeflection = (F: number, L: number, E: number, I: number, kind: "simple" | "console") => {
+  const moment = kind === "console" ? F * L : (F * L) / 4
+  const deflection = E > 0 && I > 0
+    ? (kind === "console" ? (F * L ** 3) / (3 * E * I) : (F * L ** 3) / (48 * E * I))
+    : 0
+  return { moment, deflection }
+}
+
+/** Припуск на гиб листового металла (K-фактор) */
+export const bendAllowance = (t: number, r: number, angDeg: number, k: number) => {
+  const ang = (angDeg * Math.PI) / 180
+  const neutralRadius = r + k * t
+  const bendAllowanceV = ang * neutralRadius
+  const setback = (r + t) * Math.tan(ang / 2)
+  const deduction = 2 * setback - bendAllowanceV
+  return { bendAllowance: bendAllowanceV, setback, deduction, neutralRadius }
+}
+
+/** Минимальный радиус гиба (≈ толщина металла) */
+export const minBendRadius = (t: number): number => t
+
+/** Усилие гибки (V-образный штамп), кН */
+export const bendForce = (t: number, width: number, vOpening: number): number =>
+  vOpening > 0 ? (0.6 * 500 * width * t * t) / vOpening / 1000 : 0
+
+/** Расчёт зубчатой передачи по модулю и числу зубьев шестерни */
+export const gearDrive = (z1: number, ratio: number, m: number) => {
+  const z2 = Math.round(z1 * ratio)
+  const realRatio = z2 / z1
+  const d1 = m * z1, d2 = m * z2
+  return { z1, z2, realRatio, d1, d2, da1: d1 + 2 * m, da2: d2 + 2 * m, center: (d1 + d2) / 2 }
+}
+
+/** Крутящий момент по мощности (кВт) и оборотам (об/мин), Н·м */
+export const torque = (powerKw: number, rpm: number): number =>
+  rpm > 0 ? (powerKw * 1000 * 60) / (2 * Math.PI * rpm) : 0
+
+/** Собственная частота колебаний одномассовой системы, Гц */
+export const naturalFreq = (k: number, m: number): number =>
+  m > 0 ? (1 / (2 * Math.PI)) * Math.sqrt(k / m) : 0
+
+/** Усталостная прочность: запас и ресурс по упрощённой кривой Вёлера */
+export const fatigue = (amp: number, limit: number) => {
+  const infinite = amp <= limit
+  const safety = amp > 0 ? limit / amp : Infinity
+  const cycles = infinite ? Infinity : 2e6 * (limit / amp) ** 3
+  return { infinite, safety, cycles }
+}
+
+/** Число Рейнольдса Re = v·d/ν */
+export const reynolds = (v: number, d: number, nu: number): number => (nu > 0 ? (v * d) / nu : 0)
+
+/** Режим течения по числу Рейнольдса */
+export const flowRegime = (Re: number): string =>
+  Re < 2300 ? "Ламинарный" : Re < 4000 ? "Переходный" : "Турбулентный"
+
+/** Время охлаждения отливки/детали при литье пластмасс, с */
+export const coolingTime = (wallMm: number): number => 2.5 * wallMm * wallMm
+
+/** Раскрой листов: число листов, использование, отходы */
+export const nesting = (parts: number, partArea: number, sheetArea: number) => {
+  const usedArea = parts * partArea
+  const perSheet = sheetArea > 0 ? Math.floor(sheetArea / partArea) : 0
+  const sheets = perSheet > 0 ? Math.ceil(parts / perSheet) : 0
+  const totalArea = sheets * sheetArea
+  const usage = totalArea > 0 ? (usedArea / totalArea) * 100 : 0
+  return { sheets, usedArea, totalArea, usage, waste: totalArea - usedArea }
+}
+
+/** Масса детали по объёму (мм³) и материалу, кг */
+export const partMass = (volumeMm3: number, mat = "Сталь"): number =>
+  (volumeMm3 * (DENSITY[mat] ?? 7850)) / 1e9 * 1000
+
+/** Расчёт сварного шва: площадь, масса наплавки, расход электродов, время */
+export const welding = (lengthMm: number, legMm: number) => {
+  const area = 0.5 * legMm * legMm
+  const volume = area * lengthMm
+  const mass = (volume * 7850) / 1e9
+  const electrodes = mass * 1.6
+  const time = lengthMm / 1000 / 0.25
+  return { area, mass, electrodes, time }
+}

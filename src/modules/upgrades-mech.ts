@@ -918,4 +918,560 @@ export const mechUpgrades: Record<string, Upgrade> = {
       ]
     },
   },
+
+  // ─── ШЕСТАЯ ВОЛНА: прямое моделирование, обмен форматами, MBD, экспертные системы ──
+
+  "interop-step": {
+    desc: "Обмен STEP/IGES: оценка объёма данных и времени конвертации.",
+    fields: [sel("fmt", "Формат", "STEP AP242", ["STEP AP203", "STEP AP214", "STEP AP242", "IGES", "SAT"]), f("bodies", "Тел", "14")],
+    outputLabel: "Обмен STEP/IGES",
+    compute: v => {
+      const n = num(v.bodies)
+      return [
+        { label: "Формат", value: String(v.fmt) },
+        { label: "Тел в файле", value: `${n}` },
+        { label: "Оценка размера файла", value: `${fx(n * 1.8, 1)} МБ` },
+        { label: "Время конвертации", value: `${fx(n * 0.6, 1)} с` },
+      ]
+    },
+  },
+
+  "kompas-v24-direct-faces": {
+    desc: "Прямое моделирование граней: изменение объёма при сдвиге/повороте.",
+    fields: [sel("op", "Операция", "Сдвиг", ["Сдвиг", "Поворот", "Замена"]), f("faces", "Граней выбрано", "6"), f("d", "Величина", "5", "мм"), f("area", "Средняя площадь грани", "1200", "мм²")],
+    outputLabel: "Прямое моделирование",
+    compute: v => {
+      const n = num(v.faces), d = num(v.d), A = num(v.area)
+      const dV = n * A * d
+      return [
+        { label: "Операция", value: String(v.op) },
+        { label: "Граней изменено", value: `${n}` },
+        { label: "Изменение объёма", value: `${fx(dV / 1000, 2)} см³` },
+        { label: "Масса изменения (сталь)", value: `${fx(partMass(dV), 3)} кг` },
+      ]
+    },
+  },
+
+  "kompas-v24-optim-import": {
+    desc: "Оптимизация импортированной геометрии: сокращение граней и ускорение работы.",
+    fields: [f("faces", "Граней импортировано", "5400"), f("reduce", "Целевое сокращение", "35", "%")],
+    outputLabel: "Оптимизация геометрии",
+    compute: v => {
+      const n = num(v.faces), r = num(v.reduce) / 100
+      return [
+        { label: "Граней исходно", value: fmtBig(n, 0) },
+        { label: "Граней после оптимизации", value: fmtBig(n * (1 - r), 0) },
+        { label: "Сокращено", value: `${fmtBig(n * r, 0)} (${fx(r * 100, 1)} %)` },
+        { label: "Ускорение перестроения", value: `в ${fx(r < 1 ? 1 / (1 - r) : 0, 2)} раза` },
+      ]
+    },
+  },
+
+  "kompas-v24-import-c3d": {
+    desc: "Чтение моделей других САПР: совместимость и оценка потерь геометрии.",
+    fields: [sel("src", "Источник", "SolidWorks", ["NX", "SolidWorks", "Creo", "Inventor", "Catia", "SolidEdge"]), f("feat", "Элементов в дереве", "180")],
+    outputLabel: "Импорт модели",
+    compute: v => {
+      const loss: Record<string, number> = { "NX": 5, "SolidWorks": 2, "Creo": 6, "Inventor": 3, "Catia": 8, "SolidEdge": 4 }
+      const n = num(v.feat), l = loss[String(v.src)] ?? 5
+      return [
+        { label: "Источник", value: String(v.src) },
+        { label: "Элементов дерева", value: `${n}` },
+        { label: "Потеря параметризации", value: `${fx(l, 1)} %` },
+        { label: "Элементов сохранено", value: `${Math.round(n * (1 - l / 100))}` },
+      ]
+    },
+  },
+
+  "kompas-v24-jt-step": {
+    desc: "Обмен C3D/JT/STEP: размер и облегчённость модели для визуализации.",
+    fields: [sel("fmt", "Формат", "STEP", ["C3D", "JT", "STEP"]), f("faces", "Граней в модели", "3200")],
+    outputLabel: "Обмен C3D/JT/STEP",
+    compute: v => {
+      const kb: Record<string, number> = { "C3D": 1.4, "JT": 0.6, "STEP": 2.1 }
+      const n = num(v.faces)
+      return [
+        { label: "Формат", value: String(v.fmt) },
+        { label: "Граней", value: `${n}` },
+        { label: "Оценка размера файла", value: `${fx((n * (kb[String(v.fmt)] ?? 1.5)) / 1024, 2)} МБ` },
+        { label: "Пригодность для JT", value: v.fmt === "JT" ? "облегчённая визуализация" : "полная геометрия" },
+      ]
+    },
+  },
+
+  "sw-direct-edit": {
+    desc: "Прямая модификация геометрии: перемещение граней без дерева построения.",
+    fields: [f("faces", "Граней", "4"), f("d", "Смещение", "5", "мм"), f("area", "Площадь грани", "800", "мм²")],
+    outputLabel: "Прямая модификация",
+    compute: v => {
+      const n = num(v.faces), d = num(v.d), A = num(v.area)
+      return [
+        { label: "Граней перемещено", value: `${n}` },
+        { label: "Смещение", value: `${fx(d)} мм` },
+        { label: "Изменение объёма", value: `${fx((n * A * d) / 1000, 2)} см³` },
+      ]
+    },
+  },
+
+  "sw-simulation": {
+    desc: "Анализ прочности: напряжение, запас, оценка по допускаемому.",
+    fields: [f("force", "Сила", "2000", "Н"), f("area", "Сечение", "150", "мм²"), f("yield", "Предел текучести", "250", "МПа")],
+    outputLabel: "Анализ прочности",
+    compute: v => {
+      const s = stress(num(v.force), num(v.area))
+      const n = safetyFactor(num(v.yield), s)
+      return [
+        { label: "Напряжение", value: `${fx(s, 2)} МПа` },
+        { label: "Запас прочности", value: n === Infinity ? "∞" : fx(n, 2) },
+        { label: "Оценка", value: n >= 2 ? "✓ прочность обеспечена" : "⚠ проверьте сечение" },
+      ]
+    },
+  },
+
+  "sw-3d-interconnect": {
+    desc: "3D Interconnect: живая связь с исходным CAD-файлом без потери ассоциативности.",
+    fields: [sel("src", "Источник", "STEP", ["STEP", "IGES", "Parasolid", "NX", "Creo", "Inventor", "Catia"]), f("updates", "Обновлений в месяц", "8")],
+    outputLabel: "3D Interconnect",
+    compute: v => [
+      { label: "Источник", value: String(v.src) },
+      { label: "Обновлений в месяц", value: `${num(v.updates)}` },
+      { label: "Экономия на реимпорте", value: `${fx(num(v.updates) * 12, 0)} мин/мес` },
+    ],
+  },
+
+  "sw-defeature": {
+    desc: "Defeature: упрощение модели для передачи, ускорение работы со сборкой.",
+    fields: [f("faces", "Скрыть деталей", "40"), f("total", "Всего деталей", "220")],
+    outputLabel: "Упрощение модели",
+    compute: v => {
+      const n = num(v.faces), t = num(v.total)
+      return [
+        { label: "Деталей упрощено", value: `${n}`},
+        { label: "Осталось детализированных", value: `${Math.max(t - n, 0)}` },
+        { label: "Сокращение объёма файла", value: `${fx(t > 0 ? (n / t) * 100 : 0, 1)} %` },
+      ]
+    },
+  },
+
+  "sw-flow-electronics": {
+    desc: "CFD-охлаждение электроники: требуемая площадь радиатора и перегрев.",
+    fields: [f("power", "Тепловыделение", "45", "Вт"), f("area", "Радиатор", "0.02", "м²"), f("amb", "Температура среды", "35", "°C")],
+    outputLabel: "Охлаждение электроники",
+    compute: v => {
+      const P = num(v.power), A = num(v.area)
+      const alpha = 15
+      const dt = A > 0 ? P / (alpha * A) : 0
+      return [
+        { label: "Тепловыделение", value: `${fx(P)} Вт` },
+        { label: "Площадь радиатора", value: `${fx(A, 4)} м²` },
+        { label: "Перегрев над средой", value: `${fx(dt, 1)} °C` },
+        { label: "Температура корпуса", value: `${fx(num(v.amb) + dt, 1)} °C` },
+        { label: "Оценка", value: dt < 40 ? "✓ охлаждение достаточно" : "✗ требуется больший радиатор" },
+      ]
+    },
+  },
+
+  "sw-driveworks": {
+    desc: "DriveWorks: автоматизация генерации моделей по правилам.",
+    fields: [f("rules", "Правил", "120"), f("models", "Моделей в день", "15"), f("manual", "Время вручную", "40", "мин")],
+    outputLabel: "Автоматизация DriveWorks",
+    compute: v => {
+      const m = num(v.models), man = num(v.manual)
+      return [
+        { label: "Правил в базе", value: `${num(v.rules)}` },
+        { label: "Моделей в день", value: `${m}` },
+        { label: "Время вручную", value: `${fx((m * man) / 60, 1)} ч/день` },
+        { label: "Время автоматически", value: `${fx((m * 0.5) / 60, 2)} ч/день` },
+        { label: "Экономия", value: `${fx((m * (man - 0.5)) / 60, 1)} ч/день` },
+      ]
+    },
+  },
+
+  "sw-sustain-cat": {
+    desc: "Sustainability: эко-экспертиза изделия по материалу и массе.",
+    fields: [f("mass", "Масса", "2.5", "кг"), sel("mat", "Материал", "Сталь", ["Сталь", "Алюминий", "Пластик", "Титан"])],
+    outputLabel: "Эко-экспертиза",
+    compute: v => {
+      const co2: Record<string, number> = { "Сталь": 1.9, "Алюминий": 8.2, "Пластик": 3.1, "Титан": 35 }
+      const m = num(v.mass)
+      return [
+        { label: "Материал", value: String(v.mat) },
+        { label: "Масса", value: `${fx(m, 3)} кг` },
+        { label: "CO₂-след", value: `${fx(m * (co2[String(v.mat)] ?? 2), 2)} кг` },
+        { label: "Энергозатраты производства", value: `${fx(m * 25, 1)} МДж` },
+      ]
+    },
+  },
+
+  "sw-sketchxpert": {
+    desc: "SketchXpert: разрешение конфликтов эскиза, оценка трудоёмкости.",
+    fields: [f("confl", "Конфликтов", "3")],
+    outputLabel: "Конфликты эскиза",
+    compute: v => {
+      const n = num(v.confl)
+      return [
+        { label: "Найдено конфликтов", value: `${n}` },
+        { label: "Предложено решений", value: `${n * 2}` },
+        { label: "Время на разбор вручную", value: `${fx(n * 3, 1)} мин` },
+      ]
+    },
+  },
+
+  "sw-featurexpert": {
+    desc: "FeatureXpert/FilletXpert: автоматический порядок скруглений.",
+    fields: [f("fillets", "Скруглений", "24")],
+    outputLabel: "FeatureXpert",
+    compute: v => {
+      const n = num(v.fillets)
+      return [
+        { label: "Скруглений", value: `${n}` },
+        { label: "Автоматически упорядочено", value: `${Math.round(n * 0.85)}` },
+        { label: "Требует ручной правки", value: `${Math.round(n * 0.15)}` },
+      ]
+    },
+  },
+
+  "sw-assemblyxpert": {
+    desc: "AssemblyXpert: оценка производительности большой сборки.",
+    fields: [f("comps", "Компонентов", "1800")],
+    outputLabel: "AssemblyXpert",
+    compute: v => {
+      const n = num(v.comps)
+      return [
+        { label: "Компонентов", value: fmtBig(n, 0) },
+        { label: "Рекомендация", value: n > 1000 ? "включить облегчённый режим" : "полный режим допустим" },
+        { label: "Оценка открытия", value: `${fx(n / 400, 1)} с` },
+      ]
+    },
+  },
+
+  "sw-matexpert": {
+    desc: "MateXpert: диагностика сопряжений сборки, поиск избыточных/конфликтных.",
+    fields: [f("mates", "Сопряжений", "120")],
+    outputLabel: "MateXpert",
+    compute: v => {
+      const n = num(v.mates)
+      const bad = Math.round(n * 0.04)
+      return [
+        { label: "Сопряжений", value: `${n}` },
+        { label: "Избыточных", value: `${bad}` },
+        { label: "Здоровых", value: `${n - bad}` },
+      ]
+    },
+  },
+
+  "sw-instant3d": {
+    desc: "Instant3D: прямое перетаскивание граней, изменение объёма на лету.",
+    fields: [f("d", "Смещение грани", "5", "мм"), f("area", "Площадь грани", "1500", "мм²")],
+    outputLabel: "Instant3D",
+    compute: v => {
+      const dV = num(v.d) * num(v.area)
+      return [
+        { label: "Смещение", value: `${fx(num(v.d))} мм` },
+        { label: "Изменение объёма", value: `${fx(dV / 1000, 2)} см³` },
+        { label: "Масса изменения", value: `${fx(partMass(dV), 3)} кг` },
+      ]
+    },
+  },
+
+  "sw-featureworks": {
+    desc: "FeatureWorks: распознавание параметрических элементов в импортированной модели.",
+    fields: [f("faces", "Граней", "320")],
+    outputLabel: "Распознавание элементов",
+    compute: v => {
+      const n = num(v.faces)
+      const rec = Math.round(n * 0.78)
+      return [
+        { label: "Граней всего", value: `${n}` },
+        { label: "Распознано элементов", value: `${rec}` },
+        { label: "Доля распознавания", value: `${fx(n > 0 ? (rec / n) * 100 : 0, 1)} %` },
+      ]
+    },
+  },
+
+  "sw-translate": {
+    desc: "Трансляция форматов CAD: оценка совместимости и размера файла.",
+    fields: [sel("fmt", "Формат", "STEP AP214", ["STEP AP203", "STEP AP214", "Parasolid", "IGES", "ACIS", "STL", "CATIA"]), f("bodies", "Тел", "10")],
+    outputLabel: "Трансляция формата",
+    compute: v => {
+      const kb: Record<string, number> = { "STEP AP203": 180, "STEP AP214": 210, "Parasolid": 140, "IGES": 260, "ACIS": 150, "STL": 90, "CATIA": 230 }
+      const n = num(v.bodies)
+      return [
+        { label: "Формат", value: String(v.fmt) },
+        { label: "Тел", value: `${n}` },
+        { label: "Оценка размера файла", value: `${fx((n * (kb[String(v.fmt)] ?? 180)) / 1024, 2)} МБ` },
+      ]
+    },
+  },
+
+  "sw-tooling": {
+    desc: "Проектирование оснастки: усилие смыкания и число гнёзд.",
+    fields: [f("cav", "Гнёзд формы", "4"), f("area", "Площадь проекции", "4500", "мм²"), f("press", "Давление", "40", "МПа")],
+    outputLabel: "Проектирование оснастки",
+    compute: v => {
+      const n = num(v.cav), F = (num(v.area) * n * num(v.press)) / 1000
+      return [
+        { label: "Гнёзд", value: `${n}` },
+        { label: "Усилие смыкания", value: `${fmtBig(F, 0)} кН` },
+        { label: "Требуемый ТПА", value: `от ${fmtBig(Math.ceil(F / 9.81 / 50) * 50, 0)} тс` },
+      ]
+    },
+  },
+
+  "sw-semantic-search": {
+    desc: "Семантический поиск в дереве построения: оценка времени поиска.",
+    fields: [f("feat", "Элементов в дереве", "260")],
+    outputLabel: "Семантический поиск",
+    compute: v => {
+      const n = num(v.feat)
+      return [
+        { label: "Элементов в дереве", value: `${n}` },
+        { label: "Время ручного поиска", value: `${fx(n * 0.4, 1)} с` },
+        { label: "Время семантического поиска", value: "< 1 с" },
+      ]
+    },
+  },
+
+  "sw-select-size": {
+    desc: "Выбор тел по размеру/объёму: сколько тел попадёт под порог.",
+    fields: [f("thr", "Порог размера", "3", "мм"), f("total", "Всего тел", "500"), f("frac", "Доля мелких", "12", "%")],
+    outputLabel: "Выбор по размеру",
+    compute: v => {
+      const n = num(v.total), p = num(v.frac) / 100
+      return [
+        { label: "Порог", value: `${fx(num(v.thr))} мм` },
+        { label: "Тел выбрано", value: `${Math.round(n * p)}` },
+        { label: "Тел вне выбора", value: `${Math.round(n * (1 - p))}` },
+      ]
+    },
+  },
+
+  "sw-filter-comp": {
+    desc: "Фильтр компонентов сборки по уровню вложенности.",
+    fields: [sel("level", "Уровень", "Верхний", ["Верхний", "Подсборки", "Все"]), f("total", "Компонентов всего", "1200")],
+    outputLabel: "Фильтр компонентов",
+    compute: v => {
+      const n = num(v.total)
+      const k: Record<string, number> = { "Верхний": 0.15, "Подсборки": 0.55, "Все": 1 }
+      return [
+        { label: "Уровень фильтра", value: String(v.level) },
+        { label: "Компонентов показано", value: `${Math.round(n * (k[String(v.level)] ?? 1))}` },
+      ]
+    },
+  },
+
+  "sw-smooth-geom": {
+    desc: "Smooth Geometry: сглаживание сетки после топологической оптимизации.",
+    fields: [f("faces", "Граней", "1500"), f("iter", "Итераций сглаживания", "5")],
+    outputLabel: "Сглаживание геометрии",
+    compute: v => {
+      const n = num(v.faces), it = Math.max(1, Math.round(num(v.iter)))
+      return [
+        { label: "Граней", value: `${n}` },
+        { label: "Итераций", value: `${it}` },
+        { label: "Время обработки", value: `${fx((n * it) / 50000, 1)} с` },
+      ]
+    },
+  },
+
+  "sw27-weld-cutlist": {
+    desc: "Сварные конструкции: список отрезков и привязка к спецификации.",
+    fields: [f("items", "Позиций в списке", "12"), sel("link", "Привязать к свойствам", "on", ["on", "off"])],
+    outputLabel: "Cut List",
+    compute: v => [
+      { label: "Позиций в списке", value: `${num(v.items)}` },
+      { label: "Привязка к спецификации", value: v.link === "on" ? "включена" : "выключена" },
+    ],
+  },
+
+  "sw27-surface-organic": {
+    desc: "Контроль непрерывности кривизны сопрягаемых поверхностей (G0–G3).",
+    fields: [sel("cont", "Непрерывность", "G2 (кривизна)", ["G0 (позиция)", "G1 (касание)", "G2 (кривизна)", "G3"]), f("faces", "Сопрягаемых граней", "4")],
+    outputLabel: "Контроль кривизны",
+    compute: v => [
+      { label: "Уровень непрерывности", value: String(v.cont) },
+      { label: "Граней проверено", value: `${num(v.faces)}` },
+      { label: "Качество поверхности", value: String(v.cont).startsWith("G2") || String(v.cont).startsWith("G3") ? "класс А" : "техническая" },
+    ],
+  },
+
+  "sw27-reverse-eng": {
+    desc: "Обратная инженерия: подгонка модели по облаку точек, оценка отклонения.",
+    fields: [f("points", "Точек в облаке", "250000"), f("tol", "Допуск подгонки", "0.1", "мм")],
+    outputLabel: "Скан → модель",
+    compute: v => {
+      const p = num(v.points)
+      return [
+        { label: "Точек в облаке", value: fmtBig(p, 0) },
+        { label: "Допуск подгонки", value: `±${fx(num(v.tol), 3)} мм` },
+        { label: "Поверхностей NURBS (оценка)", value: `${Math.round(p / 8000)}` },
+      ]
+    },
+  },
+
+  "sw27-selective-open": {
+    desc: "Выборочная загрузка сборки: экономия времени открытия.",
+    fields: [f("total", "Всего компонентов", "5000"), sel("filter", "Фильтр", "Только видимые", ["Только видимые", "По размеру", "По уровню", "Сохранённый фильтр"])],
+    outputLabel: "Выборочная загрузка",
+    compute: v => {
+      const n = num(v.total)
+      const k: Record<string, number> = { "Только видимые": 0.3, "По размеру": 0.5, "По уровню": 0.2, "Сохранённый фильтр": 0.15 }
+      const loaded = n * (k[String(v.filter)] ?? 0.3)
+      return [
+        { label: "Загружено компонентов", value: fmtBig(loaded, 0) },
+        { label: "Пропущено", value: fmtBig(n - loaded, 0) },
+        { label: "Ускорение открытия", value: `в ${fx(n > 0 ? n / loaded : 0, 1)} раза` },
+      ]
+    },
+  },
+
+  "sw27-cosmetic-detect": {
+    desc: "Распознавание косметических изменений при обновлении сборки.",
+    fields: [f("comps", "Изменено компонентов", "8")],
+    outputLabel: "Косметические изменения",
+    compute: v => [
+      { label: "Изменено компонентов", value: `${num(v.comps)}` },
+      { label: "Полная перестройка", value: "не требуется" },
+    ],
+  },
+
+  "sw27-nonlinear-rough": {
+    desc: "Нелинейный контактный анализ: время расчёта по числу ядер.",
+    fields: [f("cores", "Ядер CPU", "16"), sel("contact", "Тип контакта", "Rough", ["Bonded", "No Penetration", "Rough"]), f("nodes", "Узлов сетки", "450000")],
+    outputLabel: "Нелинейный контакт",
+    compute: v => {
+      const c = Math.max(1, num(v.cores)), n = num(v.nodes)
+      const base = n / 8000
+      return [
+        { label: "Тип контакта", value: String(v.contact) },
+        { label: "Узлов сетки", value: fmtBig(n, 0) },
+        { label: "Время на 1 ядре (оценка)", value: `${fx(base, 0)} мин` },
+        { label: "Время на кластере", value: `${fx(base / (c * 0.75), 1)} мин` },
+      ]
+    },
+  },
+
+  "sw27-topology": {
+    desc: "Топологическая оптимизация: снижение массы с симметрией и мин. толщиной.",
+    fields: [f("mass", "Исходная масса", "8.5", "кг"), f("reduce", "Целевое снижение массы", "40", "%"), f("minsize", "Мин. размер элемента", "3", "мм")],
+    outputLabel: "Топологическая оптимизация",
+    compute: v => {
+      const m = num(v.mass), r = num(v.reduce) / 100
+      return [
+        { label: "Исходная масса", value: `${fx(m, 3)} кг` },
+        { label: "Целевая масса", value: `${fx(m * (1 - r), 3)} кг` },
+        { label: "Экономия", value: `${fx(m * r, 3)} кг` },
+        { label: "Мин. элемент сетки", value: `${fx(num(v.minsize))} мм` },
+      ]
+    },
+  },
+
+  "sw27-route-insulation": {
+    desc: "Изоляционная оболочка трубы/провода: масса и площадь изоляции.",
+    fields: [f("dia", "Диаметр трубы", "20", "мм"), f("thick", "Толщина изоляции", "5", "мм"), f("len", "Длина", "12", "м")],
+    outputLabel: "Изоляционная оболочка",
+    compute: v => {
+      const d = num(v.dia), t = num(v.thick), L = num(v.len) * 1000
+      const vol = Math.PI * ((d / 2 + t) ** 2 - (d / 2) ** 2) * L
+      return [
+        { label: "Наружный диаметр с изоляцией", value: `${fx(d + 2 * t)} мм` },
+        { label: "Объём изоляции", value: `${fx(vol / 1e6, 3)} л` },
+        { label: "Площадь поверхности", value: `${fx(Math.PI * (d + 2 * t) * L / 1e6, 2)} м²` },
+      ]
+    },
+  },
+
+  "sw27-auto-route-3d": {
+    desc: "Auto-Route по 3D-эскизам: длина трассы и оценка времени прокладки.",
+    fields: [f("seg", "Сегментов эскиза", "9"), f("avgLen", "Средняя длина сегмента", "150", "мм")],
+    outputLabel: "Auto-Route 3D",
+    compute: v => {
+      const n = num(v.seg), L = num(v.avgLen)
+      return [
+        { label: "Сегментов", value: `${n}` },
+        { label: "Общая длина трассы", value: `${fx((n * L) / 1000, 2)} м` },
+        { label: "Время автотрассировки", value: `${fx(n * 0.8, 1)} с` },
+      ]
+    },
+  },
+
+  "sw27-circuitworks-trace": {
+    desc: "ECAD-MCAD прослеживаемость: изменения платы под проверку.",
+    fields: [f("changes", "Изменений на проверке", "7")],
+    outputLabel: "ECAD-MCAD прослеживаемость",
+    compute: v => [
+      { label: "Изменений на проверке", value: `${num(v.changes)}` },
+      { label: "Конфликтов с корпусом (оценка)", value: `${Math.round(num(v.changes) * 0.3)}` },
+    ],
+  },
+
+  "sw27-aura": {
+    desc: "AURA — ИИ-компаньон: рекомендации по задаче проектирования.",
+    fields: [sel("task", "Задача", "Подсказка по проектированию", ["Подсказка по проектированию", "Оформление документации", "Поиск команды"])],
+    outputLabel: "AURA",
+    compute: v => [
+      { label: "Задача", value: String(v.task) },
+      { label: "Статус", value: "рекомендации подготовлены" },
+    ],
+  },
+
+  "sw27-dspbr": {
+    desc: "DSPBR — физически точные материалы: параметры рендера.",
+    fields: [sel("mat", "Материал", "Полированный металл", ["Полированный металл", "Матовый пластик", "Стекло", "Резина", "Крашеный металл"]), f("rough", "Шероховатость", "0.2")],
+    outputLabel: "DSPBR-материал",
+    compute: v => [
+      { label: "Материал", value: String(v.mat) },
+      { label: "Шероховатость", value: fx(num(v.rough), 2) },
+      { label: "Отражательная способность", value: `${fx((1 - num(v.rough)) * 100, 0)} %` },
+    ],
+  },
+
+  "sw27-visualize-export": {
+    desc: "Рендеринг без переключения контекста: время рендера по разрешению.",
+    fields: [sel("res", "Разрешение", "1920×1080", ["1280×720", "1920×1080", "3840×2160"]), f("samples", "Сэмплов", "200")],
+    outputLabel: "Экспорт рендера",
+    compute: v => {
+      const px: Record<string, number> = { "1280×720": 0.9, "1920×1080": 2.1, "3840×2160": 8.3 }
+      const t = (px[String(v.res)] ?? 2.1) * num(v.samples)
+      return [
+        { label: "Разрешение", value: String(v.res) },
+        { label: "Сэмплов", value: `${num(v.samples)}` },
+        { label: "Время рендера", value: `${fx(t, 0)} с (${fx(t / 60, 1)} мин)` },
+      ]
+    },
+  },
+
+  "sw27-select-filters": {
+    desc: "Фильтры выбора компонентов сборки по объёму/размеру тела.",
+    fields: [sel("mode", "Режим", "По размеру тела", ["Компоненты верхнего уровня", "По элементу детали", "По размеру тела", "По объёму области"]), f("total", "Всего тел", "3200")],
+    outputLabel: "Фильтры выбора",
+    compute: v => {
+      const n = num(v.total)
+      return [
+        { label: "Режим фильтра", value: String(v.mode) },
+        { label: "Тел до фильтра", value: fmtBig(n, 0) },
+        { label: "Тел после фильтра (оценка)", value: fmtBig(n * 0.18, 0) },
+      ]
+    },
+  },
+
+  "sw27-search-nonnative": {
+    desc: "Поиск неродных терминов в интерфейсе (например, между локализациями).",
+    fields: [txt("term", "Термин", "Pad")],
+    outputLabel: "Поиск термина",
+    compute: v => [
+      { label: "Термин", value: String(v.term) },
+      { label: "Найдено соответствий", value: "1 (Бобышка/Выдавливание)" },
+    ],
+  },
+
+  "sw27-start-page": {
+    desc: "Динамическая Start Page: список недавних файлов и рекомендации.",
+    fields: [f("recent", "Недавних файлов", "10")],
+    outputLabel: "Start Page",
+    compute: v => [
+      { label: "Недавних файлов", value: `${num(v.recent)}` },
+      { label: "Рекомендации", value: "по последней активности" },
+    ],
+  },
 }
