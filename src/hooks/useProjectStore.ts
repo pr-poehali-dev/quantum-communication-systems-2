@@ -160,6 +160,19 @@ export interface ProjectStore {
   // ── Объекты с canvas редактора (live-синхронизация с 3D) ─────────────────
   liveCanvasObjects: CanvasObject[]
   setLiveCanvasObjects: (objs: CanvasObject[]) => void
+
+  // ── Очередь построений от функций версий (2022–2027) ─────────────────────
+  // Функция кладёт сюда готовые объекты, редактор их забирает и рисует.
+  pendingDraw: PendingDraw | null
+  sendToDrawing: (objects: CanvasObject[], source: string) => void
+  consumePendingDraw: () => void
+}
+
+// Пакет объектов, отправленный функцией на чертёж
+export interface PendingDraw {
+  id: string
+  source: string
+  objects: CanvasObject[]
 }
 
 export interface Layer {
@@ -179,4 +192,9 @@ export function useProjectStore(): ProjectStore {
   const ctx = useContext(ProjectContext)
   if (!ctx) throw new Error("useProjectStore must be used within ProjectProvider")
   return ctx
+}
+
+/** Безопасный доступ: null, если провайдера нет (для переиспользуемых диалогов) */
+export function useOptionalProjectStore(): ProjectStore | null {
+  return useContext(ProjectContext)
 }

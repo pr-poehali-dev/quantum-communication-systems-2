@@ -4,6 +4,9 @@
 // product: "acad" — AutoCAD, "civil" — Civil 3D.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { applyUpgrade } from "./versions-upgrades"
+import type { CanvasObject } from "@/hooks/useProjectStore"
+
 export type ProductId = "acad" | "civil" | "kompas" | "solidworks"
 export type DirId = "infra" | "survey" | "networks" | "bim" | "mechanical" | "docs" | "management"
 export type VersionId = "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "v24" | "sw"
@@ -77,11 +80,17 @@ export interface ToolField {
   suffix?: string
 }
 
+// Результат построения функции: готовые объекты чертежа + краткий итог
+export type FeatureBuildResult = { objects: CanvasObject[]; message: string }
+
 export interface VersionFeatureFull extends VersionFeature {
   fields: ToolField[]
   outputLabel: string
   // функция расчёта результата по значениям полей
   compute?: (v: Record<string, string>) => { label: string; value: string }[]
+  // построение объектов на чертеже (anchor — точка вставки в координатах чертежа)
+  build?: (v: Record<string, string>, anchor: [number, number]) => FeatureBuildResult
+  buildLabel?: string
 }
 
 // На входе category необязательна — она достраивается автоматически по id.
@@ -3190,11 +3199,11 @@ const RAW_FEATURES: RawFeature[] = [
   },
 ]
 
-// Нормализация: достраиваем category (явную или автоопределённую)
-export const FEATURES: VersionFeatureFull[] = RAW_FEATURES.map(f => ({
-  ...f,
-  category: f.category ?? detectCategory(f.id),
-}))
+// Нормализация: достраиваем category и накладываем рабочие расчёты/построения
+export const FEATURES: VersionFeatureFull[] = RAW_FEATURES.map(f => {
+  const base: VersionFeatureFull = { ...f, category: f.category ?? detectCategory(f.id) }
+  return applyUpgrade(base)
+})
 
 // Утилиты
 export const featuresByFilter = (

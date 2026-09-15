@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
+import { useOptionalProjectStore } from "@/hooks/useProjectStore"
+import { anchorOf } from "@/utils/featureActions"
 import {
   FEATURES, PRODUCTS, DIR_LABELS, CATEGORIES,
   type VersionFeatureFull, type DirId, type CategoryId, type ToolField,
@@ -14,10 +16,23 @@ export function FeatureTool({ feature, onClose, onBadge }: { feature: VersionFea
     return o
   })
   const [result, setResult] = useState<{ label: string; value: string }[] | null>(null)
+  const [built, setBuilt] = useState<string | null>(null)
   const product = PRODUCTS.find(p => p.id === feature.product)!
+  const store = useOptionalProjectStore()
 
   const set = (k: string, v: string) => setVals(s => ({ ...s, [k]: v }))
   const run = () => setResult(feature.compute ? feature.compute(vals) : [{ label: feature.outputLabel, value: "Готово" }])
+
+  // Построение на чертеже: объекты уходят в редактор через общий store
+  const build = () => {
+    if (!feature.build) return
+    const anchor = anchorOf(store?.liveCanvasObjects ?? [])
+    const res = feature.build(vals, anchor)
+    if (!res.objects.length) { store?.notify("Нет объектов для построения", "error"); return }
+    store?.sendToDrawing(res.objects, feature.name)
+    setResult(feature.compute ? feature.compute(vals) : null)
+    setBuilt(res.message)
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

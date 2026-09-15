@@ -12,6 +12,7 @@ import {
   CivilPipe,
   CivilProfile,
   Layer,
+  PendingDraw,
 } from "./useProjectStore"
 
 const DEFAULT_LAYERS: Layer[] = [
@@ -122,6 +123,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setLayers(prev => [...prev, l])
   }, [])
 
+  // ── Построения от функций версий: функция → редактор ────────────────────
+  const [pendingDraw, setPendingDraw] = useState<PendingDraw | null>(null)
+
+  const sendToDrawing = useCallback((objects: CanvasObject[], source: string) => {
+    if (!objects.length) return
+    setPendingDraw({ id: `draw_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, source, objects })
+  }, [])
+
+  const consumePendingDraw = useCallback(() => setPendingDraw(null), [])
+
   const store: ProjectStore = {
     activeProject,
     setActiveProject,
@@ -159,6 +170,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     notify,
     liveCanvasObjects,
     setLiveCanvasObjects,
+    pendingDraw,
+    sendToDrawing,
+    consumePendingDraw,
   }
 
   return (
