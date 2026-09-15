@@ -20,6 +20,7 @@ import {
   buildCorridor, buildCurve, buildContours, buildBoundary, buildEarthworkGrid,
   buildPipeline, buildSheets, buildTable, buildLabel,
   buildSegment, buildCircle, buildRect, buildPolygon, buildArray, buildOffsets,
+  buildBlockInsert, buildSolidFootprint, buildTransform,
 } from "@/utils/featureActions"
 
 type V = Record<string, string>
@@ -980,6 +981,179 @@ const drawUpgrades: Record<string, Upgrade> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ЧЕТВЁРТАЯ ВОЛНА: редактирование, 3D-тела, слои, блоки
+// ═══════════════════════════════════════════════════════════════════════════
+
+const editUpgrades: Record<string, Upgrade> = {
+  "acad-modify-move": {
+    desc: "Перенос объектов: вектор смещения, азимут, новые координаты базовой точки.",
+    fields: [f("dx", "Смещение X", "50"), f("dy", "Смещение Y", "-30"), f("x", "X базовой точки", "0"), f("y", "Y базовой точки", "0")],
+    outputLabel: "Перенос",
+    compute: v => {
+      const dx = num(v.dx), dy = num(v.dy)
+      return [
+        { label: "Длина вектора", value: `${fx(Math.hypot(dx, dy), 3)} мм` },
+        { label: "Угол к оси X", value: dms(((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360) },
+        { label: "Дирекционный угол", value: dms(inverseGeo([0, 0], [dx, dy]).bearing) },
+        { label: "Новая X", value: fx(num(v.x) + dx, 3) },
+        { label: "Новая Y", value: fx(num(v.y) + dy, 3) },
+      ]
+    },
+    build: (v, a) => {
+      const s = 40
+      const base: P2[] = [[a[0] - s, a[1] - s], [a[0] + s, a[1] - s], [a[0] + s, a[1] + s], [a[0] - s, a[1] + s], [a[0] - s, a[1] - s]]
+      return buildTransform(base, num(v.dx), num(v.dy), 0, 1)
+    },
+    buildLabel: "Показать перенос",
+  },
+
+  "acad-modify-rotate": {
+    desc: "Поворот объектов: угол в градусах и радианах, смещение точки на заданном радиусе.",
+    fields: [f("ang", "Угол поворота", "45", "°"), f("r", "Радиус точки от центра", "100", "мм")],
+    outputLabel: "Поворот",
+    compute: v => {
+      const a = num(v.ang), r = num(v.r)
+      const rad = (a * Math.PI) / 180
+      return [
+        { label: "Угол поворота", value: dms(a) },
+        { label: "В радианах", value: `${fx(rad, 6)} рад` },
+        { label: "Длина дуги перемещения", value: `${fx(r * Math.abs(rad), 3)} мм` },
+        { label: "Хорда перемещения", value: `${fx(2 * r * Math.sin(Math.abs(rad) / 2), 3)} мм` },
+        { label: "Новые координаты точки", value: `${fx(r * Math.cos(rad), 3)}, ${fx(r * Math.sin(rad), 3)}` },
+      ]
+    },
+    build: (v, a) => {
+      const s = 40
+      const base: P2[] = [[a[0] - s, a[1] - s], [a[0] + s, a[1] - s], [a[0] + s, a[1] + s], [a[0] - s, a[1] + s], [a[0] - s, a[1] - s]]
+      return buildTransform(base, 0, 0, num(v.ang), 1)
+    },
+    buildLabel: "Показать поворот",
+  },
+
+  "acad-modify-scale": {
+    desc: "Масштабирование: изменение длин, площадей и объёмов, пересчёт размеров.",
+    fields: [f("k", "Коэффициент", "1.5"), f("L", "Исходный размер", "120", "мм"), f("A", "Исходная площадь", "9600", "мм²")],
+    outputLabel: "Масштабирование",
+    compute: v => {
+      const k = num(v.k)
+      return [
+        { label: "Линейный масштаб", value: `${fx(k, 3)}×` },
+        { label: "Масштаб площади", value: `${fx(k * k, 3)}×` },
+        { label: "Масштаб объёма", value: `${fx(k * k * k, 3)}×` },
+        { label: "Новый размер", value: `${fx(num(v.L) * k, 2)} мм` },
+        { label: "Новая площадь", value: `${fmtBig(num(v.A) * k * k)} мм²` },
+        { label: "Изменение площади", value: `${k >= 1 ? "+" : ""}${fx((k * k - 1) * 100, 1)} %` },
+      ]
+    },
+    build: (v, a) => {
+      const s = 40
+      const base: P2[] = [[a[0] - s, a[1] - s], [a[0] + s, a[1] - s], [a[0] + s, a[1] + s], [a[0] - s, a[1] + s], [a[0] - s, a[1] - s]]
+      return buildTransform(base, 0, 0, 0, num(v.k))
+    },
+    buildLabel: "Показать масштаб",
+  },
+
+  "acad-3d-extrude": {
+    desc: "Выдавливание: объём тела, масса по плотности, площадь поверхности.",
+    fields: [
+      f("w", "Ширина профиля", "40", "мм"), f("d", "Глубина профиля", "30", "мм"),
+      f("h", "Высота выдавливания", "300", "мм"),
+      sel("mat", "Материал", "Сталь", ["Сталь", "Бетон", "Алюминий", "Дерево", "Пластик"]),
+    ],
+    outputLabel: "Тело выдавливания",
+    compute: v => {
+      const ro: Record<string, number> = { "Сталь": 7850, "Бетон": 2400, "Алюминий": 2700, "Дерево": 650, "Пластик": 1200 }
+      const w = num(v.w), d = num(v.d), h = num(v.h)
+      const Vmm = w * d * h
+      const Vm = Vmm / 1e9
+      const S = 2 * (w * d) + 2 * h * (w + d)
+      return [
+        { label: "Площадь профиля", value: `${fmtBig(w * d)} мм²` },
+        { label: "Объём тела", value: `${fx(Vmm / 1000, 1)} см³ (${fx(Vm, 6)} м³)` },
+        { label: "Площадь поверхности", value: `${fmtBig(S)} мм²` },
+        { label: "Материал", value: String(v.mat) },
+        { label: "Масса", value: `${fx(Vm * (ro[String(v.mat)] ?? 1000), 3)} кг` },
+        { label: "Отношение H/ширина", value: fx(w > 0 ? h / w : 0, 2) },
+      ]
+    },
+    build: (v, a) => buildSolidFootprint(a, num(v.w), num(v.d), num(v.h), "Тело выдавливания"),
+    buildLabel: "Построить габарит",
+  },
+
+  "acad-3d-revolve": {
+    desc: "Тело вращения по теореме Гульдина: объём, площадь поверхности, масса.",
+    fields: [
+      f("area", "Площадь профиля", "500", "мм²"),
+      f("rc", "R центра тяжести", "40", "мм"),
+      f("ang", "Угол вращения", "360", "°"),
+      f("per", "Периметр профиля", "90", "мм"),
+    ],
+    outputLabel: "Тело вращения",
+    compute: v => {
+      const A = num(v.area), rc = num(v.rc), ang = num(v.ang), per = num(v.per)
+      const k = ang / 360
+      const V = 2 * Math.PI * rc * A * k
+      const S = 2 * Math.PI * rc * per * k
+      return [
+        { label: "Путь центра тяжести", value: `${fx(2 * Math.PI * rc * k, 2)} мм` },
+        { label: "Объём (Гульдин)", value: `${fx(V / 1000, 2)} см³` },
+        { label: "Площадь поверхности", value: `${fmtBig(S)} мм²` },
+        { label: "Угол вращения", value: dms(ang) },
+        { label: "Габаритный диаметр", value: `${fx(2 * rc)} мм` },
+        { label: "Масса (сталь)", value: `${fx((V / 1e9) * 7850, 3)} кг` },
+      ]
+    },
+    build: (v, a) => buildSolidFootprint(a, 2 * num(v.rc), 2 * num(v.rc), num(v.area) / 10, "Тело вращения"),
+    buildLabel: "Построить габарит",
+  },
+
+  "acad-layer-new": {
+    desc: "Создание слоя по ГОСТ: вес линии, толщина на печати, масштаб типа линии.",
+    fields: [
+      txt("name", "Имя слоя", "Оси"),
+      sel("color", "Цвет", "Красный", ["Красный", "Жёлтый", "Зелёный", "Голубой", "Синий", "Белый"]),
+      sel("lw", "Вес линии", "0.25", ["0.13", "0.18", "0.25", "0.35", "0.50", "0.70", "1.00"]),
+      sel("scale", "Масштаб чертежа", "1:500", ["1:100", "1:200", "1:500", "1:1000"]),
+    ],
+    outputLabel: "Параметры слоя",
+    compute: v => {
+      const lw = num(v.lw), sc = scaleFactor(String(v.scale))
+      return [
+        { label: "Имя слоя", value: String(v.name) },
+        { label: "Цвет / вес линии", value: `${v.color}, ${fx(lw, 2)} мм` },
+        { label: "Толщина в натуре", value: `${fx((lw * sc) / 1000, 3)} м` },
+        { label: "Масштаб типа линии", value: fx(sc / 1000, 3) },
+        { label: "Длина штриха в натуре", value: `${fx((3 * sc) / 1000, 2)} м` },
+        { label: "Рекомендация ГОСТ", value: lw >= 0.5 ? "основная линия" : lw >= 0.25 ? "тонкая линия" : "вспомогательная" },
+      ]
+    },
+  },
+
+  "acad-block-insert": {
+    desc: "Вставка блоков: количество, шаг расстановки, габариты ряда, длина трассы установки.",
+    fields: [
+      txt("name", "Имя блока", "СВЕТИЛЬНИК"),
+      f("sx", "Масштаб", "1"), f("rot", "Поворот", "0", "°"),
+      f("n", "Количество", "8"), f("step", "Шаг расстановки", "30", "м"),
+    ],
+    outputLabel: "Расстановка блоков",
+    compute: v => {
+      const n = Math.max(1, Math.round(num(v.n))), st = num(v.step)
+      return [
+        { label: "Блок", value: String(v.name) },
+        { label: "Количество", value: `${n} шт.` },
+        { label: "Шаг расстановки", value: `${fx(st)} м` },
+        { label: "Длина ряда", value: `${fx((n - 1) * st)} м` },
+        { label: "Масштаб / поворот", value: `${fx(num(v.sx), 2)}× / ${dms(num(v.rot))}` },
+        { label: "Плотность", value: `${fx(st > 0 ? 1000 / st : 0, 1)} шт/км` },
+      ]
+    },
+    build: (v, a) => buildBlockInsert(a, String(v.name), num(v.sx), num(v.rot), num(v.n), num(v.step)),
+    buildLabel: "Расставить блоки",
+  },
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Сводная карта усилений
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -991,6 +1165,7 @@ export const UPGRADES: Record<string, Upgrade> = {
   ...docsUpgrades,
   ...wave2,
   ...drawUpgrades,
+  ...editUpgrades,
 }
 
 /** Применить усиление к функции каталога */

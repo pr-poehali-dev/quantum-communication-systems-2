@@ -3,10 +3,24 @@ import { motion, AnimatePresence } from "framer-motion"
 import Icon from "@/components/ui/icon"
 import { useOptionalProjectStore } from "@/hooks/useProjectStore"
 import { anchorOf } from "@/utils/featureActions"
+import { isUpgraded } from "./versions-upgrades"
 import {
   FEATURES, PRODUCTS, DIR_LABELS, CATEGORIES,
   type VersionFeatureFull, type DirId, type CategoryId, type ToolField,
 } from "./versions-catalog"
+
+// ─── Метки: есть ли у функции реальный расчёт и построение на чертеже ─────────
+function FeatureBadges({ feature }: { feature: VersionFeatureFull }) {
+  if (!isUpgraded(feature.id)) return null
+  return (
+    <div className="flex gap-1 mt-1.5">
+      <span className="text-[8px] px-1.5 py-0.5 rounded font-bold bg-blue-50 text-[#0078d4] border border-[#0078d4]/25">Расчёт</span>
+      {feature.build && (
+        <span className="text-[8px] px-1.5 py-0.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-600/25">На чертёж</span>
+      )}
+    </div>
+  )
+}
 
 // ─── Рабочий диалог функции (переиспользуется) ────────────────────────────────
 export function FeatureTool({ feature, onClose, onBadge }: { feature: VersionFeatureFull; onClose: () => void; onBadge?: (kind: "dir" | "command", value: string) => void }) {
@@ -116,12 +130,32 @@ export function FeatureTool({ feature, onClose, onBadge }: { feature: VersionFea
               </motion.div>
             )}
           </AnimatePresence>
+
+          <AnimatePresence>
+            {built && (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 flex items-start gap-2">
+                <Icon name="PencilRuler" size={13} className="text-emerald-400 mt-0.5" fallback="Check" />
+                <div>
+                  <div className="text-emerald-400 text-[11px] font-bold">Построено на чертеже</div>
+                  <div className="text-gray-300 text-[10px] mt-0.5">{built}</div>
+                  <div className="text-gray-500 text-[9px] mt-1">Откройте Редактор — объекты уже на холсте</div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700" style={{ background: "#141420" }}>
           <button onClick={onClose} className="px-3 py-1.5 rounded text-[11px] text-gray-400 hover:text-white border border-gray-700">Закрыть</button>
+          {feature.build && (
+            <button onClick={build}
+              className="px-4 py-1.5 rounded text-[11px] font-semibold text-white flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 transition-colors">
+              <Icon name="PencilRuler" size={12} fallback="Plus" /> {feature.buildLabel || "Построить на чертеже"}
+            </button>
+          )}
           <button onClick={run} className="px-4 py-1.5 rounded text-[11px] font-semibold text-white flex items-center gap-1.5" style={{ background: product.color }}>
-            <Icon name="Play" size={12} /> Выполнить
+            <Icon name="Play" size={12} /> Рассчитать
           </button>
         </div>
       </motion.div>
@@ -195,6 +229,7 @@ export function CategoryFeaturesGrid({ category }: { category: CategoryId }) {
                 <span className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
               </div>
               <div className="text-[10px] text-gray-500 leading-snug line-clamp-2">{f.desc}</div>
+              <FeatureBadges feature={f} />
             </button>
           )
         })}
@@ -271,6 +306,7 @@ function FeaturesGrid({ dir, categories }: { dir?: DirId; categories?: CategoryI
                       <span className="text-[8px] px-1 py-0.5 rounded font-bold shrink-0" style={{ background: p.color + "18", color: p.color }}>{p.short} {f.version}</span>
                     </div>
                     <div className="text-[10px] text-gray-500 leading-snug line-clamp-2">{f.desc}</div>
+                    <FeatureBadges feature={f} />
                   </button>
                 )
               })}

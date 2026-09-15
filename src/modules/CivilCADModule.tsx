@@ -12571,6 +12571,32 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     s.setLiveCanvasObjects(objs)
   }, [canvasObjects])
 
+  // ── Приём построений от рабочих функций версий 2022–2027 ──────────────────
+  // Функция строит объекты и отправляет их сюда — редактор рисует их на холсте.
+  const pendingDrawId = store?.pendingDraw?.id ?? null
+  useEffect(() => {
+    if (!pendingDrawId) return
+    const s = storeRef.current
+    const pack = s?.pendingDraw
+    if (!s || !pack?.objects.length) return
+    const restored: CanvasObject[] = pack.objects.map(o => {
+      const props: Record<string, string> = {}
+      if (o.properties) for (const k in o.properties) props[k] = String(o.properties[k])
+      return {
+        id: o.id, type: o.type as CanvasObjType, label: o.label, pts: o.pts,
+        color: o.color, lineWidth: o.lineWidth, layer: o.layer,
+        properties: props, z: o.z, text: o.text, radius: o.radius,
+      }
+    })
+    pushUndo(`${pack.source}: +${restored.length} об.`)
+    setCanvasObjects(prev => [...prev, ...restored])
+    setShowStartScreen(false)
+    restored.forEach(o => saveCanvasObject(o))
+    вписатьВидПоОбъектам(restored)
+    showToast(`${pack.source}: добавлено объектов ${restored.length}`)
+    s.consumePendingDraw()
+  }, [pendingDrawId])
+
   // ── Delete selected ────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

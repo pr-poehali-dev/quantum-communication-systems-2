@@ -297,6 +297,63 @@ export const buildOffsets = (base: P2[], dist: number, count: number, layer = "0
   return { objects: objs, message: `Создано подобий: ${objs.length}` }
 }
 
+/** Вставка блока: условный знак с точкой вставки */
+export const buildBlockInsert = (at: P2, name: string, scale: number, rotDeg: number, count: number, step: number, layer = "Блоки"): BuildResult => {
+  const objs: CanvasObject[] = []
+  const n = Math.max(1, Math.round(count))
+  const r = 6 * scale
+  for (let k = 0; k < n; k++) {
+    const c: P2 = [at[0] + k * step, at[1]]
+    const pts: P2[] = []
+    for (let i = 0; i <= 4; i++) {
+      const t = (i / 4) * 2 * Math.PI + (rotDeg * Math.PI) / 180
+      pts.push([c[0] + Math.cos(t) * r, c[1] + Math.sin(t) * r])
+    }
+    objs.push(mkLine(pts, `${name} #${k + 1}`, "#f59e0b", layer, {
+      "Блок": name, "Масштаб": scale.toFixed(2), "Поворот": rotDeg.toFixed(1) + "°",
+    }))
+    objs.push(mkPoint(c, `${name} т.вст.${k + 1}`, "#fbbf24", layer, { "Тип": "Точка вставки" }))
+  }
+  return { objects: objs, message: `Вставлено блоков «${name}»: ${n}` }
+}
+
+/** Габарит тела вращения / выдавливания — контур в плане */
+export const buildSolidFootprint = (c: P2, w: number, d: number, h: number, name: string, layer = "3D"): BuildResult => ({
+  objects: [
+    mkLine([
+      [c[0] - w / 2, c[1] - d / 2], [c[0] + w / 2, c[1] - d / 2],
+      [c[0] + w / 2, c[1] + d / 2], [c[0] - w / 2, c[1] + d / 2],
+      [c[0] - w / 2, c[1] - d / 2],
+    ], name, "#0891b2", layer, {
+      "Габарит": `${w.toFixed(1)}×${d.toFixed(1)}×${h.toFixed(1)}`,
+      "Высота": h.toFixed(2), "Объём": (w * d * h).toFixed(1),
+    }, "rect"),
+    mkText([c[0] - w / 2, c[1] + d / 2 + 4], `${name} h=${h.toFixed(1)}`, "#22d3ee", layer),
+  ],
+  message: `${name}: габарит ${w.toFixed(1)}×${d.toFixed(1)}, высота ${h.toFixed(1)}`,
+})
+
+/** Копия контура со смещением / поворотом / масштабом */
+export const buildTransform = (base: P2[], dx: number, dy: number, rotDeg: number, k: number, layer = "0"): BuildResult => {
+  const cx = base.reduce((a, p) => a + p[0], 0) / base.length
+  const cy = base.reduce((a, p) => a + p[1], 0) / base.length
+  const t = (rotDeg * Math.PI) / 180
+  const moved: P2[] = base.map(p => {
+    const x = (p[0] - cx) * k, y = (p[1] - cy) * k
+    return [cx + x * Math.cos(t) - y * Math.sin(t) + dx, cy + x * Math.sin(t) + y * Math.cos(t) + dy]
+  })
+  return {
+    objects: [
+      mkLine(base, "Исходный контур", "#6b7280", layer, { "Состояние": "До" }),
+      mkLine(moved, "Преобразованный контур", "#7c3aed", layer, {
+        "Смещение": `${dx.toFixed(2)}, ${dy.toFixed(2)}`,
+        "Поворот": rotDeg.toFixed(2) + "°", "Масштаб": k.toFixed(3),
+      }),
+    ],
+    message: `Преобразование: сдвиг ${Math.hypot(dx, dy).toFixed(2)}, поворот ${rotDeg}°, масштаб ${k}`,
+  }
+}
+
 /** Выноска с подписью */
 export const buildLabel = (at: P2, text: string, layer = "Аннотации"): BuildResult => ({
   objects: [
