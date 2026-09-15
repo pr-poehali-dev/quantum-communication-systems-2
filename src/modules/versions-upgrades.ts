@@ -19,6 +19,7 @@ import {
   buildPoints, buildTraverse, buildFromBearing, buildAlignment, buildRoadEdges,
   buildCorridor, buildCurve, buildContours, buildBoundary, buildEarthworkGrid,
   buildPipeline, buildSheets, buildTable, buildLabel,
+  buildSegment, buildCircle, buildRect, buildPolygon, buildArray, buildOffsets,
 } from "@/utils/featureActions"
 
 type V = Record<string, string>
@@ -835,6 +836,150 @@ const wave2: Record<string, Upgrade> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ТРЕТЬЯ ВОЛНА: черчение — реальная геометрия прямо на холсте
+// ═══════════════════════════════════════════════════════════════════════════
+
+const drawUpgrades: Record<string, Upgrade> = {
+  "acad-draw-line": {
+    desc: "Построение отрезка по координатам: длина, угол наклона, приращения, румб.",
+    fields: [f("x1", "X начала", "0"), f("y1", "Y начала", "0"), f("x2", "X конца", "100"), f("y2", "Y конца", "50")],
+    outputLabel: "Отрезок",
+    compute: v => {
+      const a: P2 = [num(v.x1), num(v.y1)], b: P2 = [num(v.x2), num(v.y2)]
+      const r = inverseGeo(a, b)
+      const ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI
+      return [
+        { label: "Длина отрезка", value: `${fx(r.distance, 3)} мм` },
+        { label: "Угол к оси X", value: dms((ang + 360) % 360) },
+        { label: "Дирекционный угол", value: dms(r.bearing) },
+        { label: "Приращение ΔX", value: `${fx(b[0] - a[0], 3)} мм` },
+        { label: "Приращение ΔY", value: `${fx(b[1] - a[1], 3)} мм` },
+        { label: "Середина отрезка", value: `${fx((a[0] + b[0]) / 2, 2)}, ${fx((a[1] + b[1]) / 2, 2)}` },
+      ]
+    },
+    build: v => buildSegment([num(v.x1), num(v.y1)], [num(v.x2), num(v.y2)]),
+    buildLabel: "Начертить отрезок",
+  },
+
+  "acad-draw-circle": {
+    desc: "Окружность: длина, площадь, диаметр, площадь вписанного и описанного квадрата.",
+    fields: [f("r", "Радиус", "25", "мм"), f("x", "X центра", "0"), f("y", "Y центра", "0")],
+    outputLabel: "Окружность",
+    compute: v => {
+      const r = num(v.r)
+      return [
+        { label: "Диаметр", value: `${fx(2 * r)} мм` },
+        { label: "Длина окружности", value: `${fx(2 * Math.PI * r)} мм` },
+        { label: "Площадь круга", value: `${fmtBig(Math.PI * r * r)} мм²` },
+        { label: "Вписанный квадрат", value: `${fx(r * Math.SQRT2)} мм (сторона)` },
+        { label: "Описанный квадрат", value: `${fx(2 * r)} мм (сторона)` },
+        { label: "Центр", value: `${fx(num(v.x), 2)}, ${fx(num(v.y), 2)}` },
+      ]
+    },
+    build: v => buildCircle([num(v.x), num(v.y)], num(v.r)),
+    buildLabel: "Начертить круг",
+  },
+
+  "acad-draw-rectangle": {
+    desc: "Прямоугольник: периметр, площадь, диагональ, соотношение сторон.",
+    fields: [f("w", "Ширина", "120", "мм"), f("h", "Высота", "80", "мм"), f("x", "X центра", "0"), f("y", "Y центра", "0")],
+    outputLabel: "Прямоугольник",
+    compute: v => {
+      const w = num(v.w), h = num(v.h)
+      return [
+        { label: "Площадь", value: `${fmtBig(w * h)} мм²` },
+        { label: "Периметр", value: `${fx(2 * (w + h))} мм` },
+        { label: "Диагональ", value: `${fx(Math.hypot(w, h))} мм` },
+        { label: "Соотношение сторон", value: `1 : ${fx(h > 0 ? w / h : 0, 3)}` },
+        { label: "Угол диагонали", value: dms((Math.atan2(h, w) * 180) / Math.PI) },
+      ]
+    },
+    build: v => buildRect([num(v.x), num(v.y)], num(v.w), num(v.h)),
+    buildLabel: "Начертить прямоугольник",
+  },
+
+  "acad-draw-polygon": {
+    desc: "Правильный многоугольник: сторона, площадь, углы, радиусы вписанной и описанной.",
+    fields: [f("n", "Число сторон", "6"), f("r", "Радиус описанной", "50", "мм"), f("x", "X центра", "0"), f("y", "Y центра", "0")],
+    outputLabel: "Многоугольник",
+    compute: v => {
+      const n = Math.max(3, Math.round(num(v.n))), R = num(v.r)
+      const side = 2 * R * Math.sin(Math.PI / n)
+      const r = R * Math.cos(Math.PI / n)
+      return [
+        { label: "Длина стороны", value: `${fx(side)} мм` },
+        { label: "Радиус вписанной (апофема)", value: `${fx(r)} мм` },
+        { label: "Площадь", value: `${fmtBig((n * side * r) / 2)} мм²` },
+        { label: "Периметр", value: `${fx(n * side)} мм` },
+        { label: "Внутренний угол", value: dms(((n - 2) * 180) / n) },
+        { label: "Центральный угол", value: dms(360 / n) },
+      ]
+    },
+    build: v => buildPolygon([num(v.x), num(v.y)], num(v.n), num(v.r)),
+    buildLabel: "Начертить многоугольник",
+  },
+
+  "acad-draw-offset": {
+    desc: "Подобие: серия параллельных контуров с заданным шагом смещения.",
+    fields: [f("dist", "Расстояние", "10", "мм"), f("n", "Число копий", "3"), f("size", "Размер базового контура", "80", "мм")],
+    outputLabel: "Подобие",
+    compute: v => {
+      const d = num(v.dist), n = Math.max(1, Math.round(num(v.n))), s = num(v.size)
+      return [
+        { label: "Создано копий", value: String(n) },
+        { label: "Шаг смещения", value: `${fx(d)} мм` },
+        { label: "Суммарное смещение", value: `${fx(d * n)} мм` },
+        { label: "Габарит внешнего контура", value: `${fx(s + 2 * d * n)} мм` },
+        { label: "Прирост площади", value: `${fmtBig((s + 2 * d * n) ** 2 - s * s)} мм²` },
+      ]
+    },
+    build: (v, a) => {
+      const s = num(v.size) / 2
+      const base: P2[] = [[a[0] - s, a[1] - s], [a[0] + s, a[1] - s], [a[0] + s, a[1] + s], [a[0] - s, a[1] + s], [a[0] - s, a[1] - s]]
+      return buildOffsets(base, num(v.dist), num(v.n))
+    },
+    buildLabel: "Построить подобия",
+  },
+
+  "acad-draw-array": {
+    desc: "Прямоугольный массив: количество элементов, габариты, суммарный шаг.",
+    fields: [f("rows", "Строк", "4"), f("cols", "Столбцов", "6"), f("dr", "Шаг по строке", "20", "мм"), f("dc", "Шаг по столбцу", "20", "мм")],
+    outputLabel: "Массив",
+    compute: v => {
+      const R = Math.max(1, Math.round(num(v.rows))), C = Math.max(1, Math.round(num(v.cols)))
+      const W = (C - 1) * num(v.dc), H = (R - 1) * num(v.dr)
+      return [
+        { label: "Всего элементов", value: String(R * C) },
+        { label: "Габарит массива", value: `${fx(W)} × ${fx(H)} мм` },
+        { label: "Площадь охвата", value: `${fmtBig(W * H)} мм²` },
+        { label: "Диагональ массива", value: `${fx(Math.hypot(W, H))} мм` },
+        { label: "Плотность", value: `${fx(W * H > 0 ? (R * C) / (W * H / 1e6) : 0, 1)} шт/м²` },
+      ]
+    },
+    build: (v, a) => buildArray(a, num(v.rows), num(v.cols), num(v.dr), num(v.dc)),
+    buildLabel: "Построить массив",
+  },
+
+  "acad-draw-fillet": {
+    desc: "Сопряжение: длина дуги, координаты точек касания, срезаемая площадь.",
+    fields: [f("r", "Радиус сопряжения", "8", "мм"), f("ang", "Угол между сторонами", "90", "°")],
+    outputLabel: "Сопряжение",
+    compute: v => {
+      const r = num(v.r), a = (num(v.ang) * Math.PI) / 180
+      const T = r / Math.tan(a / 2)
+      const K = r * (Math.PI - a)
+      return [
+        { label: "Длина дуги сопряжения", value: `${fx(K)} мм` },
+        { label: "Расстояние до точки касания", value: `${fx(T)} мм` },
+        { label: "Срезаемая площадь", value: `${fx(T * T * Math.tan(a / 2) - (r * r * (Math.PI - a)) / 2)} мм²` },
+        { label: "Угол дуги", value: dms(180 - num(v.ang)) },
+        { label: "Хорда сопряжения", value: `${fx(2 * r * Math.sin((Math.PI - a) / 2))} мм` },
+      ]
+    },
+  },
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Сводная карта усилений
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -845,6 +990,7 @@ export const UPGRADES: Record<string, Upgrade> = {
   ...networkUpgrades,
   ...docsUpgrades,
   ...wave2,
+  ...drawUpgrades,
 }
 
 /** Применить усиление к функции каталога */

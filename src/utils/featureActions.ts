@@ -212,6 +212,91 @@ export const buildTable = (at: P2, title: string, rows: { label: string; value: 
   return { objects: objs, message: `Ведомость «${title}» размещена` }
 }
 
+// ─── Базовые примитивы черчения ───────────────────────────────────────────────
+
+/** Отрезок по координатам */
+export const buildSegment = (a: P2, b: P2, layer = "0"): BuildResult => ({
+  objects: [mkLine([a, b], `Отрезок ${Math.hypot(b[0] - a[0], b[1] - a[1]).toFixed(2)}`, "#22d3ee", layer, {
+    "Длина": Math.hypot(b[0] - a[0], b[1] - a[1]).toFixed(3),
+    "Начало": `${a[0].toFixed(2)}, ${a[1].toFixed(2)}`,
+    "Конец": `${b[0].toFixed(2)}, ${b[1].toFixed(2)}`,
+  }, "line")],
+  message: `Отрезок ${Math.hypot(b[0] - a[0], b[1] - a[1]).toFixed(2)} построен`,
+})
+
+/** Окружность */
+export const buildCircle = (c: P2, r: number, layer = "0"): BuildResult => {
+  const pts: P2[] = []
+  for (let a = 0; a <= 360; a += 6) {
+    const t = (a * Math.PI) / 180
+    pts.push([c[0] + Math.cos(t) * r, c[1] + Math.sin(t) * r])
+  }
+  const o = mkLine(pts, `Круг R=${r}`, "#22d3ee", layer, {
+    "Радиус": r.toFixed(3), "Длина окружности": (2 * Math.PI * r).toFixed(3),
+    "Площадь": (Math.PI * r * r).toFixed(3),
+  }, "circle")
+  o.radius = r
+  return { objects: [o], message: `Окружность R=${r} построена` }
+}
+
+/** Прямоугольник */
+export const buildRect = (c: P2, w: number, h: number, layer = "0"): BuildResult => ({
+  objects: [mkLine([
+    [c[0] - w / 2, c[1] - h / 2], [c[0] + w / 2, c[1] - h / 2],
+    [c[0] + w / 2, c[1] + h / 2], [c[0] - w / 2, c[1] + h / 2],
+    [c[0] - w / 2, c[1] - h / 2],
+  ], `Прямоугольник ${w}×${h}`, "#22d3ee", layer, {
+    "Ширина": w.toFixed(2), "Высота": h.toFixed(2),
+    "Площадь": (w * h).toFixed(2), "Периметр": (2 * (w + h)).toFixed(2),
+  }, "rect")],
+  message: `Прямоугольник ${w}×${h} построен`,
+})
+
+/** Правильный многоугольник */
+export const buildPolygon = (c: P2, n: number, r: number, layer = "0"): BuildResult => {
+  const k = Math.max(3, Math.round(n))
+  const pts: P2[] = []
+  for (let i = 0; i <= k; i++) {
+    const t = (i / k) * 2 * Math.PI - Math.PI / 2
+    pts.push([c[0] + Math.cos(t) * r, c[1] + Math.sin(t) * r])
+  }
+  const side = 2 * r * Math.sin(Math.PI / k)
+  return {
+    objects: [mkLine(pts, `${k}-угольник`, "#22d3ee", layer, {
+      "Сторон": String(k), "Радиус описанной": r.toFixed(3),
+      "Длина стороны": side.toFixed(3),
+      "Площадь": ((k * side * r * Math.cos(Math.PI / k)) / 2).toFixed(3),
+    })],
+    message: `Правильный ${k}-угольник построен`,
+  }
+}
+
+/** Прямоугольный массив объектов (точками) */
+export const buildArray = (c: P2, rows: number, cols: number, dr: number, dc: number, layer = "0"): BuildResult => {
+  const R = Math.max(1, Math.round(rows)), C = Math.max(1, Math.round(cols))
+  const objs: CanvasObject[] = []
+  const x0 = c[0] - ((C - 1) * dc) / 2, y0 = c[1] - ((R - 1) * dr) / 2
+  for (let i = 0; i < R; i++)
+    for (let j = 0; j < C; j++)
+      objs.push(mkPoint([x0 + j * dc, y0 + i * dr], `Э${i + 1}-${j + 1}`, "#f59e0b", layer, {
+        "Строка": String(i + 1), "Столбец": String(j + 1),
+      }))
+  return { objects: objs, message: `Массив ${R}×${C}: ${objs.length} элементов` }
+}
+
+/** Концентрические подобия контура */
+export const buildOffsets = (base: P2[], dist: number, count: number, layer = "0"): BuildResult => {
+  const objs: CanvasObject[] = []
+  for (let k = 1; k <= Math.max(1, Math.round(count)); k++)
+    objs.push(mkLine(base.map((p, i) => {
+      const a = base[Math.max(i - 1, 0)], b = base[Math.min(i + 1, base.length - 1)]
+      const dx = b[0] - a[0], dy = b[1] - a[1]
+      const L = Math.hypot(dx, dy) || 1
+      return [p[0] + (dy / L) * dist * k, p[1] - (dx / L) * dist * k] as P2
+    }), `Подобие ${k} (${(dist * k).toFixed(1)})`, "#7c3aed", layer, { "Смещение": (dist * k).toFixed(3) }))
+  return { objects: objs, message: `Создано подобий: ${objs.length}` }
+}
+
 /** Выноска с подписью */
 export const buildLabel = (at: P2, text: string, layer = "Аннотации"): BuildResult => ({
   objects: [
