@@ -22,6 +22,8 @@ import {
   buildSegment, buildCircle, buildRect, buildPolygon, buildArray, buildOffsets,
   buildBlockInsert, buildSolidFootprint, buildTransform,
 } from "@/utils/featureActions"
+import { drawingUpgrades } from "./upgrades-drawing"
+import { mechUpgrades } from "./upgrades-mech"
 
 type V = Record<string, string>
 type Rows = { label: string; value: string }[]
