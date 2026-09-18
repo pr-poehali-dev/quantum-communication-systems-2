@@ -1025,10 +1025,16 @@ interface CorridorDef {
 
 // ─── Additional dialog types ────────────────────────────────────────────────
 
+interface SurfaceDataSource {
+  id: string; kind: "pointgroup" | "pointfile" | "breakline" | "contour" | "dem" | "boundary"
+  name: string; detail: string; count: string; active: boolean
+}
+
 interface SurfaceDef {
   name: string; description: string; type: "TIN" | "Grid"
   style: string; layer: string; gridX: string; gridY: string
   pointFiles: { name: string; format: string }[]
+  sources: SurfaceDataSource[]
 }
 
 interface AlignmentDef {
@@ -2427,39 +2433,92 @@ function DataShortcutsPanel({ onClose }: { onClose: () => void }) {
 
 // ─── Surface Dialog ──────────────────────────────────────────────────────────
 
+const SURFACE_SOURCE_META: Record<SurfaceDataSource["kind"], { label: string; icon: string; color: string }> = {
+  pointgroup: { label: "Группы точек", icon: "CircleDot", color: "#0ea5e9" },
+  pointfile: { label: "Файлы точек", icon: "FileText", color: "#0078d4" },
+  breakline: { label: "Линии разрыва", icon: "GitBranch", color: "#f97316" },
+  contour: { label: "Контуры", icon: "Spline", color: "#22c55e" },
+  dem: { label: "Файлы DEM", icon: "Layers", color: "#a855f7" },
+  boundary: { label: "Границы", icon: "Hexagon", color: "#ef4444" },
+}
+
+const DEFAULT_SURFACE_SOURCES: SurfaceDataSource[] = [
+  { id: "src1", kind: "pointgroup", name: "Все точки", detail: "COGO-точки съёмки, группа «Все точки»", count: "1 842 точки", active: true },
+  { id: "src2", kind: "pointfile", name: "Точки_съёмки.csv", detail: "CSV (N,E,Z,Desc)", count: "1 842 точки", active: true },
+  { id: "src3", kind: "breakline", name: "Бровка_проезжей_части", detail: "Стандартная линия разрыва", count: "24 сегмента", active: true },
+  { id: "src4", kind: "breakline", name: "Подошва_насыпи", detail: "Стандартная линия разрыва", count: "18 сегментов", active: true },
+  { id: "src5", kind: "contour", name: "Горизонтали_2024.dwg", detail: "3D-полилинии, шаг 1 м", count: "56 полилиний", active: false },
+  { id: "src6", kind: "boundary", name: "Граница_участка", detail: "Внешняя (Outer)", count: "1 контур, 12 точек", active: true },
+]
+
 function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: SurfaceDef) => void }) {
-  const SURF_STYLES = ["Стандарт", "Горизонтали 1м", "Горизонтали 5м", "Без отображения", "Анализ уклонов"]
+  const SURF_STYLES = ["Стандарт", "Треугольники", "Горизонтали 1м", "Горизонтали 5м", "Без отображения", "Анализ уклонов"]
   const [def, setDef] = useState<SurfaceDef>({
-    name: "Существующая поверхность", description: "", type: "TIN",
+    name: "Существующая поверхность", description: "TIN-поверхность по данным полевой съёмки", type: "TIN",
     style: "Горизонтали 1м", layer: "C-TOPO-SURF", gridX: "10", gridY: "10",
     pointFiles: [{ name: "Точки_съёмки.csv", format: "CSV (N,E,Z,Desc)" }],
+    sources: DEFAULT_SURFACE_SOURCES,
   })
   const [tab, setTab] = useState<"info" | "build" | "edit" | "analysis">("info")
   const [addFile, setAddFile] = useState("")
   const [addFormat, setAddFormat] = useState("CSV (N,E,Z,Desc)")
+  const [addKind, setAddKind] = useState<SurfaceDataSource["kind"]>("pointfile")
+  const [breaklineType, setBreaklineType] = useState<"Стандартная" | "Стена" | "Неразрушающая">("Стандартная")
+  const [boundaryType, setBoundaryType] = useState<"Внешняя" | "Скрыть" | "Показать">("Внешняя")
   const FORMATS = ["CSV (N,E,Z,Desc)", "TXT (X,Y,Z)", "LandXML", "DEM/GeoTIFF", "Облако точек RCP"]
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    pointgroup: true, pointfile: true, breakline: true, contour: true, dem: false, boundary: true,
+  })
   const [surfToast, setSurfToast] = useState<string|null>(null)
   const showSurfToast = (msg: string) => { setSurfToast(msg); setTimeout(() => setSurfToast(null), 2500) }
+
+  const toggleGroup = (k: string) => setExpanded(e => ({ ...e, [k]: !e[k] }))
+  const toggleSource = (id: string) => setDef(d => ({ ...d, sources: d.sources.map(s => s.id === id ? { ...s, active: !s.active } : s) }))
+  const removeSource = (id: string) => setDef(d => ({ ...d, sources: d.sources.filter(s => s.id !== id) }))
+  const grouped = (kind: SurfaceDataSource["kind"]) => def.sources.filter(s => s.kind === kind)
+
+  const addSource = () => {
+    if (!addFile.trim()) return
+    const detailByKind: Record<SurfaceDataSource["kind"], string> = {
+      pointgroup: "Группа точек проекта",
+      pointfile: addFormat,
+      breakline: `${breaklineType} линия разрыва`,
+      contour: "3D-полилинии",
+      dem: "Цифровая модель высот",
+      boundary: `${boundaryType} граница`,
+    }
+    const id = `src_${Date.now().toString(36)}`
+    setDef(d => ({ ...d, sources: [...d.sources, { id, kind: addKind, name: addFile.trim(), detail: detailByKind[addKind], count: "—", active: true }] }))
+    setAddFile("")
+    showSurfToast(`✓ Источник «${addFile.trim()}» добавлен в определение поверхности`)
+  }
+
+  const totalPoints = def.sources.filter(s => s.active && (s.kind === "pointgroup" || s.kind === "pointfile")).length * 1842
+    + def.sources.filter(s => s.active && s.kind !== "pointgroup" && s.kind !== "pointfile").length * 0
+  const activeBreaklines = def.sources.filter(s => s.active && s.kind === "breakline").length
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[560px] max-h-[90vh] overflow-y-auto"
+        className="bg-[#f0f0f0] border border-gray-400 shadow-2xl w-[860px] max-h-[92vh] flex flex-col"
         style={{ fontFamily: "Arial, sans-serif", fontSize: 12 }}>
-        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5">
-          <span className="text-white font-bold text-sm">Создать поверхность</span>
+        <div className="flex items-center justify-between bg-[#0078d4] px-3 py-1.5 flex-shrink-0">
+          <span className="text-white font-bold text-sm flex items-center gap-2">
+            <Icon name="Mountain" size={15} />
+            Создать поверхность — TIN Surface
+          </span>
           <button onClick={onClose} className="text-white hover:bg-blue-700 w-5 h-5 flex items-center justify-center">✕</button>
         </div>
         {/* Tabs */}
-        <div className="flex border-b border-gray-300 bg-[#e8e8e8]">
+        <div className="flex border-b border-gray-300 bg-[#e8e8e8] flex-shrink-0">
           {(["info","build","edit","analysis"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-1.5 text-xs font-semibold border-r border-gray-300 transition-colors ${tab===t?"bg-white text-blue-700":"text-gray-600 hover:bg-gray-100"}`}>
-              {t==="info"?"Информация":t==="build"?"Построение":t==="edit"?"Редактирование":"Анализ"}
+              {t==="info"?"Информация":t==="build"?"Определение (Definition)":t==="edit"?"Редактирование":"Анализ"}
             </button>
           ))}
         </div>
-        <div className="p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {tab === "info" && <>
             <div className="flex items-center gap-2">
               <label className="w-28 text-xs text-gray-700 shrink-0">Тип поверхности:</label>
@@ -2468,7 +2527,7 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
                   <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
                     <input type="radio" checked={def.type===t} onChange={() => setDef(d=>({...d,type:t}))} />
                     <span className="font-semibold">{t}</span>
-                    <span className="text-gray-500">{t==="TIN"?"— триангуляция":"— регулярная сетка"}</span>
+                    <span className="text-gray-500">{t==="TIN"?"— триангуляционная нерегулярная сеть":"— регулярная сетка"}</span>
                   </label>
                 ))}
               </div>
@@ -2491,6 +2550,13 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
               <button className="w-6 h-5 bg-[#e0e0e0] border border-gray-400 text-xs">✎</button>
             </div>
             <div className="flex items-center gap-2">
+              <label className="w-28 text-xs text-gray-700 shrink-0">Стиль отображения построения:</label>
+              <select className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white" defaultValue="Без отображения">
+                <option>Без отображения</option>
+                <option>Показать все изменения</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
               <label className="w-28 text-xs text-gray-700 shrink-0">Слой:</label>
               <input value={def.layer} onChange={e=>setDef(d=>({...d,layer:e.target.value}))} className="flex-1 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             </div>
@@ -2501,43 +2567,107 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
               <span className="text-xs text-gray-600">Y:</span>
               <input value={def.gridY} onChange={e=>setDef(d=>({...d,gridY:e.target.value}))} className="w-16 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             </div>}
+            <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-900 leading-relaxed">
+              TIN-поверхность — цифровая модель рельефа из неперекрывающихся треугольников, вершины которых — точки съёмки.
+              Источники данных (точки, линии разрыва, контуры, DEM) настраиваются на вкладке «Определение».
+            </div>
           </>}
 
           {tab === "build" && <>
-            <div className="border border-gray-400 bg-white">
-              <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
-                <span className="text-blue-600">▼</span> Источники данных
+            <div className="grid grid-cols-[1fr,260px] gap-3">
+              {/* Дерево определения — как Prospector */}
+              <div className="border border-gray-400 bg-white">
+                <div className="bg-[#d0d0d0] px-2 py-1 flex items-center gap-1 font-bold text-xs border-b border-gray-400">
+                  <Icon name="ListTree" size={13} className="text-blue-700" />
+                  Определение поверхности (Definition)
+                  <span className="ml-auto text-[10px] text-gray-500 font-normal">{def.sources.filter(s=>s.active).length} активных источников</span>
+                </div>
+                <div className="max-h-[360px] overflow-y-auto">
+                  {(Object.keys(SURFACE_SOURCE_META) as SurfaceDataSource["kind"][]).map(kind => {
+                    const meta = SURFACE_SOURCE_META[kind]
+                    const items = grouped(kind)
+                    return (
+                      <div key={kind} className="border-b border-gray-200">
+                        <button onClick={() => toggleGroup(kind)}
+                          className="w-full flex items-center gap-1.5 px-2 py-1 bg-[#f3f3f3] hover:bg-[#e8e8e8] text-left">
+                          <span className="text-gray-500 text-[10px] w-3">{expanded[kind] ? "▼" : "▶"}</span>
+                          <Icon name={meta.icon as any} size={13} style={{ color: meta.color }} />
+                          <span className="text-xs font-semibold text-gray-800">{meta.label}</span>
+                          <span className="text-[10px] text-gray-500">({items.length})</span>
+                        </button>
+                        {expanded[kind] && (
+                          <div>
+                            {items.length === 0 && (
+                              <div className="px-6 py-1.5 text-[11px] text-gray-400 italic">нет добавленных источников</div>
+                            )}
+                            {items.map(s => (
+                              <div key={s.id} className={`flex items-center gap-2 px-6 py-1 text-xs border-t border-gray-100 ${s.active ? "bg-white" : "bg-gray-50 opacity-50"}`}>
+                                <input type="checkbox" checked={s.active} onChange={() => toggleSource(s.id)} className="accent-blue-600" />
+                                <span className="flex-1 text-blue-700 font-mono truncate">{s.name}</span>
+                                <span className="text-gray-500 text-[10px] w-36 truncate">{s.detail}</span>
+                                <span className="text-gray-400 text-[10px] w-20 text-right">{s.count}</span>
+                                <button onClick={() => removeSource(s.id)} className="text-gray-400 hover:text-red-500 text-xs">✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-              <div className="flex items-center gap-1 bg-[#e8e8e8] border-b border-gray-300 text-xs font-semibold px-2 py-0.5">
-                <span className="flex-1">Файл / источник</span>
-                <span className="w-40">Формат</span>
-              </div>
-              <div className="max-h-36 overflow-y-auto">
-                {def.pointFiles.map((f,i) => (
-                  <div key={i} className={`flex items-center px-2 py-1 text-xs border-b border-gray-100 ${i%2===0?"bg-white":"bg-gray-50"}`}>
-                    <span className="flex-1 text-blue-700 font-mono">{f.name}</span>
-                    <span className="w-40 text-gray-600">{f.format}</span>
-                    <button onClick={() => setDef(d=>({...d,pointFiles:d.pointFiles.filter((_,j)=>j!==i)}))}
-                      className="text-gray-400 hover:text-red-500 ml-2 text-xs">✕</button>
+
+              {/* Панель добавления источника + сводка */}
+              <div className="space-y-2">
+                <div className="border border-gray-300 bg-white rounded">
+                  <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Добавить источник</div>
+                  <div className="p-2 space-y-1.5">
+                    <select value={addKind} onChange={e=>setAddKind(e.target.value as SurfaceDataSource["kind"])}
+                      className="w-full border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                      {(Object.keys(SURFACE_SOURCE_META) as SurfaceDataSource["kind"][]).map(k => (
+                        <option key={k} value={k}>{SURFACE_SOURCE_META[k].label}</option>
+                      ))}
+                    </select>
+                    <input value={addFile} onChange={e=>setAddFile(e.target.value)}
+                      placeholder={addKind==="pointgroup" ? "Имя группы точек" : addKind==="boundary" ? "Имя границы" : "имя_файла"}
+                      className="w-full border border-gray-400 px-2 py-0.5 text-xs bg-white" />
+                    {addKind === "pointfile" && (
+                      <select value={addFormat} onChange={e=>setAddFormat(e.target.value)} className="w-full border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                        {FORMATS.map(f=><option key={f}>{f}</option>)}
+                      </select>
+                    )}
+                    {addKind === "breakline" && (
+                      <select value={breaklineType} onChange={e=>setBreaklineType(e.target.value as any)} className="w-full border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                        <option value="Стандартная">Стандартная линия разрыва</option>
+                        <option value="Стена">Линия разрыва стены</option>
+                        <option value="Неразрушающая">Неразрушающая линия разрыва</option>
+                      </select>
+                    )}
+                    {addKind === "boundary" && (
+                      <select value={boundaryType} onChange={e=>setBoundaryType(e.target.value as any)} className="w-full border border-gray-400 px-1 py-0.5 text-xs bg-white">
+                        <option value="Внешняя">Внешняя (Outer)</option>
+                        <option value="Скрыть">Скрыть область (Hide)</option>
+                        <option value="Показать">Показать область (Show)</option>
+                      </select>
+                    )}
+                    <button onClick={addSource}
+                      className="w-full px-3 py-1 bg-[#0078d4] text-white text-xs border border-blue-700 hover:bg-blue-700 font-semibold">
+                      + Добавить в определение
+                    </button>
                   </div>
-                ))}
+                </div>
+                <div className="border border-gray-300 bg-white rounded">
+                  <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Сводка построения</div>
+                  <div className="p-2 space-y-1 text-[11px] text-gray-700">
+                    <div className="flex justify-between"><span className="text-gray-500">Точек-вершин:</span><span className="font-mono font-semibold">{fmtBigNum(totalPoints || 1842)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Линий разрыва:</span><span className="font-mono font-semibold">{activeBreaklines}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Источников всего:</span><span className="font-mono font-semibold">{def.sources.length}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Тип:</span><span className="font-mono font-semibold">{def.type}</span></div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500 leading-relaxed">После добавления источников нажмите ОК — поверхность будет триангулирована и добавлена в дерево проекта (Prospector → Поверхности).</p>
               </div>
             </div>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <div className="text-xs text-gray-600 mb-0.5">Файл:</div>
-                <input value={addFile} onChange={e=>setAddFile(e.target.value)} placeholder="имя_файла.csv" className="w-full border border-gray-400 px-2 py-0.5 text-xs bg-white" />
-              </div>
-              <div className="w-44">
-                <div className="text-xs text-gray-600 mb-0.5">Формат:</div>
-                <select value={addFormat} onChange={e=>setAddFormat(e.target.value)} className="w-full border border-gray-400 px-1 py-0.5 text-xs bg-white">
-                  {FORMATS.map(f=><option key={f}>{f}</option>)}
-                </select>
-              </div>
-              <button onClick={() => { if(addFile){setDef(d=>({...d,pointFiles:[...d.pointFiles,{name:addFile,format:addFormat}]}));setAddFile("")}}}
-                className="px-3 py-1 bg-[#0078d4] text-white text-xs border border-blue-700 hover:bg-blue-700">Добавить</button>
-            </div>
-            <p className="text-[10px] text-gray-500">После добавления источников нажмите ОК — поверхность будет построена и добавлена в дерево проекта.</p>
           </>}
 
           {tab === "edit" && <>
@@ -2547,11 +2677,12 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
                 <div className="p-2 flex gap-2">
                   <button onClick={()=>showSurfToast("✓ Ребро добавлено")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить ребро</button>
                   <button onClick={()=>showSurfToast("✓ Ребро удалено")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить ребро</button>
-                  <button onClick={()=>showSurfToast("✓ Ребро перестроено")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Поменять ребро</button>
+                  <button onClick={()=>showSurfToast("✓ Ребро перестроено (Swap Edge)")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Поменять ребро</button>
+                  <button onClick={()=>showSurfToast("✓ Длинные краевые треугольники удалены")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить линии по краю</button>
                 </div>
               </div>
               <div className="border border-gray-300 bg-white rounded">
-                <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Структурные линии</div>
+                <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Структурные линии (Breaklines)</div>
                 <div className="p-2 flex gap-2">
                   <button onClick={()=>showSurfToast("✓ Структурная линия добавлена")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
                   <button onClick={()=>showSurfToast("✓ Структурная линия удалена")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Удалить</button>
@@ -2561,7 +2692,7 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
               <div className="border border-gray-300 bg-white rounded">
                 <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Границы</div>
                 <div className="p-2 space-y-1.5">
-                  {["Внешняя граница","Обрезающая граница","Восстанавливающая граница"].map(label => (
+                  {["Внешняя граница","Скрыть область (Hide)","Показать область (Show)"].map(label => (
                     <div key={label} className="flex items-center justify-between">
                       <span className="text-xs text-gray-600">{label}</span>
                       <button onClick={()=>showSurfToast(`✓ ${label} добавлена`)} className="px-3 py-0.5 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0]">Добавить</button>
@@ -2569,11 +2700,21 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
                   ))}
                 </div>
               </div>
+              <div className="border border-gray-300 bg-white rounded">
+                <div className="bg-[#d8d8d8] px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-300">Сглаживание (Smooth)</div>
+                <div className="p-2 flex items-center gap-2">
+                  <select className="flex-1 border border-gray-400 px-1 py-0.5 text-xs bg-white" defaultValue="Натуральный сосед">
+                    <option>Натуральный сосед</option>
+                    <option>Кригинг</option>
+                  </select>
+                  <button onClick={()=>showSurfToast("✓ Сглаживание применено (только отображение)")} className="px-3 py-1 bg-[#e0e0e0] border border-gray-400 text-xs hover:bg-[#d0d0d0] whitespace-nowrap">Применить</button>
+                </div>
+              </div>
               <button
-                onClick={() => showSurfToast("Поверхность пересчитана")}
+                onClick={() => showSurfToast("✓ Поверхность пересчитана (Rebuild)")}
                 className="w-full py-1.5 bg-[#0078d4] text-white text-xs font-semibold hover:bg-blue-700 transition-colors rounded"
               >
-                Обновить поверхность
+                Обновить поверхность (Rebuild)
               </button>
               {surfToast && <div className="text-center text-xs text-green-700 font-semibold bg-green-50 border border-green-300 rounded py-1">{surfToast}</div>}
             </div>
@@ -2582,10 +2723,11 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
           {tab === "analysis" && <>
             <div className="space-y-2">
               {[
-                { label: "Анализ уклонов", desc: "Диапазоны уклонов с цветовой заливкой по категориям", icon: "🎨" },
-                { label: "Анализ высот", desc: "Градиентная заливка по отметкам от min до max", icon: "📊" },
+                { label: "Анализ уклонов (Slope)", desc: "Диапазоны уклонов с цветовой заливкой по категориям — для проектирования градировки", icon: "🎨" },
+                { label: "Анализ высот (Elevation)", desc: "Градиентная заливка по отметкам от min до max", icon: "📊" },
                 { label: "Стрелки уклонов", desc: "Направление стока воды по рельефу", icon: "↓" },
-                { label: "Водосборные бассейны", desc: "Автоматическое разбиение на водосборные зоны", icon: "💧" },
+                { label: "Водосборные бассейны", desc: "Автоматическое разбиение на водосборные зоны для анализа дренажа", icon: "💧" },
+                { label: "Горизонтали (Contours)", desc: "Генерация линий равных высот для отображения", icon: "🗺️" },
               ].map(a => (
                 <label key={a.label} className="flex items-start gap-2 p-2 border border-gray-200 bg-white rounded cursor-pointer hover:bg-blue-50 transition-colors">
                   <input type="checkbox" className="mt-0.5 accent-blue-600" />
@@ -2599,14 +2741,18 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
             </div>
           </>}
         </div>
-        <div className="flex justify-end gap-2 px-3 pb-3">
-          <button onClick={() => onOK(def)} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">ОК</button>
+        <div className="flex justify-end gap-2 px-3 py-2 border-t border-gray-300 flex-shrink-0">
+          <button onClick={() => onOK(def)} className="px-6 py-1 bg-[#0078d4] text-white border border-blue-700 text-xs font-semibold hover:bg-blue-700">ОК</button>
           <button onClick={onClose} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Отмена</button>
-          <button onClick={()=>showSurfToast("Справка Лапа · Поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
+          <button onClick={()=>showSurfToast("Справка Лапа · TIN-поверхности")} className="px-6 py-1 bg-[#e0e0e0] border border-gray-500 text-xs font-semibold hover:bg-[#d0d0d0]">Справка</button>
         </div>
       </motion.div>
     </div>
   )
+}
+
+function fmtBigNum(n: number): string {
+  return n.toLocaleString("ru-RU")
 }
 
 // ─── Alignment Dialog ─────────────────────────────────────────────────────────
