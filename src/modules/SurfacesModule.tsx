@@ -11,6 +11,7 @@ import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { экспортCSV, экспортExcel, экспортLandXML, экспортТекст, импортФайл, импортCSV, импортLandXML, импортSDR, экспортSDR } from "@/utils/exportImport"
 import { computeVolume, type VolumeBase, type VolumeResult } from "@/utils/volumeCalc"
+import { delaunayTriangulation, interpolateZ, pointInTriangle, buildContours, type TinTriangle } from "@/modules/civil3d-engine"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -84,10 +85,6 @@ const INIT_POINTS: SurfPoint[] = [
 
 // ─── Helper functions ────────────────────────────────────────────────────────
 
-function Hf(x: number, y: number): number {
-  return 120 + Math.sin(x * 0.4) * 3 + Math.cos(y * 0.3) * 2.5 + Math.sin(x * 0.15 + y * 0.2) * 1.5
-}
-
 function getPal(name: string) { return PALETTES[name] || PAL_TERRAIN }
 
 function colorByZ(z: number, minZ: number, maxZ: number, pal: string[]): string {
@@ -95,7 +92,19 @@ function colorByZ(z: number, minZ: number, maxZ: number, pal: string[]): string 
   return pal[Math.floor(t * (pal.length - 1))]
 }
 
-// ─── Canvas drawing ──────────────────────────────────────────────────────────
+// ─── Canvas drawing (настоящая триангуляция Делоне — как в Civil 3D 2027) ────
+
+/** Кэш триангуляции: пересчитываем только когда меняются сами точки */
+let __tinCache: { key: string; tris: TinTriangle[] } | null = null
+function getTriangulation(pts: SurfPoint[]): TinTriangle[] {
+  const key = pts.map(p => `${p.id}:${p.x}:${p.y}:${p.z}`).join("|")
+  if (__tinCache && __tinCache.key === key) return __tinCache.tris
+  const tris = pts.length >= 3
+    ? delaunayTriangulation(pts.map(p => ({ x: p.x, y: p.y, z: p.z })))
+    : []
+  __tinCache = { key, tris }
+  return tris
+}
 
 function drawSurface(
   ctx: CanvasRenderingContext2D, W: number, H: number,
@@ -110,27 +119,49 @@ function drawSurface(
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y), zs = pts.map(p => p.z)
   const minX = Math.min(...xs, 0), maxX = Math.max(...xs, 10)
   const minY = Math.min(...ys, 0), maxY = Math.max(...ys, 10)
-  const minZ = Math.min(...zs), maxZ = Math.max(...zs)
+  const minZ = zs.length ? Math.min(...zs) : 0, maxZ = zs.length ? Math.max(...zs) : 1
   const sx = (x: number) => pad + ((x - minX) / (maxX - minX + 0.01)) * w
   const sy = (y: number) => H - pad - ((y - minY) / (maxY - minY + 0.01)) * h
 
-  if (surf.type === "Grid" || analysisMode === "slopes" || analysisMode === "heights") {
-    // Render grid cells
+  const triangles = getTriangulation(pts)
+
+  // ── Заливка треугольников TIN по высоте/уклону (как режим "Треугольники" / "Анализ" в C3D) ──
+  if (surf.type === "TIN" && triangles.length) {
+    triangles.forEach(tri => {
+      const zMid = (tri.a.z + tri.b.z + tri.c.z) / 3
+      let fill: string
+      if (analysisMode === "slopes") {
+        const s = tri.slope
+        fill = s < 3 ? SLOPE_RANGES[0].color : s < 8 ? SLOPE_RANGES[1].color : s < 15 ? SLOPE_RANGES[2].color : SLOPE_RANGES[3].color
+      } else {
+        fill = colorByZ(zMid, minZ, maxZ, pal)
+      }
+      ctx.beginPath()
+      ctx.moveTo(sx(tri.a.x), sy(tri.a.y))
+      ctx.lineTo(sx(tri.b.x), sy(tri.b.y))
+      ctx.lineTo(sx(tri.c.x), sy(tri.c.y))
+      ctx.closePath()
+      ctx.fillStyle = fill + "b3"
+      ctx.fill()
+      ctx.strokeStyle = "rgba(255,255,255,0.18)"
+      ctx.lineWidth = 0.6
+      ctx.stroke()
+    })
+  }
+
+  // ── Grid-режим: билинейная интерполяция по регулярной сетке из TIN ──
+  if (surf.type === "Grid" && triangles.length) {
     const STEPS = 40
     for (let r = 0; r < STEPS; r++) {
       for (let c = 0; c < STEPS; c++) {
-        const x = minX + (c / STEPS) * (maxX - minX)
-        const y = minY + (r / STEPS) * (maxY - minY)
-        const z = Hf(x / 10 * 10, y / 10 * 10)
-        let fill: string
-        if (analysisMode === "slopes") {
-          const dzdx = (Hf((x + 0.1) / 10 * 10, y / 10 * 10) - z) / 0.1
-          const dzdy = (Hf(x / 10 * 10, (y + 0.1) / 10 * 10) - z) / 0.1
-          const slope = Math.sqrt(dzdx ** 2 + dzdy ** 2) * 100
-          fill = slope < 3 ? SLOPE_RANGES[0].color : slope < 8 ? SLOPE_RANGES[1].color : slope < 15 ? SLOPE_RANGES[2].color : SLOPE_RANGES[3].color
-        } else {
-          fill = colorByZ(z, minZ, maxZ, pal)
-        }
+        const x = minX + ((c + 0.5) / STEPS) * (maxX - minX)
+        const y = minY + ((r + 0.5) / STEPS) * (maxY - minY)
+        const tri = triangles.find(t => pointInTriangle(t, x, y))
+        if (!tri) continue
+        const z = interpolateZ(tri, x, y)
+        const fill = analysisMode === "slopes"
+          ? (tri.slope < 3 ? SLOPE_RANGES[0].color : tri.slope < 8 ? SLOPE_RANGES[1].color : tri.slope < 15 ? SLOPE_RANGES[2].color : SLOPE_RANGES[3].color)
+          : colorByZ(z, minZ, maxZ, pal)
         const px = pad + (c / STEPS) * w
         const py = H - pad - ((r + 1) / STEPS) * h
         ctx.fillStyle = fill + "cc"
@@ -139,65 +170,56 @@ function drawSurface(
     }
   }
 
-  // Contours
-  if (surf.type === "TIN" || analysisMode === "contours" || analysisMode === "") {
+  // ── Горизонтали — реальные изолинии через пересечение TIN-треугольников с плоскостью Z ──
+  if (triangles.length && (surf.type === "TIN" || analysisMode === "contours" || analysisMode === "")) {
     const step = surf.style.includes("0.5") ? 0.5 : surf.style.includes("5м") ? 5 : 1
-    const nLevels = Math.ceil((maxZ - minZ) / step)
-    for (let li = 0; li <= nLevels; li++) {
-      const lev = minZ + li * step
-      const isMajor = li % 5 === 0
-      ctx.beginPath()
-      let first = true
-      for (let ix = 0; ix <= 60; ix++) {
-        const x = minX + (ix / 60) * (maxX - minX)
-        for (let iy = 0; iy <= 60; iy++) {
-          const y = minY + (iy / 60) * (maxY - minY)
-          const z = Hf(x / 10 * 10, y / 10 * 10)
-          if (Math.abs(z - lev) < step * 0.15) {
-            if (first) { ctx.moveTo(sx(x), sy(y)); first = false } else ctx.lineTo(sx(x), sy(y))
-          }
-        }
-      }
-      const col = colorByZ(lev, minZ, maxZ, pal)
-      ctx.strokeStyle = col; ctx.lineWidth = isMajor ? 1.5 : 0.6; ctx.stroke()
-      if (isMajor && !first) {
-        ctx.fillStyle = col; ctx.font = "bold 9px sans-serif"
-        ctx.fillText(`${lev.toFixed(1)}м`, pad + 4, sy(minY + (maxY - minY) * (li / nLevels)))
-      }
-    }
-  }
-
-  // Flow arrows (watersheds mode)
-  if (analysisMode === "watersheds") {
-    for (let r = 0; r < 15; r++) {
-      for (let c = 0; c < 15; c++) {
-        const x = minX + (c / 15 + 1 / 30) * (maxX - minX)
-        const y = minY + (r / 15 + 1 / 30) * (maxY - minY)
-        const dzdx = (Hf((x + 0.2) / 10 * 10, y / 10 * 10) - Hf((x - 0.2) / 10 * 10, y / 10 * 10)) / 0.4
-        const dzdy = (Hf(x / 10 * 10, (y + 0.2) / 10 * 10) - Hf(x / 10 * 10, (y - 0.2) / 10 * 10)) / 0.4
-        const len = Math.sqrt(dzdx ** 2 + dzdy ** 2) + 0.01
-        const ax = sx(x), ay = sy(y)
-        const ex = ax - (dzdx / len) * 10, ey = ay + (dzdy / len) * 10
-        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey)
-        ctx.strokeStyle = "#60a5fa88"; ctx.lineWidth = 1; ctx.stroke()
-        ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI * 2)
-        ctx.fillStyle = "#60a5fa"; ctx.fill()
-      }
-    }
-  }
-
-  // TIN edges
-  if (surf.type === "TIN" && surf.wireframe) {
-    for (let i = 0; i < pts.length; i++) {
-      const dists = pts.map((p, j) => ({ j, d: Math.sqrt((p.x-pts[i].x)**2+(p.y-pts[i].y)**2) }))
-        .filter(d => d.j !== i).sort((a,b) => a.d-b.d).slice(0,3)
-      dists.forEach(({j}) => {
-        if (j > i) {
-          ctx.beginPath(); ctx.moveTo(sx(pts[i].x), sy(pts[i].y)); ctx.lineTo(sx(pts[j].x), sy(pts[j].y))
-          ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 0.8; ctx.stroke()
-        }
+    const majorStep = step * 5
+    const contours = buildContours(pts.map(p => ({ x: p.x, y: p.y, z: p.z })), triangles, step, majorStep)
+    contours.forEach(c => {
+      const col = colorByZ(c.elevation, minZ, maxZ, pal)
+      ctx.strokeStyle = col
+      ctx.lineWidth = c.isMajor ? 1.6 : 0.7
+      c.segments.forEach(([p0, p1]) => {
+        ctx.beginPath()
+        ctx.moveTo(sx(p0.x), sy(p0.y))
+        ctx.lineTo(sx(p1.x), sy(p1.y))
+        ctx.stroke()
       })
-    }
+      if (c.isMajor && c.segments.length) {
+        const mid = c.segments[Math.floor(c.segments.length / 2)][0]
+        ctx.fillStyle = col; ctx.font = "bold 9px sans-serif"
+        ctx.fillText(`${c.elevation.toFixed(1)}м`, sx(mid.x) + 4, sy(mid.y) - 3)
+      }
+    })
+  }
+
+  // ── Стрелки стока (Watersheds) — по направлению антиградиента каждого треугольника ──
+  if (analysisMode === "watersheds" && triangles.length) {
+    triangles.forEach(tri => {
+      const cx = (tri.a.x + tri.b.x + tri.c.x) / 3
+      const cy = (tri.a.y + tri.b.y + tri.c.y) / 3
+      const n = tri.normal
+      const len = Math.sqrt(n.x * n.x + n.y * n.y) || 1
+      const ax = sx(cx), ay = sy(cy)
+      const ex = ax - (n.x / len) * 9, ey = ay + (n.y / len) * 9
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey)
+      ctx.strokeStyle = "#60a5fa88"; ctx.lineWidth = 1; ctx.stroke()
+      ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI * 2)
+      ctx.fillStyle = "#60a5fa"; ctx.fill()
+    })
+  }
+
+  // ── Рёбра триангуляции (реальные рёбра Делоне, а не "3 ближайшие точки") ──
+  if (surf.type === "TIN" && surf.wireframe && triangles.length) {
+    ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 0.8
+    triangles.forEach(tri => {
+      ctx.beginPath()
+      ctx.moveTo(sx(tri.a.x), sy(tri.a.y))
+      ctx.lineTo(sx(tri.b.x), sy(tri.b.y))
+      ctx.lineTo(sx(tri.c.x), sy(tri.c.y))
+      ctx.closePath()
+      ctx.stroke()
+    })
   }
 
   // Points
@@ -218,6 +240,12 @@ function drawSurface(
   ctx.fillStyle = "#94a3b8"; ctx.font = "9px sans-serif"
   ctx.fillText(`${maxZ.toFixed(0)}м`, barX - 2, 28)
   ctx.fillText(`${minZ.toFixed(0)}м`, barX - 2, 32 + barH2 + 10)
+
+  // Подпись «TIN · N треугольников» — как статус-строка в Civil 3D
+  if (surf.type === "TIN") {
+    ctx.fillStyle = "#64748b"; ctx.font = "9px sans-serif"
+    ctx.fillText(`TIN · ${triangles.length} треуг. · ${pts.length} точек`, pad, 14)
+  }
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
