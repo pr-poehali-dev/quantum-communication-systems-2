@@ -9253,14 +9253,37 @@ function GeotechnicalDialog({ onClose }: { onClose: ()=>void }) {
 }
 
 // ─── Grading (площадки, рабочие отметки, откосы) ─────────────────────────────
+interface PadCorner { nw: string; ne: string; se: string; sw: string }
+interface PadRow { id: string; name: string; corners: PadCorner; ok: boolean }
+
+const PAD_INIT: PadRow[] = [
+  { id: "Pad-01", name: "Pad-01", corners: { nw: "708", ne: "705", se: "703", sw: "703" }, ok: true },
+  { id: "Pad-02", name: "Pad-02", corners: { nw: "706", ne: "706", se: "704", sw: "704" }, ok: true },
+  { id: "Pad-03", name: "Pad-03", corners: { nw: "707", ne: "705", se: "705", sw: "705" }, ok: true },
+  { id: "Pad-04", name: "Pad-04", corners: { nw: "758", ne: "758", se: "756", sw: "756" }, ok: false },
+]
+
 function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:string;elevation:string})=>void }) {
-  const [tab, setTab] = useState<"grade"|"slopes"|"volumes"|"criteria">("grade")
+  const [tab, setTab] = useState<"grade"|"slopes"|"volumes"|"criteria"|"pads">("grade")
   const [surfName, setSurfName] = useState("Проектная площадка-1")
   const [method, setMethod] = useState("Откос от объекта")
   const [slopeH, setSlopeH] = useState("1.5")
   const [slopeV, setSlopeV] = useState("1")
   const [elevation, setElevation] = useState("120.50")
   const [transOffset, setTransOffset] = useState("2.0")
+  const [pads, setPads] = useState<PadRow[]>(PAD_INIT)
+  const [selPad, setSelPad] = useState<string | null>("Pad-01")
+  const [editCell, setEditCell] = useState<{ id: string; key: keyof PadCorner } | null>(null)
+  const [padToast, setPadToast] = useState<string | null>(null)
+  const flashPad = (m: string) => { setPadToast(m); setTimeout(() => setPadToast(null), 1800) }
+
+  const updatePadCorner = (id: string, key: keyof PadCorner, val: string) => {
+    setPads(prev => prev.map(p => p.id === id ? { ...p, corners: { ...p.corners, [key]: val }, ok: Object.values({ ...p.corners, [key]: val }).every(v => !isNaN(parseFloat(v))) } : p))
+  }
+  const padAvg = (p: PadRow) => {
+    const vals = Object.values(p.corners).map(v => parseFloat(v)).filter(v => !isNaN(v))
+    return vals.length ? (vals.reduce((a,b)=>a+b,0) / vals.length) : 0
+  }
 
   // Рабочие отметки (рандомные для демо)
   const workingElev = Array.from({length:12},(_,i)=>{
@@ -9287,7 +9310,7 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
       className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
         className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
-        style={{width:660,maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        style={{width: tab==="pads" ? 960 : 660, maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#1a1828] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Mountain" size={15} className="text-[#f59e0b]"/>
@@ -9296,7 +9319,7 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
         <div className="flex border-b border-gray-700 bg-[#151422] flex-shrink-0">
-          {([["grade","Отметки"],["slopes","Откосы"],["volumes","Объёмы"],["criteria","Критерии"]] as const).map(([id,lbl])=>(
+          {([["grade","Отметки"],["slopes","Откосы"],["volumes","Объёмы"],["criteria","Критерии"],["pads","Площадки (Pad)"]] as const).map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
               className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#f59e0b]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
           ))}
@@ -9415,6 +9438,140 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
                   <button className="text-[9px] text-[#f59e0b] hover:underline">Изменить</button>
                 </div>
               ))}
+            </div>
+          )}
+          {tab==="pads" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400 text-[10px]">Площадки (Grading Pads) — синхронизация с Dynamo и рабочей таблицей отметок</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Icon name="Workflow" size={10}/> Dynamo Sync
+                  </span>
+                  {padToast && <span className="text-[9px] text-green-400">{padToast}</span>}
+                </div>
+              </div>
+
+              {/* Split view: 2D план слева, 3D вид справа */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* 2D — топоплан с горизонталями */}
+                <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#f4f4f4", height:200}}>
+                  <div className="bg-[#e8e8e8] px-2 py-1 text-[9px] font-bold text-gray-700 border-b border-gray-300 flex items-center gap-1">
+                    <Icon name="Map" size={10}/> План · Горизонтали
+                  </div>
+                  <svg width="100%" height="176" viewBox="0 0 300 176">
+                    <rect width="300" height="176" fill="#fafafa"/>
+                    {Array.from({length:14}).map((_,i) => {
+                      const off = i * 11
+                      const amp1 = 8 + (i%3)*3, amp2 = 6 + (i%4)*2
+                      let d = `M ${-20+off*0.3},${170-off*0.2}`
+                      for (let t=0; t<=300; t+=15) {
+                        const y = 150 - off*0.7 + Math.sin(t*0.04+i)*amp1 + Math.cos(t*0.07+i*0.5)*amp2 - i*3
+                        d += ` L ${t},${y}`
+                      }
+                      return <path key={i} d={d} fill="none" stroke="#9ca3af" strokeWidth={i%5===0?1:0.5} opacity={0.8}/>
+                    })}
+                    {pads.map((p,i) => {
+                      const px = 50 + (i%2)*130, py = 40 + Math.floor(i/2)*80
+                      return (
+                        <g key={p.id} onClick={()=>setSelPad(p.id)} style={{cursor:"pointer"}}>
+                          <polygon points={`${px-22},${py-16} ${px+22},${py-16} ${px+18},${py+16} ${px-18},${py+16}`}
+                            fill={selPad===p.id?"rgba(245,158,11,0.25)":"none"}
+                            stroke={p.ok?"#22c55e":"#ef4444"} strokeWidth={selPad===p.id?2:1.3}/>
+                          <text x={px} y={py+3} textAnchor="middle" fill="#374151" fontSize="7" fontWeight="bold">{p.name}</text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
+
+                {/* 3D — площадки на рельефе (насыпь зелёная / выемка красная) */}
+                <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#8a9a7a", height:200}}>
+                  <div className="bg-[#1a1828] px-2 py-1 text-[9px] font-bold text-gray-300 border-b border-gray-700 flex items-center gap-1">
+                    <Icon name="Box" size={10}/> 3D-вид площадок
+                  </div>
+                  <svg width="100%" height="176" viewBox="0 0 300 176">
+                    <rect width="300" height="176" fill="#93a583"/>
+                    {/* лёгкий рельеф-фон */}
+                    {Array.from({length:6}).map((_,i)=>(
+                      <path key={i} d={`M 0,${20+i*28} Q 150,${10+i*28} 300,${25+i*28}`} fill="none" stroke="#7c8f6a" strokeWidth="1" opacity="0.5"/>
+                    ))}
+                    {pads.map((p,i) => {
+                      const bx = 55 + (i%2)*140, by = 45 + Math.floor(i/2)*75
+                      const skew = 14
+                      const col = p.ok ? "#22c55e" : "#ef4444"
+                      return (
+                        <g key={p.id} onClick={()=>setSelPad(p.id)} style={{cursor:"pointer"}}>
+                          <polygon points={`${bx-20},${by} ${bx+20-skew},${by-10} ${bx+35-skew},${by+8} ${bx-5},${by+18}`}
+                            fill={col} fillOpacity={selPad===p.id?0.85:0.55} stroke={col} strokeWidth={selPad===p.id?1.8:1}/>
+                          {/* сетка триангуляции внутри площадки */}
+                          <line x1={bx-20} y1={by} x2={bx+35-skew} y2={by+8} stroke="#ffffff" strokeWidth="0.4" opacity="0.5"/>
+                          <line x1={bx+20-skew} y1={by-10} x2={bx-5} y2={by+18} stroke="#ffffff" strokeWidth="0.4" opacity="0.5"/>
+                          <text x={bx+2} y={by+6} textAnchor="middle" fill="#fff" fontSize="6.5" fontWeight="bold">{p.name}</text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
+              </div>
+
+              {/* Excel-подобная таблица отметок углов площадок */}
+              <div className="rounded-lg border border-gray-700 overflow-hidden">
+                <div className="bg-[#1a1828] px-2 py-1 text-[9px] font-bold text-gray-300 border-b border-gray-700 flex items-center gap-1.5">
+                  <Icon name="Sheet" size={10} className="text-green-500" fallback="Table"/> Pad Elevations.csv
+                  <span className="ml-auto text-[8px] text-gray-500 font-normal">двойной клик по ячейке — редактировать</span>
+                </div>
+                <table className="w-full text-[10px] border-collapse">
+                  <thead>
+                    <tr className="bg-[#0d1117]">
+                      <th className="px-2 py-1 text-left text-gray-500 border border-gray-800 font-normal w-20"></th>
+                      {(["NW","NE","SE","SW"] as const).map(h=>(
+                        <th key={h} className="px-2 py-1 text-center text-gray-400 border border-gray-800 font-semibold">{h}</th>
+                      ))}
+                      <th className="px-2 py-1 text-center text-gray-400 border border-gray-800 font-semibold w-20">Среднее</th>
+                      <th className="px-2 py-1 text-center text-gray-400 border border-gray-800 font-semibold w-16">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pads.map((p,i) => (
+                      <tr key={p.id} className={`${selPad===p.id?"bg-[#f59e0b]/10":i%2===0?"bg-[#151422]":"bg-[#1a1828]"} hover:bg-[#252535] cursor-pointer`}
+                        onClick={()=>setSelPad(p.id)}>
+                        <td className="px-2 py-1 border border-gray-800 text-[#4fc3f7] font-mono font-semibold">{p.name}</td>
+                        {(["nw","ne","se","sw"] as const).map(key => (
+                          <td key={key} className="px-1 py-0.5 border border-gray-800 text-center"
+                            onDoubleClick={(e)=>{ e.stopPropagation(); setEditCell({id:p.id,key}) }}>
+                            {editCell?.id===p.id && editCell.key===key ? (
+                              <input autoFocus type="number" defaultValue={p.corners[key]}
+                                onBlur={e=>{ updatePadCorner(p.id,key,e.target.value); setEditCell(null); flashPad(`✓ ${p.name} ${key.toUpperCase()} обновлена`) }}
+                                onKeyDown={e=>{ if(e.key==="Enter") (e.target as HTMLInputElement).blur(); if(e.key==="Escape") setEditCell(null) }}
+                                className="w-14 bg-[#0078d4]/20 text-white text-center font-mono outline-none border border-[#0078d4] rounded-sm"/>
+                            ) : (
+                              <span className="font-mono text-gray-200">{p.corners[key]}</span>
+                            )}
+                          </td>
+                        ))}
+                        <td className="px-2 py-1 border border-gray-800 text-center font-mono text-gray-400">{padAvg(p).toFixed(1)}</td>
+                        <td className="px-2 py-1 border border-gray-800 text-center">
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${p.ok?"bg-green-500/20 text-green-400":"bg-red-500/20 text-red-400"}`}>
+                            {p.ok ? "OK" : "⚠ Проверить"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex items-center justify-between px-2 py-1 bg-[#0d1117] border-t border-gray-800">
+                  <button onClick={()=>{
+                    const n = pads.length+1
+                    const id = `Pad-${String(n).padStart(2,"0")}`
+                    setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
+                    flashPad(`✓ ${id} добавлена`)
+                  }} className="text-[9px] text-[#f59e0b] hover:underline flex items-center gap-1">
+                    <Icon name="Plus" size={10}/> Добавить площадку
+                  </button>
+                  <span className="text-[8px] text-gray-600">Формула: NW,NE,SE,SW → Dynamo Graph → Surface.ByPad</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
