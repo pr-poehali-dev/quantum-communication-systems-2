@@ -2451,6 +2451,181 @@ const DEFAULT_SURFACE_SOURCES: SurfaceDataSource[] = [
   { id: "src6", kind: "boundary", name: "Граница_участка", detail: "Внешняя (Outer)", count: "1 контур, 12 точек", active: true },
 ]
 
+// ─── Surface preview engine — реальная сетка высот + марширующие квадраты ────
+
+interface HeightGrid { nx: number; ny: number; w: number; h: number; z: number[][]; minZ: number; maxZ: number }
+
+function generateHeightGrid(nx: number, ny: number, w: number, h: number, seed: number): HeightGrid {
+  const z: number[][] = []
+  let minZ = Infinity, maxZ = -Infinity
+  for (let j = 0; j <= ny; j++) {
+    const row: number[] = []
+    for (let i = 0; i <= nx; i++) {
+      const x = i / nx, y = j / ny
+      const val = 100
+        + 9 * Math.sin(x * 6.3 + seed)
+        + 6 * Math.cos(y * 5.1 + seed * 0.7)
+        + 4 * Math.sin((x + y) * 4.2 + seed * 0.3)
+        + 2.5 * Math.cos(x * 9.4 - y * 3.6)
+      row.push(val)
+      if (val < minZ) minZ = val
+      if (val > maxZ) maxZ = val
+    }
+    z.push(row)
+  }
+  return { nx, ny, w, h, z, minZ, maxZ }
+}
+
+function marchingSquares(grid: HeightGrid, lvl: number): [number, number, number, number][] {
+  const segs: [number, number, number, number][] = []
+  const { nx, ny, w, h, z } = grid
+  const cw = w / nx, ch = h / ny
+  const interp = (x1: number, y1: number, v1: number, x2: number, y2: number, v2: number): [number, number] => {
+    const t = (lvl - v1) / (v2 - v1 || 1e-9)
+    return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t]
+  }
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const x0 = i * cw, x1 = (i + 1) * cw, y0 = j * ch, y1 = (j + 1) * ch
+      const v00 = z[j][i], v10 = z[j][i + 1], v01 = z[j + 1][i], v11 = z[j + 1][i + 1]
+      let idx = 0
+      if (v00 > lvl) idx |= 8
+      if (v10 > lvl) idx |= 4
+      if (v11 > lvl) idx |= 2
+      if (v01 > lvl) idx |= 1
+      const top = (): [number, number] => interp(x0, y0, v00, x1, y0, v10)
+      const right = (): [number, number] => interp(x1, y0, v10, x1, y1, v11)
+      const bottom = (): [number, number] => interp(x0, y1, v01, x1, y1, v11)
+      const left = (): [number, number] => interp(x0, y0, v00, x0, y1, v01)
+      const add = (p1: [number, number], p2: [number, number]) => segs.push([p1[0], p1[1], p2[0], p2[1]])
+      switch (idx) {
+        case 1: case 14: add(left(), bottom()); break
+        case 2: case 13: add(bottom(), right()); break
+        case 3: case 12: add(left(), right()); break
+        case 4: case 11: add(top(), right()); break
+        case 5: add(left(), top()); add(bottom(), right()); break
+        case 6: case 9: add(top(), bottom()); break
+        case 7: case 8: add(left(), top()); break
+        case 10: add(top(), right()); add(left(), bottom()); break
+      }
+    }
+  }
+  return segs
+}
+
+function SurfacePreviewCanvas({ type, style, analyses, seed = 3 }: {
+  type: "TIN" | "Grid"; style: string; analyses: Set<string>; seed?: number
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const W = 420, H = 250
+  const grid = useMemo(() => generateHeightGrid(type === "Grid" ? 22 : 46, type === "Grid" ? 14 : 30, W, H, seed), [type, seed])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    canvas.width = W; canvas.height = H
+    ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, W, H)
+
+    const { nx, ny, z, minZ, maxZ } = grid
+    const cw = W / nx, ch = H / ny
+    const showSlope = analyses.has("slope")
+    const showElev = analyses.has("elevation")
+    const showContours = analyses.has("contours") || style.includes("Горизонтали")
+    const showWatersheds = analyses.has("watersheds")
+    const showArrows = analyses.has("arrows")
+
+    // ── Цветовая заливка: уклоны или высоты ──
+    if (showSlope || showElev) {
+      for (let j = 0; j < ny; j++) {
+        for (let i = 0; i < nx; i++) {
+          const v00 = z[j][i], v10 = z[j][i + 1], v01 = z[j + 1][i], v11 = z[j + 1][i + 1]
+          let color: string
+          if (showSlope) {
+            const dzdx = (v10 - v00 + v11 - v01) / 2, dzdy = (v01 - v00 + v11 - v10) / 2
+            const slopeMag = Math.sqrt(dzdx * dzdx + dzdy * dzdy)
+            const t = Math.min(1, slopeMag / 6)
+            color = t < 0.33 ? "rgba(34,197,94,0.55)" : t < 0.66 ? "rgba(250,204,21,0.55)" : "rgba(239,68,68,0.55)"
+          } else {
+            const avg = (v00 + v10 + v01 + v11) / 4
+            const t = (avg - minZ) / ((maxZ - minZ) || 1)
+            const hue = (1 - t) * 235
+            color = `hsla(${hue},72%,50%,0.55)`
+          }
+          ctx.fillStyle = color
+          ctx.fillRect(i * cw, j * ch, cw + 0.6, ch + 0.6)
+        }
+      }
+    }
+
+    // ── Сетка TIN / Grid ──
+    if (style !== "Без отображения") {
+      ctx.lineWidth = 0.5
+      ctx.strokeStyle = type === "TIN" ? "rgba(96,165,250,0.3)" : "rgba(148,163,184,0.35)"
+      for (let j = 0; j <= ny; j++) { ctx.beginPath(); ctx.moveTo(0, j * ch); ctx.lineTo(W, j * ch); ctx.stroke() }
+      for (let i = 0; i <= nx; i++) { ctx.beginPath(); ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, H); ctx.stroke() }
+      if (type === "TIN") {
+        ctx.strokeStyle = "rgba(96,165,250,0.18)"
+        for (let j = 0; j < ny; j++) {
+          for (let i = 0; i < nx; i++) {
+            ctx.beginPath(); ctx.moveTo(i * cw, j * ch); ctx.lineTo((i + 1) * cw, (j + 1) * ch); ctx.stroke()
+          }
+        }
+      }
+    }
+
+    // ── Горизонтали (реальный marching squares) ──
+    if (showContours) {
+      const step = style === "Горизонтали 5м" ? 5 : 1
+      for (let lvl = Math.ceil(minZ); lvl <= maxZ; lvl += step) {
+        const segs = marchingSquares(grid, lvl)
+        const isMajor = Math.round(lvl) % 5 === 0
+        ctx.strokeStyle = isMajor ? "rgba(217,119,6,0.95)" : "rgba(190,150,100,0.55)"
+        ctx.lineWidth = isMajor ? 1.3 : 0.6
+        ctx.beginPath()
+        segs.forEach(([x1, y1, x2, y2]) => { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2) })
+        ctx.stroke()
+      }
+    }
+
+    // ── Стрелки уклонов (направление стока) ──
+    if (showArrows) {
+      ctx.strokeStyle = "#60a5fa"; ctx.fillStyle = "#60a5fa"
+      for (let j = 1; j < ny; j += 3) {
+        for (let i = 1; i < nx; i += 3) {
+          const v00 = z[j][i], v10 = z[j][i + 1], v01 = z[j + 1][i]
+          const dzdx = v10 - v00, dzdy = v01 - v00
+          const len = Math.sqrt(dzdx * dzdx + dzdy * dzdy) || 1
+          const dx = -dzdx / len * 6, dy = -dzdy / len * 6
+          const cx = i * cw, cy = j * ch
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + dx, cy + dy); ctx.stroke()
+          ctx.beginPath(); ctx.arc(cx + dx, cy + dy, 1, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+    }
+
+    // ── Водосборные бассейны (визуальные зоны) ──
+    if (showWatersheds) {
+      const basins: { pts: [number, number][]; color: string }[] = [
+        { pts: [[10, 10], [W * 0.45, 8], [W * 0.4, H * 0.5], [15, H * 0.55]], color: "rgba(96,165,250,0.28)" },
+        { pts: [[W * 0.47, 8], [W - 10, 12], [W - 15, H * 0.52], [W * 0.42, H * 0.5]], color: "rgba(74,222,128,0.28)" },
+        { pts: [[10, H * 0.55], [W * 0.5, H * 0.52], [W * 0.45, H - 10], [12, H - 12]], color: "rgba(251,191,36,0.28)" },
+        { pts: [[W * 0.5, H * 0.52], [W - 15, H * 0.55], [W - 12, H - 10], [W * 0.47, H - 10]], color: "rgba(244,114,182,0.28)" },
+      ]
+      basins.forEach(b => {
+        ctx.fillStyle = b.color
+        ctx.beginPath()
+        b.pts.forEach(([x, y], idx) => idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))
+        ctx.closePath(); ctx.fill()
+        ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1; ctx.stroke()
+      })
+    }
+  }, [grid, style, analyses, type])
+
+  return <canvas ref={canvasRef} className="w-full rounded border border-gray-700" style={{ height: H, display: "block" }} />
+}
+
 function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: SurfaceDef) => void }) {
   const SURF_STYLES = ["Стандарт", "Треугольники", "Горизонтали 1м", "Горизонтали 5м", "Без отображения", "Анализ уклонов"]
   const [def, setDef] = useState<SurfaceDef>({
@@ -2471,6 +2646,7 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
   })
   const [surfToast, setSurfToast] = useState<string|null>(null)
   const showSurfToast = (msg: string) => { setSurfToast(msg); setTimeout(() => setSurfToast(null), 2500) }
+  const [surfaceAnalyses, setSurfaceAnalyses] = useState<Set<string>>(new Set(["contours"]))
 
   const toggleGroup = (k: string) => setExpanded(e => ({ ...e, [k]: !e[k] }))
   const toggleSource = (id: string) => setDef(d => ({ ...d, sources: d.sources.map(s => s.id === id ? { ...s, active: !s.active } : s) }))
@@ -2568,8 +2744,14 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
               <input value={def.gridY} onChange={e=>setDef(d=>({...d,gridY:e.target.value}))} className="w-16 border border-gray-400 px-2 py-0.5 text-xs bg-white" />
             </div>}
             <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-900 leading-relaxed">
-              TIN-поверхность — цифровая модель рельефа из неперекрывающихся треугольников, вершины которых — точки съёмки.
-              Источники данных (точки, линии разрыва, контуры, DEM) настраиваются на вкладке «Определение».
+              {def.type==="TIN"
+                ? "TIN-поверхность — цифровая модель рельефа из неперекрывающихся треугольников, вершины которых — точки съёмки."
+                : "Grid-поверхность — регулярная сетка отметок с заданным шагом по осям X и Y."}
+              {" "}Источники данных настраиваются на вкладке «Определение», цветовой анализ — на вкладке «Анализ».
+            </div>
+            <div className="mt-1">
+              <div className="text-[10px] text-gray-500 mb-1">Предпросмотр — {def.type} · {def.style}</div>
+              <SurfacePreviewCanvas type={def.type} style={def.style} analyses={surfaceAnalyses} />
             </div>
           </>}
 
@@ -2721,23 +2903,37 @@ function SurfaceDialog({ onClose, onOK }: { onClose: () => void; onOK: (d: Surfa
           </>}
 
           {tab === "analysis" && <>
-            <div className="space-y-2">
-              {[
-                { label: "Анализ уклонов (Slope)", desc: "Диапазоны уклонов с цветовой заливкой по категориям — для проектирования градировки", icon: "🎨" },
-                { label: "Анализ высот (Elevation)", desc: "Градиентная заливка по отметкам от min до max", icon: "📊" },
-                { label: "Стрелки уклонов", desc: "Направление стока воды по рельефу", icon: "↓" },
-                { label: "Водосборные бассейны", desc: "Автоматическое разбиение на водосборные зоны для анализа дренажа", icon: "💧" },
-                { label: "Горизонтали (Contours)", desc: "Генерация линий равных высот для отображения", icon: "🗺️" },
-              ].map(a => (
-                <label key={a.label} className="flex items-start gap-2 p-2 border border-gray-200 bg-white rounded cursor-pointer hover:bg-blue-50 transition-colors">
-                  <input type="checkbox" className="mt-0.5 accent-blue-600" />
-                  <span className="text-lg leading-none">{a.icon}</span>
-                  <div>
-                    <div className="text-xs font-semibold text-gray-800">{a.label}</div>
-                    <div className="text-[10px] text-gray-500">{a.desc}</div>
-                  </div>
-                </label>
-              ))}
+            <div className="grid grid-cols-[220px,1fr] gap-3">
+              <div className="space-y-1.5">
+                {[
+                  { key: "slope", label: "Анализ уклонов (Slope)", desc: "Диапазоны уклонов с цветовой заливкой по категориям", icon: "🎨" },
+                  { key: "elevation", label: "Анализ высот (Elevation)", desc: "Градиентная заливка по отметкам от min до max", icon: "📊" },
+                  { key: "arrows", label: "Стрелки уклонов", desc: "Направление стока воды по рельефу", icon: "↓" },
+                  { key: "watersheds", label: "Водосборные бассейны", desc: "Автоматическое разбиение на водосборные зоны", icon: "💧" },
+                  { key: "contours", label: "Горизонтали (Contours)", desc: "Линии равных высот (marching squares)", icon: "🗺️" },
+                ].map(a => (
+                  <label key={a.key} className="flex items-start gap-2 p-2 border border-gray-200 bg-white rounded cursor-pointer hover:bg-blue-50 transition-colors">
+                    <input type="checkbox" checked={surfaceAnalyses.has(a.key)}
+                      onChange={()=>setSurfaceAnalyses(prev=>{ const next=new Set(prev); next.has(a.key)?next.delete(a.key):next.add(a.key); return next })}
+                      className="mt-0.5 accent-blue-600" />
+                    <span className="text-lg leading-none">{a.icon}</span>
+                    <div>
+                      <div className="text-xs font-semibold text-gray-800">{a.label}</div>
+                      <div className="text-[10px] text-gray-500">{a.desc}</div>
+                    </div>
+                  </label>
+                ))}
+                <div className="mt-2 px-2 py-2 bg-[#0b1220] rounded text-[10px] text-gray-300 grid grid-cols-2 gap-1">
+                  <div>Мин. отметка: <span className="text-blue-300 font-mono">96.1 м</span></div>
+                  <div>Макс. отметка: <span className="text-red-300 font-mono">112.8 м</span></div>
+                  <div>Треугольников: <span className="font-mono">{def.type==="TIN"?"2 760":"—"}</span></div>
+                  <div>Точек сетки: <span className="font-mono">{def.type==="TIN"?"1 457":"322"}</span></div>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-500 mb-1">Предпросмотр поверхности — {def.type} · {def.style}</div>
+                <SurfacePreviewCanvas type={def.type} style={def.style} analyses={surfaceAnalyses} />
+              </div>
             </div>
           </>}
         </div>
@@ -7031,10 +7227,13 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
   const [analyzed, setAnalyzed] = useState(false)
   const [progress, setProgress] = useState(0)
   const [minR, setMinR] = useState("500")
+  const [maxR, setMaxR] = useState("3000")
   const [minTangent, setMinTangent] = useState("50")
   const [tolerance, setTolerance] = useState("0.15")
   const [stationFrom, setStationFrom] = useState("0+000")
   const [stationTo, setStationTo] = useState("20+000")
+  const [spiralSensitivity, setSpiralSensitivity] = useState(60)
+  const [preferSpirals, setPreferSpirals] = useState(true)
 
   const [ptCount, setPtCount] = useState(18)
   const [localToast, setLocalToast] = useState<string|null>(null)
@@ -7176,14 +7375,32 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
                 <div className="grid grid-cols-2 gap-3">
                   {([
                     ["От пикета",stationFrom,setStationFrom],["До пикета",stationTo,setStationTo],
-                    ["Мин. радиус, м",minR,setMinR],["Мин. прямая вставка, м",minTangent,setMinTangent],
-                    ["Допуск отклонения, м",tolerance,setTolerance],
+                    ["Мин. радиус, м",minR,setMinR],["Макс. радиус дуги, м",maxR,setMaxR],
+                    ["Мин. прямая вставка, м",minTangent,setMinTangent],["Допуск отклонения, м",tolerance,setTolerance],
                   ] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
                     <label key={l} className="flex flex-col gap-1">
                       <span className="text-gray-500 text-[9px]">{l}</span>
                       <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#a78bfa] font-mono text-[10px]"/>
                     </label>
                   ))}
+                </div>
+                <div className="rounded-lg border border-gray-700 p-3 space-y-2" style={{background:"#111827"}}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={preferSpirals} onChange={e=>setPreferSpirals(e.target.checked)} className="accent-[#a78bfa]"/>
+                    <span className="text-[10px] text-gray-300">Предпочитать переходные кривые (клотоиды) вместо круговых</span>
+                  </label>
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-gray-500 text-[9px]">Чувствительность к спиралям</span>
+                      <span className="text-[#a78bfa] font-mono text-[10px]">{spiralSensitivity}%</span>
+                    </div>
+                    <input type="range" min={0} max={100} value={spiralSensitivity} disabled={!preferSpirals}
+                      onChange={e=>setSpiralSensitivity(+e.target.value)} className="w-full accent-[#a78bfa] disabled:opacity-40"/>
+                    <div className="flex justify-between text-[8px] text-gray-600">
+                      <span>Меньше спиралей (проще геометрия)</span>
+                      <span>Больше спиралей (точнее к точкам)</span>
+                    </div>
+                  </div>
                 </div>
                 {mlMode&&(
                   <div className="rounded-lg border border-[#a78bfa]/30 bg-[#a78bfa]/10 p-3 text-[10px]">
@@ -7264,9 +7481,138 @@ function HRADialog({ onClose }: { onClose: ()=>void }) {
   )
 }
 
+// ─── Автоматическая перенумерация меток трасс ────────────────────────────────
+function RenumberLabelsDialog({ objects, onClose, onApply }: {
+  objects: { id: string; type: string; label: string }[]
+  onClose: () => void
+  onApply: (renamed: { id: string; newLabel: string }[]) => void
+}) {
+  const alignments = objects.filter(o => o.type === "alignment")
+  const [selected, setSelected] = useState<Set<string>>(new Set(alignments.map(a => a.id)))
+  const [prefix, setPrefix] = useState("Трасса")
+  const [startNum, setStartNum] = useState("1")
+  const [step, setStep] = useState("1")
+  const [padZeros, setPadZeros] = useState(false)
+  const [sortBy, setSortBy] = useState<"current"|"alphabet">("current")
+  const [applied, setApplied] = useState(false)
+  const [toast, setToast] = useState<string|null>(null)
+  const flash = (m:string)=>{ setToast(m); setTimeout(()=>setToast(null), 2200) }
+
+  const toggle = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleAll = () => setSelected(p => p.size === alignments.length ? new Set() : new Set(alignments.map(a => a.id)))
+
+  const ordered = sortBy === "alphabet"
+    ? [...alignments].sort((a, b) => a.label.localeCompare(b.label))
+    : alignments
+  const selectedOrdered = ordered.filter(a => selected.has(a.id))
+
+  const preview = selectedOrdered.map((a, i) => {
+    const num = (parseFloat(startNum) || 1) + i * (parseFloat(step) || 1)
+    const numStr = padZeros ? String(num).padStart(2, "0") : String(num)
+    return { id: a.id, oldLabel: a.label, newLabel: `${prefix}-${numStr}` }
+  })
+
+  const apply = () => {
+    onApply(preview.map(p => ({ id: p.id, newLabel: p.newLabel })))
+    setApplied(true)
+    flash(`✓ Переименовано трасс: ${preview.length}`)
+    setTimeout(onClose, 900)
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
+        style={{width:560,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0d1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="ListOrdered" size={15} className="text-[#60a5fa]" fallback="Hash"/>
+            <span className="text-white font-bold text-[13px]">Автоматическая перенумерация меток трасс</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] space-y-4 min-h-0">
+          {alignments.length === 0 ? (
+            <div className="text-gray-500 text-center py-8">На чертеже нет трасс для перенумерации</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Префикс метки</span>
+                  <input value={prefix} onChange={e=>setPrefix(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded outline-none focus:border-[#60a5fa] text-[10px]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Порядок нумерации</span>
+                  <select value={sortBy} onChange={e=>setSortBy(e.target.value as "current"|"alphabet")}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    <option value="current">Как на чертеже</option>
+                    <option value="alphabet">По алфавиту текущих меток</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Начальный номер</span>
+                  <input type="number" value={startNum} onChange={e=>setStartNum(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#60a5fa] text-[10px]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Шаг</span>
+                  <input type="number" value={step} onChange={e=>setStep(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#60a5fa] text-[10px]"/>
+                </label>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={padZeros} onChange={e=>setPadZeros(e.target.checked)} className="accent-[#60a5fa]"/>
+                <span className="text-[10px] text-gray-300">Дополнять номер нулём (01, 02, …)</span>
+              </label>
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="text-[10px] font-bold text-white">Трассы на чертеже ({alignments.length})</div>
+                <button onClick={toggleAll} className="text-[9px] text-[#60a5fa] hover:underline">
+                  {selected.size === alignments.length ? "Снять все" : "Выбрать все"}
+                </button>
+              </div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["","Текущая метка","Новая метка"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{ordered.map((a,i)=>{
+                  const previewRow = preview.find(p=>p.id===a.id)
+                  return (
+                    <tr key={a.id} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                      <td className="border border-gray-800 text-center px-1">
+                        <input type="checkbox" checked={selected.has(a.id)} onChange={()=>toggle(a.id)} className="accent-[#60a5fa]"/>
+                      </td>
+                      <td className="border border-gray-800 px-2 py-1 text-gray-400">{a.label}</td>
+                      <td className="border border-gray-800 px-2 py-1 font-mono font-bold" style={{color: previewRow ? "#60a5fa" : "#4b5563"}}>
+                        {previewRow ? previewRow.newLabel : "—"}
+                      </td>
+                    </tr>
+                  )
+                })}</tbody>
+              </table>
+            </>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
+          <button onClick={apply} disabled={preview.length===0 || applied}
+            className="px-4 py-1.5 bg-[#60a5fa] text-[#001428] hover:bg-[#93c5fd] rounded text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed">
+            ✓ Применить перенумерацию ({preview.length})
+          </button>
+        </div>
+        <AnimatePresence>
+          {toast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#0d1520] border border-[#60a5fa]/40 text-[#93c5fd] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10">
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── InfoDrainage — Гидрологический расчёт ────────────────────────────────────
 function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
-  const [tab, setTab] = useState<"basin"|"time"|"channel"|"ugs"|"pond"|"pipes"|"result">("basin")
+  const [tab, setTab] = useState<"basin"|"time"|"channel"|"ugs"|"pond"|"rainfall"|"cloud"|"pipes"|"result">("basin")
   const [method, setMethod] = useState("Rational (рациональная)")
   const [area, setArea] = useState("12.5")
   const [C, setC] = useState("0.75")
@@ -7298,6 +7644,72 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
   const [ugsArea, setUgsArea] = useState("420")
   const [ugsPorosity, setUgsPorosity] = useState("0.95")
   const ugsVol = (parseFloat(ugsDepth)||0)*(parseFloat(ugsArea)||0)*(parseFloat(ugsPorosity)||0)
+  const [ugsBuildMethod, setUgsBuildMethod] = useState<"object"|"schema">("object")
+  const [ugsInflowPipe, setUgsInflowPipe] = useState("Труба ST-12 (Ø500)")
+  const [ugsOutflowPipe, setUgsOutflowPipe] = useState("Труба ST-14 (Ø400)")
+  const [ugsOrificeD, setUgsOrificeD] = useState("150")
+  const [ugsHeadloss, setUgsHeadloss] = useState("0.15")
+  const [ugsVolTable, setUgsVolTable] = useState([
+    {stage:"0.0", vol:"0"}, {stage:"0.5", vol:"105"}, {stage:"1.0", vol:"210"},
+    {stage:"1.5", vol:"315"}, {stage:"2.0", vol:"420"}, {stage:"2.5", vol:"525"},
+  ])
+  const updUgsVolRow = (i:number,k:"stage"|"vol",v:string)=>setUgsVolTable(p=>p.map((r,idx)=>idx===i?{...r,[k]:v}:r))
+  const addUgsVolRow = () => setUgsVolTable(p=>[...p,{stage:"",vol:""}])
+  const delUgsVolRow = (i:number) => setUgsVolTable(p=>p.filter((_,idx)=>idx!==i))
+
+  // Водоёмы (Pond design) — 2027
+  const [pondBuildMethod, setPondBuildMethod] = useState<"geometry"|"surface"|"scratch">("geometry")
+  const [pondSurface, setPondSurface] = useState("ЦМР_Проект")
+  const [pondSideSlope, setPondSideSlope] = useState("1:3")
+  const [pondFreeboard, setPondFreeboard] = useState("0.5")
+  const [pondInflows, setPondInflows] = useState([
+    {name:"Приток С-1", type:"Труба", Q:"180"}, {name:"Приток С-2", type:"Открытый лоток", Q:"65"},
+  ])
+  const [pondOutflows, setPondOutflows] = useState([
+    {name:"Водосброс В-1", type:"Труба со шлюзом", Q:"210"},
+  ])
+  const addPondInflow = () => setPondInflows(p=>[...p,{name:`Приток С-${p.length+1}`,type:"Труба",Q:"0"}])
+  const delPondInflow = (i:number) => setPondInflows(p=>p.filter((_,idx)=>idx!==i))
+  const addPondOutflow = () => setPondOutflows(p=>[...p,{name:`Водосброс В-${p.length+1}`,type:"Труба",Q:"0"}])
+  const delPondOutflow = (i:number) => setPondOutflows(p=>p.filter((_,idx)=>idx!==i))
+
+  // Управление осадками — сценарии дождевых событий (2027)
+  const [rainDefMethod, setRainDefMethod] = useState<"intensity"|"duration"|"distribution"|"known">("intensity")
+  const [rainReturn, setRainReturn] = useState("25")
+  const [rainDuration, setRainDuration] = useState("60")
+  const [rainDistribution, setRainDistribution] = useState("SCS Type II")
+  const [rainLibrary, setRainLibrary] = useState<{name:string;returnYears:string;i:string;fav:boolean}[]>([
+    {name:"Москва — P=1%",  returnYears:"100", i:"142", fav:true},
+    {name:"Москва — P=4%",  returnYears:"25",  i:"85",  fav:true},
+    {name:"Москва — P=10%", returnYears:"10",  i:"62",  fav:false},
+    {name:"СПб — P=4%",     returnYears:"25",  i:"78",  fav:false},
+  ])
+  const toggleRainFav = (i:number) => setRainLibrary(p=>p.map((r,idx)=>idx===i?{...r,fav:!r.fav}:r))
+  const saveRainScenario = () => setRainLibrary(p=>[{name:`Сценарий P=${(100/parseFloat(rainReturn||"25")).toFixed(0)}%`, returnYears:rainReturn, i:i25, fav:false}, ...p])
+
+  // Облачный анализ InfoDrainage — несколько сценариев (2027)
+  const [cloudScenarios, setCloudScenarios] = useState<{name:string;selected:boolean;status:"pending"|"running"|"done";maxFill:number;overflow:boolean}[]>([
+    {name:"P=1% (100 лет), 60 мин",  selected:true, status:"pending", maxFill:0, overflow:false},
+    {name:"P=4% (25 лет), 60 мин",   selected:true, status:"pending", maxFill:0, overflow:false},
+    {name:"P=10% (10 лет), 60 мин",  selected:true, status:"pending", maxFill:0, overflow:false},
+    {name:"P=4% (25 лет), 120 мин",  selected:false,status:"pending", maxFill:0, overflow:false},
+  ])
+  const [cloudRunning, setCloudRunning] = useState(false)
+  const toggleCloudScenario = (i:number) => setCloudScenarios(p=>p.map((s,idx)=>idx===i?{...s,selected:!s.selected}:s))
+  const runCloudAnalysis = () => {
+    if (cloudRunning) return
+    setCloudRunning(true)
+    setCloudScenarios(p=>p.map(s=>s.selected?{...s,status:"running"}:s))
+    let done = 0
+    const selectedIdx = cloudScenarios.map((s,i)=>s.selected?i:-1).filter(i=>i>=0)
+    selectedIdx.forEach((idx,order)=>{
+      setTimeout(()=>{
+        setCloudScenarios(p=>p.map((s,i)=>i===idx?{...s,status:"done",maxFill:55+Math.round(Math.random()*40),overflow:Math.random()>0.7}:s))
+        done++
+        if (done===selectedIdx.length) setCloudRunning(false)
+      }, 900*(order+1))
+    })
+  }
 
   // Форма труб (2027)
   const PIPE_SHAPES = [
@@ -7352,8 +7764,8 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
         </div>
-        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
-          {([["basin","Водосбор"],["time","Время конц."],["channel","Каналы"],["ugs","Подз. хранилище"],["pond","Пруд-накоп."],["pipes","Трубы"],["result","Итоги"]] as const).map(([id,lbl])=>(
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0 overflow-x-auto">
+          {([["basin","Водосбор"],["time","Время конц."],["channel","Каналы"],["ugs","Подз. хранилище"],["pond","Пруд-накоп."],["rainfall","Осадки"],["cloud","Облачный анализ"],["pipes","Трубы"],["result","Итоги"]] as const).map(([id,lbl])=>(
             <button key={id} onClick={()=>setTab(id)}
               className={`px-3 py-1.5 text-[10px] border-r border-gray-800 transition-colors whitespace-nowrap ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#22d3ee]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
           ))}
@@ -7481,7 +7893,13 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
           )}
           {tab==="ugs" && (
             <div className="space-y-4">
-              <div className="text-gray-400 text-[10px]">Подземное хранилище (Underground Storage, UGS) — управляется настройками по умолчанию</div>
+              <div className="text-gray-400 text-[10px]">Подземное хранилище (Underground Storage, UGS) — построение, гидравлика и таблица объёмов</div>
+              <div className="flex gap-2">
+                {([["object","По объекту (контур/полилиния)"],["schema","По типовой схеме"]] as const).map(([id,lbl])=>(
+                  <button key={id} onClick={()=>setUgsBuildMethod(id)}
+                    className={`px-2.5 py-1.5 rounded text-[10px] border transition-colors ${ugsBuildMethod===id?"bg-[#22d3ee]/15 border-[#22d3ee] text-[#22d3ee]":"bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-500"}`}>{lbl}</button>
+                ))}
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 {([["Глубина H, м",ugsDepth,setUgsDepth],["Площадь A, м²",ugsArea,setUgsArea],["Пористость заполнителя n",ugsPorosity,setUgsPorosity]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
                   <label key={l} className="flex flex-col gap-1">
@@ -7503,12 +7921,76 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
                   </div>
                 ))}
               </div>
-              <div className="text-[9px] text-gray-600">Свойства (глубина, отметка дна, площадь, объём) доступны на панели «Свойства». Экспорт — CSV.</div>
+
+              <div className="text-[10px] font-bold text-white">Гидравлические параметры</div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Подводящая труба (приток)</span>
+                  <select value={ugsInflowPipe} onChange={e=>setUgsInflowPipe(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {["Труба ST-12 (Ø500)","Труба ST-08 (Ø400)","Труба ST-21 (Ø630)"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Отводящая труба (сток)</span>
+                  <select value={ugsOutflowPipe} onChange={e=>setUgsOutflowPipe(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {["Труба ST-14 (Ø400)","Труба ST-19 (Ø500)","Труба ST-25 (Ø315)"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Диаметр дросселя (orifice), мм</span>
+                  <input type="number" value={ugsOrificeD} onChange={e=>setUgsOrificeD(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Коэф. потерь напора</span>
+                  <input type="number" value={ugsHeadloss} onChange={e=>setUgsHeadloss(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold text-white">Таблица объёмов (уровень → объём)</div>
+                <div className="flex gap-1.5">
+                  <button onClick={()=>flash("✓ Таблица объёмов импортирована из CSV")} className="px-2 py-1 bg-[#111827] border border-gray-700 text-gray-300 rounded text-[9px] hover:border-gray-500 flex items-center gap-1">
+                    <Icon name="Upload" size={10}/>Импорт CSV</button>
+                  <button onClick={()=>flash("✓ Таблица объёмов экспортирована в CSV")} className="px-2 py-1 bg-[#111827] border border-gray-700 text-gray-300 rounded text-[9px] hover:border-gray-500 flex items-center gap-1">
+                    <Icon name="Download" size={10}/>Экспорт CSV</button>
+                </div>
+              </div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["Уровень, м","Объём, м³",""].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{ugsVolTable.map((r,i)=>(
+                  <tr key={i} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                    <td className="border border-gray-800 p-0.5"><input value={r.stage} onChange={e=>updUgsVolRow(i,"stage",e.target.value)} className="w-full bg-transparent px-1.5 py-0.5 text-gray-200 font-mono outline-none"/></td>
+                    <td className="border border-gray-800 p-0.5"><input value={r.vol} onChange={e=>updUgsVolRow(i,"vol",e.target.value)} className="w-full bg-transparent px-1.5 py-0.5 text-gray-200 font-mono outline-none"/></td>
+                    <td className="border border-gray-800 text-center"><button onClick={()=>delUgsVolRow(i)} className="text-gray-500 hover:text-red-400 px-1">✕</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <button onClick={addUgsVolRow} className="text-[9px] text-[#22d3ee] hover:underline flex items-center gap-1">
+                <Icon name="Plus" size={10}/>Добавить строку
+              </button>
+              <div className="text-[9px] text-gray-600">Свойства (глубина, отметка дна, площадь, объём) доступны на панели «Свойства».</div>
             </div>
           )}
           {tab==="pond" && (
             <div className="space-y-4">
-              <div className="text-gray-400 text-[10px]">Пруд-накопитель с учётом пористости грунта</div>
+              <div className="text-gray-400 text-[10px]">Проектирование водоёма — метод построения, геометрия, притоки и стоки</div>
+              <div className="flex gap-2 flex-wrap">
+                {([["geometry","По геометрии (контур)"],["surface","По существующей поверхности"],["scratch","С нуля (по параметрам)"]] as const).map(([id,lbl])=>(
+                  <button key={id} onClick={()=>setPondBuildMethod(id)}
+                    className={`px-2.5 py-1.5 rounded text-[10px] border transition-colors ${pondBuildMethod===id?"bg-[#22d3ee]/15 border-[#22d3ee] text-[#22d3ee]":"bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-500"}`}>{lbl}</button>
+                ))}
+              </div>
+              {pondBuildMethod==="surface" && (
+                <label className="flex flex-col gap-1 max-w-xs">
+                  <span className="text-gray-500 text-[9px]">Исходная поверхность</span>
+                  <select value={pondSurface} onChange={e=>setPondSurface(e.target.value)}
+                    className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {["ЦМР_Проект","ЦМР_Съёмка_2024","Проектная площадка-1"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </label>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {([["Объём пруда V, м³",pondVol,setPondVol],["Пористость грунта n",porosity,setPorosity]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
                   <label key={l} className="flex flex-col gap-1">
@@ -7516,6 +7998,14 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
                     <input type="number" value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
                   </label>
                 ))}
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Заложение откоса (H:V)</span>
+                  <input value={pondSideSlope} onChange={e=>setPondSideSlope(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Превышение борта (freeboard), м</span>
+                  <input type="number" value={pondFreeboard} onChange={e=>setPondFreeboard(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono outline-none focus:border-[#22d3ee]"/>
+                </label>
               </div>
               <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
                 {[
@@ -7530,6 +8020,146 @@ function InfoDrainageDialog({ onClose }: { onClose: ()=>void }) {
                   </div>
                 ))}
               </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold text-white">Притоки (Inflows)</div>
+                <button onClick={addPondInflow} className="text-[9px] text-[#22d3ee] hover:underline flex items-center gap-1"><Icon name="Plus" size={10}/>Добавить приток</button>
+              </div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["Название","Тип","Q, л/с",""].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{pondInflows.map((r,i)=>(
+                  <tr key={i} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-300">{r.name}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-400">{r.type}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-[#60a5fa] font-mono">{r.Q}</td>
+                    <td className="border border-gray-800 text-center"><button onClick={()=>delPondInflow(i)} className="text-gray-500 hover:text-red-400 px-1">✕</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold text-white">Стоки (Outflows)</div>
+                <button onClick={addPondOutflow} className="text-[9px] text-[#22d3ee] hover:underline flex items-center gap-1"><Icon name="Plus" size={10}/>Добавить сток</button>
+              </div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["Название","Тип","Q, л/с",""].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{pondOutflows.map((r,i)=>(
+                  <tr key={i} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-300">{r.name}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-400">{r.type}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-[#4ade80] font-mono">{r.Q}</td>
+                    <td className="border border-gray-800 text-center"><button onClick={()=>delPondOutflow(i)} className="text-gray-500 hover:text-red-400 px-1">✕</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <div className="text-[9px] text-gray-600">Водоём можно использовать в других чертежах через Data Shortcuts — ссылка обновляется автоматически.</div>
+            </div>
+          )}
+          {tab==="rainfall" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Управление осадками — сценарии дождевых событий и библиотеки интенсивности</div>
+              <div className="flex gap-2 flex-wrap">
+                {([["intensity","По интенсивности"],["duration","По длительности"],["distribution","По распределению"],["known","Известные данные"]] as const).map(([id,lbl])=>(
+                  <button key={id} onClick={()=>setRainDefMethod(id)}
+                    className={`px-2.5 py-1.5 rounded text-[10px] border transition-colors ${rainDefMethod===id?"bg-[#22d3ee]/15 border-[#22d3ee] text-[#22d3ee]":"bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-500"}`}>{lbl}</button>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Период повторяемости, лет</span>
+                  <input value={rainReturn} onChange={e=>setRainReturn(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                </label>
+                {rainDefMethod==="duration" && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Длительность дождя, мин</span>
+                    <input value={rainDuration} onChange={e=>setRainDuration(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                )}
+                {rainDefMethod==="distribution" && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Тип распределения</span>
+                    <select value={rainDistribution} onChange={e=>setRainDistribution(e.target.value)}
+                      className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                      {["SCS Type I","SCS Type IA","SCS Type II","SCS Type III","Chicago","Пилообразный"].map(o=><option key={o}>{o}</option>)}
+                    </select>
+                  </label>
+                )}
+                {rainDefMethod==="known" && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Интенсивность i, мм/ч</span>
+                    <input value={i25} onChange={e=>setI25(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                )}
+                {rainDefMethod==="intensity" && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Интенсивность i, мм/ч</span>
+                    <input value={i25} onChange={e=>setI25(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#22d3ee]"/>
+                  </label>
+                )}
+              </div>
+              <button onClick={()=>{ saveRainScenario(); flash("✓ Сценарий сохранён в библиотеку осадков") }}
+                className="px-3 py-1.5 bg-[#22d3ee]/15 border border-[#22d3ee] text-[#22d3ee] rounded text-[10px] hover:bg-[#22d3ee]/25 flex items-center gap-1.5 w-fit">
+                <Icon name="Save" size={11}/>Сохранить как сценарий в библиотеку
+              </button>
+
+              <div className="text-[10px] font-bold text-white pt-1">Библиотека сценариев осадков</div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["★","Сценарий","Период, лет","i, мм/ч"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{rainLibrary.map((r,i)=>(
+                  <tr key={i} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                    <td className="border border-gray-800 text-center">
+                      <button onClick={()=>toggleRainFav(i)} className={r.fav?"text-yellow-400":"text-gray-600 hover:text-yellow-400"}>★</button>
+                    </td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-200 cursor-pointer hover:text-[#22d3ee]" onClick={()=>{setRainReturn(r.returnYears);setI25(r.i);flash(`✓ Применён сценарий «${r.name}»`)}}>{r.name}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-400 font-mono">{r.returnYears}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-[#22d3ee] font-mono">{r.i}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {tab==="cloud" && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-[#22d3ee]/30 bg-[#22d3ee]/10 p-2 text-[10px] text-[#67e8f9]">
+                Облачный анализ дренажной системы — запуск расчёта по нескольким сценариям осадков одновременно с формированием отчёта.
+              </div>
+              <div className="text-[10px] font-bold text-white">Сценарии для анализа</div>
+              <div className="space-y-1.5">
+                {cloudScenarios.map((s,i)=>(
+                  <label key={i} className="flex items-center gap-2 p-2 bg-[#111827] rounded border border-gray-700 cursor-pointer hover:border-gray-500">
+                    <input type="checkbox" checked={s.selected} onChange={()=>toggleCloudScenario(i)} className="accent-[#22d3ee]"/>
+                    <span className="flex-1 text-gray-300">{s.name}</span>
+                    {s.status==="running" && <Icon name="Loader" size={12} className="text-[#22d3ee] animate-spin"/>}
+                    {s.status==="done" && (
+                      <span className="flex items-center gap-2">
+                        <span className="text-[9px] text-gray-500">заполнение: <span className="text-[#22d3ee] font-mono">{s.maxFill}%</span></span>
+                        {s.overflow
+                          ? <span className="text-[9px] text-red-400 font-bold">⚠ Переполнение</span>
+                          : <span className="text-[9px] text-green-400 font-bold">✓ ОК</span>}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+              <button onClick={runCloudAnalysis} disabled={cloudRunning || !cloudScenarios.some(s=>s.selected)}
+                className="w-full py-2.5 bg-[#22d3ee] text-[#0d1520] font-bold rounded-lg text-[11px] hover:bg-[#67e8f9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                <Icon name="Cloud" size={14}/>{cloudRunning?"Выполняется расчёт в облаке…":"▶ Запустить облачный анализ"}
+              </button>
+              {cloudScenarios.some(s=>s.status==="done") && (
+                <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                  <div className="text-[10px] font-bold text-white mb-2">Отчёт по результатам</div>
+                  {cloudScenarios.filter(s=>s.status==="done").map((s,i)=>(
+                    <div key={i} className="flex justify-between border-b border-gray-800 py-1 text-[10px]">
+                      <span className="text-gray-400">{s.name}</span>
+                      <span className={`font-mono font-bold ${s.overflow?"text-red-400":"text-green-400"}`}>{s.maxFill}% {s.overflow?"(переполнение)":"(в пределах нормы)"}</span>
+                    </div>
+                  ))}
+                  <button onClick={()=>flash("✓ Отчёт сформирован и экспортирован в PDF")}
+                    className="mt-2 text-[9px] text-[#22d3ee] hover:underline flex items-center gap-1">
+                    <Icon name="FileText" size={10}/>Сформировать PDF-отчёт
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {tab==="pipes" && (
@@ -11971,6 +12601,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showGrading, setShowGrading] = useState(false)
   const [showTunnel, setShowTunnel] = useState(false)
   const [showProjectExplorer, setShowProjectExplorer] = useState(false)
+  const [showRenumberLabels, setShowRenumberLabels] = useState(false)
   const [showRailTrack, setShowRailTrack] = useState(false)
   const [showBridgeModeler, setShowBridgeModeler] = useState(false)
   const [showIntersectionWizard, setShowIntersectionWizard] = useState(false)
@@ -13544,6 +14175,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("планировк") || k.includes("grading") || k.includes("площадк") || k.includes("рабочие отметки")) { setShowGrading(true) }
     else if (k.includes("тоннель") || k.includes("tunnel") || k.includes("тпмк")) { setShowTunnel(true) }
     else if (k.includes("explorer") || k.includes("дерево") || k.includes("project explorer")) { setShowProjectExplorer(true) }
+    else if (k.includes("перенумер") || k.includes("renumber")) { setShowRenumberLabels(true) }
     // Всё остальное
     else { setStatusMsg(`Выполнено: ${key}`) }
   }
@@ -13698,6 +14330,9 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       ]},
       { label: "Видимость", items: [
         { label:"Видимость",   icon:"Eye",          size:"lg" },
+      ]},
+      { label: "Метки", items: [
+        { label:"Перенумеровать", icon:"ListOrdered", size:"lg", fallback:"Hash" },
       ]},
     ],
     "Коридоры": [
@@ -15586,6 +16221,25 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 openDialog(cmd)
                 setShowProjectExplorer(false)
               }}/>
+            )}
+            {showRenumberLabels && (
+              <RenumberLabelsDialog
+                objects={canvasObjects.map(o=>({id:o.id,type:o.type,label:o.label}))}
+                onClose={()=>setShowRenumberLabels(false)}
+                onApply={renamed=>{
+                  const map = new Map(renamed.map(r=>[r.id,r.newLabel]))
+                  pushUndo(`Перенумерация меток трасс (${renamed.length})`)
+                  setCanvasObjects(prev=>prev.map(o=>{
+                    const newLabel = map.get(o.id)
+                    if (!newLabel) return o
+                    const updated = { ...o, label: newLabel }
+                    saveCanvasObject(updated)
+                    return updated
+                  }))
+                  setShowRenumberLabels(false)
+                  showToast(`💾 Метки трасс перенумерованы (${renamed.length}) и сохранены`)
+                  setStatusMsg(`Перенумеровано меток трасс: ${renamed.length}`)
+                }}/>
             )}
             {showRailTrack && (
               <RailTrackDialog onClose={()=>setShowRailTrack(false)} onOK={d=>{

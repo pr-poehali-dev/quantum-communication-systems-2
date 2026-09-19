@@ -328,6 +328,11 @@ export function ModelViewer3DDialog({ onClose }: Close) {
   const dragRef = useRef<{ x: number; rot: number } | null>(null)
   const layers = ["Рельеф (TIN)", "Коридор дороги", "Трубопроводные сети", "Мост", "Проектная площадка"]
   const [on, setOn] = useState<Record<string, boolean>>(Object.fromEntries(layers.map(l => [l, true])))
+  const [surfaceOpacity, setSurfaceOpacity] = useState(100)
+  const [corridorOpacity, setCorridorOpacity] = useState(100)
+  const [stationTracking, setStationTracking] = useState(false)
+  const [station, setStation] = useState(0)
+  const totalLength = 1240
 
   const startDrag = (clientX: number) => { dragRef.current = { x: clientX, rot }; setDragging(true) }
   const moveDrag = (clientX: number) => {
@@ -338,6 +343,8 @@ export function ModelViewer3DDialog({ onClose }: Close) {
     setRot(Math.round(next))
   }
   const endDrag = () => { dragRef.current = null; setDragging(false) }
+  const stationPct = Math.max(0, Math.min(1, station / totalLength))
+  const fmtStation = (m: number) => `ПК${Math.floor(m / 100)}+${(m % 100).toFixed(0).padStart(2, "0")}`
   return (
     <Modal title="3D-просмотр модели" icon="Box" color="#34d399" badge="2026" width={700} onClose={onClose}
       footer={<>
@@ -345,11 +352,23 @@ export function ModelViewer3DDialog({ onClose }: Close) {
         <button onClick={onClose} className="px-4 py-1.5 bg-[#34d399] text-[#00160e] hover:bg-[#6ee7b7] rounded text-[11px] font-bold">Закрыть</button>
       </>}>
       <div className="flex gap-3">
-        <div className="w-40 flex-shrink-0 space-y-2">
+        <div className="w-44 flex-shrink-0 space-y-2">
           <Field label="Режим" value={mode} onChange={setMode} options={["Реалистичный", "Каркас", "Концептуальный", "Рентген"]} />
           <div>
             <div className="text-gray-500 text-[9px] mb-1">Поворот сцены</div>
             <input type="range" min={0} max={360} value={rot} onChange={e => setRot(+e.target.value)} className="w-full" />
+          </div>
+          <div>
+            <div className="flex justify-between text-gray-500 text-[9px] mb-1">
+              <span>Прозрачность поверхности</span><span className="text-[#34d399] font-mono">{surfaceOpacity}%</span>
+            </div>
+            <input type="range" min={10} max={100} value={surfaceOpacity} onChange={e => setSurfaceOpacity(+e.target.value)} className="w-full accent-[#34d399]" />
+          </div>
+          <div>
+            <div className="flex justify-between text-gray-500 text-[9px] mb-1">
+              <span>Прозрачность коридора</span><span className="text-[#34d399] font-mono">{corridorOpacity}%</span>
+            </div>
+            <input type="range" min={10} max={100} value={corridorOpacity} onChange={e => setCorridorOpacity(+e.target.value)} className="w-full accent-[#34d399]" />
           </div>
           <div>
             <div className="text-gray-500 text-[9px] mb-1">Слои модели</div>
@@ -359,9 +378,20 @@ export function ModelViewer3DDialog({ onClose }: Close) {
               </label>
             ))}
           </div>
+          <div className="pt-1 border-t border-gray-800">
+            <label className="flex items-center gap-1.5 py-0.5 cursor-pointer text-[10px] text-gray-300">
+              <input type="checkbox" checked={stationTracking} onChange={e => setStationTracking(e.target.checked)} /> Отслеживание станций
+            </label>
+            {stationTracking && (
+              <>
+                <input type="range" min={0} max={totalLength} value={station} onChange={e => setStation(+e.target.value)} className="w-full accent-[#34d399] mt-1" />
+                <div className="text-[9px] text-[#34d399] font-mono text-center">{fmtStation(station)} · {station.toFixed(0)} м</div>
+              </>
+            )}
+          </div>
         </div>
         <div className="rounded-lg border border-gray-700 overflow-hidden relative flex-shrink-0"
-          style={{ background: "#0a0f14", width: 484, height: 260, cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
+          style={{ background: "#0a0f14", width: 480, height: 260, cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}
           onMouseDown={e => startDrag(e.clientX)}
           onMouseMove={e => dragging && moveDrag(e.clientX)}
           onMouseUp={endDrag}
@@ -369,21 +399,29 @@ export function ModelViewer3DDialog({ onClose }: Close) {
           onTouchStart={e => startDrag(e.touches[0].clientX)}
           onTouchMove={e => moveDrag(e.touches[0].clientX)}
           onTouchEnd={endDrag}>
-          <motion.svg viewBox="0 0 300 220" width={484} height={260} preserveAspectRatio="xMidYMid meet"
+          <motion.svg viewBox="0 0 300 220" width={480} height={260} preserveAspectRatio="xMidYMid meet"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
             style={{ display: "block", pointerEvents: "none" }}>
             <rect x="0" y="0" width="300" height="110" fill="#0f1b2e" />
             <rect x="0" y="110" width="300" height="110" fill="#0a0f14" />
             <motion.g animate={{ rotate: (rot - 24) * 0.15 }} transition={{ type: "tween", duration: 0.15 }}
               style={{ originX: "150px", originY: "150px" }}>
-              {on["Рельеф (TIN)"] && <polygon points="30,170 150,120 270,175 150,205" fill="#166534" opacity="0.6" stroke="#22c55e" strokeWidth="0.5" />}
-              {on["Проектная площадка"] && <polygon points="90,158 150,138 210,160 150,178" fill="#a16207" opacity="0.7" stroke="#facc15" strokeWidth="0.5" />}
-              {on["Коридор дороги"] && <polygon points="40,168 150,124 152,127 44,172" fill="#334155" stroke="#94a3b8" strokeWidth="0.6" />}
-              {on["Коридор дороги"] && <polygon points="150,124 260,172 256,175 148,127" fill="#475569" stroke="#94a3b8" strokeWidth="0.6" />}
+              {on["Рельеф (TIN)"] && <polygon points="30,170 150,120 270,175 150,205" fill="#166534" opacity={0.6 * surfaceOpacity / 100} stroke="#22c55e" strokeWidth="0.5" strokeOpacity={surfaceOpacity / 100} />}
+              {on["Проектная площадка"] && <polygon points="90,158 150,138 210,160 150,178" fill="#a16207" opacity={0.7 * surfaceOpacity / 100} stroke="#facc15" strokeWidth="0.5" strokeOpacity={surfaceOpacity / 100} />}
+              {on["Коридор дороги"] && <polygon points="40,168 150,124 152,127 44,172" fill="#334155" opacity={corridorOpacity / 100} stroke="#94a3b8" strokeWidth="0.6" strokeOpacity={corridorOpacity / 100} />}
+              {on["Коридор дороги"] && <polygon points="150,124 260,172 256,175 148,127" fill="#475569" opacity={corridorOpacity / 100} stroke="#94a3b8" strokeWidth="0.6" strokeOpacity={corridorOpacity / 100} />}
               {on["Трубопроводные сети"] && <line x1="60" y1="176" x2="240" y2="168" stroke="#60a5fa" strokeWidth="1.4" strokeDasharray="4 2" />}
               {on["Мост"] && <g stroke="#e5e7eb" strokeWidth="0.8" fill="none"><path d="M120,150 L180,150 M126,150 L126,140 M174,150 L174,140 M120,140 L180,140" /></g>}
+              {stationTracking && on["Коридор дороги"] && (() => {
+                const sx = 40 + (260 - 40) * stationPct, sy = 168 + (172 - 168) * stationPct
+                return <g>
+                  <line x1={sx} y1={sy - 40} x2={sx} y2={sy + 15} stroke="#f97316" strokeWidth="1.2" strokeDasharray="3 2" />
+                  <circle cx={sx} cy={sy} r="3" fill="#f97316" />
+                </g>
+              })()}
             </motion.g>
             <text x="8" y="14" fill="#34d399" fontSize="7">3D · {mode} · {rot}°</text>
+            {stationTracking && <text x="8" y="24" fill="#f97316" fontSize="7">Станция: {fmtStation(station)}</text>}
             <g stroke="#6b7280" strokeWidth="1"><line x1="20" y1="205" x2="40" y2="205" /><line x1="20" y1="205" x2="20" y2="188" /></g>
             <text x="42" y="207" fill="#ef4444" fontSize="6">X</text><text x="14" y="186" fill="#4ade80" fontSize="6">Z</text>
           </motion.svg>
