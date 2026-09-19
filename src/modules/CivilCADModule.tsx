@@ -9280,10 +9280,6 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
   const updatePadCorner = (id: string, key: keyof PadCorner, val: string) => {
     setPads(prev => prev.map(p => p.id === id ? { ...p, corners: { ...p.corners, [key]: val }, ok: Object.values({ ...p.corners, [key]: val }).every(v => !isNaN(parseFloat(v))) } : p))
   }
-  const padAvg = (p: PadRow) => {
-    const vals = Object.values(p.corners).map(v => parseFloat(v)).filter(v => !isNaN(v))
-    return vals.length ? (vals.reduce((a,b)=>a+b,0) / vals.length) : 0
-  }
 
   // Рабочие отметки (рандомные для демо)
   const workingElev = Array.from({length:12},(_,i)=>{
@@ -9440,10 +9436,14 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
               ))}
             </div>
           )}
-          {tab==="pads" && (
-            <div className="space-y-3">
+          {tab==="pads" && (() => {
+            const COLS = ["A","B","C","D","E","F","G","H"]
+            const selIdx = pads.findIndex(p=>p.id===selPad)
+            const cellRef = editCell ? `${editCell.key==="nw"?"B":editCell.key==="ne"?"C":editCell.key==="se"?"D":"E"}${pads.findIndex(p=>p.id===editCell.id)+2}` : selPad ? `A${selIdx+2}` : "A1"
+            return (
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-[10px]">Площадки (Grading Pads) — синхронизация с Dynamo и рабочей таблицей отметок</span>
+                <span className="text-gray-400 text-[10px]">Площадки (Grading Pads) — синхронизация плана, 3D-модели и таблицы отметок</span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
                     <Icon name="Workflow" size={10}/> Dynamo Sync
@@ -9452,62 +9452,92 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
                 </div>
               </div>
 
-              {/* Split view: 2D план слева, 3D вид справа */}
+              {/* Split view: 2D вайрфрейм слева (AutoCAD Top/2D Wireframe), 3D вид справа */}
               <div className="grid grid-cols-2 gap-2">
-                {/* 2D — топоплан с горизонталями */}
-                <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#f4f4f4", height:200}}>
+                {/* 2D — топоплан с горизонталями, площадки штриховкой красн./зел. */}
+                <div className="rounded border border-gray-600 overflow-hidden" style={{background:"#ffffff", height:210}}>
                   <div className="bg-[#e8e8e8] px-2 py-1 text-[9px] font-bold text-gray-700 border-b border-gray-300 flex items-center gap-1">
-                    <Icon name="Map" size={10}/> План · Горизонтали
+                    <Icon name="Map" size={10}/> [Top][2D Wireframe]
+                    <span className="ml-auto flex items-center gap-2 text-[8px] text-gray-500 font-normal">
+                      <span className="flex items-center gap-0.5"><span className="w-2 h-2 border border-green-600" style={{background:"repeating-linear-gradient(45deg,#22c55e33 0 2px,transparent 2px 4px)"}}/>насыпь</span>
+                      <span className="flex items-center gap-0.5"><span className="w-2 h-2 border border-red-600" style={{background:"repeating-linear-gradient(45deg,#ef444433 0 2px,transparent 2px 4px)"}}/>выемка</span>
+                    </span>
                   </div>
-                  <svg width="100%" height="176" viewBox="0 0 300 176">
-                    <rect width="300" height="176" fill="#fafafa"/>
-                    {Array.from({length:14}).map((_,i) => {
-                      const off = i * 11
-                      const amp1 = 8 + (i%3)*3, amp2 = 6 + (i%4)*2
-                      let d = `M ${-20+off*0.3},${170-off*0.2}`
-                      for (let t=0; t<=300; t+=15) {
-                        const y = 150 - off*0.7 + Math.sin(t*0.04+i)*amp1 + Math.cos(t*0.07+i*0.5)*amp2 - i*3
+                  <svg width="100%" height="186" viewBox="0 0 300 186">
+                    <defs>
+                      <pattern id="hatchGreen" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                        <line x1="0" y1="0" x2="0" y2="4" stroke="#16a34a" strokeWidth="1"/>
+                      </pattern>
+                      <pattern id="hatchRed" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                        <line x1="0" y1="0" x2="0" y2="4" stroke="#dc2626" strokeWidth="1"/>
+                      </pattern>
+                    </defs>
+                    <rect width="300" height="186" fill="#ffffff"/>
+                    {/* Горизонтали — тонкие чёрные линии как в AutoCAD 2D Wireframe */}
+                    {Array.from({length:16}).map((_,i) => {
+                      const off = i * 10
+                      const amp1 = 7 + (i%3)*3, amp2 = 5 + (i%4)*2
+                      let d = `M ${-20+off*0.3},${180-off*0.2}`
+                      for (let t=0; t<=300; t+=14) {
+                        const y = 160 - off*0.7 + Math.sin(t*0.045+i)*amp1 + Math.cos(t*0.08+i*0.5)*amp2 - i*2.6
                         d += ` L ${t},${y}`
                       }
-                      return <path key={i} d={d} fill="none" stroke="#9ca3af" strokeWidth={i%5===0?1:0.5} opacity={0.8}/>
+                      return <path key={i} d={d} fill="none" stroke="#1a1a1a" strokeWidth={0.5} opacity={0.75}/>
                     })}
                     {pads.map((p,i) => {
-                      const px = 50 + (i%2)*130, py = 40 + Math.floor(i/2)*80
+                      const px = 60 + (i%2)*140, py = 55 + Math.floor(i/2)*80
+                      const fillId = p.ok ? "url(#hatchGreen)" : "url(#hatchRed)"
+                      const stroke = p.ok ? "#16a34a" : "#dc2626"
                       return (
                         <g key={p.id} onClick={()=>setSelPad(p.id)} style={{cursor:"pointer"}}>
-                          <polygon points={`${px-22},${py-16} ${px+22},${py-16} ${px+18},${py+16} ${px-18},${py+16}`}
-                            fill={selPad===p.id?"rgba(245,158,11,0.25)":"none"}
-                            stroke={p.ok?"#22c55e":"#ef4444"} strokeWidth={selPad===p.id?2:1.3}/>
-                          <text x={px} y={py+3} textAnchor="middle" fill="#374151" fontSize="7" fontWeight="bold">{p.name}</text>
+                          <polygon points={`${px-24},${py-14} ${px+22},${py-18} ${px+18},${py+16} ${px-20},${py+14}`}
+                            fill={fillId} stroke={stroke} strokeWidth={selPad===p.id?2:1.2}/>
+                          {selPad===p.id && (
+                            <polygon points={`${px-24},${py-14} ${px+22},${py-18} ${px+18},${py+16} ${px-20},${py+14}`}
+                              fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="3 2"/>
+                          )}
+                          <circle cx={px} cy={py} r="2" fill="#374151"/>
                         </g>
                       )
                     })}
                   </svg>
                 </div>
 
-                {/* 3D — площадки на рельефе (насыпь зелёная / выемка красная) */}
-                <div className="rounded-lg border border-gray-700 overflow-hidden" style={{background:"#8a9a7a", height:200}}>
-                  <div className="bg-[#1a1828] px-2 py-1 text-[9px] font-bold text-gray-300 border-b border-gray-700 flex items-center gap-1">
-                    <Icon name="Box" size={10}/> 3D-вид площадок
+                {/* 3D — площадки на рельефе (насыпь зелёная / выемка красная), перспектива */}
+                <div className="rounded border border-gray-600 overflow-hidden" style={{background:"#a9b58c", height:210}}>
+                  <div className="bg-[#e8e8e8] px-2 py-1 text-[9px] font-bold text-gray-700 border-b border-gray-300 flex items-center gap-1">
+                    <Icon name="Box" size={10}/> [Perspective][Realistic]
                   </div>
-                  <svg width="100%" height="176" viewBox="0 0 300 176">
-                    <rect width="300" height="176" fill="#93a583"/>
-                    {/* лёгкий рельеф-фон */}
-                    {Array.from({length:6}).map((_,i)=>(
-                      <path key={i} d={`M 0,${20+i*28} Q 150,${10+i*28} 300,${25+i*28}`} fill="none" stroke="#7c8f6a" strokeWidth="1" opacity="0.5"/>
+                  <svg width="100%" height="186" viewBox="0 0 300 186">
+                    <defs>
+                      <linearGradient id="terrainGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#b8c49a"/>
+                        <stop offset="100%" stopColor="#9aa87d"/>
+                      </linearGradient>
+                    </defs>
+                    <rect width="300" height="186" fill="url(#terrainGrad)"/>
+                    {/* рельеф — лёгкие изогнутые полосы для объёма */}
+                    {Array.from({length:7}).map((_,i)=>(
+                      <path key={i} d={`M 0,${15+i*26} Q 150,${5+i*26} 300,${20+i*26}`} fill="none" stroke="#8a9770" strokeWidth="1" opacity="0.6"/>
                     ))}
                     {pads.map((p,i) => {
-                      const bx = 55 + (i%2)*140, by = 45 + Math.floor(i/2)*75
-                      const skew = 14
-                      const col = p.ok ? "#22c55e" : "#ef4444"
+                      const bx = 60 + (i%2)*150, by = 55 + Math.floor(i/2)*72
+                      const skew = 16, elev = p.ok ? 14 : 6
+                      const topCol = p.ok ? "#4ade80" : "#f87171"
+                      const sideCol = p.ok ? "#16a34a" : "#b91c1c"
+                      const isSel = selPad === p.id
+                      // Верхняя грань (площадка) — параллелограмм в псевдо-3D
+                      const top = `${bx-22},${by} ${bx+22-skew},${by-12} ${bx+38-skew},${by+6} ${bx-6},${by+18}`
+                      // Боковая грань (толщина насыпи/выемки)
+                      const side = `${bx-6},${by+18} ${bx+38-skew},${by+6} ${bx+38-skew},${by+6+elev} ${bx-6},${by+18+elev}`
                       return (
                         <g key={p.id} onClick={()=>setSelPad(p.id)} style={{cursor:"pointer"}}>
-                          <polygon points={`${bx-20},${by} ${bx+20-skew},${by-10} ${bx+35-skew},${by+8} ${bx-5},${by+18}`}
-                            fill={col} fillOpacity={selPad===p.id?0.85:0.55} stroke={col} strokeWidth={selPad===p.id?1.8:1}/>
+                          <polygon points={side} fill={sideCol} fillOpacity={isSel?0.95:0.75}/>
+                          <polygon points={top} fill={topCol} fillOpacity={isSel?0.95:0.75} stroke={isSel?"#f59e0b":sideCol} strokeWidth={isSel?2:1}/>
                           {/* сетка триангуляции внутри площадки */}
-                          <line x1={bx-20} y1={by} x2={bx+35-skew} y2={by+8} stroke="#ffffff" strokeWidth="0.4" opacity="0.5"/>
-                          <line x1={bx+20-skew} y1={by-10} x2={bx-5} y2={by+18} stroke="#ffffff" strokeWidth="0.4" opacity="0.5"/>
-                          <text x={bx+2} y={by+6} textAnchor="middle" fill="#fff" fontSize="6.5" fontWeight="bold">{p.name}</text>
+                          <line x1={bx-22} y1={by} x2={bx+38-skew} y2={by+6} stroke="#ffffff" strokeWidth="0.4" opacity="0.5"/>
+                          <line x1={bx+22-skew} y1={by-12} x2={bx-6} y2={by+18} stroke="#ffffff" strokeWidth="0.4" opacity="0.5"/>
+                          <text x={bx+4} y={by+8} textAnchor="middle" fill="#0d1117" fontSize="6.5" fontWeight="bold">{p.name}</text>
                         </g>
                       )
                     })}
@@ -9515,65 +9545,92 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
                 </div>
               </div>
 
-              {/* Excel-подобная таблица отметок углов площадок */}
-              <div className="rounded-lg border border-gray-700 overflow-hidden">
-                <div className="bg-[#1a1828] px-2 py-1 text-[9px] font-bold text-gray-300 border-b border-gray-700 flex items-center gap-1.5">
-                  <Icon name="Sheet" size={10} className="text-green-500" fallback="Table"/> Pad Elevations.csv
-                  <span className="ml-auto text-[8px] text-gray-500 font-normal">двойной клик по ячейке — редактировать</span>
+              {/* Настоящая Excel-таблица: лента, строка формул, буквы колонок, вкладка листа */}
+              <div className="rounded border border-gray-500 overflow-hidden bg-white text-[10px]" style={{fontFamily:"Calibri, Arial, sans-serif"}}>
+                {/* Заголовок файла + мини-лента */}
+                <div className="bg-[#217346] px-2 py-1 flex items-center gap-1.5">
+                  <Icon name="Sheet" size={11} className="text-white" fallback="Table"/>
+                  <span className="text-white text-[10px] font-semibold">Pad Elevations.csv</span>
+                  <span className="ml-auto text-[8px] text-green-100">двойной клик по ячейке — редактировать</span>
                 </div>
-                <table className="w-full text-[10px] border-collapse">
-                  <thead>
-                    <tr className="bg-[#0d1117]">
-                      <th className="px-2 py-1 text-left text-gray-500 border border-gray-800 font-normal w-20"></th>
-                      {(["NW","NE","SE","SW"] as const).map(h=>(
-                        <th key={h} className="px-2 py-1 text-center text-gray-400 border border-gray-800 font-semibold">{h}</th>
-                      ))}
-                      <th className="px-2 py-1 text-center text-gray-400 border border-gray-800 font-semibold w-20">Среднее</th>
-                      <th className="px-2 py-1 text-center text-gray-400 border border-gray-800 font-semibold w-16">Статус</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pads.map((p,i) => (
-                      <tr key={p.id} className={`${selPad===p.id?"bg-[#f59e0b]/10":i%2===0?"bg-[#151422]":"bg-[#1a1828]"} hover:bg-[#252535] cursor-pointer`}
-                        onClick={()=>setSelPad(p.id)}>
-                        <td className="px-2 py-1 border border-gray-800 text-[#4fc3f7] font-mono font-semibold">{p.name}</td>
-                        {(["nw","ne","se","sw"] as const).map(key => (
-                          <td key={key} className="px-1 py-0.5 border border-gray-800 text-center"
-                            onDoubleClick={(e)=>{ e.stopPropagation(); setEditCell({id:p.id,key}) }}>
-                            {editCell?.id===p.id && editCell.key===key ? (
-                              <input autoFocus type="number" defaultValue={p.corners[key]}
-                                onBlur={e=>{ updatePadCorner(p.id,key,e.target.value); setEditCell(null); flashPad(`✓ ${p.name} ${key.toUpperCase()} обновлена`) }}
-                                onKeyDown={e=>{ if(e.key==="Enter") (e.target as HTMLInputElement).blur(); if(e.key==="Escape") setEditCell(null) }}
-                                className="w-14 bg-[#0078d4]/20 text-white text-center font-mono outline-none border border-[#0078d4] rounded-sm"/>
-                            ) : (
-                              <span className="font-mono text-gray-200">{p.corners[key]}</span>
-                            )}
-                          </td>
+                {/* Строка формул */}
+                <div className="flex items-center gap-1 px-1.5 py-1 border-b border-gray-300 bg-[#f3f2f1]">
+                  <span className="text-[9px] text-gray-600 font-mono border border-gray-300 bg-white px-1.5 py-0.5 rounded-sm w-14 text-center">{cellRef}</span>
+                  <span className="text-gray-400 text-[10px] italic px-1">fx</span>
+                  <span className="flex-1 text-[9px] text-gray-700 font-mono border border-gray-200 bg-white px-1.5 py-0.5 truncate">
+                    {editCell ? pads.find(p=>p.id===editCell.id)?.corners[editCell.key] : selPad ? pads.find(p=>p.id===selPad)?.name : ""}
+                  </span>
+                </div>
+                {/* Таблица с буквами колонок и номерами строк */}
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse select-none">
+                    <thead>
+                      <tr className="bg-[#f3f2f1]">
+                        <th className="w-6 border border-gray-300 bg-[#e8e8e8]"></th>
+                        {COLS.slice(0,6).map(c=>(
+                          <th key={c} className="border border-gray-300 text-gray-600 font-normal text-center py-0.5 min-w-[52px]">{c}</th>
                         ))}
-                        <td className="px-2 py-1 border border-gray-800 text-center font-mono text-gray-400">{padAvg(p).toFixed(1)}</td>
-                        <td className="px-2 py-1 border border-gray-800 text-center">
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${p.ok?"bg-green-500/20 text-green-400":"bg-red-500/20 text-red-400"}`}>
-                            {p.ok ? "OK" : "⚠ Проверить"}
-                          </span>
-                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="flex items-center justify-between px-2 py-1 bg-[#0d1117] border-t border-gray-800">
-                  <button onClick={()=>{
-                    const n = pads.length+1
-                    const id = `Pad-${String(n).padStart(2,"0")}`
-                    setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
-                    flashPad(`✓ ${id} добавлена`)
-                  }} className="text-[9px] text-[#f59e0b] hover:underline flex items-center gap-1">
-                    <Icon name="Plus" size={10}/> Добавить площадку
-                  </button>
-                  <span className="text-[8px] text-gray-600">Формула: NW,NE,SE,SW → Dynamo Graph → Surface.ByPad</span>
+                      <tr className="bg-[#eef2f6]">
+                        <th className="border border-gray-300 bg-[#e8e8e8] text-gray-500 text-[9px]">1</th>
+                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5"></th>
+                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">NW</th>
+                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">NE</th>
+                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">SE</th>
+                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">SW</th>
+                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">Статус</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pads.map((p,i) => (
+                        <tr key={p.id} className={`${selPad===p.id?"bg-[#d6e4f0]":"bg-white"} hover:bg-[#eaf2fb] cursor-pointer`}
+                          onClick={()=>setSelPad(p.id)}>
+                          <td className="border border-gray-300 bg-[#e8e8e8] text-center text-gray-500 text-[9px]">{i+2}</td>
+                          <td className="border border-gray-300 px-1.5 py-0.5 text-[#1a5fb4] font-semibold">{p.name}</td>
+                          {(["nw","ne","se","sw"] as const).map(key => (
+                            <td key={key} className={`border border-gray-300 px-1 py-0.5 text-center ${editCell?.id===p.id&&editCell.key===key?"outline outline-2 outline-[#217346] outline-offset-[-2px]":""}`}
+                              onDoubleClick={(e)=>{ e.stopPropagation(); setEditCell({id:p.id,key}) }}>
+                              {editCell?.id===p.id && editCell.key===key ? (
+                                <input autoFocus type="number" defaultValue={p.corners[key]}
+                                  onFocus={e=>e.target.select()}
+                                  onBlur={e=>{ updatePadCorner(p.id,key,e.target.value); setEditCell(null); flashPad(`✓ ${p.name} ${key.toUpperCase()} обновлена`) }}
+                                  onKeyDown={e=>{ if(e.key==="Enter") (e.target as HTMLInputElement).blur(); if(e.key==="Escape") setEditCell(null) }}
+                                  className="w-12 text-center font-mono outline-none bg-white text-gray-900"/>
+                              ) : (
+                                <span className="font-mono text-gray-800">{p.corners[key]}</span>
+                              )}
+                            </td>
+                          ))}
+                          <td className="border border-gray-300 px-1.5 py-0.5 text-center">
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${p.ok?"bg-green-100 text-green-700":"bg-red-100 text-red-700"}`}>
+                              {p.ok ? "OK" : "⚠ Проверить"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Вкладка листа снизу — как в Excel */}
+                <div className="flex items-center justify-between px-1.5 py-1 bg-[#f3f2f1] border-t border-gray-300">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] px-2 py-0.5 bg-white border-t-2 border-[#217346] rounded-t-sm text-gray-700 font-semibold">Pad Elevations</span>
+                    <button onClick={()=>{
+                      const n = pads.length+1
+                      const id = `Pad-${String(n).padStart(2,"0")}`
+                      setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
+                      setSelPad(id)
+                      flashPad(`✓ ${id} добавлена`)
+                    }} className="text-[11px] text-gray-500 hover:text-[#217346] px-1" title="Добавить площадку">
+                      <Icon name="Plus" size={11}/>
+                    </button>
+                  </div>
+                  <span className="text-[8px] text-gray-500">Формула: NW,NE,SE,SW → Dynamo Graph → Surface.ByPad</span>
                 </div>
               </div>
             </div>
-          )}
+            )
+          })()}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#151422] rounded-b-xl">
           <button onClick={onClose} className="px-3 py-1.5 bg-[#2a2a3e] text-gray-300 rounded text-[11px]">Отмена</button>
