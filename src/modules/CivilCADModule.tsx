@@ -4475,6 +4475,186 @@ function IntersectionDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{
   )
 }
 
+// ─── COGO — Координатная геометрия (прямая/обратная геодезическая задача) ─────
+
+interface COGOPoint { id: string; name: string; x: string; y: string; z: string; code: string }
+
+function COGODialog({ onClose, points, onAddPoint }: {
+  onClose: () => void
+  points: COGOPoint[]
+  onAddPoint: (p: COGOPoint) => void
+}) {
+  const [tab, setTab] = useState<"direct"|"inverse"|"points">("inverse")
+  const [toast, setToast] = useState<string|null>(null)
+  const flash = (m:string) => { setToast(m); setTimeout(()=>setToast(null), 2200) }
+
+  // Обратная геодезическая задача: по двум точкам → азимут + расстояние
+  const [ptA, setPtA] = useState(points[0]?.id || "")
+  const [ptB, setPtB] = useState(points[1]?.id || "")
+  const pA = points.find(p=>p.id===ptA)
+  const pB = points.find(p=>p.id===ptB)
+  const inverseResult = (() => {
+    if (!pA || !pB) return null
+    const dx = parseFloat(pB.x) - parseFloat(pA.x)
+    const dy = parseFloat(pB.y) - parseFloat(pA.y)
+    const dist = Math.sqrt(dx*dx + dy*dy)
+    let az = Math.atan2(dx, dy) * 180 / Math.PI
+    if (az < 0) az += 360
+    const deg = Math.floor(az)
+    const minF = (az - deg) * 60
+    const min = Math.floor(minF)
+    const sec = ((minF - min) * 60).toFixed(1)
+    return { dist, az, dms: `${deg}°${String(min).padStart(2,"0")}'${sec}"` }
+  })()
+
+  // Прямая геодезическая задача: точка + азимут + расстояние → новая точка
+  const [fromPt, setFromPt] = useState(points[0]?.id || "")
+  const [azDeg, setAzDeg] = useState("45")
+  const [azMin, setAzMin] = useState("0")
+  const [azSec, setAzSec] = useState("0")
+  const [distVal, setDistVal] = useState("100.000")
+  const [newPtName, setNewPtName] = useState(`P${points.length+1}`)
+  const fp = points.find(p=>p.id===fromPt)
+  const directResult = (() => {
+    if (!fp) return null
+    const azRad = (parseFloat(azDeg||"0") + parseFloat(azMin||"0")/60 + parseFloat(azSec||"0")/3600) * Math.PI / 180
+    const d = parseFloat(distVal) || 0
+    const nx = parseFloat(fp.x) + d * Math.sin(azRad)
+    const ny = parseFloat(fp.y) + d * Math.cos(azRad)
+    return { x: nx, y: ny }
+  })()
+
+  const createPoint = () => {
+    if (!directResult) return
+    onAddPoint({ id: `cogo_${Date.now()}`, name: newPtName, x: directResult.x.toFixed(3), y: directResult.y.toFixed(3), z: fp?.z || "0.000", code: "COGO" })
+    flash(`✓ Точка «${newPtName}» вычислена и добавлена: X=${directResult.x.toFixed(3)} Y=${directResult.y.toFixed(3)}`)
+  }
+
+  return (
+    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col relative"
+        style={{width:600,maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+        <div className="bg-[#0a1a28] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Icon name="Compass" size={15} className="text-[#10b981]"/>
+            <span className="text-white font-bold text-[13px]">Координатная геометрия (COGO)</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="flex border-b border-gray-700 bg-[#0d1520] flex-shrink-0">
+          {([["inverse","Обратная задача"],["direct","Прямая задача"],["points","Опорные точки"]] as const).map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#1e2a3e] text-white border-b-2 border-b-[#10b981]":"text-gray-400 hover:bg-[#1e2a3e]"}`}>{lbl}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+          {tab==="inverse" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Обратная геодезическая задача — по координатам двух точек вычисляет азимут и расстояние</div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Точка A</span>
+                  <select value={ptA} onChange={e=>setPtA(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {points.map(p=><option key={p.id} value={p.id}>{p.name} ({p.x}, {p.y})</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Точка B</span>
+                  <select value={ptB} onChange={e=>setPtB(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                    {points.map(p=><option key={p.id} value={p.id}>{p.name} ({p.x}, {p.y})</option>)}
+                  </select>
+                </label>
+              </div>
+              {inverseResult && (
+                <div className="rounded-lg border border-gray-700 p-3 grid grid-cols-2 gap-3" style={{background:"#111827"}}>
+                  <div>
+                    <div className="text-gray-500 text-[9px]">Дирекционный угол (азимут)</div>
+                    <div className="text-[#10b981] font-mono font-bold text-[18px]">{inverseResult.dms}</div>
+                    <div className="text-gray-600 text-[9px]">{inverseResult.az.toFixed(4)}°</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-[9px]">Расстояние (горизонт.)</div>
+                    <div className="text-[#60a5fa] font-mono font-bold text-[18px]">{inverseResult.dist.toFixed(3)} м</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {tab==="direct" && (
+            <div className="space-y-4">
+              <div className="text-gray-400 text-[10px]">Прямая геодезическая задача — по точке, азимуту и расстоянию вычисляет координаты новой точки</div>
+              <label className="flex flex-col gap-1">
+                <span className="text-gray-500 text-[9px]">Исходная точка</span>
+                <select value={fromPt} onChange={e=>setFromPt(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px]">
+                  {points.map(p=><option key={p.id} value={p.id}>{p.name} ({p.x}, {p.y})</option>)}
+                </select>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {([["Град.",azDeg,setAzDeg],["Мин.",azMin,setAzMin],["Сек.",azSec,setAzSec]] as [string,string,(v:string)=>void][]).map(([l,v,s])=>(
+                  <label key={l} className="flex flex-col gap-1">
+                    <span className="text-gray-500 text-[9px]">Азимут — {l}</span>
+                    <input value={v} onChange={e=>s(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#10b981]"/>
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Расстояние, м</span>
+                  <input value={distVal} onChange={e=>setDistVal(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded font-mono text-[10px] outline-none focus:border-[#10b981]"/>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-gray-500 text-[9px]">Имя новой точки</span>
+                  <input value={newPtName} onChange={e=>setNewPtName(e.target.value)} className="bg-[#252535] border border-gray-600 text-white px-2 py-1.5 rounded text-[10px] outline-none focus:border-[#10b981]"/>
+                </label>
+              </div>
+              {directResult && (
+                <div className="rounded-lg border border-gray-700 p-3" style={{background:"#111827"}}>
+                  <div className="flex justify-between text-[10px] mb-1"><span className="text-gray-500">X (восточная):</span><span className="text-[#10b981] font-mono font-bold">{directResult.x.toFixed(3)}</span></div>
+                  <div className="flex justify-between text-[10px]"><span className="text-gray-500">Y (северная):</span><span className="text-[#10b981] font-mono font-bold">{directResult.y.toFixed(3)}</span></div>
+                </div>
+              )}
+              <button onClick={createPoint} disabled={!directResult}
+                className="px-4 py-1.5 bg-[#10b981]/15 border border-[#10b981] text-[#10b981] rounded text-[10px] hover:bg-[#10b981]/25 flex items-center gap-1.5 disabled:opacity-40">
+                <Icon name="Plus" size={11}/>Создать точку по вычисленным координатам
+              </button>
+            </div>
+          )}
+          {tab==="points" && (
+            <div className="space-y-2">
+              <div className="text-gray-400 text-[10px] mb-1">Опорные точки проекта ({points.length})</div>
+              <table className="w-full border-collapse text-[10px]">
+                <thead><tr className="bg-[#0d1117]">{["Имя","X","Y","Z","Код"].map(h=><th key={h} className="px-2 py-1 text-gray-400 border border-gray-800 text-left font-normal">{h}</th>)}</tr></thead>
+                <tbody>{points.map((p,i)=>(
+                  <tr key={p.id} className={i%2===0?"bg-[#111827]":"bg-[#0d1117]"}>
+                    <td className="border border-gray-800 px-2 py-1 text-[#10b981] font-mono">{p.name}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-300 font-mono">{p.x}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-300 font-mono">{p.y}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-400 font-mono">{p.z}</td>
+                    <td className="border border-gray-800 px-2 py-1 text-gray-500">{p.code}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0 bg-[#0d1520] rounded-b-xl">
+          <button onClick={onClose} className="px-4 py-1.5 bg-[#0078d4] text-white rounded text-[11px]">Закрыть</button>
+        </div>
+        <AnimatePresence>
+          {toast && (
+            <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#0d1520] border border-[#10b981]/40 text-[#4ade80] text-[10px] px-3 py-1.5 rounded-lg shadow-lg z-10">
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Feature Line Dialog ──────────────────────────────────────────────────────
 function FeatureLineDialog({ onClose, onOK }: { onClose: () => void; onOK: (d:{name:string;site:string}) => void }) {
   const [name, setName] = useState("ХарЛиния-1")
@@ -5167,6 +5347,26 @@ ${pts.map(p=>`    <CgPoint name="${p.label}" oID="${p.id}" code="${p.properties?
         w.document.close()
         setTimeout(()=>w.print(), 400)
       }
+    } else if (format === "KML") {
+      // Простая проекция локальных координат в псевдо-гео (демо-привязка) для наглядности в Google Earth
+      const baseLat = 55.751244, baseLon = 37.618423
+      const toLonLat = (x: number, y: number) => [baseLon + x / 111320, baseLat + y / 111320] as const
+      const placemark = (o: CanvasObject) => {
+        if (o.type === "point") {
+          const [lon, lat] = toLonLat(o.pts[0][0], o.pts[0][1])
+          return `  <Placemark><name>${o.label}</name><Point><coordinates>${lon.toFixed(7)},${lat.toFixed(7)},0</coordinates></Point></Placemark>`
+        }
+        const coords = o.pts.map(([x,y]) => { const [lon,lat] = toLonLat(x,y); return `${lon.toFixed(7)},${lat.toFixed(7)},0` }).join(" ")
+        return `  <Placemark><name>${o.label}</name><LineString><coordinates>${coords}</coordinates></LineString></Placemark>`
+      }
+      const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<name>ЛАПА — Экспорт чертежа</name>
+${canvasObjects.filter(o=>o.pts.length>0).map(placemark).join("\n")}
+</Document>
+</kml>`
+      saveBlob(kml, "drawing.kml", "application/vnd.google-earth.kml+xml")
     } else if (format === "TXT отчёт") {
       const pts = canvasObjects.filter(o=>o.type==="point")
       const lines: string[] = [
@@ -5185,9 +5385,9 @@ ${pts.map(p=>`    <CgPoint name="${p.label}" oID="${p.id}" code="${p.properties?
     onOK({ format })
   }
 
-  const EXPORT_FORMATS = ["DXF","GeoJSON","CSV точек","TXT отчёт","LandXML","IFC","OBJ","glTF","PDF"]
+  const EXPORT_FORMATS = ["DXF","GeoJSON","CSV точек","TXT отчёт","LandXML","IFC","OBJ","glTF","PDF","KML"]
   const PRINT_FORMATS = ["PDF","DWF","PNG (300 DPI)","SVG"]
-  const REAL_FORMATS = ["DXF","GeoJSON","CSV точек","TXT отчёт","LandXML","OBJ","glTF","PDF"]
+  const REAL_FORMATS = ["DXF","GeoJSON","CSV точек","TXT отчёт","LandXML","OBJ","glTF","PDF","KML"]
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -5205,8 +5405,8 @@ ${pts.map(p=>`    <CgPoint name="${p.label}" oID="${p.id}" code="${p.properties?
             <div className="text-[10px] text-gray-500 mb-2">{mode==="print"?"Формат вывода:":"Формат файла:"}</div>
             <div className="grid grid-cols-4 gap-1.5">
               {(mode==="print"?PRINT_FORMATS:EXPORT_FORMATS).map(f=>{
-                const icons: Record<string,string> = { DXF:"PencilRuler",GeoJSON:"Map","CSV точек":"Sheet",LandXML:"Code2",IFC:"Building2",OBJ:"Box",glTF:"Layers3",PDF:"FileText",DWF:"File","PNG (300 DPI)":"Image",SVG:"Vector" }
-                const colors: Record<string,string> = { DXF:"#0078d4",GeoJSON:"#16a34a","CSV точек":"#d97706",LandXML:"#7c3aed",IFC:"#0891b2",OBJ:"#f59e0b",glTF:"#6366f1",PDF:"#ef4444",DWF:"#6b7280","PNG (300 DPI)":"#8b5cf6",SVG:"#ec4899" }
+                const icons: Record<string,string> = { DXF:"PencilRuler",GeoJSON:"Map","CSV точек":"Sheet",LandXML:"Code2",IFC:"Building2",OBJ:"Box",glTF:"Layers3",PDF:"FileText",DWF:"File","PNG (300 DPI)":"Image",SVG:"Vector",KML:"Globe" }
+                const colors: Record<string,string> = { DXF:"#0078d4",GeoJSON:"#16a34a","CSV точек":"#d97706",LandXML:"#7c3aed",IFC:"#0891b2",OBJ:"#f59e0b",glTF:"#6366f1",PDF:"#ef4444",DWF:"#6b7280","PNG (300 DPI)":"#8b5cf6",SVG:"#ec4899",KML:"#22c55e" }
                 const col = colors[f]||"#6b7280"
                 return (
                   <button key={f} onClick={()=>setFormat(f)}
@@ -12602,6 +12802,13 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showTunnel, setShowTunnel] = useState(false)
   const [showProjectExplorer, setShowProjectExplorer] = useState(false)
   const [showRenumberLabels, setShowRenumberLabels] = useState(false)
+  const [showCOGO, setShowCOGO] = useState(false)
+  const [cogoPoints, setCogoPoints] = useState<COGOPoint[]>([
+    { id: "cp1", name: "ГГС-1", x: "5420.145", y: "3817.234", z: "124.560", code: "ГГС" },
+    { id: "cp2", name: "ГГС-2", x: "5512.563", y: "3901.360", z: "126.120", code: "ГГС" },
+    { id: "cp3", name: "Rp-14", x: "5486.902", y: "3874.118", z: "125.340", code: "Репер" },
+    { id: "cp4", name: "Т1001", x: "5445.220", y: "3850.700", z: "124.980", code: "Съёмка" },
+  ])
   const [showRailTrack, setShowRailTrack] = useState(false)
   const [showBridgeModeler, setShowBridgeModeler] = useState(false)
   const [showIntersectionWizard, setShowIntersectionWizard] = useState(false)
@@ -14205,10 +14412,36 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
       setShowPipeNet(true)
       setStatusMsg(`Инженерные сети: ${node.label}`)
     }
+    // Координатная геометрия (COGO)
+    else if (id === "util_cogo") { setShowCOGO(true) }
     // Точки и группы точек
-    else if (id === "points" || id === "ptgroups" || id === "survey" || id === "util_cogo" || id === "util_base" || id === "rep_pts" || id === "rep_surv") {
+    else if (id === "points" || id === "ptgroups" || id === "survey" || id === "util_base" || id === "rep_pts" || id === "rep_surv") {
       setToolspaceTab("prospector")
       setStatusMsg(`${node.label} — управление во вкладке «Точки»`)
+    }
+    // Характерные линии
+    else if (id === "featurelines") { setShowFeatureLine(true) }
+    // Площадки / участки
+    else if (id === "sites" || id === "util_sites" || id === "rep_site" || id === "rep_site2") { setShowVisibility(true); setStatusMsg(`${node.label} — вкладка «Участки / ROW»`) }
+    // Мосты
+    else if (id === "bridges") { setShowBridgeModeler(true) }
+    // Стрелки и съезды
+    else if (id === "ramps" || id === "util_ramp") { setShowIntersectionWizard(true) }
+    // Перекрёстки
+    else if (id === "intersections") { setShowIntersection(true) }
+    // Конструкции / элементы конструкций
+    else if (id === "structures" || id === "structelems") { setStatusMsg(`${node.label} — раздел BIM-конструкций`); showToast(`Раздел «${node.label}» — используйте вкладку «Сооружения» в ленте`) }
+    // Группы рамок вида
+    else if (id === "vfg" || id === "ds6") { setShowPlanProd(true) }
+    // Съёмка (утилиты)
+    else if (id === "util_surv2") { setShowSurveyDB(true) }
+    // CAiCE Translator — конвертер геодезических данных
+    else if (id === "util_caice") { setShowImport(true); setStatusMsg("CAiCE™ Translator — импорт геодезических данных сторонних форматов") }
+    // Экспорт KML
+    else if (id === "util_kml") { setExportMode("export"); setShowExport(true); setStatusMsg("Экспорт KML — выберите формат KML в диалоге экспорта") }
+    // Диспетчер отчётов / проект / прочее
+    else if (id === "reports" || id === "rep_proj" || id === "rep_struct" || id === "rep_sub" || id === "datasrc" || id === "utilities") {
+      setStatusMsg(`${node.label} — раскройте узел для просмотра содержимого`)
     }
     else { setStatusMsg(`Объект: ${node.label}`) }
   }
@@ -16221,6 +16454,16 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
                 openDialog(cmd)
                 setShowProjectExplorer(false)
               }}/>
+            )}
+            {showCOGO && (
+              <COGODialog onClose={()=>setShowCOGO(false)} points={cogoPoints}
+                onAddPoint={p=>{
+                  setCogoPoints(prev=>[...prev, p])
+                  const [cx,cy]=центрМира()
+                  создатьВидимыйОбъект({ type:"point", name:p.name, color:"#10b981", layer:"C-TOPO-PNTS", treeNodeId:"points", treeIcon:"MapPin",
+                    pts:[[cx,cy]], properties:{ "X": p.x, "Y": p.y, "Z": p.z, "Код": p.code } })
+                  showToast(`💾 Точка «${p.name}» (COGO) добавлена на чертёж и сохранена`)
+                }}/>
             )}
             {showRenumberLabels && (
               <RenumberLabelsDialog
