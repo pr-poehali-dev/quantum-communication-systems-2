@@ -10375,19 +10375,64 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
                 </div>
               </div>
 
-              {/* Настоящая Excel-таблица: лента, строка формул, буквы колонок, вкладка листа */}
-              <div className="rounded border border-gray-500 overflow-hidden bg-white text-[10px]" style={{fontFamily:"Calibri, Arial, sans-serif"}}>
-                {/* Заголовок файла + мини-лента */}
-                <div className="bg-[#217346] px-2 py-1 flex items-center gap-1.5">
-                  <Icon name="Sheet" size={11} className="text-white" fallback="Table"/>
-                  <span className="text-white text-[10px] font-semibold">Pad Elevations.csv</span>
-                  <span className="ml-auto text-[8px] text-green-100">двойной клик по ячейке — редактировать</span>
+              {/* Настоящая Excel-таблица (тёмная тема): заголовок окна, лента, строка формул, сетка, листы, статус-бар */}
+              <div className="rounded-md border border-gray-700 overflow-hidden shadow-2xl text-[10px]" style={{fontFamily:"Calibri, Arial, sans-serif", background:"#1e1e1e"}}>
+                {/* Заголовок окна */}
+                <div className="flex items-center gap-2 px-2 py-1.5" style={{background:"#181818"}}>
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0" style={{background:"#217346"}}>
+                    <span className="text-white text-[9px] font-bold">X</span>
+                  </div>
+                  <span className="text-gray-300 text-[9px]">Автосохранение</span>
+                  <span className="w-6 h-3 rounded-full bg-[#3a3a3a] relative inline-block flex-shrink-0">
+                    <span className="absolute left-0.5 top-0.5 w-2 h-2 rounded-full bg-gray-500"/>
+                  </span>
+                  <span className="text-gray-600 text-[9px]">Откл</span>
+                  <Icon name="Save" size={11} className="text-gray-500"/>
+                  <Icon name="Undo2" size={11} className="text-gray-600" fallback="Undo"/>
+                  <Icon name="Redo2" size={11} className="text-gray-600" fallback="Redo"/>
+                  <span className="flex items-center gap-0.5 text-gray-300 text-[10px] ml-1">
+                    Смета_отметок_площадок.csv <Icon name="ChevronDown" size={10} className="text-gray-500"/>
+                  </span>
+                  <div className="flex-1"/>
+                  <Icon name="Search" size={11} className="text-gray-500"/>
+                  <div className="w-5 h-5 rounded-full bg-[#0078d4] flex items-center justify-center text-white text-[8px] font-bold">И</div>
+                  <span className="text-gray-500 text-[10px]">—</span>
+                  <span className="text-gray-500 text-[10px]">▢</span>
+                  <span className="text-gray-500 text-[10px]">✕</span>
+                </div>
+                {/* Вкладки ленты */}
+                <div className="flex items-center gap-3 px-2 pt-1 text-[9px]" style={{background:"#181818"}}>
+                  {["Файл","Главная","Вставка","Разметка","Формулы","Данные","Рецензирование","Вид","Справка"].map((t,i)=>(
+                    <span key={t} className={`pb-1 cursor-default ${i===1?"text-white border-b-2 border-[#217346] font-semibold":"text-gray-500"}`}>{t}</span>
+                  ))}
+                  <div className="flex-1"/>
+                  <span className="text-gray-500 flex items-center gap-1"><Icon name="MessageSquare" size={10}/>Комментарии</span>
+                  <span className="text-white bg-[#217346] rounded px-2 py-0.5 flex items-center gap-1"><Icon name="Share2" size={10}/>Общий доступ</span>
+                </div>
+                {/* Группы ленты */}
+                <div className="flex items-stretch gap-3 px-2 py-1.5 border-b border-gray-800 overflow-x-auto" style={{background:"#181818"}}>
+                  {[
+                    {label:"Буфер обмена", icon:"Clipboard"},
+                    {label:"Шрифт", icon:"Type"},
+                    {label:"Выравнивание", icon:"AlignLeft"},
+                    {label:"Число", icon:"Percent"},
+                    {label:"Стили", icon:"Palette"},
+                    {label:"Ячейки", icon:"Grid3x3"},
+                    {label:"Правка", icon:"Search"},
+                    {label:"Конфиденциальность", icon:"Shield"},
+                    {label:"Надстройки", icon:"Puzzle"},
+                  ].map(g=>(
+                    <div key={g.label} className="flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit">
+                      <Icon name={g.icon} size={14} className="text-gray-400" fallback="Square"/>
+                      <span className="text-gray-600 text-[7px] whitespace-nowrap">{g.label}</span>
+                    </div>
+                  ))}
                 </div>
                 {/* Строка формул */}
-                <div className="flex items-center gap-1 px-1.5 py-1 border-b border-gray-300 bg-[#f3f2f1]">
-                  <span className="text-[9px] text-gray-600 font-mono border border-gray-300 bg-white px-1.5 py-0.5 rounded-sm w-14 text-center">{cellRef}</span>
-                  <span className="text-gray-400 text-[10px] italic px-1">fx</span>
-                  <span className="flex-1 text-[9px] text-gray-700 font-mono border border-gray-200 bg-white px-1.5 py-0.5 truncate">
+                <div className="flex items-center gap-1 px-1.5 py-1 border-b border-gray-800" style={{background:"#1e1e1e"}}>
+                  <span className="text-[9px] text-gray-300 font-mono border border-gray-700 bg-[#252525] px-1.5 py-0.5 rounded-sm w-14 text-center">{cellRef}</span>
+                  <span className="text-gray-500 text-[10px] italic px-1">fx</span>
+                  <span className="flex-1 text-[9px] text-gray-300 font-mono border border-gray-800 bg-[#1e1e1e] px-1.5 py-0.5 truncate">
                     {editCell ? pads.find(p=>p.id===editCell.id)?.corners[editCell.key] : selPad ? pads.find(p=>p.id===selPad)?.name : ""}
                   </span>
                 </div>
@@ -10395,67 +10440,87 @@ function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:s
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse select-none">
                     <thead>
-                      <tr className="bg-[#f3f2f1]">
-                        <th className="w-6 border border-gray-300 bg-[#e8e8e8]"></th>
-                        {COLS.slice(0,6).map(c=>(
-                          <th key={c} className="border border-gray-300 text-gray-600 font-normal text-center py-0.5 min-w-[52px]">{c}</th>
+                      <tr>
+                        <th className="w-6 border border-gray-800" style={{background:"#252525"}}></th>
+                        {COLS.map(c=>(
+                          <th key={c} className="border border-gray-800 text-gray-500 font-normal text-center py-0.5 min-w-[52px]" style={{background:"#252525"}}>{c}</th>
                         ))}
                       </tr>
-                      <tr className="bg-[#eef2f6]">
-                        <th className="border border-gray-300 bg-[#e8e8e8] text-gray-500 text-[9px]">1</th>
-                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5"></th>
-                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">NW</th>
-                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">NE</th>
-                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">SE</th>
-                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">SW</th>
-                        <th className="border border-gray-300 font-bold text-gray-700 py-0.5">Статус</th>
+                      <tr>
+                        <th className="border border-gray-800 text-gray-500 text-[9px]" style={{background:"#252525"}}>1</th>
+                        <th className="border border-gray-800 py-0.5" style={{background:"#1e1e1e"}}></th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>NW</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>NE</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>SE</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>SW</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>Статус</th>
+                        {COLS.slice(6).map(c=><th key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></th>)}
                       </tr>
                     </thead>
                     <tbody>
                       {pads.map((p,i) => (
-                        <tr key={p.id} className={`${selPad===p.id?"bg-[#d6e4f0]":"bg-white"} hover:bg-[#eaf2fb] cursor-pointer`}
-                          onClick={()=>setSelPad(p.id)}>
-                          <td className="border border-gray-300 bg-[#e8e8e8] text-center text-gray-500 text-[9px]">{i+2}</td>
-                          <td className="border border-gray-300 px-1.5 py-0.5 text-[#1a5fb4] font-semibold">{p.name}</td>
-                          {(["nw","ne","se","sw"] as const).map(key => (
-                            <td key={key} className={`border border-gray-300 px-1 py-0.5 text-center ${editCell?.id===p.id&&editCell.key===key?"outline outline-2 outline-[#217346] outline-offset-[-2px]":""}`}
+                        <tr key={p.id} className="cursor-pointer" onClick={()=>setSelPad(p.id)}>
+                          <td className="border border-gray-800 text-center text-gray-500 text-[9px]" style={{background:"#252525"}}>{i+2}</td>
+                          <td className={`border border-gray-800 px-1.5 py-0.5 text-[#5aa9e6] ${selPad===p.id?"bg-[#1a3a52]":""}`} style={selPad!==p.id?{background:"#1e1e1e"}:undefined}>{p.name}</td>
+                          {(["nw","ne","se","sw"] as const).map(key => {
+                            const isSelected = editCell?.id===p.id && editCell.key===key
+                            return (
+                            <td key={key} className="border border-gray-800 px-1 py-0.5 text-center relative"
+                              style={{background: isSelected ? "#1e1e1e" : "#1e1e1e", outline: isSelected ? "2px solid #217346" : undefined, outlineOffset: isSelected ? "-2px" : undefined}}
                               onDoubleClick={(e)=>{ e.stopPropagation(); setEditCell({id:p.id,key}) }}>
-                              {editCell?.id===p.id && editCell.key===key ? (
+                              {isSelected ? (
                                 <input autoFocus type="number" defaultValue={p.corners[key]}
                                   onFocus={e=>e.target.select()}
                                   onBlur={e=>{ updatePadCorner(p.id,key,e.target.value); setEditCell(null); flashPad(`✓ ${p.name} ${key.toUpperCase()} обновлена`) }}
                                   onKeyDown={e=>{ if(e.key==="Enter") (e.target as HTMLInputElement).blur(); if(e.key==="Escape") setEditCell(null) }}
-                                  className="w-12 text-center font-mono outline-none bg-white text-gray-900"/>
+                                  className="w-12 text-center font-mono outline-none bg-[#1e1e1e] text-white"/>
                               ) : (
-                                <span className="font-mono text-gray-800">{p.corners[key]}</span>
+                                <span className="font-mono text-gray-200">{p.corners[key]}</span>
                               )}
+                              {isSelected && <span className="absolute bottom-0 right-0 w-1 h-1" style={{background:"#217346"}}/>}
                             </td>
-                          ))}
-                          <td className="border border-gray-300 px-1.5 py-0.5 text-center">
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${p.ok?"bg-green-100 text-green-700":"bg-red-100 text-red-700"}`}>
+                          )})}
+                          <td className="border border-gray-800 px-1.5 py-0.5 text-center" style={{background:"#1e1e1e"}}>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${p.ok?"bg-green-900/40 text-green-400":"bg-red-900/40 text-red-400"}`}>
                               {p.ok ? "OK" : "⚠ Проверить"}
                             </span>
                           </td>
+                          {COLS.slice(6).map(c=><td key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></td>)}
+                        </tr>
+                      ))}
+                      {Array.from({length: Math.max(0,5-pads.length)}).map((_,i)=>(
+                        <tr key={`empty${i}`}>
+                          <td className="border border-gray-800 text-center text-gray-600 text-[9px]" style={{background:"#252525"}}>{pads.length+i+2}</td>
+                          {COLS.map(c=><td key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></td>)}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                {/* Вкладка листа снизу — как в Excel */}
-                <div className="flex items-center justify-between px-1.5 py-1 bg-[#f3f2f1] border-t border-gray-300">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] px-2 py-0.5 bg-white border-t-2 border-[#217346] rounded-t-sm text-gray-700 font-semibold">Pad Elevations</span>
+                {/* Вкладки листов снизу */}
+                <div className="flex items-center justify-between px-1.5 py-1 border-t border-gray-800" style={{background:"#181818"}}>
+                  <div className="flex items-center gap-1.5">
+                    <Icon name="ChevronLeft" size={11} className="text-gray-600"/>
+                    <Icon name="ChevronRight" size={11} className="text-gray-600"/>
+                    <span className="text-[9px] px-2 py-0.5 text-white border-t-2 border-[#217346] font-semibold" style={{background:"#252525"}}>Отметки площадок</span>
                     <button onClick={()=>{
                       const n = pads.length+1
                       const id = `Pad-${String(n).padStart(2,"0")}`
                       setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
                       setSelPad(id)
                       flashPad(`✓ ${id} добавлена`)
-                    }} className="text-[11px] text-gray-500 hover:text-[#217346] px-1" title="Добавить площадку">
+                    }} className="text-[11px] text-gray-500 hover:text-[#4ade80] px-1" title="Добавить площадку">
                       <Icon name="Plus" size={11}/>
                     </button>
                   </div>
-                  <span className="text-[8px] text-gray-500">Формула: NW,NE,SE,SW → Dynamo Graph → Surface.ByPad</span>
+                  <span className="text-[8px] text-gray-600">NW,NE,SE,SW → Dynamo Graph → Surface.ByPad</span>
+                </div>
+                {/* Статус-бар */}
+                <div className="flex items-center gap-3 px-2 py-0.5 border-t border-gray-800 text-[8px] text-gray-500" style={{background:"#181818"}}>
+                  <span>Готово</span>
+                  <span className="flex items-center gap-1"><Icon name="AlertCircle" size={9}/>Специальные возможности: недоступно</span>
+                  <div className="flex-1"/>
+                  <span>100%</span>
                 </div>
               </div>
             </div>
