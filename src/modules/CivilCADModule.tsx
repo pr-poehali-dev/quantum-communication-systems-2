@@ -10093,8 +10093,8 @@ const PAD_INIT: PadRow[] = [
   { id: "Pad-04", name: "Pad-04", corners: { nw: "758", ne: "758", se: "756", sw: "756" }, ok: false },
 ]
 
-function GradingDialog({ onClose, onOK }: { onClose: ()=>void; onOK?: (d:{name:string;elevation:string})=>void }) {
-  const [tab, setTab] = useState<"grade"|"slopes"|"volumes"|"criteria"|"pads">("grade")
+function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?: (d:{name:string;elevation:string})=>void; initialTab?: "grade"|"slopes"|"volumes"|"criteria"|"pads" }) {
+  const [tab, setTab] = useState<"grade"|"slopes"|"volumes"|"criteria"|"pads">(initialTab || "grade")
   const [surfName, setSurfName] = useState("Проектная площадка-1")
   const [method, setMethod] = useState("Откос от объекта")
   const [slopeH, setSlopeH] = useState("1.5")
@@ -12864,6 +12864,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
   const [showRevitExchange, setShowRevitExchange] = useState(false)
   const [showGeotechnical, setShowGeotechnical] = useState(false)
   const [showGrading, setShowGrading] = useState(false)
+  const [gradingInitialTab, setGradingInitialTab] = useState<"grade"|"slopes"|"volumes"|"criteria"|"pads">("grade")
   const [showTunnel, setShowTunnel] = useState(false)
   const [showProjectExplorer, setShowProjectExplorer] = useState(false)
   const [showRenumberLabels, setShowRenumberLabels] = useState(false)
@@ -14444,7 +14445,8 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     else if (k.includes("фаз") || k.includes("стройгенплан") || k.includes("gantt") || k.includes("construction phase")) { setShowConstructionPhases(true) }
     else if (k.includes("revit") || k.includes("ifc") || k.includes("naviswork") || k.includes("bim exchange") || k.includes("autocad exchange")) { setShowRevitExchange(true) }
     else if (k.includes("геолог") || k.includes("скважин") || k.includes("geotechn") || k.includes("стратиграф")) { setShowGeotechnical(true) }
-    else if (k.includes("планировк") || k.includes("grading") || k.includes("площадк") || k.includes("рабочие отметки")) { setShowGrading(true) }
+    else if (k.includes("площадки (pad)") || k.includes("pad)")) { setGradingInitialTab("pads"); setShowGrading(true) }
+    else if (k.includes("планировк") || k.includes("grading") || k.includes("площадк") || k.includes("рабочие отметки")) { setGradingInitialTab("grade"); setShowGrading(true) }
     else if (k.includes("тоннель") || k.includes("tunnel") || k.includes("тпмк")) { setShowTunnel(true) }
     else if (k.includes("explorer") || k.includes("дерево") || k.includes("project explorer")) { setShowProjectExplorer(true) }
     else if (k.includes("перенумер") || k.includes("renumber")) { setShowRenumberLabels(true) }
@@ -14486,8 +14488,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
     }
     // Характерные линии
     else if (id === "featurelines") { setShowFeatureLine(true) }
-    // Площадки / участки
-    else if (id === "sites" || id === "util_sites" || id === "rep_site" || id === "rep_site2") { setShowVisibility(true); setStatusMsg(`${node.label} — вкладка «Участки / ROW»`) }
+    // Площадки (планировка/Grading Pads)
+    else if (id === "sites") { setGradingInitialTab("pads"); setShowGrading(true) }
+    // Участки / ROW
+    else if (id === "util_sites" || id === "rep_site" || id === "rep_site2") { setShowVisibility(true); setStatusMsg(`${node.label} — вкладка «Участки / ROW»`) }
     // Мосты
     else if (id === "bridges") { setShowBridgeModeler(true) }
     // Стрелки и съезды
@@ -14705,6 +14709,10 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
         { label:"Объёмы",      icon:"BarChart3",    size:"lg" },
         { label:"Между пов.",  icon:"GitCompare",   size:"sm", fallback:"ArrowLeftRight" },
         { label:"Земляные",    icon:"TrendingDown", size:"sm" },
+      ]},
+      { label: "Планировка", items: [
+        { label:"Планировка",     icon:"Mountain",     size:"lg" },
+        { label:"Площадки (Pad)", icon:"LayoutGrid",   size:"sm" },
       ]},
     ],
     "Вывод": [
@@ -16498,7 +16506,7 @@ export default function CivilCADModule({ onNavigate }: { onNavigate?: (id: strin
             {showConstructionPhases && <ConstructionPhasesDialog onClose={()=>setShowConstructionPhases(false)}/>}
             {showRevitExchange && <RevitExchangeDialog onClose={()=>setShowRevitExchange(false)}/>}
             {showGeotechnical && <GeotechnicalDialog onClose={()=>setShowGeotechnical(false)}/>}
-            {showGrading && <GradingDialog onClose={()=>setShowGrading(false)} onOK={d=>{
+            {showGrading && <GradingDialog initialTab={gradingInitialTab} onClose={()=>setShowGrading(false)} onOK={d=>{
               const [cx,cy]=центрМира(); const S=150/zoom
               создатьВидимыйОбъект({ type:"polyline", name:d.name, color:"#f59e0b", layer:"C-GRADING", treeNodeId:"sites", treeIcon:"Mountain",
                 pts:[[cx-1.6*S,cy-S],[cx+1.6*S,cy-S],[cx+1.6*S,cy+S],[cx-1.6*S,cy+S],[cx-1.6*S,cy-S]],
