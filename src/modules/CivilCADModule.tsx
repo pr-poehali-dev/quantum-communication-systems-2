@@ -10120,6 +10120,14 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
   const [padsHistory, setPadsHistory] = useState<PadRow[][]>([])
   const [padsRedoStack, setPadsRedoStack] = useState<PadRow[][]>([])
   const [syncing, setSyncing] = useState(false)
+  const [activeRibbonBtn, setActiveRibbonBtn] = useState<string | null>(null)
+  const [ribbonMsg, setRibbonMsg] = useState<string | null>(null)
+  const pressRibbonBtn = (label: string, msg: string) => {
+    setActiveRibbonBtn(label)
+    setRibbonMsg(msg)
+    setTimeout(() => setActiveRibbonBtn(null), 300)
+    setTimeout(() => setRibbonMsg(null), 1600)
+  }
 
   const updatePadCorner = (id: string, key: keyof PadCorner, val: string) => {
     setPadsHistory(h => [...h, pads]); setPadsRedoStack([])
@@ -10457,43 +10465,61 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                 {/* Группы ленты */}
                 <div className="flex items-stretch gap-3 px-2 py-1.5 border-b border-gray-800 overflow-x-auto" style={{background:"#181818"}}>
                   {(excelTab==="Главная" ? [
-                    {label:"Буфер обмена", icon:"Clipboard"},
-                    {label:"Шрифт", icon:"Type"},
-                    {label:"Выравнивание", icon:"AlignLeft"},
-                    {label:"Число", icon:"Percent"},
-                    {label:"Стили", icon:"Palette"},
-                    {label:"Ячейки", icon:"Grid3x3"},
-                    {label:"Правка", icon:"Search"},
-                    {label:"Конфиденциальность", icon:"Shield"},
-                    {label:"Надстройки", icon:"Puzzle"},
+                    {label:"Буфер обмена", icon:"Clipboard", action:()=>{
+                      if (selPad) { const p = pads.find(x=>x.id===selPad); if (p) navigator.clipboard?.writeText(`${p.name}\t${p.corners.nw}\t${p.corners.ne}\t${p.corners.se}\t${p.corners.sw}`) }
+                    }, msg:"📋 Строка скопирована в буфер обмена"},
+                    {label:"Шрифт", icon:"Type", msg:"Шрифт: Calibri 11 — жирный/курсив/подчёркивание применены к A"+(selIdx+2)},
+                    {label:"Выравнивание", icon:"AlignLeft", msg:"Выравнивание ячейки: по центру"},
+                    {label:"Число", icon:"Percent", msg:"Формат ячейки изменён на «Числовой, 2 знака»"},
+                    {label:"Стили", icon:"Palette", action:()=>{
+                      if (selPad) { setPadsHistory(h=>[...h,pads]); setPadsRedoStack([]); setPads(prev=>prev.map(p=>p.id===selPad?{...p, ok:!p.ok}:p)) }
+                    }, msg:"🎨 Стиль ячейки «Статус» переключён"},
+                    {label:"Ячейки", icon:"Grid3x3", action:()=>{
+                      const n = pads.length+1, id = `Pad-${String(n).padStart(2,"0")}`
+                      setPadsHistory(h=>[...h,pads]); setPadsRedoStack([])
+                      setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
+                      setSelPad(id)
+                    }, msg:"➕ Новая строка добавлена в таблицу"},
+                    {label:"Правка", icon:"Search", msg:"Найти и заменить: введите значение для поиска"},
+                    {label:"Конфиденциальность", icon:"Shield", msg:"Гриф конфиденциальности: «Для служебного пользования»"},
+                    {label:"Надстройки", icon:"Puzzle", msg:"Магазин надстроек Office открыт"},
                   ] : excelTab==="Вставка" ? [
-                    {label:"Таблицы", icon:"Table"},
-                    {label:"Диаграммы", icon:"BarChart3"},
-                    {label:"Спарклайны", icon:"TrendingUp"},
-                    {label:"Фильтры", icon:"Filter"},
-                    {label:"Ссылки", icon:"Link"},
-                    {label:"Текст", icon:"Type"},
+                    {label:"Таблицы", icon:"Table", msg:"Диапазон A1:F"+(pads.length+1)+" оформлен как таблица"},
+                    {label:"Диаграммы", icon:"BarChart3", msg:"📊 Построена диаграмма по отметкам NW/NE/SE/SW"},
+                    {label:"Спарклайны", icon:"TrendingUp", msg:"Спарклайн добавлен в ячейку G"+(selIdx+2)},
+                    {label:"Фильтры", icon:"Filter", msg:"Автофильтр включён для строки заголовков"},
+                    {label:"Ссылки", icon:"Link", msg:"Гиперссылка на 3D-вид вставлена в ячейку"},
+                    {label:"Текст", icon:"Type", msg:"Надпись добавлена на лист"},
                   ] : excelTab==="Формулы" ? [
-                    {label:"Библиотека функций", icon:"Sigma"},
-                    {label:"Определённые имена", icon:"Tag"},
-                    {label:"Зависимости формул", icon:"GitBranch"},
-                    {label:"Вычисление", icon:"Calculator"},
+                    {label:"Библиотека функций", icon:"Sigma", action:()=>{
+                      if (selPad) { const p = pads.find(x=>x.id===selPad); if (p) { const avg = ((parseFloat(p.corners.nw)+parseFloat(p.corners.ne)+parseFloat(p.corners.se)+parseFloat(p.corners.sw))/4).toFixed(2); flashPad(`Σ =СРЗНАЧ(B${selIdx+2}:E${selIdx+2}) = ${avg}`) } }
+                    }, msg:""},
+                    {label:"Определённые имена", icon:"Tag", msg:"Диапазону присвоено имя «Отметки_Площадок»"},
+                    {label:"Зависимости формул", icon:"GitBranch", msg:"Показаны стрелки влияющих ячеек"},
+                    {label:"Вычисление", icon:"Calculator", msg:"Лист пересчитан (F9)"},
                   ] : excelTab==="Данные" ? [
-                    {label:"Получить данные", icon:"Download"},
-                    {label:"Сортировка и фильтр", icon:"ArrowUpDown"},
-                    {label:"Работа с данными", icon:"Database"},
-                    {label:"Прогноз", icon:"TrendingUp"},
+                    {label:"Получить данные", icon:"Download", msg:"Источник данных: Dynamo Graph → Surface.ByPad"},
+                    {label:"Сортировка и фильтр", icon:"ArrowUpDown", action:()=>{
+                      setPadsHistory(h=>[...h,pads]); setPadsRedoStack([])
+                      setPads(prev=>[...prev].sort((a,b)=>parseFloat(a.corners.nw)-parseFloat(b.corners.nw)))
+                    }, msg:"↕ Таблица отсортирована по столбцу NW"},
+                    {label:"Работа с данными", icon:"Database", msg:"Проверка данных: диапазон 690–800 м"},
+                    {label:"Прогноз", icon:"TrendingUp", msg:"Построен прогнозный лист"},
                   ] : [
-                    {label:"Обзор", icon:"Eye"},
-                    {label:"Показать", icon:"Grid3x3"},
-                    {label:"Масштаб", icon:"ZoomIn"},
+                    {label:"Обзор", icon:"Eye", msg:"Режим просмотра: Обычный"},
+                    {label:"Показать", icon:"Grid3x3", msg:"Сетка и заголовки отображены"},
+                    {label:"Масштаб", icon:"ZoomIn", msg:"Масштаб листа: 100%"},
                   ]).map(g=>(
-                    <button key={g.label} onClick={()=>flashPad(`«${g.label}» — открыта панель инструментов`)}
-                      className="flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit hover:bg-[#252525] rounded transition-colors">
-                      <Icon name={g.icon} size={14} className="text-gray-400" fallback="Square"/>
-                      <span className="text-gray-600 text-[7px] whitespace-nowrap">{g.label}</span>
+                    <button key={g.label} onClick={()=>{ g.action?.(); pressRibbonBtn(g.label, g.msg || `«${g.label}» — команда выполнена`) }}
+                      className={`flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit rounded transition-colors ${activeRibbonBtn===g.label ? "bg-[#217346]/40" : "hover:bg-[#252525]"}`}>
+                      <Icon name={g.icon} size={14} className={activeRibbonBtn===g.label ? "text-white" : "text-gray-400"} fallback="Square"/>
+                      <span className={`text-[7px] whitespace-nowrap ${activeRibbonBtn===g.label ? "text-white" : "text-gray-600"}`}>{g.label}</span>
                     </button>
                   ))}
+                </div>
+                {/* Панель отклика на команду ленты */}
+                <div className="h-5 px-2 flex items-center border-b border-gray-800 overflow-hidden" style={{background:"#152218"}}>
+                  {ribbonMsg && <span className="text-[9px] text-[#4ade80] flex items-center gap-1"><Icon name="CheckCircle2" size={10}/>{ribbonMsg}</span>}
                 </div>
                 {/* Строка формул */}
                 <div className="flex items-center gap-1 px-1.5 py-1 border-b border-gray-800" style={{background:"#1e1e1e"}}>
