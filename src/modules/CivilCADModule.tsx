@@ -10113,8 +10113,38 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
   const [padToast, setPadToast] = useState<string | null>(null)
   const flashPad = (m: string) => { setPadToast(m); setTimeout(() => setPadToast(null), 1800) }
 
+  // ── Состояние окна Excel (тёмная тема) — делает элементы шапки/ленты живыми ──
+  const [excelTab, setExcelTab] = useState("Главная")
+  const [autoSave, setAutoSave] = useState(false)
+  const [excelMinimized, setExcelMinimized] = useState(false)
+  const [padsHistory, setPadsHistory] = useState<PadRow[][]>([])
+  const [padsRedoStack, setPadsRedoStack] = useState<PadRow[][]>([])
+  const [syncing, setSyncing] = useState(false)
+
   const updatePadCorner = (id: string, key: keyof PadCorner, val: string) => {
+    setPadsHistory(h => [...h, pads]); setPadsRedoStack([])
     setPads(prev => prev.map(p => p.id === id ? { ...p, corners: { ...p.corners, [key]: val }, ok: Object.values({ ...p.corners, [key]: val }).every(v => !isNaN(parseFloat(v))) } : p))
+  }
+  const undoPads = () => {
+    if (padsHistory.length === 0) { flashPad("Нечего отменять"); return }
+    const prevState = padsHistory[padsHistory.length - 1]
+    setPadsRedoStack(r => [pads, ...r])
+    setPadsHistory(h => h.slice(0, -1))
+    setPads(prevState)
+    flashPad("↶ Отменено")
+  }
+  const redoPads = () => {
+    if (padsRedoStack.length === 0) { flashPad("Нечего повторить"); return }
+    const nextState = padsRedoStack[0]
+    setPadsHistory(h => [...h, pads])
+    setPadsRedoStack(r => r.slice(1))
+    setPads(nextState)
+    flashPad("↷ Повторено")
+  }
+  const runDynamoSync = () => {
+    setSyncing(true)
+    flashPad("🔄 Синхронизация плана, 3D-модели и таблицы…")
+    setTimeout(() => { setSyncing(false); flashPad("✓ Dynamo Sync завершена — все виды актуальны") }, 900)
   }
 
   // Рабочие отметки (рандомные для демо)
@@ -10281,9 +10311,10 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
               <div className="flex items-center justify-between">
                 <span className="text-gray-400 text-[10px]">Площадки (Grading Pads) — синхронизация плана, 3D-модели и таблицы отметок</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                    <Icon name="Workflow" size={10}/> Dynamo Sync
-                  </span>
+                  <button onClick={runDynamoSync} disabled={syncing}
+                    className="text-[9px] text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-1.5 py-0.5 rounded flex items-center gap-1 hover:bg-cyan-500/20 transition-colors disabled:opacity-60">
+                    <Icon name="Workflow" size={10} className={syncing ? "animate-spin" : ""}/> {syncing ? "Синхронизация…" : "Dynamo Sync"}
+                  </button>
                   {padToast && <span className="text-[9px] text-green-400">{padToast}</span>}
                 </div>
               </div>
@@ -10389,35 +10420,43 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                     <span className="text-white text-[9px] font-bold">X</span>
                   </div>
                   <span className="text-gray-300 text-[9px]">Автосохранение</span>
-                  <span className="w-6 h-3 rounded-full bg-[#3a3a3a] relative inline-block flex-shrink-0">
-                    <span className="absolute left-0.5 top-0.5 w-2 h-2 rounded-full bg-gray-500"/>
-                  </span>
-                  <span className="text-gray-600 text-[9px]">Откл</span>
-                  <Icon name="Save" size={11} className="text-gray-500"/>
-                  <Icon name="Undo2" size={11} className="text-gray-600" fallback="Undo"/>
-                  <Icon name="Redo2" size={11} className="text-gray-600" fallback="Redo"/>
+                  <button onClick={()=>{ setAutoSave(p=>!p); flashPad(autoSave ? "Автосохранение выключено" : "✓ Автосохранение включено") }}
+                    className="w-6 h-3 rounded-full relative inline-block flex-shrink-0 transition-colors" style={{background: autoSave ? "#217346" : "#3a3a3a"}}>
+                    <span className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-all ${autoSave ? "left-3.5" : "left-0.5"}`}/>
+                  </button>
+                  <span className="text-gray-600 text-[9px]">{autoSave ? "Вкл" : "Откл"}</span>
+                  <button onClick={()=>flashPad("💾 Сохранено")} title="Сохранить"><Icon name="Save" size={11} className="text-gray-500 hover:text-white transition-colors"/></button>
+                  <button onClick={undoPads} disabled={padsHistory.length===0} title="Отменить">
+                    <Icon name="Undo2" size={11} className={`transition-colors ${padsHistory.length===0 ? "text-gray-700" : "text-gray-400 hover:text-white"}`} fallback="Undo"/>
+                  </button>
+                  <button onClick={redoPads} disabled={padsRedoStack.length===0} title="Повторить">
+                    <Icon name="Redo2" size={11} className={`transition-colors ${padsRedoStack.length===0 ? "text-gray-700" : "text-gray-400 hover:text-white"}`} fallback="Redo"/>
+                  </button>
                   <span className="flex items-center gap-0.5 text-gray-300 text-[10px] ml-1">
                     Смета_отметок_площадок.csv <Icon name="ChevronDown" size={10} className="text-gray-500"/>
                   </span>
                   <div className="flex-1"/>
                   <Icon name="Search" size={11} className="text-gray-500"/>
                   <div className="w-5 h-5 rounded-full bg-[#0078d4] flex items-center justify-center text-white text-[8px] font-bold">И</div>
-                  <span className="text-gray-500 text-[10px]">—</span>
-                  <span className="text-gray-500 text-[10px]">▢</span>
-                  <span className="text-gray-500 text-[10px]">✕</span>
+                  <button onClick={()=>setExcelMinimized(p=>!p)} title={excelMinimized ? "Развернуть" : "Свернуть"} className="text-gray-500 hover:text-white text-[10px] px-1">{excelMinimized ? "▢" : "—"}</button>
+                  <button onClick={()=>flashPad("Окно развёрнуто на весь экран")} title="Развернуть на весь экран" className="text-gray-500 hover:text-white text-[10px] px-1">▢</button>
+                  <button onClick={()=>setTab("grade")} title="Закрыть таблицу" className="text-gray-500 hover:text-red-400 text-[10px] px-1">✕</button>
                 </div>
                 {/* Вкладки ленты */}
                 <div className="flex items-center gap-3 px-2 pt-1 text-[9px]" style={{background:"#181818"}}>
-                  {["Файл","Главная","Вставка","Разметка","Формулы","Данные","Рецензирование","Вид","Справка"].map((t,i)=>(
-                    <span key={t} className={`pb-1 cursor-default ${i===1?"text-white border-b-2 border-[#217346] font-semibold":"text-gray-500"}`}>{t}</span>
+                  {["Файл","Главная","Вставка","Разметка","Формулы","Данные","Рецензирование","Вид","Справка"].map(t=>(
+                    <button key={t} onClick={()=>setExcelTab(t)}
+                      className={`pb-1 transition-colors ${excelTab===t?"text-white border-b-2 border-[#217346] font-semibold":"text-gray-500 hover:text-gray-300"}`}>{t}</button>
                   ))}
                   <div className="flex-1"/>
-                  <span className="text-gray-500 flex items-center gap-1"><Icon name="MessageSquare" size={10}/>Комментарии</span>
-                  <span className="text-white bg-[#217346] rounded px-2 py-0.5 flex items-center gap-1"><Icon name="Share2" size={10}/>Общий доступ</span>
+                  <button onClick={()=>flashPad("💬 Комментарии: пока нет ни одного")} className="text-gray-500 hover:text-gray-300 flex items-center gap-1"><Icon name="MessageSquare" size={10}/>Комментарии</button>
+                  <button onClick={()=>flashPad("🔗 Ссылка на файл скопирована")} className="text-white bg-[#217346] hover:bg-[#1a5c38] transition-colors rounded px-2 py-0.5 flex items-center gap-1"><Icon name="Share2" size={10}/>Общий доступ</button>
                 </div>
+                {excelMinimized ? null : (
+                <>
                 {/* Группы ленты */}
                 <div className="flex items-stretch gap-3 px-2 py-1.5 border-b border-gray-800 overflow-x-auto" style={{background:"#181818"}}>
-                  {[
+                  {(excelTab==="Главная" ? [
                     {label:"Буфер обмена", icon:"Clipboard"},
                     {label:"Шрифт", icon:"Type"},
                     {label:"Выравнивание", icon:"AlignLeft"},
@@ -10427,11 +10466,33 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                     {label:"Правка", icon:"Search"},
                     {label:"Конфиденциальность", icon:"Shield"},
                     {label:"Надстройки", icon:"Puzzle"},
-                  ].map(g=>(
-                    <div key={g.label} className="flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit">
+                  ] : excelTab==="Вставка" ? [
+                    {label:"Таблицы", icon:"Table"},
+                    {label:"Диаграммы", icon:"BarChart3"},
+                    {label:"Спарклайны", icon:"TrendingUp"},
+                    {label:"Фильтры", icon:"Filter"},
+                    {label:"Ссылки", icon:"Link"},
+                    {label:"Текст", icon:"Type"},
+                  ] : excelTab==="Формулы" ? [
+                    {label:"Библиотека функций", icon:"Sigma"},
+                    {label:"Определённые имена", icon:"Tag"},
+                    {label:"Зависимости формул", icon:"GitBranch"},
+                    {label:"Вычисление", icon:"Calculator"},
+                  ] : excelTab==="Данные" ? [
+                    {label:"Получить данные", icon:"Download"},
+                    {label:"Сортировка и фильтр", icon:"ArrowUpDown"},
+                    {label:"Работа с данными", icon:"Database"},
+                    {label:"Прогноз", icon:"TrendingUp"},
+                  ] : [
+                    {label:"Обзор", icon:"Eye"},
+                    {label:"Показать", icon:"Grid3x3"},
+                    {label:"Масштаб", icon:"ZoomIn"},
+                  ]).map(g=>(
+                    <button key={g.label} onClick={()=>flashPad(`«${g.label}» — открыта панель инструментов`)}
+                      className="flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit hover:bg-[#252525] rounded transition-colors">
                       <Icon name={g.icon} size={14} className="text-gray-400" fallback="Square"/>
                       <span className="text-gray-600 text-[7px] whitespace-nowrap">{g.label}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
                 {/* Строка формул */}
@@ -10506,12 +10567,13 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                 {/* Вкладки листов снизу */}
                 <div className="flex items-center justify-between px-1.5 py-1 border-t border-gray-800" style={{background:"#181818"}}>
                   <div className="flex items-center gap-1.5">
-                    <Icon name="ChevronLeft" size={11} className="text-gray-600"/>
-                    <Icon name="ChevronRight" size={11} className="text-gray-600"/>
+                    <button onClick={()=>flashPad("Первый лист")}><Icon name="ChevronLeft" size={11} className="text-gray-600 hover:text-white transition-colors"/></button>
+                    <button onClick={()=>flashPad("Следующий лист")}><Icon name="ChevronRight" size={11} className="text-gray-600 hover:text-white transition-colors"/></button>
                     <span className="text-[9px] px-2 py-0.5 text-white border-t-2 border-[#217346] font-semibold" style={{background:"#252525"}}>Отметки площадок</span>
                     <button onClick={()=>{
                       const n = pads.length+1
                       const id = `Pad-${String(n).padStart(2,"0")}`
+                      setPadsHistory(h => [...h, pads]); setPadsRedoStack([])
                       setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
                       setSelPad(id)
                       flashPad(`✓ ${id} добавлена`)
@@ -10523,11 +10585,14 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                 </div>
                 {/* Статус-бар */}
                 <div className="flex items-center gap-3 px-2 py-0.5 border-t border-gray-800 text-[8px] text-gray-500" style={{background:"#181818"}}>
-                  <span>Готово</span>
+                  <span className="flex items-center gap-1"><Icon name="Check" size={9} className="text-green-500"/>Готово</span>
                   <span className="flex items-center gap-1"><Icon name="AlertCircle" size={9}/>Специальные возможности: недоступно</span>
                   <div className="flex-1"/>
+                  <span>{pads.length} площадок · {pads.filter(p=>p.ok).length} готовы</span>
                   <span>100%</span>
                 </div>
+                </>
+                )}
               </div>
             </div>
             )
