@@ -982,7 +982,7 @@ function StartScreen({ onOpen, onSave, currentProjectName, showWelcomeDialog, se
 
 interface TreeNode {
   id: string; label: string; icon: string; color?: string
-  children?: TreeNode[]; expanded?: boolean
+  children?: TreeNode[]; expanded?: boolean; badge?: string; badgeTitle?: string
 }
 
 interface Alignment {
@@ -1078,7 +1078,7 @@ const TREE: TreeNode[] = [
         { id: "a3", label: "Бордюр периметра", icon: "Minus", color: "#06b6d4" },
       ]},
       { id: "featurelines", label: "Характерные линии", icon: "Spline", color: "#ec4899" },
-      { id: "sites", label: "Площадки", icon: "LayoutGrid", color: "#84cc16" },
+      { id: "sites", label: "Площадки", icon: "LayoutGrid", color: "#84cc16", badge: "4", badgeTitle: "4 площадки с рабочими отметками — нажмите, чтобы открыть таблицу" },
       { id: "catchments", label: "Водосборы", icon: "Droplets", color: "#60a5fa" },
       { id: "channels", label: "Каналы", icon: "GitBranch", color: "#0ea5e9" },
       { id: "stormobj", label: "Объекты ливневой канализации", icon: "CloudRain", color: "#6366f1" },
@@ -3440,6 +3440,12 @@ function TreeItem({ node, depth, selected, onSelect, onToggle, onAction }: {
         </span>
         {/* label */}
         <span className="text-[12px] leading-5 text-gray-100 truncate ml-0.5">{node.label}</span>
+        {/* badge — количество объектов / индикатор данных */}
+        {node.badge && (
+          <span title={node.badgeTitle} className="ml-auto mr-1 flex-shrink-0 text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full bg-[#84cc16]/20 text-[#a3e635] border border-[#84cc16]/40">
+            {node.badge}
+          </span>
+        )}
       </div>
       {node.expanded && node.children?.map(child => (
         <TreeItem key={child.id} node={child} depth={depth + 1} selected={selected}
