@@ -10118,6 +10118,7 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
   const [excelTab, setExcelTab] = useState("Главная")
   const [autoSave, setAutoSave] = useState(false)
   const [excelMinimized, setExcelMinimized] = useState(false)
+  const [excelFullscreen, setExcelFullscreen] = useState(false)
   const [padsHistory, setPadsHistory] = useState<PadRow[][]>([])
   const [padsRedoStack, setPadsRedoStack] = useState<PadRow[][]>([])
   const [syncing, setSyncing] = useState(false)
@@ -10191,10 +10192,10 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
 
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-      className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-3" onClick={onClose}>
       <motion.div initial={{scale:0.95}} animate={{scale:1}} exit={{scale:0.95}}
-        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col"
-        style={{width: tab==="pads" ? 960 : 660, maxHeight:"90vh"}} onClick={e=>e.stopPropagation()}>
+        className="bg-[#1e1e2e] border border-gray-600 rounded-xl shadow-2xl flex flex-col w-full h-full"
+        style={{maxWidth: tab==="pads" ? 1680 : 720, maxHeight:"94vh"}} onClick={e=>e.stopPropagation()}>
         <div className="bg-[#1a1828] px-5 py-3 flex items-center justify-between border-b border-gray-700 rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="Mountain" size={15} className="text-[#f59e0b]"/>
@@ -10208,7 +10209,7 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
               className={`px-4 py-1.5 text-[10px] border-r border-gray-800 transition-colors ${tab===id?"bg-[#252535] text-white border-b-2 border-b-[#f59e0b]":"text-gray-400 hover:bg-[#252535]"}`}>{lbl}</button>
           ))}
         </div>
-        <div className="flex-1 overflow-auto p-4 text-[11px] min-h-0">
+        <div className={`flex-1 p-4 text-[11px] min-h-0 ${tab==="pads" ? "overflow-hidden flex flex-col" : "overflow-auto"}`}>
           {tab==="grade" && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
@@ -10329,8 +10330,8 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
             const selIdx = pads.findIndex(p=>p.id===selPad)
             const cellRef = editCell ? `${editCell.key==="nw"?"B":editCell.key==="ne"?"C":editCell.key==="se"?"D":"E"}${pads.findIndex(p=>p.id===editCell.id)+2}` : selPad ? `A${selIdx+2}` : "A1"
             return (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="flex flex-col flex-1 min-h-0 gap-2">
+              <div className="flex items-center justify-between flex-shrink-0">
                 <span className="text-gray-400 text-[10px]">Площадки (Grading Pads) — синхронизация плана, 3D-модели и таблицы отметок</span>
                 <div className="flex items-center gap-1.5">
                   <button onClick={runDynamoSync} disabled={syncing}
@@ -10341,8 +10342,9 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                 </div>
               </div>
 
-              {/* Split view: 2D вайрфрейм слева (AutoCAD Top/2D Wireframe), 3D вид справа */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Split view: 2D вайрфрейм слева (AutoCAD Top/2D Wireframe), 3D вид справа — скрывается в полноэкранном режиме Excel */}
+              {!excelFullscreen && (
+              <div className="grid grid-cols-2 gap-2 flex-shrink-0">
                 {/* 2D — топоплан с горизонталями, площадки штриховкой красн./зел. */}
                 <div className="rounded border border-gray-600 overflow-hidden" style={{background:"#ffffff", height:210}}>
                   <div className="bg-[#e8e8e8] px-2 py-1 text-[9px] font-bold text-gray-700 border-b border-gray-300 flex items-center gap-1">
@@ -10433,9 +10435,10 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                   </svg>
                 </div>
               </div>
+              )}
 
               {/* Настоящая Excel-таблица (тёмная тема): заголовок окна, лента, строка формул, сетка, листы, статус-бар */}
-              <div className="rounded-md border border-gray-700 overflow-hidden shadow-2xl text-[10px]" style={{fontFamily:"Calibri, Arial, sans-serif", background:"#1e1e1e"}}>
+              <div className="rounded-md border border-gray-700 shadow-2xl text-[10px] flex-1 min-h-0 flex flex-col" style={{fontFamily:"Calibri, Arial, sans-serif", background:"#1e1e1e"}}>
                 {/* Заголовок окна */}
                 <div className="flex items-center gap-2 px-2 py-1.5" style={{background:"#181818"}}>
                   <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0" style={{background:"#217346"}}>
@@ -10461,7 +10464,7 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                   <Icon name="Search" size={11} className="text-gray-500"/>
                   <div className="w-5 h-5 rounded-full bg-[#0078d4] flex items-center justify-center text-white text-[8px] font-bold">И</div>
                   <button onClick={()=>setExcelMinimized(p=>!p)} title={excelMinimized ? "Развернуть" : "Свернуть"} className="text-gray-500 hover:text-white text-[10px] px-1">{excelMinimized ? "▢" : "—"}</button>
-                  <button onClick={()=>flashPad("Окно развёрнуто на весь экран")} title="Развернуть на весь экран" className="text-gray-500 hover:text-white text-[10px] px-1">▢</button>
+                  <button onClick={()=>{ setExcelFullscreen(p=>!p); flashPad(excelFullscreen ? "Окно уменьшено" : "Окно развёрнуто на весь экран") }} title={excelFullscreen ? "Восстановить размер" : "Развернуть на весь экран"} className="text-gray-500 hover:text-white text-[10px] px-1">{excelFullscreen ? "❐" : "▢"}</button>
                   <button onClick={()=>setTab("grade")} title="Закрыть таблицу" className="text-gray-500 hover:text-red-400 text-[10px] px-1">✕</button>
                 </div>
                 {/* Вкладки ленты */}
@@ -10475,9 +10478,9 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                   <button onClick={()=>flashPad("🔗 Ссылка на файл скопирована")} className="text-white bg-[#217346] hover:bg-[#1a5c38] transition-colors rounded px-2 py-0.5 flex items-center gap-1"><Icon name="Share2" size={10}/>Общий доступ</button>
                 </div>
                 {excelMinimized ? null : (
-                <>
+                <div className="flex-1 min-h-0 flex flex-col">
                 {/* Группы ленты */}
-                <div className="flex items-stretch gap-3 px-2 py-1.5 border-b border-gray-800 overflow-x-auto" style={{background:"#181818"}}>
+                <div className="flex items-stretch gap-3 px-2 py-1.5 border-b border-gray-800 overflow-x-auto flex-shrink-0" style={{background:"#181818"}}>
                   {(excelTab==="Главная" ? [
                     {label:"Буфер обмена", icon:"Clipboard", on:false, action:()=>{
                       if (selPad) { const p = pads.find(x=>x.id===selPad); if (p) navigator.clipboard?.writeText(`${p.name}\t${p.corners.nw}\t${p.corners.ne}\t${p.corners.se}\t${p.corners.sw}`) }
@@ -10555,15 +10558,15 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                 </div>
                 {/* Индикатор активного фильтра / формата */}
                 {(filterOkOnly || autoFilterOn) && (
-                  <div className="flex items-center gap-2 px-2 py-0.5 border-b border-gray-800 text-[8px]" style={{background:"#1a2e1a"}}>
+                  <div className="flex items-center gap-2 px-2 py-0.5 border-b border-gray-800 text-[8px] flex-shrink-0" style={{background:"#1a2e1a"}}>
                     {filterOkOnly && <span className="text-green-400 flex items-center gap-1"><Icon name="Filter" size={9}/>Фильтр: только OK ({visiblePads.length}/{pads.length})</span>}
                     {autoFilterOn && <span className="text-cyan-400 flex items-center gap-1"><Icon name="Table" size={9}/>Табличное оформление включено</span>}
                   </div>
                 )}
-                {/* Таблица с буквами колонок и номерами строк */}
-                <div className="overflow-x-auto">
+                {/* Таблица с буквами колонок и номерами строк — растягивается на всё доступное пространство */}
+                <div className="overflow-auto flex-1 min-h-0">
                   <table className="w-full border-collapse select-none">
-                    <thead>
+                    <thead className="sticky top-0 z-10">
                       <tr>
                         <th className="w-6 border border-gray-800" style={{background:"#252525"}}></th>
                         {COLS.map(c=>(
@@ -10612,7 +10615,7 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                           {COLS.slice(6).map(c=><td key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></td>)}
                         </tr>
                       ))}
-                      {Array.from({length: Math.max(0,5-visiblePads.length)}).map((_,i)=>(
+                      {Array.from({length: Math.max(0, (excelFullscreen ? 20 : 5)-visiblePads.length)}).map((_,i)=>(
                         <tr key={`empty${i}`}>
                           <td className="border border-gray-800 text-center text-gray-600 text-[9px]" style={{background:"#252525"}}>{visiblePads.length+i+2}</td>
                           {COLS.map(c=><td key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></td>)}
@@ -10667,7 +10670,7 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                   <span>{pads.length} площадок · {pads.filter(p=>p.ok).length} готовы</span>
                   <span>100%</span>
                 </div>
-                </>
+                </div>
                 )}
               </div>
             </div>
