@@ -5,6 +5,7 @@ import { CategoryFeaturesGrid } from "@/modules/VersionFeaturesPanel"
 import type { CategoryId } from "@/modules/versions-catalog"
 import { computeVolume, pointInPolygon, pileColor, fmtM3, type VolumePoint, type VolumeResult } from "@/utils/volumeCalc"
 import { экспортCSV, экспортExcel, экспортТекст, импортФайл } from "@/utils/exportImport"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 
 interface VolumePileUI { id: string; name: string; color: string; count: number; result: VolumeResult }
 
@@ -10128,6 +10129,19 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
     setTimeout(() => setActiveRibbonBtn(null), 300)
     setTimeout(() => setRibbonMsg(null), 1600)
   }
+  // Реальные визуальные эффекты команд ленты — не просто текст, а видимое изменение таблицы/листа
+  const [boldRows, setBoldRows] = useState<Set<string>>(new Set())
+  const [numFormat, setNumFormat] = useState(false) // "Число" → показывать 2 знака после запятой
+  const [showChart, setShowChart] = useState(false) // "Диаграммы" → показать реальный график под таблицей
+  const [autoFilterOn, setAutoFilterOn] = useState(false)
+  const [filterOkOnly, setFilterOkOnly] = useState(false)
+  const [cellAlign, setCellAlign] = useState<"left"|"center"|"right">("center")
+  const fmtNum = (v: string) => {
+    const n = parseFloat(v)
+    if (isNaN(n)) return v
+    return numFormat ? n.toFixed(2) : String(n)
+  }
+  const visiblePads = filterOkOnly ? pads.filter(p=>p.ok) : pads
 
   const updatePadCorner = (id: string, key: keyof PadCorner, val: string) => {
     setPadsHistory(h => [...h, pads]); setPadsRedoStack([])
@@ -10465,55 +10479,65 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                 {/* Группы ленты */}
                 <div className="flex items-stretch gap-3 px-2 py-1.5 border-b border-gray-800 overflow-x-auto" style={{background:"#181818"}}>
                   {(excelTab==="Главная" ? [
-                    {label:"Буфер обмена", icon:"Clipboard", action:()=>{
+                    {label:"Буфер обмена", icon:"Clipboard", on:false, action:()=>{
                       if (selPad) { const p = pads.find(x=>x.id===selPad); if (p) navigator.clipboard?.writeText(`${p.name}\t${p.corners.nw}\t${p.corners.ne}\t${p.corners.se}\t${p.corners.sw}`) }
                     }, msg:"📋 Строка скопирована в буфер обмена"},
-                    {label:"Шрифт", icon:"Type", msg:"Шрифт: Calibri 11 — жирный/курсив/подчёркивание применены к A"+(selIdx+2)},
-                    {label:"Выравнивание", icon:"AlignLeft", msg:"Выравнивание ячейки: по центру"},
-                    {label:"Число", icon:"Percent", msg:"Формат ячейки изменён на «Числовой, 2 знака»"},
-                    {label:"Стили", icon:"Palette", action:()=>{
+                    {label:"Шрифт", icon:"Bold", on: !!selPad && boldRows.has(selPad), action:()=>{
+                      if (!selPad) return
+                      setBoldRows(prev => { const next = new Set(prev); next.has(selPad) ? next.delete(selPad) : next.add(selPad); return next })
+                    }, msg: selPad && boldRows.has(selPad) ? "Жирный шрифт снят с выбранной строки" : "𝐁 Жирный шрифт применён к выбранной строке"},
+                    {label:"Выравнивание", icon: cellAlign==="left"?"AlignLeft":cellAlign==="center"?"AlignCenter":"AlignRight", on:false, action:()=>{
+                      setCellAlign(prev => prev==="left" ? "center" : prev==="center" ? "right" : "left")
+                    }, msg:"Выравнивание ячеек переключено"},
+                    {label:"Число", icon:"Percent", on:numFormat, action:()=>setNumFormat(v=>!v), msg: numFormat ? "Формат «Общий» восстановлен" : "Формат «Числовой, 2 знака» применён ко всей таблице"},
+                    {label:"Стили", icon:"Palette", on:false, action:()=>{
                       if (selPad) { setPadsHistory(h=>[...h,pads]); setPadsRedoStack([]); setPads(prev=>prev.map(p=>p.id===selPad?{...p, ok:!p.ok}:p)) }
-                    }, msg:"🎨 Стиль ячейки «Статус» переключён"},
-                    {label:"Ячейки", icon:"Grid3x3", action:()=>{
+                    }, msg:"🎨 Статус выбранной площадки переключён"},
+                    {label:"Ячейки", icon:"Grid3x3", on:false, action:()=>{
                       const n = pads.length+1, id = `Pad-${String(n).padStart(2,"0")}`
                       setPadsHistory(h=>[...h,pads]); setPadsRedoStack([])
                       setPads(prev=>[...prev,{id,name:id,corners:{nw:"700",ne:"700",se:"700",sw:"700"},ok:true}])
                       setSelPad(id)
                     }, msg:"➕ Новая строка добавлена в таблицу"},
-                    {label:"Правка", icon:"Search", msg:"Найти и заменить: введите значение для поиска"},
-                    {label:"Конфиденциальность", icon:"Shield", msg:"Гриф конфиденциальности: «Для служебного пользования»"},
-                    {label:"Надстройки", icon:"Puzzle", msg:"Магазин надстроек Office открыт"},
+                    {label:"Правка", icon:"Search", on:false, action:()=>{
+                      if (!selPad) return
+                      const p = pads.find(x=>x.id===selPad); if (!p) return
+                      setPadsHistory(h=>[...h,pads]); setPadsRedoStack([])
+                      setPads(prev=>prev.map(x=>x.id===selPad?{...x, corners:{nw:"700",ne:"700",se:"700",sw:"700"}}:x))
+                    }, msg:"🔎 Значения строки заменены на 700 (демо-замена)"},
+                    {label:"Конфиденциальность", icon:"Shield", on:false, msg:"Гриф конфиденциальности: «Для служебного пользования»"},
+                    {label:"Надстройки", icon:"Puzzle", on:false, msg:"Магазин надстроек Office открыт"},
                   ] : excelTab==="Вставка" ? [
-                    {label:"Таблицы", icon:"Table", msg:"Диапазон A1:F"+(pads.length+1)+" оформлен как таблица"},
-                    {label:"Диаграммы", icon:"BarChart3", msg:"📊 Построена диаграмма по отметкам NW/NE/SE/SW"},
-                    {label:"Спарклайны", icon:"TrendingUp", msg:"Спарклайн добавлен в ячейку G"+(selIdx+2)},
-                    {label:"Фильтры", icon:"Filter", msg:"Автофильтр включён для строки заголовков"},
-                    {label:"Ссылки", icon:"Link", msg:"Гиперссылка на 3D-вид вставлена в ячейку"},
-                    {label:"Текст", icon:"Type", msg:"Надпись добавлена на лист"},
+                    {label:"Таблицы", icon:"Table", on:autoFilterOn, action:()=>setAutoFilterOn(v=>!v), msg: autoFilterOn ? "Оформление таблицы снято" : "Диапазон оформлен как таблица с заголовками"},
+                    {label:"Диаграммы", icon:"BarChart3", on:showChart, action:()=>setShowChart(v=>!v), msg: showChart ? "Диаграмма скрыта" : "📊 Диаграмма построена под таблицей — прокрутите вниз"},
+                    {label:"Спарклайны", icon:"TrendingUp", on:numFormat, action:()=>setNumFormat(v=>!v), msg:"Спарклайны используют числовой формат ячеек"},
+                    {label:"Фильтры", icon:"Filter", on:filterOkOnly, action:()=>setFilterOkOnly(v=>!v), msg: filterOkOnly ? "Фильтр снят — показаны все площадки" : "🔽 Показаны только площадки со статусом OK"},
+                    {label:"Ссылки", icon:"Link", on:false, msg:"Гиперссылка на 3D-вид вставлена в ячейку"},
+                    {label:"Текст", icon:"Type", on:false, msg:"Надпись добавлена на лист"},
                   ] : excelTab==="Формулы" ? [
-                    {label:"Библиотека функций", icon:"Sigma", action:()=>{
+                    {label:"Библиотека функций", icon:"Sigma", on:false, action:()=>{
                       if (selPad) { const p = pads.find(x=>x.id===selPad); if (p) { const avg = ((parseFloat(p.corners.nw)+parseFloat(p.corners.ne)+parseFloat(p.corners.se)+parseFloat(p.corners.sw))/4).toFixed(2); flashPad(`Σ =СРЗНАЧ(B${selIdx+2}:E${selIdx+2}) = ${avg}`) } }
                     }, msg:""},
-                    {label:"Определённые имена", icon:"Tag", msg:"Диапазону присвоено имя «Отметки_Площадок»"},
-                    {label:"Зависимости формул", icon:"GitBranch", msg:"Показаны стрелки влияющих ячеек"},
-                    {label:"Вычисление", icon:"Calculator", msg:"Лист пересчитан (F9)"},
+                    {label:"Определённые имена", icon:"Tag", on:false, msg:"Диапазону присвоено имя «Отметки_Площадок»"},
+                    {label:"Зависимости формул", icon:"GitBranch", on:false, msg:"Показаны стрелки влияющих ячеек"},
+                    {label:"Вычисление", icon:"Calculator", on:false, action:()=>{ setPads(prev=>[...prev]) }, msg:"Лист пересчитан (F9)"},
                   ] : excelTab==="Данные" ? [
-                    {label:"Получить данные", icon:"Download", msg:"Источник данных: Dynamo Graph → Surface.ByPad"},
-                    {label:"Сортировка и фильтр", icon:"ArrowUpDown", action:()=>{
+                    {label:"Получить данные", icon:"Download", on:false, msg:"Источник данных: Dynamo Graph → Surface.ByPad"},
+                    {label:"Сортировка и фильтр", icon:"ArrowUpDown", on:false, action:()=>{
                       setPadsHistory(h=>[...h,pads]); setPadsRedoStack([])
                       setPads(prev=>[...prev].sort((a,b)=>parseFloat(a.corners.nw)-parseFloat(b.corners.nw)))
                     }, msg:"↕ Таблица отсортирована по столбцу NW"},
-                    {label:"Работа с данными", icon:"Database", msg:"Проверка данных: диапазон 690–800 м"},
-                    {label:"Прогноз", icon:"TrendingUp", msg:"Построен прогнозный лист"},
+                    {label:"Работа с данными", icon:"Database", on:filterOkOnly, action:()=>setFilterOkOnly(v=>!v), msg: filterOkOnly ? "Проверка данных снята — показаны все строки" : "✓ Проверка данных: показаны только строки без ошибок"},
+                    {label:"Прогноз", icon:"TrendingUp", on:showChart, action:()=>setShowChart(v=>!v), msg:"Прогнозный график показан под таблицей"},
                   ] : [
-                    {label:"Обзор", icon:"Eye", msg:"Режим просмотра: Обычный"},
-                    {label:"Показать", icon:"Grid3x3", msg:"Сетка и заголовки отображены"},
-                    {label:"Масштаб", icon:"ZoomIn", msg:"Масштаб листа: 100%"},
+                    {label:"Обзор", icon:"Eye", on:false, msg:"Режим просмотра: Обычный"},
+                    {label:"Показать", icon:"Grid3x3", on:showChart, action:()=>setShowChart(v=>!v), msg: showChart ? "Диаграмма скрыта" : "Сетка, заголовки и диаграмма отображены"},
+                    {label:"Масштаб", icon:"ZoomIn", on:false, msg:"Масштаб листа: 100%"},
                   ]).map(g=>(
                     <button key={g.label} onClick={()=>{ g.action?.(); pressRibbonBtn(g.label, g.msg || `«${g.label}» — команда выполнена`) }}
-                      className={`flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit rounded transition-colors ${activeRibbonBtn===g.label ? "bg-[#217346]/40" : "hover:bg-[#252525]"}`}>
-                      <Icon name={g.icon} size={14} className={activeRibbonBtn===g.label ? "text-white" : "text-gray-400"} fallback="Square"/>
-                      <span className={`text-[7px] whitespace-nowrap ${activeRibbonBtn===g.label ? "text-white" : "text-gray-600"}`}>{g.label}</span>
+                      className={`flex flex-col items-center gap-1 px-2 border-r border-gray-800 last:border-r-0 min-w-fit rounded transition-colors ${g.on ? "bg-[#217346]/60" : activeRibbonBtn===g.label ? "bg-[#217346]/40" : "hover:bg-[#252525]"}`}>
+                      <Icon name={g.icon} size={14} className={g.on || activeRibbonBtn===g.label ? "text-white" : "text-gray-400"} fallback="Square"/>
+                      <span className={`text-[7px] whitespace-nowrap ${g.on || activeRibbonBtn===g.label ? "text-white" : "text-gray-600"}`}>{g.label}</span>
                     </button>
                   ))}
                 </div>
@@ -10529,6 +10553,13 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                     {editCell ? pads.find(p=>p.id===editCell.id)?.corners[editCell.key] : selPad ? pads.find(p=>p.id===selPad)?.name : ""}
                   </span>
                 </div>
+                {/* Индикатор активного фильтра / формата */}
+                {(filterOkOnly || autoFilterOn) && (
+                  <div className="flex items-center gap-2 px-2 py-0.5 border-b border-gray-800 text-[8px]" style={{background:"#1a2e1a"}}>
+                    {filterOkOnly && <span className="text-green-400 flex items-center gap-1"><Icon name="Filter" size={9}/>Фильтр: только OK ({visiblePads.length}/{pads.length})</span>}
+                    {autoFilterOn && <span className="text-cyan-400 flex items-center gap-1"><Icon name="Table" size={9}/>Табличное оформление включено</span>}
+                  </div>
+                )}
                 {/* Таблица с буквами колонок и номерами строк */}
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse select-none">
@@ -10541,24 +10572,24 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                       </tr>
                       <tr>
                         <th className="border border-gray-800 text-gray-500 text-[9px]" style={{background:"#252525"}}>1</th>
-                        <th className="border border-gray-800 py-0.5" style={{background:"#1e1e1e"}}></th>
-                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>NW</th>
-                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>NE</th>
-                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>SE</th>
-                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>SW</th>
-                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background:"#1e1e1e"}}>Статус</th>
+                        <th className="border border-gray-800 py-0.5" style={{background: autoFilterOn ? "#217346" : "#1e1e1e"}}></th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background: autoFilterOn ? "#217346" : "#1e1e1e"}}>NW {autoFilterOn && "▾"}</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background: autoFilterOn ? "#217346" : "#1e1e1e"}}>NE {autoFilterOn && "▾"}</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background: autoFilterOn ? "#217346" : "#1e1e1e"}}>SE {autoFilterOn && "▾"}</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background: autoFilterOn ? "#217346" : "#1e1e1e"}}>SW {autoFilterOn && "▾"}</th>
+                        <th className="border border-gray-800 text-gray-200 font-normal py-0.5 text-left px-1.5" style={{background: autoFilterOn ? "#217346" : "#1e1e1e"}}>Статус {autoFilterOn && "▾"}</th>
                         {COLS.slice(6).map(c=><th key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></th>)}
                       </tr>
                     </thead>
                     <tbody>
-                      {pads.map((p,i) => (
+                      {visiblePads.map((p,i) => (
                         <tr key={p.id} className="cursor-pointer" onClick={()=>setSelPad(p.id)}>
                           <td className="border border-gray-800 text-center text-gray-500 text-[9px]" style={{background:"#252525"}}>{i+2}</td>
-                          <td className={`border border-gray-800 px-1.5 py-0.5 text-[#5aa9e6] ${selPad===p.id?"bg-[#1a3a52]":""}`} style={selPad!==p.id?{background:"#1e1e1e"}:undefined}>{p.name}</td>
+                          <td className={`border border-gray-800 px-1.5 py-0.5 text-[#5aa9e6] ${selPad===p.id?"bg-[#1a3a52]":""} ${boldRows.has(p.id)?"font-bold text-white":""}`} style={selPad!==p.id?{background:"#1e1e1e"}:undefined}>{p.name}</td>
                           {(["nw","ne","se","sw"] as const).map(key => {
                             const isSelected = editCell?.id===p.id && editCell.key===key
                             return (
-                            <td key={key} className="border border-gray-800 px-1 py-0.5 text-center relative"
+                            <td key={key} className={`border border-gray-800 px-1 py-0.5 relative ${cellAlign==="left"?"text-left":cellAlign==="right"?"text-right":"text-center"}`}
                               style={{background: isSelected ? "#1e1e1e" : "#1e1e1e", outline: isSelected ? "2px solid #217346" : undefined, outlineOffset: isSelected ? "-2px" : undefined}}
                               onDoubleClick={(e)=>{ e.stopPropagation(); setEditCell({id:p.id,key}) }}>
                               {isSelected ? (
@@ -10566,9 +10597,9 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                                   onFocus={e=>e.target.select()}
                                   onBlur={e=>{ updatePadCorner(p.id,key,e.target.value); setEditCell(null); flashPad(`✓ ${p.name} ${key.toUpperCase()} обновлена`) }}
                                   onKeyDown={e=>{ if(e.key==="Enter") (e.target as HTMLInputElement).blur(); if(e.key==="Escape") setEditCell(null) }}
-                                  className="w-12 text-center font-mono outline-none bg-[#1e1e1e] text-white"/>
+                                  className="w-14 text-center font-mono outline-none bg-[#1e1e1e] text-white"/>
                               ) : (
-                                <span className="font-mono text-gray-200">{p.corners[key]}</span>
+                                <span className={`font-mono text-gray-200 ${boldRows.has(p.id)?"font-bold text-white":""}`}>{fmtNum(p.corners[key])}</span>
                               )}
                               {isSelected && <span className="absolute bottom-0 right-0 w-1 h-1" style={{background:"#217346"}}/>}
                             </td>
@@ -10581,15 +10612,34 @@ function GradingDialog({ onClose, onOK, initialTab }: { onClose: ()=>void; onOK?
                           {COLS.slice(6).map(c=><td key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></td>)}
                         </tr>
                       ))}
-                      {Array.from({length: Math.max(0,5-pads.length)}).map((_,i)=>(
+                      {Array.from({length: Math.max(0,5-visiblePads.length)}).map((_,i)=>(
                         <tr key={`empty${i}`}>
-                          <td className="border border-gray-800 text-center text-gray-600 text-[9px]" style={{background:"#252525"}}>{pads.length+i+2}</td>
+                          <td className="border border-gray-800 text-center text-gray-600 text-[9px]" style={{background:"#252525"}}>{visiblePads.length+i+2}</td>
                           {COLS.map(c=><td key={c} className="border border-gray-800" style={{background:"#1e1e1e"}}></td>)}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                {/* Диаграмма по отметкам площадок — реальный график, а не текст */}
+                {showChart && (
+                  <div className="border-b border-gray-800 p-2" style={{background:"#161616"}}>
+                    <div className="text-[9px] text-gray-400 mb-1 flex items-center gap-1"><Icon name="BarChart3" size={10}/>Диаграмма отметок NW/NE/SE/SW по площадкам</div>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={pads.map(p=>({ name:p.name, NW:parseFloat(p.corners.nw), NE:parseFloat(p.corners.ne), SE:parseFloat(p.corners.se), SW:parseFloat(p.corners.sw) }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333"/>
+                        <XAxis dataKey="name" tick={{fill:"#9ca3af", fontSize:9}}/>
+                        <YAxis domain={["auto","auto"]} tick={{fill:"#9ca3af", fontSize:9}}/>
+                        <Tooltip contentStyle={{background:"#1e1e1e", border:"1px solid #374151", fontSize:10}}/>
+                        <Legend wrapperStyle={{fontSize:9}}/>
+                        <Bar dataKey="NW" fill="#60a5fa"/>
+                        <Bar dataKey="NE" fill="#34d399"/>
+                        <Bar dataKey="SE" fill="#fbbf24"/>
+                        <Bar dataKey="SW" fill="#f87171"/>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
                 {/* Вкладки листов снизу */}
                 <div className="flex items-center justify-between px-1.5 py-1 border-t border-gray-800" style={{background:"#181818"}}>
                   <div className="flex items-center gap-1.5">
